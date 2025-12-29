@@ -1,0 +1,64 @@
+/* client/src/components/VideoPlayer.css */
+.video-container {
+    width: 100%;
+    max-width: 900px;
+    margin: 20px auto;
+    background: #1a1a1a;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    border: 1px solid #333;
+}
+
+.video-element {
+    width: 100%;
+    display: block;
+    outline: none;
+}
+
+.interactive-overlay {
+    padding: 25px;
+    background: linear-gradient(145deg, #252525, #1a1a1a);
+    border-top: 2px solid #646cff;
+    animation: slideUp 0.4s ease-out;
+}
+
+.interactive-text {
+    color: #ffffff;
+    font-size: 1.2rem;
+    margin-bottom: 20px;
+    font-weight: 500;
+    line-height: 1.5;
+}
+
+.resume-button {
+    background-color: #646cff;
+    color: white;
+    border: none;
+    padding: 12px 28px;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 15px rgba(100, 108, 255, 0.3);
+}
+
+.resume-button:hover {
+    background-color: #747bff;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(100, 108, 255, 0.4);
+}
+
+.debug-info {
+    padding: 10px;
+    font-size: 10px;
+    color: #555;
+    text-align: right;
+    background: #111;
+}
+
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}

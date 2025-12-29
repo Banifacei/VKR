@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "moduleDetection": "force",
+    "jsx": "react-jsx",
+    
+    /* Декораторы — критично для Sequelize-typescript */
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+
+    /* Совместимость */
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    
+    /* Строгость */
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    
+    /* Убираем конфликты с ESM */
+    "verbatimModuleSyntax": false,
+    "isolatedModules": true
+  },
+  "include": ["index.ts", "src/**/*"]
+}
