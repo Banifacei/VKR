@@ -8,24 +8,38 @@ import sequelize from './src/config/db.js';
 import videoRoutes from './src/routes/videoRoutes.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { slugify } from 'transliteration';
+import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// Настройка хранилища multer
+// 1. Создаем путь к папке и проверяем её наличие
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// 2. Настраиваем ОДИН объект storage с транслитерацией
 const storage = multer.diskStorage({
   destination: (req: any, file: any, cb: any) => {
-    cb(null, path.join(__dirname, 'uploads'));
+    cb(null, uploadDir);
   },
   filename: (req: any, file: any, cb: any) => {
-    // Сохраняем оригинальное расширение файла (будь то avi, mkv или mp4)
-    cb(null, Date.now() + '-' + file.originalname);
+    const ext = path.extname(file.originalname);
+    const originalName = path.basename(file.originalname, ext);
+    
+    // Транслитерируем: "Моё Видео" -> "moe-video"
+    const safeName = slugify(originalName);
+    
+    // Результат: 1700000000-moe-video.mp4
+    cb(null, `${Date.now()}-${safeName}${ext}`);
   }
 });
 
-// Инициализация multer без ограничений по размеру (limits удален)
+// 3. Инициализация multer
 const upload = multer({ storage });
 
 app.use(cors({
@@ -34,16 +48,14 @@ app.use(cors({
 }));
 
 app.use(express.json());
-// Раздача статики из папки uploads
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static(uploadDir));
 
-// Эндпоинт для загрузки любого видео-файла
+// Эндпоинт загрузки
 app.post('/api/upload', upload.single('video'), (req: any, res: any) => {
   try {
     if (!req.file) {
         return res.status(400).send('Файл не загружен');
     }
-    
     const filePath = `http://localhost:5000/uploads/${req.file.filename}`;
     res.json({ url: filePath });
   } catch (err) {
@@ -64,12 +76,10 @@ async function start() {
     
     const server = app.listen(PORT, () => {
       console.log(`🚀 Сервер запущен на порту ${PORT}`);
-      console.log(`📁 Папка для загрузок: ${path.join(__dirname, 'uploads')}`);
+      console.log(`📁 Папка для загрузок: ${uploadDir}`);
     });
 
-    // Увеличиваем таймаут сервера до 10 минут для загрузки очень больших файлов
-    server.timeout = 600000;
-
+    server.timeout = 600000; // 10 минут
   } catch (e) {
     console.error('❌ Ошибка запуска:', e);
   }

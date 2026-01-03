@@ -18,7 +18,8 @@
     "pg-hstore": "^2.3.4",
     "reflect-metadata": "^0.2.2",
     "sequelize": "^6.37.7",
-    "sequelize-typescript": "^2.1.6"
+    "sequelize-typescript": "^2.1.6",
+    "transliteration": "^2.6.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
