@@ -1,64 +1,122 @@
-/* client/src/components/VideoPlayer.css */
-.video-container {
-    width: 100%;
-    max-width: 900px;
-    margin: 20px auto;
-    background: #1a1a1a;
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-    border: 1px solid #333;
+.yt-player-container {
+  position: relative;
+  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
+  aspect-ratio: 16/9;
+  background: #000;
+  overflow: hidden;
+  font-family: "Roboto", sans-serif;
+  color: white;
 }
 
-.video-element {
-    width: 100%;
-    display: block;
-    outline: none;
+/* ГЛАВНОЕ ИСПРАВЛЕНИЕ: Видео теперь на весь экран */
+.yt-video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain; /* Сохраняет пропорции без обрезки */
+  display: block;
 }
 
-.interactive-overlay {
-    padding: 25px;
-    background: linear-gradient(145deg, #252525, #1a1a1a);
-    border-top: 2px solid #646cff;
-    animation: slideUp 0.4s ease-out;
+.yt-controls {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  padding: 0 16px 10px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.9));
+  box-sizing: border-box;
+  z-index: 20;
 }
 
-.interactive-text {
-    color: #ffffff;
-    font-size: 1.2rem;
-    margin-bottom: 20px;
-    font-weight: 500;
-    line-height: 1.5;
+/* ПРОГРЕСС-БАР: Теперь ГОЛУБОЙ */
+.yt-progress-container {
+  height: 20px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
 }
 
-.resume-button {
-    background-color: #646cff;
-    color: white;
-    border: none;
-    padding: 12px 28px;
-    font-size: 1rem;
-    font-weight: 600;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    box-shadow: 0 4px 15px rgba(100, 108, 255, 0.3);
+.yt-progress-bg {
+  height: 4px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.2);
+  position: relative;
 }
 
-.resume-button:hover {
-    background-color: #747bff;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(100, 108, 255, 0.4);
+.yt-progress-filled {
+  height: 100%;
+  background: #00aeef; /* Тот самый ГОЛУБОЙ цвет */
 }
 
-.debug-info {
-    padding: 10px;
-    font-size: 10px;
-    color: #555;
-    text-align: right;
-    background: #111;
+.yt-progress-handle {
+  position: absolute;
+  right: -7px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  background: #00aeef; /* ГОЛУБОЙ индикатор */
+  border-radius: 50%;
 }
 
-@keyframes slideUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
+/* КНОПКИ: Большие и четкие */
+.yt-controls-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 56px;
+}
+
+.yt-btn {
+  background: none;
+  border: none;
+  color: white;
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.yt-btn svg {
+  width: 32px;
+  height: 32px;
+  fill: currentColor;
+}
+
+.yt-time-display {
+  font-size: 15px;
+  font-weight: 500;
+  padding-left: 10px;
+}
+
+/* МЕНЮ: Темное и аккуратное */
+.yt-settings-menu {
+  position: absolute;
+  bottom: 70px;
+  right: 15px;
+  background: rgba(15, 15, 15, 0.98);
+  border-radius: 10px;
+  padding: 8px 0;
+  min-width: 260px;
+  z-index: 100;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.8);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.menu-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 20px;
+  cursor: pointer;
+  font-size: 15px;
+}
+
+.menu-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.menu-value {
+  color: #00aeef; /* Значения в меню тоже ГОЛУБЫЕ */
 }
