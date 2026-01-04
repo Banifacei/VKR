@@ -27,7 +27,13 @@ export const AdminPage = () => {
         </div>
       </aside>
       <main className="main-content">
-        {selectedVideo && <VideoPlayer url={selectedVideo.url} events={selectedVideo.events || []} />}
+        {selectedVideo && (
+          <VideoPlayer 
+            url={selectedVideo.url} 
+            title={selectedVideo.title} 
+            events={selectedVideo.events || []} 
+          />
+        )}
       </main>
     </div>
   );

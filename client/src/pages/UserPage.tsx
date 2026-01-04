@@ -15,12 +15,16 @@ export const UserPage = () => {
       <h1>Обучающая платформа</h1>
       <div style={{ display: 'flex', gap: '20px', marginTop: '20px' }}>
         <div className="video-grid" style={{ flex: 1 }}>
-          {selectedVideo ? (
-            <VideoPlayer url={selectedVideo.url} events={selectedVideo.events || []} />
-          ) : (
-            <p>Выберите урок для начала обучения</p>
-          )}
-        </div>
+            {selectedVideo ? (
+              <VideoPlayer 
+                url={selectedVideo.url} 
+                title={selectedVideo.title} 
+                events={selectedVideo.events || []} 
+              />
+            ) : (
+              <p>Выберите урок для начала обучения</p>
+            )}
+          </div>
         <aside style={{ width: '250px' }}>
           <h3>Список уроков</h3>
           {videos.map(v => (
