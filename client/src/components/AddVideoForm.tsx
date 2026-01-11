@@ -31,7 +31,6 @@ export const AddVideoForm = ({ onVideoAdded }: AddVideoFormProps) => {
       setNewTitle('');
       setNewUrl('');
       setSelectedFile(null);
-      // Сброс инпута файла
       const fileInput = document.getElementById('file-input') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
       
