@@ -1,0 +1,190 @@
+/* --- PrepodPage.css --- */
+
+/* Модальное окно (фон) */
+.stats-modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(8px); /* Красивое размытие фона */
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    animation: fadeIn 0.2s ease-out;
+}
+
+/* Контент модалки */
+.stats-modal-content {
+    background: #1a1a1a;
+    width: 900px;
+    max-height: 85vh;
+    border-radius: 16px;
+    border: 1px solid #333;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Шапка */
+.stats-modal-header {
+    padding: 24px 32px;
+    background: #222;
+    border-bottom: 1px solid #333;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.stats-modal-header h3 {
+    margin: 0;
+    color: #fff;
+    font-size: 1.4rem;
+    font-weight: 700;
+}
+
+/* Кнопка "Назад" */
+.back-link {
+    background: none;
+    border: none;
+    color: #00aeef;
+    cursor: pointer;
+    padding: 0;
+    margin-top: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: opacity 0.2s;
+}
+.back-link:hover { opacity: 0.8; }
+
+/* Кнопка закрытия (крестик) */
+.close-btn {
+    background: transparent;
+    border: none;
+    color: #666;
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+.close-btn:hover { color: #fff; }
+
+/* Тело с прокруткой */
+.stats-modal-body {
+    padding: 30px;
+    overflow-y: auto;
+}
+
+/* --- ТАБЛИЦА --- */
+.stats-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.stats-table th {
+    text-align: left;
+    padding: 12px 20px;
+    color: #888;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 2px solid #333;
+}
+
+.stats-table td {
+    padding: 16px 20px;
+    border-bottom: 1px solid #2a2a2a;
+    color: #eee;
+    vertical-align: middle;
+}
+
+.stats-row {
+    transition: background 0.2s;
+}
+.stats-row:hover {
+    background: #252525;
+}
+
+/* Имя студента */
+.student-name-cell {
+    font-size: 15px;
+    font-weight: 600;
+    color: #fff;
+}
+
+/* --- БЕЙДЖИ (СТАТУСЫ) --- */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid transparent;
+}
+
+/* Зеленый "Решён" */
+.status-badge.solved {
+    background: rgba(77, 255, 136, 0.1);
+    color: #4dff88;
+    border-color: rgba(77, 255, 136, 0.2);
+}
+
+/* Красный "Не решён" (если 0 верных) */
+.status-badge.failed {
+    background: rgba(255, 77, 77, 0.1);
+    color: #ff4d4d;
+    border-color: rgba(255, 77, 77, 0.2);
+}
+
+/* --- ЦИФРЫ --- */
+.count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.count-badge.correct {
+    color: #4dff88;
+    background: rgba(77, 255, 136, 0.05);
+}
+
+.count-badge.incorrect {
+    color: #ff4d4d;
+    background: rgba(255, 77, 77, 0.05);
+}
+.count-badge.incorrect.zero {
+    color: #444; /* Если ошибок 0, делаем серым */
+    background: transparent;
+}
+
+/* Кнопка "Подробнее" */
+.details-btn {
+    background: transparent;
+    border: 1px solid #444;
+    color: #aaa;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.details-btn:hover {
+    border-color: #00aeef;
+    color: #00aeef;
+    background: rgba(0, 174, 239, 0.1);
+}
+
+/* Анимация */
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }

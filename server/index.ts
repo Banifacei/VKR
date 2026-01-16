@@ -1,8 +1,6 @@
 // server/index.ts
-// @ts-ignore
-import multer from 'multer';
 import 'reflect-metadata';
-import express from 'express';
+import express, { Request, Response } from 'express';
 import cors from 'cors';
 import sequelize from './src/config/db.js';
 import videoRoutes from './src/routes/videoRoutes.js';
@@ -10,79 +8,108 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { slugify } from 'transliteration';
 import fs from 'fs';
+import multer, { FileFilterCallback } from 'multer';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+const PORT = process.env.PORT || 5000;
 
-// 1. Создаем путь к папке и проверяем её наличие
+// 1. Папка для загрузок
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// 2. Настраиваем ОДИН объект storage с транслитерацией
+// 2. Настройка Multer (типизированная)
+type DestinationCallback = (error: Error | null, destination: string) => void;
+type FileNameCallback = (error: Error | null, filename: string) => void;
+
 const storage = multer.diskStorage({
-  destination: (req: any, file: any, cb: any) => {
-    cb(null, uploadDir);
-  },
-  filename: (req: any, file: any, cb: any) => {
-    const ext = path.extname(file.originalname);
-    const originalName = path.basename(file.originalname, ext);
-    
-    // Транслитерируем: "Моё Видео" -> "moe-video"
-    const safeName = slugify(originalName);
-    
-    // Результат: 1700000000-moe-video.mp4
-    cb(null, `${Date.now()}-${safeName}${ext}`);
-  }
+    destination: (req: Request, file: Express.Multer.File, cb: DestinationCallback) => {
+        cb(null, uploadDir);
+    },
+    filename: (req: Request, file: Express.Multer.File, cb: FileNameCallback) => {
+        const ext = path.extname(file.originalname);
+        const originalName = path.basename(file.originalname, ext);
+        const safeName = slugify(originalName);
+        cb(null, `${Date.now()}-${safeName}${ext}`);
+    }
 });
 
-// 3. Инициализация multer
 const upload = multer({ storage });
 
-app.use(cors({
-  origin: true,
-  credentials: true
-}));
-
+// 3. Middleware
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use('/uploads', express.static(uploadDir));
 
-// Эндпоинт загрузки
-app.post('/api/upload', upload.single('video'), (req: any, res: any) => {
-  try {
-    if (!req.file) {
-        return res.status(400).send('Файл не загружен');
+// 4. Эндпоинт загрузки
+// Используем Multer middleware и типизируем Request
+app.post('/api/upload', upload.single('video'), (req: Request, res: Response): void => {
+    try {
+        if (!req.file) {
+            res.status(400).send('Файл не загружен');
+            return;
+        }
+        
+        // Определяем протокол и хост динамически
+        const protocol = req.protocol;
+        const host = req.get('host');
+        const fullUrl = `${protocol}://${host}/uploads/${req.file.filename}`;
+        
+        res.json({ url: fullUrl });
+    } catch (err) {
+        console.error("Ошибка при обработке файла:", err);
+        res.status(500).send('Ошибка сервера при загрузке');
     }
-    const filePath = `http://localhost:5000/uploads/${req.file.filename}`;
-    res.json({ url: filePath });
-  } catch (err) {
-    console.error("Ошибка при обработке файла:", err);
-    res.status(500).send('Ошибка сервера при загрузке');
-  }
 });
 
+// 5. Роуты
 app.use('/api/videos', videoRoutes);
 
-const PORT = process.env.PORT || 5000;
-
+// 6. Запуск
 async function start() {
-  try {
-    await sequelize.authenticate();
-    await sequelize.sync({ alter: true });
-    console.log('✅ База данных подключена');
-    
-    const server = app.listen(PORT, () => {
-      console.log(`🚀 Сервер запущен на порту ${PORT}`);
-      console.log(`📁 Папка для загрузок: ${uploadDir}`);
-    });
+    try {
+        await sequelize.authenticate();
+        await sequelize.sync({ alter: true });
+        console.log('✅ База данных подключена');
+        
+        const server = app.listen(PORT, () => {
+            console.log(`🚀 Сервер запущен на порту ${PORT}`);
+            console.log(`📁 Папка для загрузок: ${uploadDir}`);
+        });
+        server.timeout = 600000;
+    } catch (e) {
+        console.error('❌ Ошибка запуска:', e);
+    }
+}
 
-    server.timeout = 600000; // 10 минут
-  } catch (e) {
-    console.error('❌ Ошибка запуска:', e);
-  }
+export interface IInteractiveEvent {
+    id: number;
+    time: number;
+    type: 'question' | 'info';
+    question: string;
+    options?: string[];
+    correctAnswer?: string;
+}
+
+// NEW: Тип для субтитров
+export interface ISubtitle {
+    lang: string;  // 'ru', 'en'
+    label: string; // 'Русский'
+    src: string;   // Ссылка на файл
+}
+
+export interface IVideo {
+    id: number;
+    title: string;
+    url: string;
+    subtitles?: ISubtitle[]; // <--- Добавили массив субтитров
+    events: IInteractiveEvent[];
+    createdAt?: string;
+    updatedAt?: string;
 }
 
 start();

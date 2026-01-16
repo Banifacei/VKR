@@ -1,9 +1,13 @@
 import { Router } from 'express';
-import { createVideo, getAllVideos } from '../controllers/videoController.js';
+import { createVideo, getAllVideos, createEvent, saveProgress, getVideoStats, updateVideoSettings } from '../controllers/videoController.js';
 
 const router = Router();
 
-router.post('/', createVideo); // Маршрут для создания: POST /api/videos
-router.get('/', getAllVideos);  // Маршрут для получения: GET /api/videos
+router.post('/', createVideo);
+router.get('/', getAllVideos);
+router.post('/:videoId/events', createEvent);
+router.post('/progress', saveProgress);
+router.get('/:videoId/stats', getVideoStats);
+router.patch('/:videoId', updateVideoSettings);
 
 export default router;
