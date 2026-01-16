@@ -100,3 +100,57 @@
   font-size: 12px;
   color: #ccc;
 }
+
+.section-title {
+  margin-bottom: 15px;
+  color: #646cff;
+  font-weight: 600;
+}
+
+.upload-options {
+  border: 1px dashed #444;
+  padding: 15px;
+  border-radius: 8px;
+  margin-top: 10px;
+  background: #1a1a1a;
+}
+
+.option-label {
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.option-group {
+  margin-bottom: 15px;
+}
+.option-group:last-child {
+  margin-bottom: 0;
+}
+
+.file-input-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.primary-button {
+  width: 100%;
+  margin-top: 15px;
+  background-color: #646cff;
+  color: white;
+}
+.primary-button:disabled {
+  background-color: #444;
+  cursor: not-allowed;
+}
+
+.clear-btn {
+    padding: 2px 8px;
+    font-size: 12px;
+    background: #ff4d4d;
+    color: white;
+    border-radius: 4px;
+}

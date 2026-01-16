@@ -1,13 +1,20 @@
-import { Table, Column, Model, DataType } from 'sequelize-typescript';
+import { Table, Column, Model, DataType, HasMany } from 'sequelize-typescript';
+import { InteractiveEvent } from './InteractiveEvent.js';
 
 @Table({ tableName: 'videos' })
 export class Video extends Model {
   @Column({ type: DataType.STRING, allowNull: false })
-  title!: string;
+  declare title: string;
 
   @Column({ type: DataType.STRING, allowNull: false })
-  url!: string;
+  declare url: string;
 
   @Column({ type: DataType.JSONB, defaultValue: [] })
-  events!: any; // Интерактивные точки
+  declare subtitles: any;
+
+  @Column({ type: DataType.BOOLEAN, defaultValue: false })
+  declare hideResults: boolean;
+
+  @HasMany(() => InteractiveEvent)
+  declare events: InteractiveEvent[];
 }

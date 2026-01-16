@@ -1,20 +1,24 @@
-// client/src/App.tsx
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { UserPage } from './pages/UserPage';
+import { PrepodPage } from './pages/PrepodPage';
 import { AdminPage } from './pages/AdminPage';
+
 import './App.css';
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Главная страница для студентов */}
+        {/* СТУДЕНТ: Главная */}
         <Route path="/" element={<UserPage />} />
 
-        {/* Панель управления для преподавателя */}
-        <Route path="/prepod" element={<AdminPage />} />
+        {/* ПРЕПОДАВАТЕЛЬ: Конструктор уроков */}
+        <Route path="/prepod" element={<PrepodPage />} />
 
-        {/* Редирект всех непонятных путей на главную */}
+        {/* АДМИН: Статистика и настройки */}
+        <Route path="/adminpanel" element={<AdminPage />} />
+
+        {/* Редирект */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
