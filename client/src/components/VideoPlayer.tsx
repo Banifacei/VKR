@@ -48,6 +48,14 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   const [showControls, setShowControls] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   
+  const [isSpeedingUp, setIsSpeedingUp] = useState(false);  // Показывает плашку "2x"
+  const longPressTimerRef = useRef<number | null>(null);    // Таймер зажатия
+  const wasLongPressRef = useRef(false);                    // Флаг: было ли удержание?
+  const originalRateRef = useRef(1);                        // Запоминаем исходную скорость
+
+  const isLongPressActiveRef = useRef(false); // Флаг: сейчас активно удержание?
+  const wasPlayingRef = useRef(false);        // Флаг: играло ли видео ДО нажатия?
+
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isZoomFill, setIsZoomFill] = useState(false);
   const [currentMenu, setCurrentMenu] = useState<'main' | 'speed' | 'quality' | 'captions' | 'chapters'>('main');
@@ -91,14 +99,83 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
 
   useEffect(() => { if (videoRef.current) videoRef.current.volume = volume; }, [volume]);
 
-  useEffect(() => {
-    const handleFsChange = () => setIsFullscreen(!!document.fullscreenElement);
-    document.addEventListener('fullscreenchange', handleFsChange);
-    return () => document.removeEventListener('fullscreenchange', handleFsChange);
-  }, []);
+  // --- ЛОГИКА НАЖАТИЯ (Smart Touch/Click) ---
 
-  if (!safeSource.url) return <div className="yt-player-container"><p>Ошибка видео</p></div>;
-  
+  const handlePressStart = () => {
+      if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+      
+      // Запоминаем состояние (играло или нет), чтобы вернуть его при отмене
+      if (videoRef.current) {
+          wasPlayingRef.current = !videoRef.current.paused;
+      }
+      
+      isLongPressActiveRef.current = false;
+
+      longPressTimerRef.current = window.setTimeout(() => {
+          if (videoRef.current) {
+              isLongPressActiveRef.current = true; // Это удержание
+              originalRateRef.current = videoRef.current.playbackRate;
+              videoRef.current.playbackRate = 2; // Врубаем 2x
+              setIsSpeedingUp(true);
+
+              // Если было на паузе - запускаем, чтобы видеть ускорение
+              if (videoRef.current.paused) videoRef.current.play();
+          }
+      }, 300);
+  };
+
+  // Вызывается ТОЛЬКО когда отпустили кнопку мыши НАД видео (MouseUp / TouchEnd)
+  const handlePressEnd = () => {
+      // 1. Сбрасываем таймер (если не успел сработать long press)
+      if (longPressTimerRef.current) {
+          clearTimeout(longPressTimerRef.current);
+          longPressTimerRef.current = null;
+      }
+
+      // 2. Если было ускорение (2x) -> Выключаем его
+      if (isLongPressActiveRef.current) {
+          if (videoRef.current) {
+              videoRef.current.playbackRate = originalRateRef.current;
+              setIsSpeedingUp(false);
+              
+              // Возвращаем паузу, если видео стояло
+              if (!wasPlayingRef.current) videoRef.current.pause();
+          }
+          isLongPressActiveRef.current = false;
+      } 
+      // 3. Если ускорения НЕ было -> Значит это обычный КЛИК -> Пауза/Плей
+      else {
+          if (!activeEvent && !showEndScreen) {
+              togglePlay();
+          }
+      }
+  };
+
+  // Вызывается, если мышь ушла с видео или тач сорвался (MouseLeave / TouchCancel)
+  // ОТЛИЧИЕ: Здесь мы НИКОГДА не делаем togglePlay (не ставим на паузу/плей при уходе мыши)
+  const handlePressCancel = () => {
+      // Сбрасываем таймер
+      if (longPressTimerRef.current) {
+          clearTimeout(longPressTimerRef.current);
+          longPressTimerRef.current = null;
+      }
+
+      // Если мы успели войти в режим 2x -> выключаем его
+      if (isLongPressActiveRef.current) {
+          if (videoRef.current) {
+              videoRef.current.playbackRate = originalRateRef.current;
+              setIsSpeedingUp(false);
+              
+              // Возвращаем как было
+              if (!wasPlayingRef.current) videoRef.current.pause();
+          }
+          isLongPressActiveRef.current = false;
+      }
+      
+      // ВАЖНО: Блок else { togglePlay() } здесь отсутствует!
+      // Если мы просто провели мышкой и ушли - ничего не произойдет.
+  };
+
   const handleAnswer = async (answer: string) => {
       // Отправляем ответ всегда
       try {
@@ -163,12 +240,32 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   const handleVideoEnd = () => { 
       setIsPlaying(false); 
       setShowEndScreen(true); 
-      setShowControls(false); 
+      setShowControls(false);
+      
+      // 👇 ДОБАВЛЕНО: Сброс скорости при завершении
+      if (videoRef.current) videoRef.current.playbackRate = 1;
+      setIsSpeedingUp(false);
+      // Очищаем таймер, если вдруг видео кончилось пока мы держали кнопку
+      if (longPressTimerRef.current) {
+          clearTimeout(longPressTimerRef.current);
+          longPressTimerRef.current = null;
+      }
   };
   
   const replayVideo = () => {
-      setShowEndScreen(false); setProcessedEventIds([]); setScore(0);
-      if (videoRef.current) { videoRef.current.currentTime = 0; videoRef.current.play(); }
+      setShowEndScreen(false); 
+      setProcessedEventIds([]); 
+      setScore(0);
+      
+      // 👇 ДОБАВЛЕНО: Сброс состояний ускорения
+      setIsSpeedingUp(false);
+      wasLongPressRef.current = false;
+
+      if (videoRef.current) { 
+          videoRef.current.playbackRate = 1; // 👈 Принудительно 1x
+          videoRef.current.currentTime = 0; 
+          videoRef.current.play(); 
+      }
   };
 
   const showControlsTemporarily = () => {
@@ -178,8 +275,19 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
     timeoutRef.current = window.setTimeout(() => { if (!showSettings) setShowControls(false); }, 3000);
   };
 
-  const togglePlay = () => { if (!videoRef.current || activeEvent || showEndScreen) return; videoRef.current.paused ? videoRef.current.play() : videoRef.current.pause(); showControlsTemporarily(); };
-  
+  const togglePlay = () => { 
+      // 👇 ДОБАВЛЕНО: Если это было долгое нажатие, ничего не делаем (паузу не ставим)
+      if (wasLongPressRef.current) {
+          wasLongPressRef.current = false;
+          return;
+      }
+      // ☝️
+      
+      if (!videoRef.current || activeEvent || showEndScreen) return; 
+      videoRef.current.paused ? videoRef.current.play() : videoRef.current.pause(); 
+      showControlsTemporarily(); 
+  };
+
   const skipTime = (amount: number) => {
     if (videoRef.current && !activeEvent) {
         videoRef.current.currentTime += amount;
@@ -250,14 +358,22 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   };
 
 
-  // Hotkeys
+// Hotkeys
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName || '')) return;
+      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) return;
       if (activeEvent) return;
 
       const code = e.code;
-      if (code === 'Space' || code === 'KeyK') { e.preventDefault(); togglePlay(); }
+
+      // ПРОБЕЛ: Используем логику PressStart (запуск таймера)
+      if (code === 'Space' || code === 'KeyK') { 
+          e.preventDefault(); // Чтобы страница не скроллилась
+          if (!e.repeat) { // Запускаем только на первое нажатие
+              handlePressStart();
+          }
+      }
+
       if (code === 'KeyJ') skipTime(-10);
       if (code === 'KeyL') skipTime(10);
       if (code === 'ArrowLeft') skipTime(-5);
@@ -267,10 +383,23 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
       if (code === 'KeyM') { setIsMuted(prev => !prev); showControlsTemporarily(); }
       if (code === 'KeyF') toggleFullscreen();
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeEvent]);
 
+    const handleKeyUp = (e: KeyboardEvent) => {
+        // ПРОБЕЛ ОТПУЩЕН: Запускаем логику PressEnd
+        if (e.code === 'Space' || e.code === 'KeyK') {
+            e.preventDefault();
+            handlePressEnd();
+        }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    
+    return () => {
+        window.removeEventListener('keydown', handleKeyDown);
+        window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [activeEvent, isSpeedingUp]); // togglePlay удалил из зависимостей, так как он вызывается внутри handlePressEnd
   
   const hasSubtitles = currentSource.subtitles && currentSource.subtitles.length > 0;
   const hasChapters = chapters.length > 0;
@@ -370,7 +499,19 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
         className={`yt-video ${showControls ? 'controls-visible' : ''}`}
         playsInline
         crossOrigin="anonymous"
-        onClick={togglePlay}
+        
+        // Нажали кнопку
+        onMouseDown={handlePressStart}
+        onTouchStart={handlePressStart}
+        
+        // Отпустили кнопку (Клик или Конец 2x)
+        onMouseUp={handlePressEnd}
+        onTouchEnd={handlePressEnd}
+        
+        // Увели мышь / Сорвался тач (Отмена 2x, но БЕЗ клика)
+        onMouseLeave={handlePressCancel}  // <--- ВОТ ЗДЕСЬ БЫЛА ОШИБКА
+        // onTouchCancel={handlePressCancel} // Можно добавить для надежности на мобилках
+
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={() => setDuration(videoRef.current?.duration || 0)}
         onPlay={() => setIsPlaying(true)}
@@ -381,6 +522,11 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
           {currentSource.subtitles?.map((sub, idx) => (
               <track key={idx} kind="subtitles" src={sub.src} srcLang={sub.lang} label={sub.label} default={idx === 0} />
           ))}
+          {isSpeedingUp && (
+          <div className="speed-overlay">
+              <span>🚀 2x Скорость</span>
+          </div>
+      )}
       </video>
       
       {!isPlaying && showControls && !activeEvent && !showEndScreen && (<div className="center-play-overlay-static" onClick={togglePlay}><Icons.Play /></div>)}

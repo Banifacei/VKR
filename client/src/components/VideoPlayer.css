@@ -306,3 +306,26 @@ video::-webkit-media-text-track-container { transition: transform 0.3s ease; tra
 video.controls-visible::-webkit-media-text-track-container { transform: translateY(-60px); }
 
 @keyframes popIn { 0% { transform: scale(0.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+
+/* Плашка "2x Скорость" */
+.speed-overlay {
+  position: absolute;
+  top: 40px; /* Чуть ниже заголовка */
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.7);
+  padding: 8px 20px;
+  border-radius: 24px;
+  color: #fff;
+  font-weight: bold;
+  font-size: 14px;
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none; /* Чтобы не мешала кликам */
+  animation: fadeIn 0.2s ease-out;
+  backdrop-filter: blur(4px);
+}
+
+@keyframes fadeIn { from { opacity: 0; transform: translate(-50%, -10px); } to { opacity: 1; transform: translate(-50%, 0); } }
