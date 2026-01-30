@@ -1,4 +1,4 @@
-import './UserPage.css'; // Используем те же стили
+import './AdminPage.css';
 
 export const AdminPage = () => {
   return (

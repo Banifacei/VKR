@@ -208,6 +208,12 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
       setActiveEvent(null);
       videoRef.current?.play();
   };
+// --- Хендлер для ползунка громкости ---
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const newVolume = parseFloat(e.target.value);
+      setVolume(newVolume);
+      setIsMuted(newVolume === 0);
+  };
 
   const handleTimeUpdate = () => {
     if (!videoRef.current) return;
@@ -359,47 +365,60 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
 
 
 // Hotkeys
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) return;
-      if (activeEvent) return;
+useEffect(() => {
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) return;
+    if (activeEvent) return;
 
-      const code = e.code;
+    const code = e.code;
 
-      // ПРОБЕЛ: Используем логику PressStart (запуск таймера)
-      if (code === 'Space' || code === 'KeyK') { 
-          e.preventDefault(); // Чтобы страница не скроллилась
-          if (!e.repeat) { // Запускаем только на первое нажатие
-              handlePressStart();
-          }
-      }
-
-      if (code === 'KeyJ') skipTime(-10);
-      if (code === 'KeyL') skipTime(10);
-      if (code === 'ArrowLeft') skipTime(-5);
-      if (code === 'ArrowRight') skipTime(5);
-      if (code === 'ArrowUp') { e.preventDefault(); setVolume(v => Math.min(1, v + 0.05)); setIsMuted(false); showControlsTemporarily(); }
-      if (code === 'ArrowDown') { e.preventDefault(); setVolume(v => Math.max(0, v - 0.05)); showControlsTemporarily(); }
-      if (code === 'KeyM') { setIsMuted(prev => !prev); showControlsTemporarily(); }
-      if (code === 'KeyF') toggleFullscreen();
-    };
-
-    const handleKeyUp = (e: KeyboardEvent) => {
-        // ПРОБЕЛ ОТПУЩЕН: Запускаем логику PressEnd
-        if (e.code === 'Space' || e.code === 'KeyK') {
-            e.preventDefault();
-            handlePressEnd();
+    // ПРОБЕЛ или K: Пауза/Плей или Ускорение
+    if (code === 'Space' || code === 'KeyK') { 
+        e.preventDefault(); // Чтобы страница не скроллилась
+        if (!e.repeat) { 
+            handlePressStart();
         }
-    };
+    }
 
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    
-    return () => {
-        window.removeEventListener('keydown', handleKeyDown);
-        window.removeEventListener('keyup', handleKeyUp);
-    };
-  }, [activeEvent, isSpeedingUp]); // togglePlay удалил из зависимостей, так как он вызывается внутри handlePressEnd
+    // Перемотка
+    if (code === 'KeyJ') skipTime(-10);
+    if (code === 'KeyL') skipTime(10);
+    if (code === 'ArrowLeft') skipTime(-5);
+    if (code === 'ArrowRight') skipTime(5);
+
+    // ГРОМКОСТЬ (Стрелки вверх/вниз)
+    if (code === 'ArrowUp') { 
+        e.preventDefault(); 
+        setVolume(v => Math.min(1, v + 0.05)); 
+        setIsMuted(false); 
+        showControlsTemporarily(); 
+    }
+    if (code === 'ArrowDown') { 
+        e.preventDefault(); 
+        setVolume(v => Math.max(0, v - 0.05)); 
+        showControlsTemporarily(); 
+    }
+
+    // Мут и Фуллскрин
+    if (code === 'KeyM') { setIsMuted(prev => !prev); showControlsTemporarily(); }
+    if (code === 'KeyF') toggleFullscreen();
+  };
+
+  const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space' || e.code === 'KeyK') {
+          e.preventDefault();
+          handlePressEnd();
+      }
+  };
+
+  window.addEventListener('keydown', handleKeyDown);
+  window.addEventListener('keyup', handleKeyUp);
+  
+  return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+  };
+}, [activeEvent, isSpeedingUp, volume]);
   
   const hasSubtitles = currentSource.subtitles && currentSource.subtitles.length > 0;
   const hasChapters = chapters.length > 0;
@@ -589,11 +608,38 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
 
         <div className="yt-controls-row">
           <div className="yt-left">
-            <button className="yt-btn" onClick={togglePlay}>{isPlaying ? <Icons.Pause /> : <Icons.Play />}</button>
-            <button className="yt-btn" onClick={() => setIsMuted(!isMuted)}>{isMuted ? <Icons.VolumeMuted /> : <Icons.VolumeHigh />}</button>
+            <div className="yt-left">
+            <button className="yt-btn" onClick={togglePlay}>
+                {isPlaying ? <Icons.Pause /> : <Icons.Play />}
+            </button>
+            
+            {/* Группа громкости: Иконка + Выезжающий слайдер */}
+            <div className="volume-control-group">
+                <button className="yt-btn" onClick={() => setIsMuted(!isMuted)}>
+                    {isMuted || volume === 0 ? <Icons.VolumeMuted /> : <Icons.VolumeHigh />}
+                </button>
+                
+                <div className="volume-slider-container">
+                    <input 
+                        type="range" 
+                        min="0" 
+                        max="1" 
+                        step="0.05" 
+                        value={isMuted ? 0 : volume}
+                        onChange={handleVolumeChange}
+                        className="volume-slider"
+                        // Делаем заливку белым цветом до текущего уровня
+                        style={{
+                            background: `linear-gradient(to right, #fff ${isMuted ? 0 : volume * 100}%, rgba(255,255,255,0.2) ${isMuted ? 0 : volume * 100}%)`
+                        }}
+                    />
+                </div>
+            </div>
+
             <div className="yt-time-display">
               {Math.floor(currentTime / 60)}:{Math.floor(currentTime % 60).toString().padStart(2, '0')} / {Math.floor(duration / 60)}:{Math.floor(duration % 60).toString().padStart(2, '0')}
             </div>
+          </div>
           </div>
 
           <div className="yt-right">

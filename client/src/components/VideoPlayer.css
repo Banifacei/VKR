@@ -328,4 +328,49 @@ video.controls-visible::-webkit-media-text-track-container { transform: translat
   backdrop-filter: blur(4px);
 }
 
+/* --- ГРОМКОСТЬ (YouTube Style) --- */
+.volume-control-group {
+  display: flex;
+  align-items: center;
+  /* При наведении на динамик или слайдер - показываем слайдер */
+}
+
+.volume-slider-container {
+  width: 0px; /* Скрыто по умолчанию */
+  overflow: hidden;
+  transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  margin-left: 0;
+}
+
+/* Раскрываем при наведении */
+.volume-control-group:hover .volume-slider-container,
+.volume-slider-container:hover,
+.volume-slider-container:focus-within {
+  width: 60px; /* Ширина палочки */
+  margin-left: 10px;
+}
+
+.volume-slider {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+}
+
+/* Кружок ползунка */
+.volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+
 @keyframes fadeIn { from { opacity: 0; transform: translate(-50%, -10px); } to { opacity: 1; transform: translate(-50%, 0); } }
