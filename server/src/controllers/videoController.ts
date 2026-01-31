@@ -5,6 +5,56 @@ import { InteractiveEvent } from '../models/InteractiveEvent.js';
 import { UserResponse } from '../models/UserResponse.js';
 import { Course } from '../models/Course.js';
 
+// --- IMPORTS FOR AI ---
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+import ffmpeg from 'fluent-ffmpeg';
+import ffmpegPath from 'ffmpeg-static';
+import { pipeline } from '@xenova/transformers';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Настройка FFmpeg
+if (ffmpegPath) {
+    ffmpeg.setFfmpegPath(ffmpegPath as unknown as string);
+}
+
+// === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ===
+const formatVttTime = (seconds: number) => {
+    const date = new Date(0);
+    date.setMilliseconds(seconds * 1000);
+    return date.toISOString().substr(11, 12);
+};
+
+const createVttFile = (chunks: any[], outputPath: string) => {
+    let vttContent = "WEBVTT\n\n";
+    chunks.forEach((chunk) => {
+        if (chunk.timestamp) {
+            const start = formatVttTime(chunk.timestamp[0]);
+            const end = formatVttTime(chunk.timestamp[1]);
+            const text = chunk.text.trim();
+            vttContent += `${start} --> ${end}\n${text}\n\n`;
+        }
+    });
+    fs.writeFileSync(outputPath, vttContent);
+};
+
+const extractAudio = (videoPath: string, audioPath: string): Promise<void> => {
+    return new Promise((resolve, reject) => {
+        ffmpeg(videoPath)
+            .toFormat('wav')
+            .audioFrequency(16000)
+            .audioChannels(1)
+            .on('end', () => resolve())
+            .on('error', (err: Error) => reject(err))
+            .save(audioPath);
+    });
+};
+
+// === КОНТРОЛЛЕРЫ ===
+
 export const createCourse = async (req: Request, res: Response) => {
     try {
         const { title, description, instructor } = req.body;
@@ -33,10 +83,9 @@ export const createVideo = async (req: Request, res: Response) => {
         title,
          url,
          subtitles, 
-        hideResults: hideResults || false,
-        courseId: Number(courseId) // <--- сохраняем
+        hideResults: hideResults || false, 
+        courseId: Number(courseId) 
     });
-    
     res.status(201).json(video);
   } catch (error) {
     console.error(error);
@@ -44,7 +93,6 @@ export const createVideo = async (req: Request, res: Response) => {
   }
 };
 
-// Получить все видео
 export const getVideosByCourse = async (req: Request, res: Response) => {
   try {
     const { courseId } = req.params;
@@ -60,7 +108,6 @@ export const getVideosByCourse = async (req: Request, res: Response) => {
   }
 };
 
-// Создать вопрос
 export const createEvent = async (req: Request, res: Response) => {
     try {
         const { videoId } = req.params;
@@ -82,11 +129,9 @@ export const createEvent = async (req: Request, res: Response) => {
     }
 };
 
-// Сохранить ответ студента
 export const saveProgress = async (req: Request, res: Response) => {
     try {
         const { videoId, eventId, answer, userId } = req.body;
-
         const event = await InteractiveEvent.findByPk(eventId);
         if (!event) return res.status(404).json({ message: 'Событие не найдено' });
 
@@ -121,7 +166,6 @@ export const saveProgress = async (req: Request, res: Response) => {
     }
 };
 
-// Получить статистику
 export const getVideoStats = async (req: Request, res: Response) => {
     try {
         const { videoId } = req.params;
@@ -143,16 +187,104 @@ export const updateVideoSettings = async (req: Request, res: Response) => {
     try {
         const { videoId } = req.params;
         const { hideResults } = req.body;
-
         const video = await Video.findByPk(videoId);
         if (!video) return res.status(404).json({ message: 'Видео не найдено' });
-
         video.hideResults = hideResults;
         await video.save();
-
         res.json(video);
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Ошибка обновления настроек', error });
+        res.status(500).json(error);
+    }
+};
+
+// --- ИСПРАВЛЕННАЯ ФУНКЦИЯ ---
+export const generateSubtitles = async (req: Request, res: Response) => {
+    try {
+        const { videoId } = req.params;
+        const video = await Video.findByPk(videoId);
+
+        if (!video) return res.status(404).json({ message: 'Видео не найдено' });
+
+        const fileName = video.url.split('/').pop();
+        if (!fileName) return res.status(400).json({ message: 'Некорректный URL' });
+
+        const uploadsDir = path.join(__dirname, '../../uploads'); 
+        const videoPath = path.join(uploadsDir, fileName);
+        const tempAudioPath = path.join(uploadsDir, `temp-${Date.now()}.wav`);
+        const vttFileName = `sub-${Date.now()}.vtt`;
+        const vttPath = path.join(uploadsDir, vttFileName);
+
+        if (!fs.existsSync(videoPath)) {
+             return res.status(404).json({ message: 'Файл видео не найден на диске' });
+        }
+
+        console.log(`[AI] Старт для видео: ${videoId}`);
+
+        // 1. Извлекаем аудио через FFmpeg (ОБЯЗАТЕЛЬНО: 16k rate, mono, wav)
+        await extractAudio(videoPath, tempAudioPath);
+
+        // 2. Читаем WAV файл в буфер (ВАЖНО ДЛЯ NODE.JS)
+        
+        console.log('[AI] Запуск Whisper...');
+        const transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-small');
+        
+        // ДАВАЙ ПОПРОБУЕМ ВОТ ТАК (через wavefile):
+        const wav = await import('wavefile');
+        const buffer = fs.readFileSync(tempAudioPath);
+        const wavFile = new wav.WaveFile(buffer);
+        wavFile.toBitDepth('32f'); // Конвертируем в 32-bit float
+        const audioData = wavFile.getSamples();
+        
+        // Если стерео, берем первый канал, если моно - просто данные
+        let float32Array = Array.isArray(audioData) ? audioData[0] : audioData;
+
+        // 3. Распознавание
+        const output = await transcriber(float32Array, {
+            chunk_length_s: 30,
+            stride_length_s: 5,
+            language: 'russian',
+            task: 'transcribe',
+            return_timestamps: true,
+        });
+
+        // 4. VTT
+        // @ts-ignore
+        createVttFile(output.chunks, vttPath);
+
+        // 5. Чистка
+        if (fs.existsSync(tempAudioPath)) fs.unlinkSync(tempAudioPath);
+
+        // 6. БД
+        const protocol = req.protocol;
+        const host = req.get('host');
+        const vttUrl = `${protocol}://${host}/uploads/${vttFileName}`;
+
+        const newSubtitle = {
+            lang: 'ru-auto',
+            label: 'Авто (AI)',
+            src: vttUrl
+        };
+
+        const currentSubs = video.subtitles ? JSON.parse(JSON.stringify(video.subtitles)) : [];
+        currentSubs.push(newSubtitle);
+        
+        video.subtitles = currentSubs;
+        await video.save();
+
+        console.log('[AI] Готово!');
+        res.json({ success: true, subtitles: video.subtitles });
+
+    } catch (error) {
+        console.error("[AI] Ошибка:", error);
+        res.status(500).json({ message: 'Ошибка генерации', error });
+    }
+};
+
+export const getAllVideos = async (req: Request, res: Response) => {
+    try {
+        const videos = await Video.findAll({ order: [['createdAt', 'DESC']], include: [InteractiveEvent] });
+        res.json(videos);
+    } catch (error) {
+        res.status(500).json(error);
     }
 };

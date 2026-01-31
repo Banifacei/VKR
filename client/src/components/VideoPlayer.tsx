@@ -56,7 +56,7 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   const isLongPressActiveRef = useRef(false); // Флаг: сейчас активно удержание?
   const wasPlayingRef = useRef(false);        // Флаг: играло ли видео ДО нажатия?
 
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isFullscreen] = useState(false);
   const [isZoomFill, setIsZoomFill] = useState(false);
   const [currentMenu, setCurrentMenu] = useState<'main' | 'speed' | 'quality' | 'captions' | 'chapters'>('main');
   const [activeSubtitle, setActiveSubtitle] = useState<string>('off');

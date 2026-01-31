@@ -1,7 +1,26 @@
 import { Router } from 'express';
-import { createVideo, getVideosByCourse, createEvent, saveProgress, getVideoStats, updateVideoSettings, getAllCourses, createCourse } from '../controllers/videoController.js';
+import { 
+    createVideo, 
+    getVideosByCourse, 
+    createEvent, 
+    saveProgress, 
+    getVideoStats, 
+    updateVideoSettings, 
+    getAllCourses, 
+    createCourse,
+    generateSubtitles,
+    getAllVideos
+} from '../controllers/videoController.js';
+
+console.log("!!! ЗАГРУЖАЮТСЯ НОВЫЕ РОУТЫ С AI !!!");
 
 const router = Router();
+
+// Добавим лог прямо сюда, чтобы видеть, попадает ли запрос в роутер
+router.post('/:videoId/autocaptions', (req, res, next) => {
+    console.log(`>>> РОУТЕР ПОЙМАЛ ЗАПРОС: ${req.originalUrl}`);
+    next();
+}, generateSubtitles);
 
 router.post('/', createVideo);
 router.get('/', getVideosByCourse);

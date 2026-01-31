@@ -65,3 +65,9 @@ export const getVideosByCourse = async (courseId: number): Promise<IVideo[]> => 
     const response = await axios.get(`${API_URL}/courses/${courseId}/videos`);
     return response.data;
 };
+
+export const generateAutoSubtitles = async (videoId: number) => {
+    // Отправляем POST запрос на генерацию
+    const response = await axios.post(`${API_URL}/${videoId}/autocaptions`);
+    return response.data;
+};

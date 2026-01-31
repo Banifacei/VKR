@@ -5,7 +5,8 @@ import {
     getVideoStats, 
     updateVideo, 
     getCourses, 
-    createCourse 
+    createCourse,
+    generateAutoSubtitles
 } from '../api/videoApi';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { AddVideoForm } from '../components/AddVideoForm';
@@ -37,6 +38,8 @@ export const PrepodPage = () => {
   const [correctAnswer, setCorrectAnswer] = useState('');
   const [isAddingEvent, setIsAddingEvent] = useState(false);
 
+  //Авто Субтитры
+  const [isGeneratingSubs, setIsGeneratingSubs] = useState(false);
   // Статистика
   const [showStats, setShowStats] = useState(false);
   const [statsData, setStatsData] = useState<any[]>([]);
@@ -178,7 +181,37 @@ export const PrepodPage = () => {
           total: data.correct + data.incorrect
       }));
   };
+  const handleGenerateSubs = async () => {
+      if (!selectedVideo) return;
+      
+      const confirm = window.confirm(
+          "Сейчас нейросеть начнет слушать видео и писать текст.\n" +
+          "Это займет время (примерно 20-30% от длительности видео).\n\n" +
+          "Продолжить?"
+      );
+      if (!confirm) return;
 
+      setIsGeneratingSubs(true);
+      try {
+          await generateAutoSubtitles(selectedVideo.id);
+          alert("Готово! Субтитры успешно созданы и добавлены.");
+          
+          // Перезагружаем видео, чтобы плеер увидел новые сабы
+          await loadVideos(); 
+          
+          // Если видео было выбрано, обновляем и его (чтобы кнопка CC появилась сразу)
+          if (selectedVideo) {
+              // Небольшой хак: сбросим и выберем снова, или найдем в новом списке
+              // (loadVideos уже обновит список videos, нам нужно обновить selectedVideo)
+              // Но loadVideos в твоем коде уже делает это сам, так что всё ок.
+          }
+      } catch (e) {
+          console.error(e);
+          alert("Ошибка при генерации. Убедитесь, что сервер запущен и FFmpeg работает.");
+      } finally {
+          setIsGeneratingSubs(false);
+      }
+  };
   const groupedStats = getGroupedStats();
   const studentDetails = expandedStudent ? statsData.filter(s => s.userId === expandedStudent) : [];
 
@@ -355,7 +388,31 @@ export const PrepodPage = () => {
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                                 <div style={{display: 'flex', alignItems: 'center', gap: '20px'}}>
                                     <h3 style={{ margin: 0, color: '#00aeef' }}>⚡ Добавить метку</h3>
-                                    
+                                    <button 
+                                            onClick={handleGenerateSubs} 
+                                            disabled={isGeneratingSubs}
+                                            style={{
+                                                background: 'linear-gradient(90deg, #7b2cbf, #b5179e)', // Фиолетовый градиент AI
+                                                border: 'none',
+                                                color: 'white',
+                                                padding: '6px 16px',
+                                                borderRadius: '20px',
+                                                cursor: isGeneratingSubs ? 'wait' : 'pointer',
+                                                fontWeight: 'bold',
+                                                fontSize: '13px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '8px',
+                                                opacity: isGeneratingSubs ? 0.7 : 1,
+                                                boxShadow: '0 4px 15px rgba(181, 23, 158, 0.4)'
+                                            }}
+                                        >
+                                            {isGeneratingSubs ? (
+                                                <>⏳ Думаю...</>
+                                            ) : (
+                                                <>✨ AI Субтитры</>
+                                            )}
+                                    </button>
                                     {/* ПЕРЕКЛЮЧАТЕЛЬ: ВОПРОС / ГЛАВА */}
                                     <div style={{ display: 'flex', background: '#252525', borderRadius: '8px', padding: '4px' }}>
                                         <button 
