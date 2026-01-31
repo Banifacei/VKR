@@ -1,8 +1,11 @@
 import axios from 'axios';
-import type { IVideo, IInteractiveEvent } from '../types';
+import type { IVideo, IInteractiveEvent, ICourse } from '../types';
 
+// Базовый URL указывает на роутер видео
 const API_URL = 'http://localhost:5000/api/videos';
 const UPLOAD_URL = 'http://localhost:5000/api/upload';
+
+// --- ВИДЕО ---
 
 export const getVideos = async (): Promise<IVideo[]> => {
     try {
@@ -42,5 +45,23 @@ export const uploadVideoFile = async (file: File) => {
     const response = await axios.post<{ url: string }>(UPLOAD_URL, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
     });
+    return response.data;
+};
+
+// --- КУРСЫ ---
+
+export const getCourses = async (): Promise<ICourse[]> => {
+    // URL получается: http://localhost:5000/api/videos/courses
+    const response = await axios.get(`${API_URL}/courses`); 
+    return response.data;
+};
+
+export const createCourse = async (data: Partial<ICourse>) => {
+    return axios.post(`${API_URL}/courses`, data);
+};
+
+export const getVideosByCourse = async (courseId: number): Promise<IVideo[]> => {
+    // URL получается: http://localhost:5000/api/videos/courses/1/videos
+    const response = await axios.get(`${API_URL}/courses/${courseId}/videos`);
     return response.data;
 };

@@ -1,10 +1,12 @@
+import { useParams, Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { getVideos } from '../api/videoApi';
+import { getVideosByCourse } from '../api/videoApi';
 import { VideoPlayer } from '../components/VideoPlayer';
 import type { IVideo } from '../types';
 import './UserPage.css';
 
 export const UserPage = () => {
+  const { courseId } = useParams();
   const [videos, setVideos] = useState<IVideo[]>([]);
   const [selectedVideo, setSelectedVideo] = useState<IVideo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -17,8 +19,9 @@ export const UserPage = () => {
   // Загружаем видео при старте
   useEffect(() => {
     const fetchVideos = async () => {
+        if (!courseId) return;
         try {
-            const data = await getVideos();
+            const data = await getVideosByCourse(Number(courseId)); 
             setVideos(data);
             if (data.length > 0) setSelectedVideo(data[0]);
         } finally {
@@ -26,7 +29,7 @@ export const UserPage = () => {
         }
     };
     fetchVideos();
-  }, []);
+  }, [courseId]);
 
   const handleLogin = () => {
       if (!tempName.trim()) return alert('Введите имя!');
@@ -69,6 +72,7 @@ export const UserPage = () => {
 
       <header className="lumeo-header">
           <div className="logo">Lumeo<span className="dot">.</span></div>
+          <Link to="/" style={{color: '#fff', textDecoration: 'none', marginRight: '20px'}}>← Курсы</Link>
           <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
               <div className="user-profile">{username || 'Гость'}</div>
               {username && <button onClick={handleLogout} style={{ background: 'transparent', border: '1px solid #333', color: '#666', fontSize: '12px', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}>Выйти</button>}

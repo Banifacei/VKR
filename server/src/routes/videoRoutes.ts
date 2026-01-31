@@ -1,13 +1,15 @@
 import { Router } from 'express';
-import { createVideo, getAllVideos, createEvent, saveProgress, getVideoStats, updateVideoSettings } from '../controllers/videoController.js';
+import { createVideo, getVideosByCourse, createEvent, saveProgress, getVideoStats, updateVideoSettings, getAllCourses, createCourse } from '../controllers/videoController.js';
 
 const router = Router();
 
 router.post('/', createVideo);
-router.get('/', getAllVideos);
+router.get('/', getVideosByCourse);
 router.post('/:videoId/events', createEvent);
 router.post('/progress', saveProgress);
 router.get('/:videoId/stats', getVideoStats);
-router.patch('/:videoId', updateVideoSettings);
+router.get('/courses', getAllCourses);
+router.post('/courses', createCourse);
+router.get('/courses/:courseId/videos', getVideosByCourse);
 
 export default router;

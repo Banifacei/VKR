@@ -20,6 +20,15 @@ export interface IVideo {
     subtitles?: ISubtitle[];
     hideResults: boolean;
     events: IInteractiveEvent[];
+    courseId?: number; 
     createdAt?: string;
     updatedAt?: string;
+}
+
+export interface ICourse {
+    id: number;
+    title: string;
+    description: string;
+    instructor: string;
+    videos?: IVideo[];
 }

@@ -3,7 +3,7 @@ import * as dotenv from 'dotenv';
 import { Video } from '../models/Video.js';
 import { InteractiveEvent } from '../models/InteractiveEvent.js';
 import { UserResponse } from '../models/UserResponse.js'; // <--- NEW
-
+import { Course } from '../models/Course.js';
 dotenv.config();
 
 const sequelize = new Sequelize({
@@ -14,7 +14,7 @@ const sequelize = new Sequelize({
   host: process.env.DB_HOST || 'localhost',
   port: Number(process.env.DB_PORT) || 5432,
   
-  models: [Video, InteractiveEvent, UserResponse], // <--- NEW
+  models: [Video, InteractiveEvent, UserResponse, Course], // <--- NEW
   
   logging: false,
 });

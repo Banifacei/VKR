@@ -1,19 +1,34 @@
 import { useEffect, useState } from 'react';
-import { getVideos, addEvent, getVideoStats, updateVideo } from '../api/videoApi';
+import { 
+    getVideosByCourse, 
+    addEvent, 
+    getVideoStats, 
+    updateVideo, 
+    getCourses, 
+    createCourse 
+} from '../api/videoApi';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { AddVideoForm } from '../components/AddVideoForm';
-import type { IVideo } from '../types';
+import type { IVideo, ICourse } from '../types';
 import './PrepodPage.css'
 import './UserPage.css';
 
 export const PrepodPage = () => {
+  // --- СОСТОЯНИЕ: КУРСЫ ---
+  const [courses, setCourses] = useState<ICourse[]>([]);
+  const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null);
+  
+  // Форма создания нового курса
+  const [newCourseTitle, setNewCourseTitle] = useState('');
+  const [newCourseDesc, setNewCourseDesc] = useState('');
+  const [newCourseInstructor, setNewCourseInstructor] = useState('');
+
+  // --- СОСТОЯНИЕ: ВИДЕО И РЕДАКТОР ---
   const [videos, setVideos] = useState<IVideo[]>([]);
   const [selectedVideo, setSelectedVideo] = useState<IVideo | null>(null);
   
-  // Конструктор тестов
+  // Конструктор событий (меток)
   const [currentTime, setCurrentTime] = useState(0);
-  
-  // NEW: Тип создаваемого события (вопрос или глава)
   const [eventType, setEventType] = useState<'question' | 'chapter'>('question');
   
   const [questionText, setQuestionText] = useState('');
@@ -22,23 +37,71 @@ export const PrepodPage = () => {
   const [correctAnswer, setCorrectAnswer] = useState('');
   const [isAddingEvent, setIsAddingEvent] = useState(false);
 
-  // СТАТИСТИКА
+  // Статистика
   const [showStats, setShowStats] = useState(false);
   const [statsData, setStatsData] = useState<any[]>([]);
   const [expandedStudent, setExpandedStudent] = useState<string | null>(null);
 
+  // 1. ПРИ ЗАГРУЗКЕ СТРАНИЦЫ - ГРУЗИМ СПИСОК КУРСОВ
+  useEffect(() => {
+    loadCourses();
+  }, []);
+
+  const loadCourses = async () => {
+      try {
+        const data = await getCourses();
+        setCourses(data);
+      } catch (e) {
+        console.error("Ошибка загрузки курсов", e);
+      }
+  };
+
+  // 2. СОЗДАНИЕ КУРСА
+  const handleCreateCourse = async () => {
+      if (!newCourseTitle.trim() || !newCourseInstructor.trim()) {
+          return alert('Заполните название и ФИО преподавателя!');
+      }
+      try {
+          await createCourse({
+              title: newCourseTitle,
+              description: newCourseDesc,
+              instructor: newCourseInstructor
+          });
+          setNewCourseTitle(''); setNewCourseDesc(''); setNewCourseInstructor('');
+          loadCourses(); 
+          alert('Курс успешно создан!');
+      } catch (e) {
+          alert('Ошибка при создании курса');
+      }
+  };
+
+  // 3. ЗАГРУЗКА ВИДЕО (Только для выбранного курса)
   const loadVideos = async () => {
-    const data = await getVideos();
-    setVideos(data);
-    if (selectedVideo) {
-        const updated = data.find(v => v.id === selectedVideo.id);
-        if (updated) setSelectedVideo(updated);
+    if (!selectedCourseId) return;
+    try {
+        const data = await getVideosByCourse(selectedCourseId);
+        setVideos(data);
+        
+        // Если видео было открыто, обновляем его данные (чтобы появились новые вопросы)
+        if (selectedVideo) {
+            const updated = data.find(v => v.id === selectedVideo.id);
+            if (updated) setSelectedVideo(updated);
+        }
+    } catch (e) {
+        console.error("Ошибка загрузки видео", e);
     }
   };
 
-  useEffect(() => { loadVideos(); }, []);
+  // Следим за сменой курса: если выбрали курс, грузим его видео
+  useEffect(() => {
+      if (selectedCourseId) {
+          loadVideos();
+          setSelectedVideo(null); // Сбрасываем открытое видео
+      }
+  }, [selectedCourseId]);
 
-  // NEW: Переключение галочки "Скрывать результаты"
+
+  // 4. ЛОГИКА РЕДАКТОРА (HIDE RESULTS)
   const toggleHideResults = async () => {
       if (!selectedVideo) return;
       try {
@@ -52,6 +115,7 @@ export const PrepodPage = () => {
       }
   };
 
+  // 5. ДОБАВЛЕНИЕ СОБЫТИЯ (ВОПРОС ИЛИ ГЛАВА)
   const handleAddEvent = async () => {
       if (!selectedVideo) return;
       
@@ -70,13 +134,15 @@ export const PrepodPage = () => {
           await addEvent(selectedVideo.id, {
               time: currentTime,
               type: eventType,
-              question: questionText, // Для главы это будет название
+              question: questionText, 
               options: eventType === 'question' ? [option1, option2] : [],
               correctAnswer: eventType === 'question' ? correctAnswer : ''
           });
           
           alert(eventType === 'question' ? 'Вопрос добавлен!' : 'Глава добавлена!');
+          // Очистка формы
           setQuestionText(''); setOption1(''); setOption2(''); setCorrectAnswer('');
+          // Обновляем данные видео, чтобы метка появилась на таймлайне
           await loadVideos();
       } catch (e) {
           alert('Ошибка при добавлении');
@@ -85,6 +151,7 @@ export const PrepodPage = () => {
       }
   };
 
+  // 6. СТАТИСТИКА
   const loadStats = async () => {
       if (!selectedVideo) return;
       try {
@@ -97,7 +164,6 @@ export const PrepodPage = () => {
       }
   };
 
-  // Логика группировки статистики
   const getGroupedStats = () => {
       const groups: Record<string, { correct: number; incorrect: number }> = {};
       statsData.forEach(stat => {
@@ -116,6 +182,62 @@ export const PrepodPage = () => {
   const groupedStats = getGroupedStats();
   const studentDetails = expandedStudent ? statsData.filter(s => s.userId === expandedStudent) : [];
 
+
+  // === RENDER: SCENARIO 1 (КУРС НЕ ВЫБРАН) ===
+  if (!selectedCourseId) {
+    return (
+        <div className="lumeo-layout" style={{ display: 'block', padding: '40px', overflowY: 'auto' }}>
+            <header className="lumeo-header" style={{marginBottom: '40px', background: 'transparent', border: 'none'}}>
+                <div className="logo" style={{fontSize: '2rem'}}>Lumeo <span style={{fontSize: '1rem', color: '#666'}}>| Панель курсов</span></div>
+            </header>
+
+            <div style={{maxWidth: '1200px', margin: '0 auto'}}>
+                <h2 style={{marginBottom: '20px', color: 'white'}}>Ваши курсы</h2>
+                
+                {/* Сетка курсов */}
+                <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px', marginBottom: '50px'}}>
+                    {courses.map(c => (
+                        <div 
+                          key={c.id} 
+                          onClick={() => setSelectedCourseId(c.id)}
+                          className="course-card"
+                          style={{ 
+                              padding: '25px', 
+                              background: '#1a1a1a', 
+                              border: '1px solid #333', 
+                              borderRadius: '12px', 
+                              cursor: 'pointer',
+                              transition: 'transform 0.2s, border-color 0.2s'
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.borderColor = '#00aeef'; e.currentTarget.style.transform = 'translateY(-5px)'; }}
+                          onMouseLeave={e => { e.currentTarget.style.borderColor = '#333'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                        >
+                            <h3 style={{color: '#00aeef', marginTop: 0}}>{c.title}</h3>
+                            <p style={{color: '#888', fontSize: '14px', marginBottom: '15px'}}>👨‍🏫 {c.instructor}</p>
+                            <p style={{color: '#ccc', fontSize: '14px', lineHeight: '1.5'}}>{c.description || 'Нет описания'}</p>
+                            <div style={{marginTop: '20px', fontSize: '12px', color: '#555', fontWeight: 'bold'}}>
+                                {c.videos?.length || 0} УРОКОВ
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Форма создания */}
+                <div style={{background: '#151515', padding: '30px', borderRadius: '16px', border: '1px solid #333', maxWidth: '600px'}}>
+                    <h3 style={{color: '#fff', marginTop: 0}}>+ Создать новый курс</h3>
+                    <div style={{display: 'flex', gap: '10px', marginBottom: '10px'}}>
+                        <input className="admin-input" placeholder="Название курса (DevOps)" value={newCourseTitle} onChange={e => setNewCourseTitle(e.target.value)} style={{flex: 1, padding: '12px', background: '#0a0a0a', border: '1px solid #333', color: 'white', borderRadius: '6px'}} />
+                        <input className="admin-input" placeholder="ФИО Преподавателя" value={newCourseInstructor} onChange={e => setNewCourseInstructor(e.target.value)} style={{flex: 1, padding: '12px', background: '#0a0a0a', border: '1px solid #333', color: 'white', borderRadius: '6px'}} />
+                    </div>
+                    <textarea className="admin-input" placeholder="Краткое описание курса..." value={newCourseDesc} onChange={e => setNewCourseDesc(e.target.value)} style={{marginBottom: '15px', width: '100%', padding: '12px', minHeight: '80px', background: '#0a0a0a', border: '1px solid #333', color: 'white', borderRadius: '6px', resize: 'vertical'}} />
+                    <button className="primary-btn" onClick={handleCreateCourse} style={{width: '100%', padding: '12px', background: '#00aeef', color: 'white', fontWeight: 'bold', border: 'none', borderRadius: '6px', cursor: 'pointer'}}>Создать курс</button>
+                </div>
+            </div>
+        </div>
+    )
+  }
+
+  // === RENDER: SCENARIO 2 (КУРС ВЫБРАН -> РЕДАКТОР) ===
   return (
     <div className="lumeo-layout">
         {/* MODAL STATS */}
@@ -179,21 +301,35 @@ export const PrepodPage = () => {
         )}
 
         <header className="lumeo-header" style={{ borderBottom: '1px solid #333', background: '#1a1a1a' }}>
-             <div className="logo" style={{ color: '#00aeef' }}>Lumeo <span style={{color: 'white', fontSize: '14px', fontWeight: 'normal'}}>| Преподаватель</span></div>
+             <div style={{display: 'flex', alignItems: 'center', gap: '20px'}}>
+                 <button 
+                    onClick={() => setSelectedCourseId(null)} 
+                    style={{background: 'transparent', border: '1px solid #333', color: '#888', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px'}}
+                 >
+                    ← Курсы
+                 </button>
+                 <div className="logo" style={{ color: '#00aeef' }}>
+                    {courses.find(c => c.id === selectedCourseId)?.title} 
+                    <span style={{color: 'white', fontSize: '14px', fontWeight: 'normal', marginLeft: '10px'}}>| Редактор</span>
+                 </div>
+             </div>
         </header>
 
         <div className="lumeo-container">
             <aside className="playlist-sidebar" style={{ borderRight: '1px solid #333', borderLeft: 'none' }}>
                 <div style={{ padding: '20px' }}>
-                     <AddVideoForm onVideoAdded={loadVideos} />
+                     {/* ВАЖНО: Передаем selectedCourseId */}
+                     <AddVideoForm onVideoAdded={loadVideos} courseId={selectedCourseId} />
                 </div>
-                <div className="playlist-header"><h3>Ваши курсы</h3></div>
+                <div className="playlist-header"><h3>Уроки курса</h3></div>
                 <div className="playlist-scroll">
-                    {videos.map(v => (
+                    {videos.map((v, idx) => (
                         <div key={v.id} className={`playlist-item ${selectedVideo?.id === v.id ? 'active' : ''}`} onClick={() => { if (selectedVideo?.id !== v.id) setSelectedVideo(v); }}>
+                            <div className="item-index" style={{fontSize: '10px', color: '#555', marginRight: '10px'}}>{idx + 1}</div>
                             <div className="item-info"><span className="item-title">{v.title}</span></div>
                         </div>
                     ))}
+                    {videos.length === 0 && <div style={{padding: '20px', color: '#666', fontSize: '13px', textAlign: 'center'}}>Нет видео в этом курсе</div>}
                 </div>
             </aside>
 
@@ -210,7 +346,7 @@ export const PrepodPage = () => {
                                 }]} 
                                 title={selectedVideo.title} 
                                 events={selectedVideo.events || []}
-                                hideResults={selectedVideo.hideResults} // ПЕРЕДАЕМ НАСТРОЙКУ В ПЛЕЕР
+                                hideResults={selectedVideo.hideResults} 
                                 onTimeUpdate={(t) => setCurrentTime(t)}
                             />
                         </div>
@@ -265,7 +401,6 @@ export const PrepodPage = () => {
                                         style={{ width: '100%', marginBottom: '10px', padding: '10px', background: '#0f0f0f', border: '1px solid #444', color: 'white', borderRadius: '4px' }} 
                                     />
                                     
-                                    {/* СКРЫВАЕМ ВАРИАНТЫ, ЕСЛИ ЭТО ГЛАВА */}
                                     {eventType === 'question' && (
                                         <>
                                             <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
@@ -284,8 +419,8 @@ export const PrepodPage = () => {
                     </>
                 ) : (
                     <div className="empty-state">
-                        <h2>Панель преподавателя</h2>
-                        <p>Выберите урок для редактирования или создайте новый.</p>
+                        <h2>Редактор курса</h2>
+                        <p>Добавьте первое видео через меню слева.</p>
                     </div>
                 )}
             </main>

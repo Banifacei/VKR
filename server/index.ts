@@ -3,12 +3,12 @@ import 'reflect-metadata';
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import sequelize from './src/config/db.js';
-import videoRoutes from './src/routes/videoRoutes.js';
+import videoRoutes from './src/routes/videoRoutes.js'; // Используем только videoRoutes
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { slugify } from 'transliteration';
 import fs from 'fs';
-import multer, { FileFilterCallback } from 'multer';
+import multer from 'multer';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -27,10 +27,10 @@ type DestinationCallback = (error: Error | null, destination: string) => void;
 type FileNameCallback = (error: Error | null, filename: string) => void;
 
 const storage = multer.diskStorage({
-    destination: (req: Request, file: Express.Multer.File, cb: DestinationCallback) => {
+    destination: (req, file, cb) => {
         cb(null, uploadDir);
     },
-    filename: (req: Request, file: Express.Multer.File, cb: FileNameCallback) => {
+    filename: (req, file, cb) => {
         const ext = path.extname(file.originalname);
         const originalName = path.basename(file.originalname, ext);
         const safeName = slugify(originalName);
@@ -46,7 +46,6 @@ app.use(express.json());
 app.use('/uploads', express.static(uploadDir));
 
 // 4. Эндпоинт загрузки
-// Используем Multer middleware и типизируем Request
 app.post('/api/upload', upload.single('video'), (req: Request, res: Response): void => {
     try {
         if (!req.file) {
@@ -54,7 +53,6 @@ app.post('/api/upload', upload.single('video'), (req: Request, res: Response): v
             return;
         }
         
-        // Определяем протокол и хост динамически
         const protocol = req.protocol;
         const host = req.get('host');
         const fullUrl = `${protocol}://${host}/uploads/${req.file.filename}`;
@@ -67,6 +65,8 @@ app.post('/api/upload', upload.single('video'), (req: Request, res: Response): v
 });
 
 // 5. Роуты
+// Все маршруты (видео и курсы) будут начинаться с /api/videos
+// Например: /api/videos/courses
 app.use('/api/videos', videoRoutes);
 
 // 6. Запуск

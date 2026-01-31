@@ -3,17 +3,24 @@ import { uploadVideoFile, createVideo } from '../api/videoApi';
 
 interface AddVideoFormProps {
   onVideoAdded: () => void;
+  // ДОБАВЛЕНО: Принимаем ID курса
+  courseId: number | null;
 }
 
-export const AddVideoForm = ({ onVideoAdded }: AddVideoFormProps) => {
+export const AddVideoForm = ({ onVideoAdded, courseId }: AddVideoFormProps) => {
   // States
   const [newTitle, setNewTitle] = useState('');
   const [newUrl, setNewUrl] = useState('');
   const [selectedVideoFile, setSelectedVideoFile] = useState<File | null>(null);
-  const [selectedSubFile, setSelectedSubFile] = useState<File | null>(null); // Для субтитров
+  const [selectedSubFile, setSelectedSubFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
 
   const handleSaveVideo = async () => {
+    // ВАЖНО: Проверяем, передан ли ID курса
+    if (!courseId) {
+        return alert("Ошибка: Курс не выбран!");
+    }
+
     if (!newTitle.trim()) return alert("Введите название урока!");
     if (!newUrl.trim() && !selectedVideoFile) {
       return alert("Добавьте ссылку или выберите видео-файл!");
@@ -31,7 +38,7 @@ export const AddVideoForm = ({ onVideoAdded }: AddVideoFormProps) => {
       // 2. Загружаем субтитры (если файл)
       let subtitlesData = [];
       if (selectedSubFile) {
-          const { url: subUrl } = await uploadVideoFile(selectedSubFile); // Используем тот же загрузчик
+          const { url: subUrl } = await uploadVideoFile(selectedSubFile);
           subtitlesData.push({
               lang: 'ru',
               label: 'Русский',
@@ -43,8 +50,9 @@ export const AddVideoForm = ({ onVideoAdded }: AddVideoFormProps) => {
       await createVideo({ 
           title: newTitle, 
           url: finalUrl, 
-          subtitles: subtitlesData, // Передаем субтитры
-          events: [] 
+          subtitles: subtitlesData,
+          events: [],
+          courseId: courseId 
       });
       
       alert("Урок успешно опубликован!");
@@ -55,9 +63,12 @@ export const AddVideoForm = ({ onVideoAdded }: AddVideoFormProps) => {
       setSelectedVideoFile(null);
       setSelectedSubFile(null);
       
-      // Очистка инпутов
-      (document.getElementById('video-input') as HTMLInputElement).value = '';
-      (document.getElementById('sub-input') as HTMLInputElement).value = '';
+      // Очистка инпутов (безопасный вариант)
+      const videoInput = document.getElementById('video-input') as HTMLInputElement;
+      if (videoInput) videoInput.value = '';
+      
+      const subInput = document.getElementById('sub-input') as HTMLInputElement;
+      if (subInput) subInput.value = '';
       
       onVideoAdded();
     } catch (e) {
@@ -101,7 +112,8 @@ export const AddVideoForm = ({ onVideoAdded }: AddVideoFormProps) => {
             {selectedVideoFile && (
                 <button className="clear-btn" onClick={() => {
                     setSelectedVideoFile(null);
-                    (document.getElementById('video-input') as HTMLInputElement).value = '';
+                    const el = document.getElementById('video-input') as HTMLInputElement;
+                    if (el) el.value = '';
                 }}>✕</button>
             )}
           </div>
@@ -122,7 +134,8 @@ export const AddVideoForm = ({ onVideoAdded }: AddVideoFormProps) => {
             {selectedSubFile && (
                 <button className="clear-btn" onClick={() => {
                     setSelectedSubFile(null);
-                    (document.getElementById('sub-input') as HTMLInputElement).value = '';
+                    const el = document.getElementById('sub-input') as HTMLInputElement;
+                    if (el) el.value = '';
                 }}>✕</button>
             )}
           </div>

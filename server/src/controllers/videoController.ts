@@ -3,17 +3,38 @@ import { Request, Response } from 'express';
 import { Video } from '../models/Video.js';
 import { InteractiveEvent } from '../models/InteractiveEvent.js';
 import { UserResponse } from '../models/UserResponse.js';
+import { Course } from '../models/Course.js';
+
+export const createCourse = async (req: Request, res: Response) => {
+    try {
+        const { title, description, instructor } = req.body;
+        const course = await Course.create({ title, description, instructor });
+        res.status(201).json(course);
+    } catch (e) {
+        res.status(500).json({ message: 'Ошибка создания курса', error: e });
+    }
+};
+
+export const getAllCourses = async (req: Request, res: Response) => {
+    try {
+        const courses = await Course.findAll({ include: [Video] }); // Подгружаем видео, чтобы посчитать их кол-во
+        res.json(courses);
+    } catch (e) {
+        res.status(500).json(e);
+    }
+};
 
 // Создать видео
 export const createVideo = async (req: Request, res: Response) => {
   try {
-    const { title, url, subtitles, hideResults } = req.body; // <--- берем из запроса
+    const { title, url, subtitles, hideResults, courseId } = req.body; // <--- берем courseId
     
     const video = await Video.create({ 
-        title, 
-        url,
-        subtitles,
-        hideResults: hideResults || false // <--- сохраняем
+        title,
+         url,
+         subtitles, 
+        hideResults: hideResults || false,
+        courseId: Number(courseId) // <--- сохраняем
     });
     
     res.status(201).json(video);
@@ -24,10 +45,12 @@ export const createVideo = async (req: Request, res: Response) => {
 };
 
 // Получить все видео
-export const getAllVideos = async (req: Request, res: Response) => {
+export const getVideosByCourse = async (req: Request, res: Response) => {
   try {
+    const { courseId } = req.params;
     const videos = await Video.findAll({
-      order: [['createdAt', 'DESC']],
+      where: { courseId }, // <--- Фильтр
+      order: [['createdAt', 'ASC']], // В курсе логичнее от старого к новому
       include: [InteractiveEvent]
     });
     res.json(videos);
