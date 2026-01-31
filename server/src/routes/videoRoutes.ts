@@ -9,7 +9,8 @@ import {
     getAllCourses, 
     createCourse,
     generateSubtitles,
-    getAllVideos
+    getAllVideos,
+    resetVideoProgress
 } from '../controllers/videoController.js';
 
 console.log("!!! ЗАГРУЖАЮТСЯ НОВЫЕ РОУТЫ С AI !!!");
@@ -30,5 +31,6 @@ router.get('/:videoId/stats', getVideoStats);
 router.get('/courses', getAllCourses);
 router.post('/courses', createCourse);
 router.get('/courses/:courseId/videos', getVideosByCourse);
+router.delete('/:videoId/progress', resetVideoProgress);
 
 export default router;

@@ -197,6 +197,23 @@ export const updateVideoSettings = async (req: Request, res: Response) => {
     }
 };
 
+export const resetVideoProgress = async (req: Request, res: Response) => {
+    try {
+        const { videoId } = req.params;
+        const { userId } = req.query; // Получаем "Кокорин" из URL
+
+        await UserResponse.destroy({
+            where: {
+                videoId: Number(videoId),
+                userId: String(userId)
+            }
+        });
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json(e);
+    }
+};
+
 // --- ИСПРАВЛЕННАЯ ФУНКЦИЯ ---
 export const generateSubtitles = async (req: Request, res: Response) => {
     try {

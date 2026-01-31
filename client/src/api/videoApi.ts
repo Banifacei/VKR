@@ -25,6 +25,9 @@ export const updateVideo = async (videoId: number, data: Partial<IVideo>) => {
     return axios.patch(`${API_URL}/${videoId}`, data);
 };
 
+export const resetProgress = (videoId: number, userId: string) => 
+    axios.delete(`${API_URL}/${videoId}/progress`, { params: { userId } });
+
 export const addEvent = async (videoId: number, eventData: Partial<IInteractiveEvent>) => {
     return axios.post(`${API_URL}/${videoId}/events`, eventData);
 };

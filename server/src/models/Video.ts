@@ -17,7 +17,7 @@ export class Video extends Model {
   declare hideResults: boolean;
 
   @ForeignKey(() => Course)
-  @Column({ type: DataType.INTEGER, allowNull: true }) // Можно true, пока мигрируем старые данные
+  @Column({ type: DataType.INTEGER, allowNull: true })
   declare courseId: number;
 
   @BelongsTo(() => Course)

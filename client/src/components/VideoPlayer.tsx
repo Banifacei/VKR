@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { sendAnswer } from '../api/videoApi'; 
+import { sendAnswer, resetProgress } from '../api/videoApi'; 
 import './VideoPlayer.css';
 import type { IInteractiveEvent, ISubtitle } from '../types';
 
@@ -79,6 +79,35 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
 
   // --- NEW: Активная глава (для текста внизу) ---
   const activeChapter = chapters.slice().reverse().find(chap => chap.time <= currentTime);
+
+
+  const handleResetAction = async () => {
+    if (!videoId) return;
+
+    try {
+        // 1. Сбрасываем на сервере
+        await resetProgress(videoId, userId);
+        
+        // 2. Сбрасываем локальное состояние
+        setProcessedEventIds([]);
+        setScore(0);
+        setShowEndScreen(false);
+        setActiveEvent(null);
+        
+        // 3. Перематываем в начало и запускаем
+        if (videoRef.current) {
+            videoRef.current.currentTime = 0;
+            videoRef.current.play();
+        }
+
+        // 4. Вызываем внешний колбэк, если он передан (например, для уведомления родителя)
+        if (onResetTest) onResetTest();
+        
+        setShowSettings(false); // Закрываем меню
+    } catch (e) {
+        alert("Не удалось сбросить прогресс");
+    }
+};
 
   useEffect(() => {
     if (sources && sources.length > 0) setCurrentSource(sources[0]);
@@ -429,47 +458,52 @@ useEffect(() => {
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  const renderMainMenu = () => (
-    <div className="menu-list">
-      <div className="menu-item" onClick={() => setCurrentMenu('speed')}>
-        <span className="menu-label">Скорость</span>
-        <span className="menu-value">{playbackRate}x ›</span>
-      </div>
-      
-      {hasSubtitles && (
-          <div className="menu-item" onClick={() => setCurrentMenu('captions')}>
-            <span className="menu-label">Субтитры</span>
-            <span className="menu-value">{activeSubtitle === 'off' ? 'Выкл.' : activeSubtitle.toUpperCase()} ›</span>
-          </div>
-      )}
-
-      {hasChapters && (
-          <div className="menu-item" onClick={() => setCurrentMenu('chapters')}>
-            <span className="menu-label">Главы</span>
-            <span className="menu-value">{chapters.length} шт ›</span>
-          </div>
-      )}
-
-      <div className="menu-item" onClick={() => setIsZoomFill(!isZoomFill)}>
-        <span className="menu-label">Заполнить экран</span>
-        <span className={`menu-status ${isZoomFill ? 'active' : ''}`}>{isZoomFill ? 'Вкл.' : 'Выкл.'}</span>
-      </div>
-
-      {onOpenTest && (
-         <div className="menu-item" onClick={() => { onOpenTest(); setShowSettings(false); }}>
-           <span className="menu-label">Решить тест</span>
-           <span className="menu-value">›</span>
-         </div>
-      )}
-
-      <div className="menu-divider" />
-      {onResetTest && (
-          <div className="menu-item reset-item" onClick={() => { onResetTest(); setShowSettings(false); }}>
-            <span className="menu-label">Сбросить прогресс</span>
-          </div>
-      )}
+const renderMainMenu = () => (
+  <div className="menu-list">
+    {/* 1. Скорость */}
+    <div className="menu-item" onClick={() => setCurrentMenu('speed')}>
+      <span className="menu-label">Скорость</span>
+      <span className="menu-value">{playbackRate}x ›</span>
     </div>
-  );
+
+    {/* 2. Субтитры */}
+    {hasSubtitles && (
+      <div className="menu-item" onClick={() => setCurrentMenu('captions')}>
+        <span className="menu-label">Субтитры</span>
+        <span className="menu-value">{activeSubtitle === 'off' ? 'Выкл.' : activeSubtitle.toUpperCase()} ›</span>
+      </div>
+    )}
+
+    {/* 3. Главы */}
+    {hasChapters && (
+      <div className="menu-item" onClick={() => setCurrentMenu('chapters')}>
+        <span className="menu-label">Главы</span>
+        <span className="menu-value">{chapters.length} шт ›</span>
+      </div>
+    )}
+
+    {/* 4. Зум */}
+    <div className="menu-item" onClick={() => setIsZoomFill(!isZoomFill)}>
+      <span className="menu-label">Заполнить экран</span>
+      <span className={`menu-status ${isZoomFill ? 'active' : ''}`}>{isZoomFill ? 'Вкл.' : 'Выкл.'}</span>
+    </div>
+
+    {/* 5. Внешний тест (если есть) */}
+    {onOpenTest && (
+       <div className="menu-item" onClick={() => { onOpenTest(); setShowSettings(false); }}>
+         <span className="menu-label">Решить тест</span>
+         <span className="menu-value">›</span>
+       </div>
+    )}
+
+    <div className="menu-divider" />
+
+    {/* 6. КНОПКА СБРОСА (Оставляем одну здесь) */}
+    <div className="menu-item reset-item" onClick={handleResetAction}>
+      <span className="menu-label" style={{ color: '#ff4d4d' }}>Сбросить прогресс</span>
+    </div>
+  </div>
+);
 
   return (
     <div ref={containerRef} className={`yt-player-container ${isZoomFill ? 'zoom-active' : ''} ${isFullscreen ? 'is-fullscreen' : ''}`} onMouseMove={showControlsTemporarily} onMouseLeave={() => !showSettings && setShowControls(false)}>
