@@ -1,49 +1,114 @@
+import React from 'react';
+import { Link } from 'react-router-dom';
 import './AdminPage.css';
+
+// Иконки для кнопок
+const Icons = {
+    Plus: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>,
+    Settings: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>,
+    Edit: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+};
 
 export const AdminPage = () => {
   return (
     <div className="lumeo-layout">
-        <header className="lumeo-header" style={{ borderBottom: '1px solid #333', background: '#222' }}>
-             <div className="logo" style={{ color: '#ff4d4d' }}>Lumeo <span style={{color: 'white', fontSize: '14px', fontWeight: 'normal'}}>| Super Admin</span></div>
-        </header>
+      {/* Шапка */}
+      <header className="lumeo-header">
+          <div className="logo-group">
+            <div className="logo">Lumeo<span className="dot">.</span></div>
+            <span className="admin-badge">ROOT ACCESS</span>
+          </div>
+          <Link to="/" className="nav-link">Выход на сайт →</Link>
+      </header>
 
-        <div className="lumeo-container" style={{ padding: '40px', display: 'block', overflowY: 'auto' }}>
-            <h1>Системная панель</h1>
-            <p style={{ color: '#888', marginBottom: '30px' }}>Управление пользователями и настройки сервера</p>
+      <div className="lumeo-container">
+        <main className="admin-layout">
+            
+            <div className="admin-header">
+                <h1>Панель управления</h1>
+                <p>Мониторинг системы и управление образовательным контентом</p>
+            </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
-                {/* Карточка 1 */}
-                <div style={{ background: '#1a1a1a', padding: '20px', borderRadius: '12px', border: '1px solid #333' }}>
-                    <h3 style={{ color: '#888', fontSize: '14px' }}>ВСЕГО УРОКОВ</h3>
-                    <div style={{ fontSize: '36px', fontWeight: 'bold', color: 'white', marginTop: '10px' }}>12</div>
+            {/* Статистика */}
+            <div className="stats-grid">
+                <div className="stat-card">
+                    <div className="stat-label">Доступно уроков</div>
+                    <div className="stat-value">12</div>
                 </div>
-
-                {/* Карточка 2 */}
-                <div style={{ background: '#1a1a1a', padding: '20px', borderRadius: '12px', border: '1px solid #333' }}>
-                    <h3 style={{ color: '#888', fontSize: '14px' }}>АКТИВНЫЕ СТУДЕНТЫ</h3>
-                    <div style={{ fontSize: '36px', fontWeight: 'bold', color: '#00aeef', marginTop: '10px' }}>42</div>
+                
+                <div className="stat-card">
+                    <div className="stat-label">Активные пользователи</div>
+                    <div className="stat-value blue">42</div>
                 </div>
-
-                {/* Карточка 3 */}
-                <div style={{ background: '#1a1a1a', padding: '20px', borderRadius: '12px', border: '1px solid #333' }}>
-                    <h3 style={{ color: '#888', fontSize: '14px' }}>СТАТУС СЕРВЕРА</h3>
-                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#4dff88', marginTop: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={{ width: '10px', height: '10px', background: '#4dff88', borderRadius: '50%', boxShadow: '0 0 10px #4dff88' }}></span>
-                        Online
+                
+                <div className="stat-card">
+                    <div className="stat-label">Состояние системы</div>
+                    <div className="server-status">
+                        <span className="pulse-dot"></span>
+                        All Systems Normal
                     </div>
                 </div>
             </div>
 
-            <div style={{ marginTop: '40px', background: '#1a1a1a', padding: '30px', borderRadius: '12px', border: '1px solid #333' }}>
-                <h3>Управление пользователями</h3>
-                <p style={{ color: '#666', marginTop: '10px' }}>Функционал в разработке...</p>
-                <div style={{ marginTop: '20px', height: '1px', background: '#333' }}></div>
-                <div style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
-                    <button className="primary-btn" style={{ background: '#333' }}>Добавить препода</button>
-                    <button className="primary-btn" style={{ background: '#333' }}>Настройки LDAP</button>
+            {/* Таблица пользователей */}
+            <div className="admin-section">
+                <div className="section-header">
+                    <h2>Пользователи системы</h2>
+                    <div className="actions-row">
+                        <button className="btn btn-secondary"><Icons.Settings /> LDAP</button>
+                        <button className="btn btn-primary"><Icons.Plus /> Добавить</button>
+                    </div>
                 </div>
+
+                <table className="data-table">
+                    <thead>
+                        <tr>
+                            <th>Имя пользователя</th>
+                            <th>Роль</th>
+                            <th>Последний вход</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>
+                                <div style={{fontWeight: '500', color: '#fff'}}>Алексей Смирнов</div>
+                                <div style={{fontSize: '12px', color: '#666'}}>alex.smirnov@lumeo.ru</div>
+                            </td>
+                            <td><span className="role-badge teacher">Преподаватель</span></td>
+                            <td>Сегодня, 14:30</td>
+                            <td>
+                                <button className="btn-icon" title="Редактировать"><Icons.Edit /></button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div style={{fontWeight: '500', color: '#fff'}}>Елена Воробей</div>
+                                <div style={{fontSize: '12px', color: '#666'}}>elena.v@student.ru</div>
+                            </td>
+                            <td><span className="role-badge student">Студент</span></td>
+                            <td>Вчера, 09:15</td>
+                            <td>
+                                <button className="btn-icon" title="Редактировать"><Icons.Edit /></button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div style={{fontWeight: '500', color: '#fff'}}>Дмитрий Козлов</div>
+                                <div style={{fontSize: '12px', color: '#666'}}>d.kozlov@student.ru</div>
+                            </td>
+                            <td><span className="role-badge student">Студент</span></td>
+                            <td>2 дня назад</td>
+                            <td>
+                                <button className="btn-icon" title="Редактировать"><Icons.Edit /></button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
-        </div>
+
+        </main>
+      </div>
     </div>
   );
 };

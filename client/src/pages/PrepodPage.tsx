@@ -1,18 +1,26 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
     getVideosByCourse, 
     addEvent, 
     getVideoStats, 
     updateVideo, 
     getCourses, 
-    createCourse,
+    createCourse, 
     generateAutoSubtitles
 } from '../api/videoApi';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { AddVideoForm } from '../components/AddVideoForm';
 import type { IVideo, ICourse } from '../types';
-import './PrepodPage.css'
-import './UserPage.css';
+import './PrepodPage.css';
+import './UserPage.css'; // На случай если нужны общие стили
+
+// Иконки SVG для интерфейса
+const Icons = {
+    Time: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+    Back: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>,
+    Stats: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
+    AI: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2a10 10 0 1 0 10 10H12V2z"/><path d="M12 12L2.1 10.5"/></svg>
+};
 
 export const PrepodPage = () => {
   // --- СОСТОЯНИЕ: КУРСЫ ---
@@ -38,17 +46,28 @@ export const PrepodPage = () => {
   const [correctAnswer, setCorrectAnswer] = useState('');
   const [isAddingEvent, setIsAddingEvent] = useState(false);
 
-  //Авто Субтитры
+  // Авто Субтитры
   const [isGeneratingSubs, setIsGeneratingSubs] = useState(false);
+  
   // Статистика
   const [showStats, setShowStats] = useState(false);
   const [statsData, setStatsData] = useState<any[]>([]);
   const [expandedStudent, setExpandedStudent] = useState<string | null>(null);
 
+  // --- ЭФФЕКТЫ И ЛОГИКА ---
+
   // 1. ПРИ ЗАГРУЗКЕ СТРАНИЦЫ - ГРУЗИМ СПИСОК КУРСОВ
   useEffect(() => {
     loadCourses();
   }, []);
+
+  // Следим за сменой курса
+  useEffect(() => {
+      if (selectedCourseId) {
+          loadVideos();
+          setSelectedVideo(null);
+      }
+  }, [selectedCourseId]);
 
   const loadCourses = async () => {
       try {
@@ -59,7 +78,6 @@ export const PrepodPage = () => {
       }
   };
 
-  // 2. СОЗДАНИЕ КУРСА
   const handleCreateCourse = async () => {
       if (!newCourseTitle.trim() || !newCourseInstructor.trim()) {
           return alert('Заполните название и ФИО преподавателя!');
@@ -78,14 +96,12 @@ export const PrepodPage = () => {
       }
   };
 
-  // 3. ЗАГРУЗКА ВИДЕО (Только для выбранного курса)
   const loadVideos = async () => {
     if (!selectedCourseId) return;
     try {
         const data = await getVideosByCourse(selectedCourseId);
         setVideos(data);
         
-        // Если видео было открыто, обновляем его данные (чтобы появились новые вопросы)
         if (selectedVideo) {
             const updated = data.find(v => v.id === selectedVideo.id);
             if (updated) setSelectedVideo(updated);
@@ -95,16 +111,6 @@ export const PrepodPage = () => {
     }
   };
 
-  // Следим за сменой курса: если выбрали курс, грузим его видео
-  useEffect(() => {
-      if (selectedCourseId) {
-          loadVideos();
-          setSelectedVideo(null); // Сбрасываем открытое видео
-      }
-  }, [selectedCourseId]);
-
-
-  // 4. ЛОГИКА РЕДАКТОРА (HIDE RESULTS)
   const toggleHideResults = async () => {
       if (!selectedVideo) return;
       try {
@@ -118,11 +124,9 @@ export const PrepodPage = () => {
       }
   };
 
-  // 5. ДОБАВЛЕНИЕ СОБЫТИЯ (ВОПРОС ИЛИ ГЛАВА)
   const handleAddEvent = async () => {
       if (!selectedVideo) return;
       
-      // Валидация
       if (eventType === 'question' && (!questionText || !option1 || !option2 || !correctAnswer)) {
           alert('Заполните все поля вопроса!');
           return;
@@ -143,9 +147,7 @@ export const PrepodPage = () => {
           });
           
           alert(eventType === 'question' ? 'Вопрос добавлен!' : 'Глава добавлена!');
-          // Очистка формы
           setQuestionText(''); setOption1(''); setOption2(''); setCorrectAnswer('');
-          // Обновляем данные видео, чтобы метка появилась на таймлайне
           await loadVideos();
       } catch (e) {
           alert('Ошибка при добавлении');
@@ -154,7 +156,25 @@ export const PrepodPage = () => {
       }
   };
 
-  // 6. СТАТИСТИКА
+  const handleGenerateSubs = async () => {
+      if (!selectedVideo) return;
+      const confirm = window.confirm("Генерация займет время. Продолжить?");
+      if (!confirm) return;
+
+      setIsGeneratingSubs(true);
+      try {
+          await generateAutoSubtitles(selectedVideo.id);
+          alert("Готово! Субтитры успешно созданы.");
+          await loadVideos(); 
+      } catch (e) {
+          console.error(e);
+          alert("Ошибка при генерации.");
+      } finally {
+          setIsGeneratingSubs(false);
+      }
+  };
+
+  // Статистика
   const loadStats = async () => {
       if (!selectedVideo) return;
       try {
@@ -181,105 +201,64 @@ export const PrepodPage = () => {
           total: data.correct + data.incorrect
       }));
   };
-  const handleGenerateSubs = async () => {
-      if (!selectedVideo) return;
-      
-      const confirm = window.confirm(
-          "Сейчас нейросеть начнет слушать видео и писать текст.\n" +
-          "Это займет время (примерно 20-30% от длительности видео).\n\n" +
-          "Продолжить?"
-      );
-      if (!confirm) return;
 
-      setIsGeneratingSubs(true);
-      try {
-          await generateAutoSubtitles(selectedVideo.id);
-          alert("Готово! Субтитры успешно созданы и добавлены.");
-          
-          // Перезагружаем видео, чтобы плеер увидел новые сабы
-          await loadVideos(); 
-          
-          // Если видео было выбрано, обновляем и его (чтобы кнопка CC появилась сразу)
-          if (selectedVideo) {
-              // Небольшой хак: сбросим и выберем снова, или найдем в новом списке
-              // (loadVideos уже обновит список videos, нам нужно обновить selectedVideo)
-              // Но loadVideos в твоем коде уже делает это сам, так что всё ок.
-          }
-      } catch (e) {
-          console.error(e);
-          alert("Ошибка при генерации. Убедитесь, что сервер запущен и FFmpeg работает.");
-      } finally {
-          setIsGeneratingSubs(false);
-      }
-  };
   const groupedStats = getGroupedStats();
   const studentDetails = expandedStudent ? statsData.filter(s => s.userId === expandedStudent) : [];
 
+  // === RENDER ===
 
-  // === RENDER: SCENARIO 1 (КУРС НЕ ВЫБРАН) ===
+  // === RENDER ===
+
+  // СЦЕНАРИЙ 1: ВЫБОР КУРСА
   if (!selectedCourseId) {
     return (
-        <div className="lumeo-layout" style={{ display: 'block', padding: '40px', overflowY: 'auto' }}>
-            <header className="lumeo-header" style={{marginBottom: '40px', background: 'transparent', border: 'none'}}>
-                <div className="logo" style={{fontSize: '2rem'}}>Lumeo <span style={{fontSize: '1rem', color: '#666'}}>| Панель курсов</span></div>
+        <div className="prepod-layout">
+            <header className="lumeo-header">
+                <div className="logo">Lumeo<span className="dot">.</span></div>
+                <div style={{fontSize: '14px', color: '#888', fontWeight: 600}}>Панель преподавателя</div>
             </header>
 
-            <div style={{maxWidth: '1200px', margin: '0 auto'}}>
-                <h2 style={{marginBottom: '20px', color: 'white'}}>Ваши курсы</h2>
-                
-                {/* Сетка курсов */}
-                <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px', marginBottom: '50px'}}>
+            <div className="courses-container">
+                <div className="courses-header">
+                    <h1>Ваши курсы</h1>
+                    <p>Выберите курс для редактирования или создайте новый</p>
+                </div>
+
+                <div className="courses-grid">
                     {courses.map(c => (
-                        <div 
-                          key={c.id} 
-                          onClick={() => setSelectedCourseId(c.id)}
-                          className="course-card"
-                          style={{ 
-                              padding: '25px', 
-                              background: '#1a1a1a', 
-                              border: '1px solid #333', 
-                              borderRadius: '12px', 
-                              cursor: 'pointer',
-                              transition: 'transform 0.2s, border-color 0.2s'
-                          }}
-                          onMouseEnter={e => { e.currentTarget.style.borderColor = '#00aeef'; e.currentTarget.style.transform = 'translateY(-5px)'; }}
-                          onMouseLeave={e => { e.currentTarget.style.borderColor = '#333'; e.currentTarget.style.transform = 'translateY(0)'; }}
-                        >
-                            <h3 style={{color: '#00aeef', marginTop: 0}}>{c.title}</h3>
-                            <p style={{color: '#888', fontSize: '14px', marginBottom: '15px'}}>👨‍🏫 {c.instructor}</p>
-                            <p style={{color: '#ccc', fontSize: '14px', lineHeight: '1.5'}}>{c.description || 'Нет описания'}</p>
-                            <div style={{marginTop: '20px', fontSize: '12px', color: '#555', fontWeight: 'bold'}}>
-                                {c.videos?.length || 0} УРОКОВ
-                            </div>
+                        <div key={c.id} className="course-card" onClick={() => setSelectedCourseId(c.id)}>
+                            <h3 className="course-title">{c.title}</h3>
+                            <div className="course-instructor">👨‍🏫 {c.instructor}</div>
+                            <div className="course-desc">{c.description || 'Нет описания'}</div>
+                            <div className="course-meta">{c.videos?.length || 0} УРОКОВ</div>
                         </div>
                     ))}
                 </div>
 
-                {/* Форма создания */}
-                <div style={{background: '#151515', padding: '30px', borderRadius: '16px', border: '1px solid #333', maxWidth: '600px'}}>
-                    <h3 style={{color: '#fff', marginTop: 0}}>+ Создать новый курс</h3>
-                    <div style={{display: 'flex', gap: '10px', marginBottom: '10px'}}>
-                        <input className="admin-input" placeholder="Название курса (DevOps)" value={newCourseTitle} onChange={e => setNewCourseTitle(e.target.value)} style={{flex: 1, padding: '12px', background: '#0a0a0a', border: '1px solid #333', color: 'white', borderRadius: '6px'}} />
-                        <input className="admin-input" placeholder="ФИО Преподавателя" value={newCourseInstructor} onChange={e => setNewCourseInstructor(e.target.value)} style={{flex: 1, padding: '12px', background: '#0a0a0a', border: '1px solid #333', color: 'white', borderRadius: '6px'}} />
+                <div className="create-course-panel">
+                    <h3>+ Создать новый курс</h3>
+                    <div style={{display: 'flex', gap: '12px', marginBottom: '12px'}}>
+                        <input className="deck-input" style={{marginBottom: 0}} placeholder="Название курса (DevOps)" value={newCourseTitle} onChange={e => setNewCourseTitle(e.target.value)} />
+                        <input className="deck-input" style={{marginBottom: 0}} placeholder="ФИО Преподавателя" value={newCourseInstructor} onChange={e => setNewCourseInstructor(e.target.value)} />
                     </div>
-                    <textarea className="admin-input" placeholder="Краткое описание курса..." value={newCourseDesc} onChange={e => setNewCourseDesc(e.target.value)} style={{marginBottom: '15px', width: '100%', padding: '12px', minHeight: '80px', background: '#0a0a0a', border: '1px solid #333', color: 'white', borderRadius: '6px', resize: 'vertical'}} />
-                    <button className="primary-btn" onClick={handleCreateCourse} style={{width: '100%', padding: '12px', background: '#00aeef', color: 'white', fontWeight: 'bold', border: 'none', borderRadius: '6px', cursor: 'pointer'}}>Создать курс</button>
+                    <textarea className="deck-input" placeholder="Краткое описание курса..." value={newCourseDesc} onChange={e => setNewCourseDesc(e.target.value)} style={{minHeight: '80px', resize: 'vertical'}} />
+                    <button className="btn btn-primary" onClick={handleCreateCourse}>Создать курс</button>
                 </div>
             </div>
         </div>
     )
   }
 
-  // === RENDER: SCENARIO 2 (КУРС ВЫБРАН -> РЕДАКТОР) ===
+  // СЦЕНАРИЙ 2: РЕДАКТОР КУРСА
   return (
-    <div className="lumeo-layout">
+    <div className="prepod-layout">
         {/* MODAL STATS */}
         {showStats && (
             <div className="stats-modal-overlay">
                 <div className="stats-modal-content">
                     <div className="stats-modal-header">
                         <div>
-                            <h3>Статистика: {selectedVideo?.title}</h3>
+                            <h3 style={{margin: 0}}>Статистика: {selectedVideo?.title}</h3>
                             {expandedStudent && (<button className="back-link" onClick={() => setExpandedStudent(null)}>← К списку группы</button>)}
                         </div>
                         <button className="close-btn" onClick={() => setShowStats(false)}>✕</button>
@@ -289,7 +268,7 @@ export const PrepodPage = () => {
                         {statsData.length === 0 ? (
                             <div style={{ textAlign: 'center', padding: '60px', color: '#666' }}>
                                 <div style={{ fontSize: '40px', marginBottom: '20px' }}>📭</div>
-                                <p style={{ fontSize: '1.1rem' }}>Пока никто не проходил этот урок.</p>
+                                <p>Пока никто не проходил этот урок.</p>
                             </div>
                         ) : (
                             <>
@@ -333,50 +312,46 @@ export const PrepodPage = () => {
             </div>
         )}
 
-        <header className="lumeo-header" style={{ borderBottom: '1px solid #333', background: '#1a1a1a' }}>
-             <div style={{display: 'flex', alignItems: 'center', gap: '20px'}}>
-                 <button 
-                    onClick={() => setSelectedCourseId(null)} 
-                    style={{background: 'transparent', border: '1px solid #333', color: '#888', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px'}}
-                 >
-                    ← Курсы
+        {/* HEADER */}
+        <header className="lumeo-header">
+             <div style={{display: 'flex', alignItems: 'center', gap: '16px'}}>
+                 <button className="btn btn-ghost" onClick={() => setSelectedCourseId(null)} style={{padding: '6px 12px'}}>
+                    <Icons.Back /> Назад
                  </button>
-                 <div className="logo" style={{ color: '#00aeef' }}>
-                    {courses.find(c => c.id === selectedCourseId)?.title} 
-                    <span style={{color: 'white', fontSize: '14px', fontWeight: 'normal', marginLeft: '10px'}}>| Редактор</span>
+                 <div style={{height: '24px', width: '1px', background: '#333'}}></div>
+                 <div className="logo" style={{fontSize: '18px'}}>
+                    {courses.find(c => c.id === selectedCourseId)?.title}
+                    <span style={{color: '#666', fontWeight: 400, marginLeft: '8px'}}>| Редактор</span>
                  </div>
              </div>
         </header>
 
-        <div className="lumeo-container">
-            <aside className="playlist-sidebar" style={{ borderRight: '1px solid #333', borderLeft: 'none' }}>
+        <div className="editor-container">
+            {/* SIDEBAR */}
+            <aside className="editor-sidebar">
                 <div style={{ padding: '20px' }}>
-                     {/* ВАЖНО: Передаем selectedCourseId */}
                      <AddVideoForm onVideoAdded={loadVideos} courseId={selectedCourseId} />
                 </div>
-                <div className="playlist-header"><h3>Уроки курса</h3></div>
-                <div className="playlist-scroll">
+                <div className="sidebar-header"><h3>Список уроков</h3></div>
+                <div className="video-list">
                     {videos.map((v, idx) => (
-                        <div key={v.id} className={`playlist-item ${selectedVideo?.id === v.id ? 'active' : ''}`} onClick={() => { if (selectedVideo?.id !== v.id) setSelectedVideo(v); }}>
-                            <div className="item-index" style={{fontSize: '10px', color: '#555', marginRight: '10px'}}>{idx + 1}</div>
-                            <div className="item-info"><span className="item-title">{v.title}</span></div>
+                        <div key={v.id} className={`video-item ${selectedVideo?.id === v.id ? 'active' : ''}`} onClick={() => { if (selectedVideo?.id !== v.id) setSelectedVideo(v); }}>
+                            <div className="video-idx">{idx + 1}</div>
+                            <div className="video-title">{v.title}</div>
                         </div>
                     ))}
                     {videos.length === 0 && <div style={{padding: '20px', color: '#666', fontSize: '13px', textAlign: 'center'}}>Нет видео в этом курсе</div>}
                 </div>
             </aside>
 
-            <main className="video-stage">
+            {/* MAIN STAGE */}
+            <main className="editor-stage">
                 {selectedVideo ? (
                     <>
-                        <div className="player-wrapper-animation">
+                        <div className="player-wrapper-animation" style={{width: '100%', maxWidth: '1000px'}}>
                             <VideoPlayer 
                                 key={selectedVideo.id}
-                                sources={[{ 
-                                    quality: 'Auto', 
-                                    url: selectedVideo.url,
-                                    subtitles: selectedVideo.subtitles 
-                                }]} 
+                                sources={[{ quality: 'Auto', url: selectedVideo.url, subtitles: selectedVideo.subtitles }]} 
                                 title={selectedVideo.title} 
                                 events={selectedVideo.events || []}
                                 hideResults={selectedVideo.hideResults} 
@@ -384,100 +359,84 @@ export const PrepodPage = () => {
                             />
                         </div>
 
-                        <div className="event-creator-panel" style={{ marginTop: '20px', background: '#1a1a1a', padding: '20px', borderRadius: '12px', border: '1px solid #333' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                                <div style={{display: 'flex', alignItems: 'center', gap: '20px'}}>
-                                    <h3 style={{ margin: 0, color: '#00aeef' }}>⚡ Добавить метку</h3>
-                                    <button 
-                                            onClick={handleGenerateSubs} 
-                                            disabled={isGeneratingSubs}
-                                            style={{
-                                                background: 'linear-gradient(90deg, #7b2cbf, #b5179e)', // Фиолетовый градиент AI
-                                                border: 'none',
-                                                color: 'white',
-                                                padding: '6px 16px',
-                                                borderRadius: '20px',
-                                                cursor: isGeneratingSubs ? 'wait' : 'pointer',
-                                                fontWeight: 'bold',
-                                                fontSize: '13px',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '8px',
-                                                opacity: isGeneratingSubs ? 0.7 : 1,
-                                                boxShadow: '0 4px 15px rgba(181, 23, 158, 0.4)'
-                                            }}
-                                        >
-                                            {isGeneratingSubs ? (
-                                                <>⏳ Думаю...</>
-                                            ) : (
-                                                <>✨ AI Субтитры</>
-                                            )}
+                        {/* ПАНЕЛЬ УПРАВЛЕНИЯ (CONTROL DECK) */}
+                        <div className="control-deck">
+                            <div className="deck-header">
+                                <div className="deck-title">
+                                    <div className="deck-icon">⚡</div>
+                                    <h3>Панель управления</h3>
+                                </div>
+                                <div style={{display: 'flex', gap: '10px'}}>
+                                    <button className="btn btn-ghost" onClick={loadStats}>
+                                        <Icons.Stats /> Статистика
                                     </button>
-                                    {/* ПЕРЕКЛЮЧАТЕЛЬ: ВОПРОС / ГЛАВА */}
-                                    <div style={{ display: 'flex', background: '#252525', borderRadius: '8px', padding: '4px' }}>
-                                        <button 
-                                            onClick={() => setEventType('question')}
-                                            style={{ background: eventType === 'question' ? '#00aeef' : 'transparent', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
-                                        >
-                                            ❓ Вопрос
-                                        </button>
-                                        <button 
-                                            onClick={() => setEventType('chapter')}
-                                            style={{ background: eventType === 'chapter' ? '#00aeef' : 'transparent', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
-                                        >
-                                            🔖 Глава
-                                        </button>
+                                    <button className="btn btn-ai" onClick={handleGenerateSubs} disabled={isGeneratingSubs}>
+                                        <Icons.AI /> {isGeneratingSubs ? 'Создаю...' : 'AI Субтитры'}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '40px', flexWrap: 'wrap' }}>
+                                {/* ЛЕВАЯ КОЛОНКА: ИНПУТЫ */}
+                                <div style={{ flex: 2, minWidth: '300px' }}>
+                                    <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '10px'}}>
+                                        <div className="type-switch">
+                                            <button className={`type-btn ${eventType === 'question' ? 'active' : ''}`} onClick={() => setEventType('question')}>Вопрос</button>
+                                            <button className={`type-btn ${eventType === 'chapter' ? 'active' : ''}`} onClick={() => setEventType('chapter')}>Глава</button>
+                                        </div>
+                                        <div style={{color: '#666', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px'}}>
+                                            <Icons.Time /> {currentTime.toFixed(1)}s
+                                        </div>
                                     </div>
 
-                                    {/* ГАЛОЧКА: СКРЫТЬ РЕЗУЛЬТАТЫ */}
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', background: '#252525', padding: '6px 12px', borderRadius: '20px', border: '1px solid #444' }}>
-                                        <input 
-                                            type="checkbox" 
-                                            checked={selectedVideo.hideResults || false}
-                                            onChange={toggleHideResults}
-                                            style={{ cursor: 'pointer' }}
-                                        />
-                                        <span style={{ fontSize: '13px', color: '#ddd' }}>Скрывать результаты</span>
-                                    </label>
-                                </div>
-
-                                <button onClick={loadStats} style={{ background: '#252525', border: '1px solid #444', color: 'white', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    📊 Статистика
-                                </button>
-                            </div>
-                            
-                            <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                                <div style={{ flex: 1, minWidth: '300px' }}>
-                                    <div style={{ marginBottom: '10px', color: '#888', fontSize: '12px' }}>ВРЕМЯ: <strong style={{ color: 'white', fontSize: '16px' }}>{currentTime.toFixed(1)} сек</strong></div>
-                                    
                                     <input 
-                                        className="admin-input" 
-                                        placeholder={eventType === 'question' ? "Текст вопроса" : "Название главы (например: Введение)"}
+                                        className="deck-input" 
+                                        placeholder={eventType === 'question' ? "Текст вопроса..." : "Название главы"} 
                                         value={questionText} 
                                         onChange={e => setQuestionText(e.target.value)} 
-                                        style={{ width: '100%', marginBottom: '10px', padding: '10px', background: '#0f0f0f', border: '1px solid #444', color: 'white', borderRadius: '4px' }} 
                                     />
                                     
                                     {eventType === 'question' && (
                                         <>
-                                            <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-                                                <input placeholder="Вариант А" value={option1} onChange={e => setOption1(e.target.value)} style={{ flex: 1, padding: '8px', background: '#0f0f0f', border: '1px solid #444', color: 'white', borderRadius: '4px' }} />
-                                                <input placeholder="Вариант Б" value={option2} onChange={e => setOption2(e.target.value)} style={{ flex: 1, padding: '8px', background: '#0f0f0f', border: '1px solid #444', color: 'white', borderRadius: '4px' }} />
+                                            <div className="deck-row">
+                                                <input className="deck-input" style={{marginBottom: 0}} placeholder="Вариант A" value={option1} onChange={e => setOption1(e.target.value)} />
+                                                <input className="deck-input" style={{marginBottom: 0}} placeholder="Вариант B" value={option2} onChange={e => setOption2(e.target.value)} />
                                             </div>
-                                            <input placeholder="Правильный ответ (копия текста)" value={correctAnswer} onChange={e => setCorrectAnswer(e.target.value)} style={{ width: '100%', padding: '8px', background: '#1a2a3a', border: '1px solid #2b4b6b', color: '#add8e6', borderRadius: '4px' }} />
+                                            <input className="deck-input" placeholder="Правильный ответ (скопируйте текст варианта)" value={correctAnswer} onChange={e => setCorrectAnswer(e.target.value)} />
                                         </>
                                     )}
+                                    
+                                    <button className="btn btn-primary" onClick={handleAddEvent} disabled={isAddingEvent}>
+                                        {isAddingEvent ? 'Сохранение...' : 'Добавить метку на таймлайн'}
+                                    </button>
                                 </div>
-                                <button onClick={handleAddEvent} disabled={isAddingEvent} style={{ height: 'auto', padding: '15px 30px', background: '#00aeef', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', marginTop: 'auto' }}>
-                                    {isAddingEvent ? '...' : 'СОХРАНИТЬ'}
-                                </button>
+
+                                {/* ПРАВАЯ КОЛОНКА: НАСТРОЙКИ */}
+                                <div style={{ flex: 1, minWidth: '200px', borderLeft: '1px solid rgba(255,255,255,0.05)', paddingLeft: '30px' }}>
+                                    <h4 style={{marginTop: 0, marginBottom: '20px', color: '#888'}}>Настройки урока</h4>
+                                    
+                                    <label className="toggle-wrapper">
+                                        <input 
+                                            type="checkbox" 
+                                            className="toggle-input"
+                                            checked={selectedVideo.hideResults || false}
+                                            onChange={toggleHideResults}
+                                        />
+                                        <div className="toggle-track"><div className="toggle-thumb"></div></div>
+                                        <span className="toggle-label">Скрыть результаты теста</span>
+                                    </label>
+                                    
+                                    <p style={{fontSize: '12px', color: '#555', marginTop: '10px', lineHeight: '1.4'}}>
+                                        Если включено, студент не увидит правильные ответы сразу после выбора.
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     </>
                 ) : (
                     <div className="empty-state">
-                        <h2>Редактор курса</h2>
-                        <p>Добавьте первое видео через меню слева.</p>
+                        <h2>Выберите урок</h2>
+                        <p>Нажмите на видео в списке слева, чтобы начать редактирование.</p>
                     </div>
                 )}
             </main>

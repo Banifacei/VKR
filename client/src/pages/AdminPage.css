@@ -1,137 +1,189 @@
-/* Общий сброс и фон */
+:root {
+    --primary: #00aeef;
+    --primary-hover: #0093ca;
+    --danger: #ff4d4d;
+    --success: #00ff88;
+    --bg-main: #050505;
+    --bg-card: #0f0f0f;
+    --border-color: #222;
+    --text-main: #ffffff;
+    --text-muted: #888;
+}
+
+/* --- Лейаут и Фон --- */
 .lumeo-layout {
     display: flex;
     flex-direction: column;
     height: 100vh;
-    background-color: #0f0f0f; /* Deep Dark */
-    color: #e0e0e0;
-    font-family: 'Inter', -apple-system, sans-serif;
+    background-color: var(--bg-main);
+    color: var(--text-main);
+    font-family: 'Inter', sans-serif;
+    overflow: hidden;
+    
+    /* Трендовая сетка на фоне */
+    background-image: 
+        linear-gradient(var(--border-color) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border-color) 1px, transparent 1px);
+    background-size: 40px 40px;
+    background-position: center top;
+}
+
+/* --- Шапка --- */
+.lumeo-header {
+    height: 70px;
+    background: rgba(5, 5, 5, 0.8);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 40px;
+    flex-shrink: 0;
+    z-index: 50;
+}
+
+.logo-group { display: flex; align-items: center; gap: 12px; }
+.logo { font-size: 24px; font-weight: 800; color: #fff; letter-spacing: -1px; }
+.logo .dot { color: var(--primary); }
+
+.admin-badge {
+    font-size: 10px;
+    font-weight: 700;
+    background: rgba(255, 77, 77, 0.15);
+    color: var(--danger);
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 77, 77, 0.2);
+    letter-spacing: 1px;
+}
+
+.nav-link { color: var(--text-muted); text-decoration: none; font-size: 14px; font-weight: 500; transition: 0.2s; }
+.nav-link:hover { color: #fff; }
+
+/* --- Контейнер --- */
+.lumeo-container { flex: 1; overflow-y: auto; }
+
+.admin-layout {
+    max-width: 1600px; /* Делаем шире */
+    margin: 0 auto;
+    padding: 40px;
+}
+
+/* --- Заголовок --- */
+.admin-header { margin-bottom: 40px; }
+.admin-header h1 { font-size: 36px; font-weight: 700; margin: 0 0 10px 0; }
+.admin-header p { color: var(--text-muted); margin: 0; font-size: 16px; }
+
+/* --- Статистика (Grid) --- */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr); /* Три равные колонки */
+    gap: 24px;
+    margin-bottom: 40px;
+}
+
+.stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 30px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.stat-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    border-color: #333;
+}
+
+/* Цветная полоска сверху карточки */
+.stat-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, var(--primary), transparent);
+    opacity: 0.5;
+}
+
+.stat-label { font-size: 13px; text-transform: uppercase; color: var(--text-muted); font-weight: 600; letter-spacing: 1px; margin-bottom: 12px; }
+.stat-value { font-size: 48px; font-weight: 800; color: #fff; line-height: 1; }
+.stat-value.blue { color: var(--primary); text-shadow: 0 0 20px rgba(0, 174, 239, 0.3); }
+
+.server-status {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 20px; font-weight: 600; color: var(--success);
+    margin-top: 10px;
+}
+.pulse-dot {
+    width: 10px; height: 10px; background: var(--success);
+    border-radius: 50%;
+    box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.7);
+    animation: pulse-green 2s infinite;
+}
+
+@keyframes pulse-green {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(0, 255, 136, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 255, 136, 0); }
+}
+
+/* --- Секция управления --- */
+.admin-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    padding: 0; /* Паддинг убран, чтобы хедер секции был от края до края */
     overflow: hidden;
 }
 
-/* Шапка */
-.lumeo-header {
-    height: 60px;
-    background: #161616;
-    border-bottom: 1px solid #2a2a2a;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 30px;
-    flex-shrink: 0;
-}
-
-.logo {
-    font-size: 24px;
-    font-weight: 800;
-    letter-spacing: -1px;
-    color: #fff;
-}
-.logo .dot { color: #00aeef; }
-
-.user-profile {
-    font-size: 14px;
-    color: #888;
-    background: #252525;
-    padding: 6px 12px;
-    border-radius: 20px;
-}
-
-/* Сетка контента */
-.lumeo-container {
-    display: flex;
-    flex: 1;
-    overflow: hidden; /* Чтобы скроллились области внутри */
-}
-
-/* Область видео (Слева/Центр) */
-.video-stage {
-    flex: 1;
-    padding: 30px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    /* justify-content: center; если хотим видео строго по центру высоты */
-}
-
-.player-wrapper-animation {
-    animation: fadeIn 0.5s ease;
-    width: 100%;
-    max-width: 1100px;
-    margin: 0 auto;
-}
-
-.video-info { margin-top: 20px; }
-.video-info h1 { font-size: 22px; margin: 0 0 8px 0; font-weight: 600; }
-.video-meta { font-size: 13px; color: #666; }
-
-/* Сайдбар (Справа) */
-.playlist-sidebar {
-    width: 350px;
-    background: #161616;
-    border-left: 1px solid #2a2a2a;
-    display: flex;
-    flex-direction: column;
-    flex-shrink: 0;
-}
-
-.playlist-header {
-    padding: 20px;
-    border-bottom: 1px solid #2a2a2a;
+.section-header {
+    padding: 25px 30px;
+    border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
     align-items: center;
-}
-.playlist-header h3 { margin: 0; font-size: 16px; font-weight: 600; }
-.playlist-header .count { font-size: 12px; color: #666; }
-
-.playlist-scroll {
-    flex: 1;
-    overflow-y: auto;
-    padding: 10px;
+    background: rgba(255,255,255,0.01);
 }
 
-/* Карточка в плейлисте */
-.playlist-item {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    padding: 12px 15px;
+.section-header h2 { margin: 0; font-size: 18px; font-weight: 600; }
+
+.actions-row { display: flex; gap: 12px; }
+
+/* Кнопки */
+.btn {
+    padding: 10px 20px;
     border-radius: 8px;
+    border: none;
+    font-weight: 600;
+    font-size: 13px;
     cursor: pointer;
-    transition: background 0.2s;
-    margin-bottom: 4px;
+    transition: all 0.2s;
+    display: flex; align-items: center; gap: 8px;
 }
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-hover); box-shadow: 0 4px 15px rgba(0, 174, 239, 0.3); }
+.btn-secondary { background: #222; color: #ddd; border: 1px solid #333; }
+.btn-secondary:hover { background: #333; border-color: #444; }
 
-.playlist-item:hover { background: #252525; }
+/* Таблица */
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table th { text-align: left; padding: 15px 30px; color: var(--text-muted); font-size: 12px; text-transform: uppercase; font-weight: 600; border-bottom: 1px solid var(--border-color); background: rgba(0,0,0,0.2); }
+.data-table td { padding: 20px 30px; border-bottom: 1px solid var(--border-color); color: #eee; font-size: 14px; }
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { background: rgba(255,255,255,0.02); }
 
-/* АКТИВНЫЙ ЭЛЕМЕНТ */
-.playlist-item.active { 
-    background: #1f2b33; 
-    border: 1px solid #004a66; 
-    cursor: default; /* Обычный курсор */
-    pointer-events: none; /* Отключаем клики */
+.role-badge {
+    padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase;
 }
+.role-badge.teacher { background: rgba(0, 174, 239, 0.1); color: var(--primary); }
+.role-badge.student { background: rgba(255, 255, 255, 0.1); color: #aaa; }
 
-.item-index { font-size: 12px; color: #555; width: 20px; }
-.item-info { flex: 1; display: flex; flex-direction: column; gap: 4px; }
-.item-title { font-size: 14px; font-weight: 500; color: #ddd; }
-.playlist-item.active .item-title { color: #00aeef; }
-.item-duration { font-size: 11px; color: #666; }
-.playing-icon { font-size: 10px; color: #00aeef; }
-
-/* Утилиты */
-.loader, .empty-state {
-    width: 100%; height: 100%;
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    color: #666;
-}
-
-@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.btn-icon { background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 6px; border-radius: 6px; }
+.btn-icon:hover { background: #333; color: #fff; }
 
 /* Адаптив */
 @media (max-width: 900px) {
-    .lumeo-container { flex-direction: column; }
-    .playlist-sidebar { width: 100%; height: 40%; border-left: none; border-top: 1px solid #333; }
+    .stats-grid { grid-template-columns: 1fr; }
+    .section-header { flex-direction: column; align-items: flex-start; gap: 15px; }
+    .data-table th, .data-table td { padding: 15px; }
 }

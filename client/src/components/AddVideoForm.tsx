@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { uploadVideoFile, createVideo } from '../api/videoApi';
+import './AddVideoForm.css'; // Импортируем стили
 
 interface AddVideoFormProps {
   onVideoAdded: () => void;
-  // ДОБАВЛЕНО: Принимаем ID курса
   courseId: number | null;
 }
 
@@ -16,7 +16,6 @@ export const AddVideoForm = ({ onVideoAdded, courseId }: AddVideoFormProps) => {
   const [uploading, setUploading] = useState(false);
 
   const handleSaveVideo = async () => {
-    // ВАЖНО: Проверяем, передан ли ID курса
     if (!courseId) {
         return alert("Ошибка: Курс не выбран!");
     }
@@ -63,7 +62,7 @@ export const AddVideoForm = ({ onVideoAdded, courseId }: AddVideoFormProps) => {
       setSelectedVideoFile(null);
       setSelectedSubFile(null);
       
-      // Очистка инпутов (безопасный вариант)
+      // Очистка инпутов
       const videoInput = document.getElementById('video-input') as HTMLInputElement;
       if (videoInput) videoInput.value = '';
       
@@ -81,7 +80,9 @@ export const AddVideoForm = ({ onVideoAdded, courseId }: AddVideoFormProps) => {
 
   return (
     <div className="upload-section">
-      <h4 className="section-title">+ Создать новый урок</h4>
+      <h4 className="section-title">
+          <span>+</span> Создать новый урок
+      </h4>
       
       <input 
         className="admin-input"
@@ -96,12 +97,12 @@ export const AddVideoForm = ({ onVideoAdded, courseId }: AddVideoFormProps) => {
           <p className="option-label">Видео (Ссылка или Файл)</p>
           <input 
             className="admin-input"
-            placeholder="http://..." 
+            placeholder="https://rutube.ru//..." 
             value={newUrl}
             onChange={(e) => setNewUrl(e.target.value)}
             disabled={!!selectedVideoFile}
           />
-          <div className="file-input-wrapper" style={{ marginTop: '5px' }}>
+          <div className="file-input-wrapper">
              <input 
               id="video-input"
               type="file" 
@@ -110,16 +111,20 @@ export const AddVideoForm = ({ onVideoAdded, courseId }: AddVideoFormProps) => {
               onChange={(e) => setSelectedVideoFile(e.target.files?.[0] || null)}
             />
             {selectedVideoFile && (
-                <button className="clear-btn" onClick={() => {
-                    setSelectedVideoFile(null);
-                    const el = document.getElementById('video-input') as HTMLInputElement;
-                    if (el) el.value = '';
-                }}>✕</button>
+                <button 
+                    className="clear-btn" 
+                    title="Удалить файл"
+                    onClick={() => {
+                        setSelectedVideoFile(null);
+                        const el = document.getElementById('video-input') as HTMLInputElement;
+                        if (el) el.value = '';
+                    }}
+                >✕</button>
             )}
           </div>
         </div>
 
-        <div style={{ height: '1px', background: '#333', margin: '15px 0' }}></div>
+        <div className="divider"></div>
 
         {/* БЛОК СУБТИТРОВ */}
         <div className="option-group">
@@ -132,11 +137,15 @@ export const AddVideoForm = ({ onVideoAdded, courseId }: AddVideoFormProps) => {
               onChange={(e) => setSelectedSubFile(e.target.files?.[0] || null)}
             />
             {selectedSubFile && (
-                <button className="clear-btn" onClick={() => {
-                    setSelectedSubFile(null);
-                    const el = document.getElementById('sub-input') as HTMLInputElement;
-                    if (el) el.value = '';
-                }}>✕</button>
+                <button 
+                    className="clear-btn" 
+                    title="Удалить файл"
+                    onClick={() => {
+                        setSelectedSubFile(null);
+                        const el = document.getElementById('sub-input') as HTMLInputElement;
+                        if (el) el.value = '';
+                    }}
+                >✕</button>
             )}
           </div>
         </div>
