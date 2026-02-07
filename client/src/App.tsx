@@ -1,67 +1,44 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext'; // <--- Импорт
+
+// Страницы
 import { UserPage } from './pages/UserPage';
 import { PrepodPage } from './pages/PrepodPage';
 import { AdminPage } from './pages/AdminPage';
 import { CoursesPage } from './pages/CoursesPage';
 import { AuthPage } from './pages/AuthPage';
-import { ProfilePage } from './pages/ProfilePage'; // <-- Импорт
+import { ProfilePage } from './pages/ProfilePage';
 
-// Компонент защиты: проверяем наличие токена
+// Упрощенные защитники
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-    const token = localStorage.getItem('lumeo_token');
-    
-    // Если токена нет — сразу кидаем на страницу входа
-    if (!token) {
-        return <Navigate to="/auth" replace />;
-    }
-    
-    return <>{children}</>; 
+    const { isAuthenticated } = useAuth(); // Используем хук!
+    return isAuthenticated ? <>{children}</> : <Navigate to="/auth" replace />;
+};
+
+const PublicRoute = ({ children }: { children: React.ReactNode }) => {
+    const { isAuthenticated } = useAuth();
+    return isAuthenticated ? <Navigate to="/" replace /> : <>{children}</>;
 };
 
 function App() {
     return (
-        <BrowserRouter>
-            <Routes>
-                {/* 1. Публичный маршрут */}
-                <Route path="/auth" element={<AuthPage />} />
-                
-                {/* 2. Защищенные маршруты */}
-                <Route path="/" element={
-                    <ProtectedRoute>
-                        <CoursesPage />
-                    </ProtectedRoute>
-                } />
+        // Оборачиваем все в провайдер
+        <AuthProvider>
+            <BrowserRouter>
+                <Routes>
+                    <Route path="/auth" element={<PublicRoute><AuthPage /></PublicRoute>} />
+                    
+                    <Route path="/" element={<ProtectedRoute><CoursesPage /></ProtectedRoute>} />
+                    <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+                    <Route path="/course/:courseId" element={<ProtectedRoute><UserPage /></ProtectedRoute>} />
+                    <Route path="/prepod" element={<ProtectedRoute><PrepodPage /></ProtectedRoute>} />
+                    <Route path="/adminpanel" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
 
-                {/* --- НОВЫЙ РОУТ ДЛЯ ПРОФИЛЯ --- */}
-                <Route path="/profile" element={
-                    <ProtectedRoute>
-                        <ProfilePage />
-                    </ProtectedRoute>
-                } />
-                
-                <Route path="/course/:courseId" element={
-                    <ProtectedRoute>
-                        <UserPage />
-                    </ProtectedRoute>
-                } />
-
-                <Route path="/prepod" element={
-                    <ProtectedRoute>
-                        <PrepodPage />
-                    </ProtectedRoute>
-                } />
-
-                <Route path="/adminpanel" element={
-                    <ProtectedRoute>
-                        <AdminPage />
-                    </ProtectedRoute>
-                } />
-
-                {/* 3. Редирект */}
-                <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-        </BrowserRouter>
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+            </BrowserRouter>
+        </AuthProvider>
     );
 }
 

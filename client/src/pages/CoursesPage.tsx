@@ -4,11 +4,12 @@ import { getCourses } from '../api/videoApi';
 import type { ICourse } from '../types';
 import './UserPage.css'; // Используем те же стили пока
 import {UserProfile} from '../components/UserProfile';
+import { useAuth } from '../context/AuthContext';
 
 export const CoursesPage = () => {
     const [courses, setCourses] = useState<ICourse[]>([]);
     const navigate = useNavigate();
-    const [userData, setUserData] = useState<any>(JSON.parse(localStorage.getItem('lumeo_user') || '{}'));
+    const { user, logout, updateUser } = useAuth();
 
     const handleLogout = () => {
         localStorage.removeItem('lumeo_user');
@@ -18,9 +19,7 @@ export const CoursesPage = () => {
 
     // Функция для обновления аватара в состоянии админки
     const handleAvatarUpdate = (newUrl: string) => {
-        const updated = { ...userData, avatarUrl: newUrl };
-        setUserData(updated);
-        localStorage.setItem('lumeo_user', JSON.stringify(updated));
+        updateUser({ avatarUrl: newUrl });
     };
 
     useEffect(() => {
@@ -31,13 +30,13 @@ export const CoursesPage = () => {
         <div className="lumeo-layout">
             <header className="lumeo-header">
                 <div className="logo">Lumeo<span className="dot">.</span></div>
-                {userData && userData.id && (
-                                    <UserProfile 
-                                        user={userData} 
-                                        onUpdate={handleAvatarUpdate} 
-                                        onLogout={handleLogout} 
-                                    />
-                                )}
+                {user && (
+                    <UserProfile 
+                        user={user} 
+                        onUpdate={handleAvatarUpdate} 
+                        onLogout={logout} 
+                    />
+                )}
             </header>
 
             <div className="lumeo-container" style={{display: 'block', padding: '40px'}}>

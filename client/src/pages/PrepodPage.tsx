@@ -15,6 +15,7 @@ import type { IVideo, ICourse } from '../types';
 import './PrepodPage.css';
 import './UserPage.css'; // На случай если нужны общие стили
 import { UserProfile } from '../components/UserProfile';
+import { useAuth } from '../context/AuthContext';
 
 // Иконки SVG для интерфейса
 const Icons = {
@@ -28,7 +29,7 @@ export const PrepodPage = () => {
   // --- СОСТОЯНИЕ: КУРСЫ ---
   const [courses, setCourses] = useState<ICourse[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null);
-  const [userData, setUserData] = useState<any>(JSON.parse(localStorage.getItem('lumeo_user') || '{}'));
+  const { user, logout, updateUser } = useAuth();
 
   const handleLogout = () => {
     localStorage.removeItem('lumeo_user');
@@ -38,10 +39,8 @@ export const PrepodPage = () => {
 
   // Функция для обновления аватара в состоянии админки
   const handleAvatarUpdate = (newUrl: string) => {
-    const updated = { ...userData, avatarUrl: newUrl };
-    setUserData(updated);
-    localStorage.setItem('lumeo_user', JSON.stringify(updated));
-  };
+        updateUser({ avatarUrl: newUrl });
+    };
   // Форма создания нового курса
   const [newCourseTitle, setNewCourseTitle] = useState('');
   const [newCourseDesc, setNewCourseDesc] = useState('');
@@ -236,13 +235,13 @@ export const PrepodPage = () => {
             <div style={{display: 'flex', alignItems: 'center', gap: '24px'}}>
               <Link to="/" className="nav-link">Выход на сайт →</Link>
               
-              {userData.username && (
-                <UserProfile 
-                    user={userData} 
-                    onUpdate={handleAvatarUpdate} 
-                    onLogout={handleLogout} 
-                />
-              )}
+              {user && (
+                    <UserProfile 
+                        user={user} 
+                        onUpdate={handleAvatarUpdate} 
+                        onLogout={logout} 
+                    />
+                )}
             </div>
             </header>
 
@@ -356,13 +355,13 @@ export const PrepodPage = () => {
               <Link to="/" className="nav-link">Выход на сайт →</Link>
               
               {/* Вставляем профиль */}
-              {userData.username && (
-                <UserProfile 
-                    user={userData} 
-                    onUpdate={handleAvatarUpdate} 
-                    onLogout={handleLogout} 
-                />
-              )}
+              {user && (
+                    <UserProfile 
+                        user={user} 
+                        onUpdate={handleAvatarUpdate} 
+                        onLogout={logout} 
+                    />
+                )}
             </div>
         </header>
 

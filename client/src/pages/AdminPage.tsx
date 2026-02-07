@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { UserProfile } from '../components/UserProfile';
 import { Link } from 'react-router-dom';
 import './AdminPage.css';
+import { useAuth } from '../context/AuthContext';
 
 // Иконки для кнопок
 const Icons = {
@@ -11,7 +12,7 @@ const Icons = {
 };
 
 export const AdminPage = () => {
-  const [userData, setUserData] = useState<any>(JSON.parse(localStorage.getItem('lumeo_user') || '{}'));
+  const { user, logout, updateUser } = useAuth();
 
   const handleLogout = () => {
     localStorage.removeItem('lumeo_user');
@@ -19,10 +20,8 @@ export const AdminPage = () => {
     window.location.href = '/auth';
   };
   const handleAvatarUpdate = (newUrl: string) => {
-    const updated = { ...userData, avatarUrl: newUrl };
-    setUserData(updated);
-    localStorage.setItem('lumeo_user', JSON.stringify(updated));
-  };
+        updateUser({ avatarUrl: newUrl });
+    };
   return (
     <div className="lumeo-layout">
       {/* Шапка */}
@@ -37,13 +36,13 @@ export const AdminPage = () => {
               <Link to="/" className="nav-link">Выход на сайт →</Link>
               
               {/* Вставляем профиль */}
-              {userData.username && (
-                <UserProfile 
-                    user={userData} 
-                    onUpdate={handleAvatarUpdate} 
-                    onLogout={handleLogout} 
-                />
-              )}
+              {user && (
+                    <UserProfile 
+                        user={user} 
+                        onUpdate={handleAvatarUpdate} 
+                        onLogout={logout} 
+                    />
+                )}
           </div>
       </header>
 
