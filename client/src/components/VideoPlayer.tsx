@@ -114,22 +114,28 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   }, [sources]);
 
   useEffect(() => {
-    if (videoRef.current) {
-      const tracks = videoRef.current.textTracks;
-      for (let i = 0; i < tracks.length; i++) {
-        tracks[i].mode = 'hidden';
-      }
-      if (activeSubtitle !== 'off') {
-          const track = Array.from(tracks).find(t => t.language === activeSubtitle);
-          if (track) track.mode = 'showing';
-      }
-    }
-  }, [activeSubtitle]);
+        if (videoRef.current) {
+            const tracks = videoRef.current.textTracks;
+            
+            // 1. Сначала принудительно переводим ВСЕ дорожки в disabled
+            for (let i = 0; i < tracks.length; i++) {
+                tracks[i].mode = 'disabled';
+            }
+
+            // 2. Только если мы не в режиме "off", включаем конкретную
+            if (activeSubtitle !== 'off') {
+                const trackToShow = Array.from(tracks).find(t => t.language === activeSubtitle);
+                if (trackToShow) {
+                    trackToShow.mode = 'showing';
+                }
+            }
+        }
+    }, [activeSubtitle, currentSource]);
 
   useEffect(() => { if (videoRef.current) videoRef.current.volume = volume; }, [volume]);
 
   // --- ЛОГИКА НАЖАТИЯ (Smart Touch/Click) ---
-
+  
   const handlePressStart = () => {
       if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
       
@@ -152,7 +158,7 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
           }
       }, 300);
   };
-
+  
   // Вызывается ТОЛЬКО когда отпустили кнопку мыши НАД видео (MouseUp / TouchEnd)
   const handlePressEnd = () => {
       // 1. Сбрасываем таймер (если не успел сработать long press)
@@ -329,7 +335,24 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
         showControlsTemporarily();
     }
   };
-  
+    const toggleSubtitles = () => {
+    setActiveSubtitle(prev => {
+        if (prev !== 'off') {
+            console.log("Выключаем субтитры");
+            return 'off';
+        } else {
+            const firstLang = currentSource.subtitles?.[0]?.lang || 'ru';
+            console.log("Включаем субтитры:", firstLang);
+            return firstLang;
+        }
+    });
+};
+
+// 2. Добавляем функцию двойного клика
+const handleVideoDoubleClick = (e: React.MouseEvent) => {
+        e.preventDefault();
+        toggleFullscreen();
+    };
   const toggleFullscreen = () => { if (!document.fullscreenElement) containerRef.current?.requestFullscreen(); else document.exitFullscreen(); };
   
   // 1. Вычисляем сегменты (Главы)
@@ -414,7 +437,10 @@ useEffect(() => {
     if (code === 'KeyL') skipTime(10);
     if (code === 'ArrowLeft') skipTime(-5);
     if (code === 'ArrowRight') skipTime(5);
-
+    if (code === 'KeyC') {
+        e.preventDefault();
+        toggleSubtitles();
+    }
     // ГРОМКОСТЬ (Стрелки вверх/вниз)
     if (code === 'ArrowUp') { 
         e.preventDefault(); 
@@ -431,8 +457,9 @@ useEffect(() => {
     // Мут и Фуллскрин
     if (code === 'KeyM') { setIsMuted(prev => !prev); showControlsTemporarily(); }
     if (code === 'KeyF') toggleFullscreen();
+    
   };
-
+  
   const handleKeyUp = (e: KeyboardEvent) => {
       if (e.code === 'Space' || e.code === 'KeyK') {
           e.preventDefault();
@@ -530,13 +557,11 @@ const renderMainMenu = () => (
           <div className="interaction-overlay">
               <div className="interaction-card end-screen">
                   <h3>Урок завершен!</h3>
-                  
                   {!hideResults ? (
                       <div className="score-circle"><span>{score}</span><small>из {questions.length}</small></div>
                   ) : (
                       <p style={{marginTop: '10px', color: '#aaa'}}>Ответы сохранены и отправлены преподавателю.</p>
                   )}
-                  
                   <button className="primary-btn" onClick={replayVideo} style={{marginTop: '20px', gap: '10px'}}><Icons.Refresh /> Заново</button>
               </div>
           </div>
@@ -551,20 +576,13 @@ const renderMainMenu = () => (
         src={currentSource.url}
         className={`yt-video ${showControls ? 'controls-visible' : ''}`}
         playsInline
+        onDoubleClick={handleVideoDoubleClick}
         crossOrigin="anonymous"
-        
-        // Нажали кнопку
         onMouseDown={handlePressStart}
         onTouchStart={handlePressStart}
-        
-        // Отпустили кнопку (Клик или Конец 2x)
         onMouseUp={handlePressEnd}
         onTouchEnd={handlePressEnd}
-        
-        // Увели мышь / Сорвался тач (Отмена 2x, но БЕЗ клика)
-        onMouseLeave={handlePressCancel}  // <--- ВОТ ЗДЕСЬ БЫЛА ОШИБКА
-        // onTouchCancel={handlePressCancel} // Можно добавить для надежности на мобилках
-
+        onMouseLeave={handlePressCancel}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={() => setDuration(videoRef.current?.duration || 0)}
         onPlay={() => setIsPlaying(true)}
@@ -586,7 +604,6 @@ const renderMainMenu = () => (
 
       <div className={`yt-controls ${showControls && !activeEvent && !showEndScreen ? 'show' : ''}`}>
         
-        {/* --- НАЗВАНИЕ АКТИВНОЙ ГЛАВЫ (ВНИЗУ) - ОСТАВЛЯЕМ КАК ЕСТЬ --- */}
         {activeChapter && (
             <div className="active-chapter-display">
                 <span className="chapter-title">{activeChapter.question}</span>
@@ -594,34 +611,26 @@ const renderMainMenu = () => (
             </div>
         )}
 
-        {/* --- ПРОГРЕСС БАР --- */}
         <div 
             className="yt-progress-container" 
             onClick={handleSeek} 
             onMouseMove={handleProgressMouseMove} 
             onMouseLeave={handleProgressMouseLeave}
         >
-            {/* ТУЛТИП (ВСПЛЫВАШКА) - ОБНОВЛЯЕМ ЭТОТ КУСОК */}
             {hoverTime !== null && (
                 <div className="yt-hover-tooltip" style={{ left: hoverX }}>
-                    {/* Если навели на главу - показываем её название жирным */}
                     {hoverChapter && <div className="tooltip-chapter-title">{hoverChapter.question}</div>}
-                    
-                    {/* Время */}
                     <span className="tooltip-time">{formatTime(hoverTime)}</span>
                 </div>
             )}
 
-              {/* Трек с сегментами */}
               <div className="yt-progress-track">
                 {timelineSegments.map((seg) => (
                   <div 
                     key={seg.index} 
                     className="yt-chapter-segment" 
-                    // flexGrow распределяет ширину идеально пропорционально времени
                     style={{ flexGrow: seg.duration }} 
                   >
-                    {/* Прогресс (Синяя полоска внутри сегмента) */}
                     <div 
                         className="yt-segment-filled" 
                         style={{ width: `${getSegmentProgress(seg.start, seg.end)}%` }} 
@@ -630,10 +639,8 @@ const renderMainMenu = () => (
                 ))}
               </div>
 
-              {/* Ползунок (Кружок) - висит поверх всего */}
               <div className="yt-progress-handle" style={{ left: `${(currentTime / duration) * 100}%` }} />
               
-              {/* Желтые точки вопросов - висят поверх всего */}
               {questions.map(ev => (
                 <div key={ev.id} className="yt-event-marker" style={{ left: `${(ev.time / duration) * 100}%` }} />
               ))}
@@ -642,27 +649,21 @@ const renderMainMenu = () => (
 
         <div className="yt-controls-row">
           <div className="yt-left">
-            <div className="yt-left">
             <button className="yt-btn" onClick={togglePlay}>
                 {isPlaying ? <Icons.Pause /> : <Icons.Play />}
             </button>
             
-            {/* Группа громкости: Иконка + Выезжающий слайдер */}
             <div className="volume-control-group">
                 <button className="yt-btn" onClick={() => setIsMuted(!isMuted)}>
                     {isMuted || volume === 0 ? <Icons.VolumeMuted /> : <Icons.VolumeHigh />}
                 </button>
-                
                 <div className="volume-slider-container">
                     <input 
                         type="range" 
-                        min="0" 
-                        max="1" 
-                        step="0.05" 
+                        min="0" max="1" step="0.05" 
                         value={isMuted ? 0 : volume}
                         onChange={handleVolumeChange}
                         className="volume-slider"
-                        // Делаем заливку белым цветом до текущего уровня
                         style={{
                             background: `linear-gradient(to right, #fff ${isMuted ? 0 : volume * 100}%, rgba(255,255,255,0.2) ${isMuted ? 0 : volume * 100}%)`
                         }}
@@ -671,22 +672,35 @@ const renderMainMenu = () => (
             </div>
 
             <div className="yt-time-display">
-              {Math.floor(currentTime / 60)}:{Math.floor(currentTime % 60).toString().padStart(2, '0')} / {Math.floor(duration / 60)}:{Math.floor(duration % 60).toString().padStart(2, '0')}
+              {formatTime(currentTime)} / {formatTime(duration)}
             </div>
-          </div>
           </div>
 
           <div className="yt-right">
             {hasSubtitles && (
-                <button className={`yt-btn ${activeSubtitle !== 'off' ? 'btn-active' : ''}`} onClick={() => setActiveSubtitle(prev => prev === 'off' ? currentSource.subtitles![0].lang : 'off')}>
+                <button 
+                    className={`yt-btn ${activeSubtitle !== 'off' ? 'btn-active' : ''}`} 
+                    onClick={toggleSubtitles}
+                    title="Субтитры (c)"
+                >
                     <Icons.Captions />
                 </button>
             )}
             
-            <button className="yt-btn" onClick={() => videoRef.current?.requestPictureInPicture()}><Icons.Pip /></button>
+            <button 
+                className="yt-btn" 
+                onClick={() => videoRef.current?.requestPictureInPicture()}
+                title="Картинка в картинке"
+            >
+                <Icons.Pip />
+            </button>
             
             <div className="settings-wrapper">
-              <button className={`yt-btn ${showSettings ? 'rotate' : ''}`} onClick={() => { setShowSettings(!showSettings); setCurrentMenu('main'); }}>
+              <button 
+                className={`yt-btn ${showSettings ? 'rotate' : ''}`} 
+                onClick={() => { setShowSettings(!showSettings); setCurrentMenu('main'); }}
+                title="Настройки"
+              >
                 <Icons.Settings />
               </button>
               
@@ -711,10 +725,10 @@ const renderMainMenu = () => (
                             {activeSubtitle === 'off' && <span className="check-mark">●</span>}
                         </div>
                         {currentSource.subtitles?.map(sub => (
-                           <div key={sub.lang} className="menu-item" onClick={() => setActiveSubtitle(sub.lang)}>
-                               <span>{sub.label}</span>
-                               {activeSubtitle === sub.lang && <span className="check-mark">●</span>}
-                           </div>
+                            <div key={sub.lang} className="menu-item" onClick={() => setActiveSubtitle(sub.lang)}>
+                                <span>{sub.label}</span>
+                                {activeSubtitle === sub.lang && <span className="check-mark">●</span>}
+                            </div>
                         ))}
                       </div>
                   )}
@@ -722,19 +736,21 @@ const renderMainMenu = () => (
                       <div className="menu-list" style={{maxHeight: '300px', overflowY: 'auto'}}>
                         <div className="menu-header" onClick={() => setCurrentMenu('main')}>‹ Главы</div>
                         {chapters.map((chap) => (
-                           <div key={chap.id} className="menu-item" onClick={() => jumpToChapter(chap.time)}>
-                               <div style={{display: 'flex', gap: '10px', width: '100%'}}>
-                                   <span style={{color: '#00aeef', fontWeight: 'bold', minWidth: '40px'}}>{formatTime(chap.time)}</span>
-                                   <span style={{whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '160px'}}>{chap.question}</span>
-                               </div>
-                           </div>
+                            <div key={chap.id} className="menu-item" onClick={() => jumpToChapter(chap.time)}>
+                                <div style={{display: 'flex', gap: '10px', width: '100%'}}>
+                                    <span style={{color: '#00aeef', fontWeight: 'bold', minWidth: '40px'}}>{formatTime(chap.time)}</span>
+                                    <span style={{whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '160px'}}>{chap.question}</span>
+                                </div>
+                            </div>
                         ))}
                       </div>
                   )}
                 </div>
               )}
             </div>
-            <button className="yt-btn" onClick={toggleFullscreen}><Icons.Fullscreen /></button>
+            <button className="yt-btn" onClick={toggleFullscreen} title="Полный экран (f)">
+                <Icons.Fullscreen />
+            </button>
           </div>
         </div>
       </div>
