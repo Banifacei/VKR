@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { UserProfile } from '../components/UserProfile';
 import { Link } from 'react-router-dom';
 import './AdminPage.css';
 
@@ -10,6 +11,12 @@ const Icons = {
 };
 
 export const AdminPage = () => {
+  const [username] = useState(localStorage.getItem('lumeo_user') || 'Admin');
+
+  const handleLogout = () => {
+    localStorage.removeItem('lumeo_user');
+    window.location.href = '/auth';
+  };
   return (
     <div className="lumeo-layout">
       {/* Шапка */}
@@ -18,7 +25,14 @@ export const AdminPage = () => {
             <div className="logo">Lumeo<span className="dot">.</span></div>
             <span className="admin-badge">ROOT ACCESS</span>
           </div>
-          <Link to="/" className="nav-link">Выход на сайт →</Link>
+          
+          {/* Правая часть хедера */}
+          <div style={{display: 'flex', alignItems: 'center', gap: '24px'}}>
+              <Link to="/" className="nav-link">Выход на сайт →</Link>
+              
+              {/* Вставляем профиль */}
+              <UserProfile username={username} onLogout={handleLogout} />
+          </div>
       </header>
 
       <div className="lumeo-container">

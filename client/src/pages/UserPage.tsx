@@ -46,8 +46,6 @@ export const UserPage = () => {
   return (
     <div className="lumeo-layout">
       {showAuthModal && <AuthModal onLogin={handleLogin} />}
-
-      // В шапке UserPage.tsx найди старое отображение и замени на:
         <header className="lumeo-header">
             <div className="logo">Lumeo<span className="dot">.</span></div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>

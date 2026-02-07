@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { 
     getVideosByCourse, 
     addEvent, 
@@ -13,6 +14,7 @@ import { AddVideoForm } from '../components/AddVideoForm';
 import type { IVideo, ICourse } from '../types';
 import './PrepodPage.css';
 import './UserPage.css'; // На случай если нужны общие стили
+import { UserProfile } from '../components/UserProfile';
 
 // Иконки SVG для интерфейса
 const Icons = {
@@ -26,7 +28,11 @@ export const PrepodPage = () => {
   // --- СОСТОЯНИЕ: КУРСЫ ---
   const [courses, setCourses] = useState<ICourse[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null);
-  
+  const [username, setUsername] = useState(localStorage.getItem('lumeo_user') || 'Преподаватель');
+  const handleLogout = () => {
+    localStorage.removeItem('lumeo_user');
+    window.location.href = '/auth';
+  };
   // Форма создания нового курса
   const [newCourseTitle, setNewCourseTitle] = useState('');
   const [newCourseDesc, setNewCourseDesc] = useState('');
@@ -215,7 +221,15 @@ export const PrepodPage = () => {
         <div className="prepod-layout">
             <header className="lumeo-header">
                 <div className="logo">Lumeo<span className="dot">.</span></div>
-                <div style={{fontSize: '14px', color: '#888', fontWeight: 600}}>Панель преподавателя</div>
+                <div style={{display: 'flex', alignItems: 'center', gap: '20px'}}>
+                <span style={{fontSize: '14px', color: '#888', fontWeight: 600, marginRight: '10px'}}>Панель преподавателя</span>
+            </div>
+            <div style={{display: 'flex', alignItems: 'center', gap: '24px'}}>
+              <Link to="/" className="nav-link">Выход на сайт →</Link>
+              
+              {/* Вставляем профиль */}
+              <UserProfile username={username} onLogout={handleLogout} />
+            </div>
             </header>
 
             <div className="courses-container">
@@ -324,6 +338,12 @@ export const PrepodPage = () => {
                     <span style={{color: '#666', fontWeight: 400, marginLeft: '8px'}}>| Редактор</span>
                  </div>
              </div>
+             <div style={{display: 'flex', alignItems: 'center', gap: '24px'}}>
+              <Link to="/" className="nav-link">Выход на сайт →</Link>
+              
+              {/* Вставляем профиль */}
+              <UserProfile username={username} onLogout={handleLogout} />
+            </div>
         </header>
 
         <div className="editor-container">
