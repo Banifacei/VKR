@@ -338,11 +338,9 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
     const toggleSubtitles = () => {
     setActiveSubtitle(prev => {
         if (prev !== 'off') {
-            console.log("Выключаем субтитры");
             return 'off';
         } else {
             const firstLang = currentSource.subtitles?.[0]?.lang || 'ru';
-            console.log("Включаем субтитры:", firstLang);
             return firstLang;
         }
     });
