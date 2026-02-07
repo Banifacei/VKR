@@ -9,6 +9,8 @@ import { fileURLToPath } from 'url';
 import { slugify } from 'transliteration';
 import fs from 'fs';
 import multer from 'multer';
+import { User } from './src/models/User.js';
+import authRoutes from './src/routes/authRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,19 +18,22 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// 1. Папка для загрузок
 const uploadDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-}
+const avatarDir = path.join(uploadDir, 'avatars');
+
+// 1. Папка для загрузок
+[uploadDir, avatarDir].forEach(dir => {
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+    }
+});
 
 // 2. Настройка Multer (типизированная)
-type DestinationCallback = (error: Error | null, destination: string) => void;
-type FileNameCallback = (error: Error | null, filename: string) => void;
-
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, uploadDir);
+        // Если поле файла 'avatar', кладем в папку avatars
+        const dest = file.fieldname === 'avatar' ? avatarDir : uploadDir;
+        cb(null, dest);
     },
     filename: (req, file, cb) => {
         const ext = path.extname(file.originalname);
@@ -44,7 +49,7 @@ const upload = multer({ storage });
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use('/uploads', express.static(uploadDir));
-
+app.use('/api/auth', authRoutes);
 // 4. Эндпоинт загрузки
 app.post('/api/upload', upload.single('video'), (req: Request, res: Response): void => {
     try {
@@ -61,6 +66,40 @@ app.post('/api/upload', upload.single('video'), (req: Request, res: Response): v
     } catch (err) {
         console.error("Ошибка при обработке файла:", err);
         res.status(500).send('Ошибка сервера при загрузке');
+    }
+});
+
+app.post('/api/auth/avatar', upload.single('avatar'), async (req: Request, res: Response): Promise<void> => {
+    try {
+        if (!req.file) {
+            res.status(400).json({ message: 'Файл не выбран' });
+            return;
+        }
+
+        const { userId } = req.body;
+        if (!userId) {
+            res.status(400).json({ message: 'ID пользователя не указан' });
+            return;
+        }
+
+        const user = await User.findByPk(userId);
+        if (!user) {
+            res.status(404).json({ message: 'Пользователь не найден' });
+            return;
+        }
+
+        const protocol = req.protocol;
+        const host = req.get('host');
+        // Путь с учетом подпапки avatars
+        const avatarUrl = `${protocol}://${host}/uploads/avatars/${req.file.filename}`;
+
+        user.avatarUrl = avatarUrl;
+        await user.save();
+
+        res.json({ avatarUrl });
+    } catch (err) {
+        console.error("Ошибка при загрузке аватара:", err);
+        res.status(500).json({ message: 'Ошибка сервера' });
     }
 });
 

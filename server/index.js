@@ -51,8 +51,6 @@ app.post('/api/upload', upload.single('video'), (req, res) => {
         res.status(500).send('Ошибка сервера при загрузке');
     }
 });
-// 5. Роуты
-app.use('/api/videos', videoRoutes);
 // 6. Запуск
 async function start() {
     try {

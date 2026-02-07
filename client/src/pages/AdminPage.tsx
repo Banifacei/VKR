@@ -11,11 +11,17 @@ const Icons = {
 };
 
 export const AdminPage = () => {
-  const [username] = useState(localStorage.getItem('lumeo_user') || 'Admin');
+  const [userData, setUserData] = useState<any>(JSON.parse(localStorage.getItem('lumeo_user') || '{}'));
 
   const handleLogout = () => {
     localStorage.removeItem('lumeo_user');
+    localStorage.removeItem('lumeo_token');
     window.location.href = '/auth';
+  };
+  const handleAvatarUpdate = (newUrl: string) => {
+    const updated = { ...userData, avatarUrl: newUrl };
+    setUserData(updated);
+    localStorage.setItem('lumeo_user', JSON.stringify(updated));
   };
   return (
     <div className="lumeo-layout">
@@ -31,7 +37,13 @@ export const AdminPage = () => {
               <Link to="/" className="nav-link">Выход на сайт →</Link>
               
               {/* Вставляем профиль */}
-              <UserProfile username={username} onLogout={handleLogout} />
+              {userData.username && (
+                <UserProfile 
+                    user={userData} 
+                    onUpdate={handleAvatarUpdate} 
+                    onLogout={handleLogout} 
+                />
+              )}
           </div>
       </header>
 

@@ -28,10 +28,19 @@ export const PrepodPage = () => {
   // --- СОСТОЯНИЕ: КУРСЫ ---
   const [courses, setCourses] = useState<ICourse[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null);
-  const [username, setUsername] = useState(localStorage.getItem('lumeo_user') || 'Преподаватель');
+  const [userData, setUserData] = useState<any>(JSON.parse(localStorage.getItem('lumeo_user') || '{}'));
+
   const handleLogout = () => {
     localStorage.removeItem('lumeo_user');
+    localStorage.removeItem('lumeo_token');
     window.location.href = '/auth';
+  };
+
+  // Функция для обновления аватара в состоянии админки
+  const handleAvatarUpdate = (newUrl: string) => {
+    const updated = { ...userData, avatarUrl: newUrl };
+    setUserData(updated);
+    localStorage.setItem('lumeo_user', JSON.stringify(updated));
   };
   // Форма создания нового курса
   const [newCourseTitle, setNewCourseTitle] = useState('');
@@ -227,8 +236,13 @@ export const PrepodPage = () => {
             <div style={{display: 'flex', alignItems: 'center', gap: '24px'}}>
               <Link to="/" className="nav-link">Выход на сайт →</Link>
               
-              {/* Вставляем профиль */}
-              <UserProfile username={username} onLogout={handleLogout} />
+              {userData.username && (
+                <UserProfile 
+                    user={userData} 
+                    onUpdate={handleAvatarUpdate} 
+                    onLogout={handleLogout} 
+                />
+              )}
             </div>
             </header>
 
@@ -342,7 +356,13 @@ export const PrepodPage = () => {
               <Link to="/" className="nav-link">Выход на сайт →</Link>
               
               {/* Вставляем профиль */}
-              <UserProfile username={username} onLogout={handleLogout} />
+              {userData.username && (
+                <UserProfile 
+                    user={userData} 
+                    onUpdate={handleAvatarUpdate} 
+                    onLogout={handleLogout} 
+                />
+              )}
             </div>
         </header>
 

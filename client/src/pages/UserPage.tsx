@@ -14,9 +14,15 @@ export const UserPage = () => {
   const [videos, setVideos] = useState<IVideo[]>([]);
   const [selectedVideo, setSelectedVideo] = useState<IVideo | null>(null);
   const [loading, setLoading] = useState(true);
-
-  const [username, setUsername] = useState(localStorage.getItem('lumeo_user') || '');
-  const [showAuthModal, setShowAuthModal] = useState(!username);
+  const [userData, setUserData] = useState<any>(() => {
+      const saved = localStorage.getItem('lumeo_user');
+      try {
+          return saved && saved.startsWith('{') ? JSON.parse(saved) : null;
+      } catch (e) {
+          return null;
+      }
+  });
+  const [showAuthModal, setShowAuthModal] = useState(!userData || !userData.id);
 
   useEffect(() => {
     const fetchVideos = async () => {
@@ -32,28 +38,41 @@ export const UserPage = () => {
     fetchVideos();
   }, [courseId]);
 
-  const handleLogin = (name: string) => {
-      localStorage.setItem('lumeo_user', name);
-      setUsername(name);
+  const handleLoginSuccess = (data: any) => {
+      localStorage.setItem('lumeo_user', JSON.stringify(data));
+      setUserData(data);
       setShowAuthModal(false);
   };
 
   const handleLogout = () => {
     localStorage.removeItem('lumeo_user');
-    window.location.href = '/auth'; // Просто сбрасываем всё и на вход
-};
+    localStorage.removeItem('lumeo_token');
+    setUserData(null);
+    window.location.reload(); 
+  };
+  
+  const handleAvatarUpdate = (newUrl: string) => {
+    const updatedUser = { ...userData, avatarUrl: newUrl };
+    setUserData(updatedUser);
+    localStorage.setItem('lumeo_user', JSON.stringify(updatedUser));
+  };
 
   return (
     <div className="lumeo-layout">
-      {showAuthModal && <AuthModal onLogin={handleLogin} />}
+      {showAuthModal && <AuthModal onLoginSuccess={handleLoginSuccess} />}
+      
         <header className="lumeo-header">
             <div className="logo">Lumeo<span className="dot">.</span></div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                 <Link to="/" style={{color: '#fff', textDecoration: 'none'}}>← Курсы</Link>
                 
-                {/* НОВЫЙ КОМПОНЕНТ */}
-                {username && (
-                <UserProfile username={username} onLogout={handleLogout} />
+                {/* КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Добавлена проверка userData */}
+                {userData && userData.id && (
+                    <UserProfile 
+                        user={userData} 
+                        onUpdate={handleAvatarUpdate} 
+                        onLogout={handleLogout} 
+                    />
                 )}
             </div>
         </header>
@@ -70,7 +89,7 @@ export const UserPage = () => {
                         title={selectedVideo.title}
                         events={selectedVideo.events || []}
                         videoId={selectedVideo.id} 
-                        userId={username}
+                        userId={userData?.id} // Опциональная цепочка защищает, если userData еще null
                         hideResults={selectedVideo.hideResults} 
                         onOpenTest={() => alert('Тест доступен')}
                         onResetTest={() => alert('Прогресс сброшен')}

@@ -12,6 +12,7 @@ import {
     getAllVideos,
     resetVideoProgress
 } from '../controllers/videoController.js';
+import { checkAuth } from '../middleware/authMiddleware.js';
 
 console.log("!!! ЗАГРУЖАЮТСЯ НОВЫЕ РОУТЫ С AI !!!");
 
@@ -22,11 +23,10 @@ router.post('/:videoId/autocaptions', (req, res, next) => {
     console.log(`>>> РОУТЕР ПОЙМАЛ ЗАПРОС: ${req.originalUrl}`);
     next();
 }, generateSubtitles);
-
 router.post('/', createVideo);
 router.get('/', getVideosByCourse);
 router.post('/:videoId/events', createEvent);
-router.post('/progress', saveProgress);
+router.post('/progress', checkAuth,saveProgress);
 router.get('/:videoId/stats', getVideoStats);
 router.get('/courses', getAllCourses);
 router.post('/courses', createCourse);

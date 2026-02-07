@@ -3,10 +3,25 @@ import { useNavigate } from 'react-router-dom';
 import { getCourses } from '../api/videoApi';
 import type { ICourse } from '../types';
 import './UserPage.css'; // Используем те же стили пока
+import {UserProfile} from '../components/UserProfile';
 
 export const CoursesPage = () => {
     const [courses, setCourses] = useState<ICourse[]>([]);
     const navigate = useNavigate();
+    const [userData, setUserData] = useState<any>(JSON.parse(localStorage.getItem('lumeo_user') || '{}'));
+
+    const handleLogout = () => {
+        localStorage.removeItem('lumeo_user');
+        localStorage.removeItem('lumeo_token');
+        window.location.href = '/auth';
+    };
+
+    // Функция для обновления аватара в состоянии админки
+    const handleAvatarUpdate = (newUrl: string) => {
+        const updated = { ...userData, avatarUrl: newUrl };
+        setUserData(updated);
+        localStorage.setItem('lumeo_user', JSON.stringify(updated));
+    };
 
     useEffect(() => {
         getCourses().then(setCourses);
@@ -16,6 +31,13 @@ export const CoursesPage = () => {
         <div className="lumeo-layout">
             <header className="lumeo-header">
                 <div className="logo">Lumeo<span className="dot">.</span></div>
+                {userData && userData.id && (
+                                    <UserProfile 
+                                        user={userData} 
+                                        onUpdate={handleAvatarUpdate} 
+                                        onLogout={handleLogout} 
+                                    />
+                                )}
             </header>
 
             <div className="lumeo-container" style={{display: 'block', padding: '40px'}}>

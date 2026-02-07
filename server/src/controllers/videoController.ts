@@ -131,28 +131,33 @@ export const createEvent = async (req: Request, res: Response) => {
 
 export const saveProgress = async (req: Request, res: Response) => {
     try {
-        const { videoId, eventId, answer, userId } = req.body;
+        const { videoId, eventId, answer } = req.body;
+        
+        // 1. Получаем ID. TypeScript теперь должен видеть req.user
+        // Если все равно красное - используй (req as any).user?.id
+        const userId = (req as any).user?.id;
+
+        // 2. ВАЖНО: Если юзера нет, запрещаем (так как база требует числовой ID)
+        if (!userId) {
+             return res.status(401).json({ message: 'Для сохранения прогресса нужно войти в систему' });
+        }
+
         const event = await InteractiveEvent.findByPk(eventId);
         if (!event) return res.status(404).json({ message: 'Событие не найдено' });
 
-        // --- ЛОГИРОВАНИЕ ДЛЯ ОТЛАДКИ ---
         console.log('--- ПРОВЕРКА ОТВЕТА ---');
-        console.log(`Правильный (из БД): "${event.correctAnswer}"`);
-        console.log(`Ответ студента:     "${answer}"`);
+        console.log(`Правильный: "${event.correctAnswer}"`);
+        console.log(`Студент:    "${answer}"`);
 
-        // СРАВНЕНИЕ:
-        // 1. Проверяем, существуют ли значения
-        // 2. trim() убирает пробелы в начале и конце
         const dbAnswer = event.correctAnswer ? event.correctAnswer.trim() : '';
         const userAnswer = answer ? answer.trim() : '';
-
-        const isCorrect = dbAnswer === userAnswer;
+        const isCorrect = dbAnswer.toLowerCase() === userAnswer.toLowerCase(); 
         
         console.log(`Результат: ${isCorrect ? 'ВЕРНО' : 'НЕВЕРНО'}`);
-        console.log('-----------------------');
 
+        // 3. Сохраняем ТОЛЬКО ОДИН РАЗ (убрали дубликат)
         await UserResponse.create({
-            userId: userId || 'Anon',
+            userId: userId, // Здесь теперь точно число
             videoId,
             eventId,
             answer,
@@ -165,7 +170,6 @@ export const saveProgress = async (req: Request, res: Response) => {
         res.status(500).json({ message: 'Ошибка сохранения прогресса', error });
     }
 };
-
 export const getVideoStats = async (req: Request, res: Response) => {
     try {
         const { videoId } = req.params;
@@ -205,7 +209,7 @@ export const resetVideoProgress = async (req: Request, res: Response) => {
         await UserResponse.destroy({
             where: {
                 videoId: Number(videoId),
-                userId: String(userId)
+                userId: Number(userId)
             }
         });
         res.json({ success: true });
