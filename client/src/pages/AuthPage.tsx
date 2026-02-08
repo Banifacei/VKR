@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './AuthPage.css';
+import { useAuth } from '../context/AuthContext';
 
 const Icons = {
     User: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
@@ -11,7 +12,7 @@ const Icons = {
 
 export const AuthPage = () => {
     const [isLogin, setIsLogin] = useState(true);
-    
+    const { login } = useAuth();
     // Поля регистрации
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
@@ -59,8 +60,7 @@ export const AuthPage = () => {
             if (!res.ok) throw new Error(data.message || 'Ошибка сервера');
 
             if (isLogin) {
-                localStorage.setItem('lumeo_token', data.token);
-                localStorage.setItem('lumeo_user', JSON.stringify(data.user));
+                login(data.token, data.user);
                 navigate('/');
             } else {
                 alert('Регистрация успешна! Теперь войдите.');
