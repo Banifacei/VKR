@@ -5,6 +5,7 @@ import { InteractiveEvent } from '../models/InteractiveEvent.js';
 import { UserResponse } from '../models/UserResponse.js'; // <--- NEW
 import { Course } from '../models/Course.js';
 import { User } from '../models/User.js';
+import { UserVideoProgress } from '../models/UserVideoProgress.js';
 dotenv.config();
 
 const sequelize = new Sequelize({
@@ -15,7 +16,7 @@ const sequelize = new Sequelize({
   host: process.env.DB_HOST || 'localhost',
   port: Number(process.env.DB_PORT) || 5432,
   
-  models: [Video, InteractiveEvent, UserResponse, Course, User], // <--- NEW
+  models: [Video, InteractiveEvent, UserResponse, Course, User, UserVideoProgress], // <--- NEW
   
   logging: false,
 });

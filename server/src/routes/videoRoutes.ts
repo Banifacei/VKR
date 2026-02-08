@@ -10,7 +10,9 @@ import {
     createCourse,
     generateSubtitles,
     getAllVideos,
-    resetVideoProgress
+    resetVideoProgress,
+    saveVideoProgress,
+    getVideoProgress
 } from '../controllers/videoController.js';
 import { checkAuth } from '../middleware/authMiddleware.js';
 
@@ -23,14 +25,27 @@ router.post('/:videoId/autocaptions', (req, res, next) => {
     console.log(`>>> РОУТЕР ПОЙМАЛ ЗАПРОС: ${req.originalUrl}`);
     next();
 }, generateSubtitles);
+// --- СУЩЕСТВУЮЩИЕ РОУТЫ ---
+router.post('/:videoId/autocaptions', generateSubtitles);
 router.post('/', createVideo);
-router.get('/', getVideosByCourse);
-router.post('/:videoId/events', createEvent);
-router.post('/progress', checkAuth,saveProgress);
-router.get('/:videoId/stats', getVideoStats);
 router.get('/courses', getAllCourses);
 router.post('/courses', createCourse);
 router.get('/courses/:courseId/videos', getVideosByCourse);
+
+// --- РОУТЫ ДЛЯ ТЕСТОВ (UserResponse) ---
+// saveProgress — это сохранение ответов на вопросы внутри видео
+router.post('/progress', checkAuth, saveProgress); 
 router.delete('/:videoId/progress', resetVideoProgress);
+router.get('/:videoId/stats', getVideoStats);
+
+// --- НОВЫЕ РОУТЫ ДЛЯ ТАЙМЛАЙНА (UserVideoProgress) ---
+// 1. Получение времени, на котором остановился пользователь
+router.get('/:videoId/playback-progress', checkAuth, getVideoProgress);
+
+// 2. Сохранение текущей секунды просмотра (фоновое)
+router.post('/playback-progress', checkAuth, saveVideoProgress);
+
+// --- ОСТАЛЬНОЕ ---
+router.post('/:videoId/events', createEvent);
 
 export default router;

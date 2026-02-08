@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { sendAnswer, resetProgress } from '../api/videoApi'; 
+import { sendAnswer, resetProgress, savePlaybackProgress, getPlaybackProgress } from '../api/videoApi';
 import './VideoPlayer.css';
 import type { IInteractiveEvent, ISubtitle } from '../types';
 
@@ -67,7 +67,7 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null);
   const [score, setScore] = useState(0);
   const [showEndScreen, setShowEndScreen] = useState(false);
-
+  const lastSavedTimeRef = useRef<number>(0);
   // --- HOVER STATE (Для тултипа и подсветки блоков) ---
   const [hoverTime, setHoverTime] = useState<number | null>(null);
   const [hoverX, setHoverX] = useState<number>(0);
@@ -80,6 +80,26 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   // --- NEW: Активная глава (для текста внизу) ---
   const activeChapter = chapters.slice().reverse().find(chap => chap.time <= currentTime);
 
+  useEffect(() => {
+    const fetchProgress = async () => {
+        if (!videoId || !userId) return;
+        try {
+            const data = await getPlaybackProgress(videoId);
+            // Если есть сохраненное время и оно больше 0
+            if (data && data.lastTime > 0 && videoRef.current) {
+                // Устанавливаем время
+                videoRef.current.currentTime = data.lastTime;
+                lastSavedTimeRef.current = data.lastTime;
+                setCurrentTime(data.lastTime);
+            }
+        } catch (e) {
+            console.error("Ошибка загрузки прогресса", e);
+        }
+    };
+    
+    // Запускаем только при монтировании или смене видео
+    fetchProgress();
+  }, [videoId, userId]); // Зависимости важны!
 
   const handleResetAction = async () => {
     if (!videoId) return;
@@ -133,7 +153,14 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
     }, [activeSubtitle, currentSource]);
 
   useEffect(() => { if (videoRef.current) videoRef.current.volume = volume; }, [volume]);
-
+  useEffect(() => {
+        return () => {
+            // Сработает, когда компонент удаляется (переход на другую страницу)
+            if (videoId && videoRef.current && !videoRef.current.ended) {
+            savePlaybackProgress(videoId, videoRef.current.currentTime, false);
+            }
+        };
+    }, [videoId]);
   // --- ЛОГИКА НАЖАТИЯ (Smart Touch/Click) ---
   
   const handlePressStart = () => {
@@ -215,7 +242,7 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
       // Отправляем ответ всегда
       try {
           if (videoId) {
-              const res = await sendAnswer(videoId, activeEvent!.id, answer, userId);
+              const res = await sendAnswer(videoId, activeEvent!.id, answer);
               // Если скрыты результаты, не используем isCorrect из ответа
               if (hideResults) {
                   // Просто идем дальше без показа "Верно/Неверно"
@@ -250,13 +277,19 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
       setIsMuted(newVolume === 0);
   };
 
+  // --- ОБНОВЛЕНО: Сохранение прогресса при обновлении времени ---
   const handleTimeUpdate = () => {
     if (!videoRef.current) return;
     const time = videoRef.current.currentTime;
     setCurrentTime(time);
     if (onTimeUpdate) onTimeUpdate(time);
 
-    // ВАЖНО: Останавливаем только на вопросах!
+    // НОВАЯ ЛОГИКА: Сохраняем каждые 30 секунд (не чаще)
+    if (videoId && Math.abs(time - lastSavedTimeRef.current) > 30) {
+        savePlaybackProgress(videoId, time, false).catch(e => console.error(e));
+        lastSavedTimeRef.current = time;
+    }
+
     if (questions.length > 0 && !activeEvent && !showEndScreen) {
         const eventToTrigger = questions.find(ev => Math.abs(ev.time - time) < 0.5 && !processedEventIds.includes(ev.id));
         if (eventToTrigger) {
@@ -278,15 +311,19 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
       }
   };
 
+  // --- ОБНОВЛЕНО: Сохранение при завершении ---
   const handleVideoEnd = () => { 
+      // Сохраняем статус "просмотрено"
+      if (videoId) {
+          savePlaybackProgress(videoId, duration, true).catch(e => console.error(e));
+      }
+
       setIsPlaying(false); 
       setShowEndScreen(true); 
       setShowControls(false);
       
-      // 👇 ДОБАВЛЕНО: Сброс скорости при завершении
       if (videoRef.current) videoRef.current.playbackRate = 1;
       setIsSpeedingUp(false);
-      // Очищаем таймер, если вдруг видео кончилось пока мы держали кнопку
       if (longPressTimerRef.current) {
           clearTimeout(longPressTimerRef.current);
           longPressTimerRef.current = null;
@@ -584,7 +621,14 @@ const renderMainMenu = () => (
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={() => setDuration(videoRef.current?.duration || 0)}
         onPlay={() => setIsPlaying(true)}
-        onPause={() => setIsPlaying(false)}
+        onPause={() => {
+            setIsPlaying(false);
+            // Сохраняем сразу, как только юзер нажал паузу
+            if (videoId && videoRef.current) {
+                savePlaybackProgress(videoId, videoRef.current.currentTime, false);
+                lastSavedTimeRef.current = videoRef.current.currentTime;
+            }
+        }}
         onEnded={handleVideoEnd}
         muted={isMuted}
       >

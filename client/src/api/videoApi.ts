@@ -58,6 +58,29 @@ export const getVideoStats = async (videoId: number) => {
     return response.data;
 };
 
+// Сохранение позиции воспроизведения (таймлайн)
+export const savePlaybackProgress = async (videoId: number, lastTime: number, isWatched: boolean) => {
+    // Используем axiosInstance или fetch с токеном
+    const token = localStorage.getItem('lumeo_token');
+    return fetch(`http://localhost:5000/api/videos/playback-progress`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ videoId, lastTime, isWatched })
+    });
+};
+
+// Получение сохраненной позиции
+export const getPlaybackProgress = async (videoId: number) => {
+    const token = localStorage.getItem('lumeo_token');
+    const res = await fetch(`http://localhost:5000/api/videos/${videoId}/playback-progress`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+    });
+    return res.json();
+};
+
 export const uploadVideoFile = async (file: File) => {
     const formData = new FormData();
     formData.append('video', file);

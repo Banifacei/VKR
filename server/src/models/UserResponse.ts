@@ -5,7 +5,7 @@ import { User } from './User.js';
 @Table({ tableName: 'user_responses' })
 export class UserResponse extends Model {
   @ForeignKey(() => User)
-  @Column({ type: DataType.INTEGER }) // Изменено со STRING на INTEGER
+  @Column({ type: DataType.INTEGER })
   declare userId: number;
 
   @BelongsTo(() => User)

@@ -113,6 +113,8 @@ async function start() {
     try {
         await sequelize.authenticate();
         await sequelize.sync({ alter: true });
+        // force: true — удаляет таблицы (DROP) и создает их заново (CREATE) что бы бд очистить
+        //await sequelize.sync({ force: true });
         console.log('✅ База данных подключена');
         
         const server = app.listen(PORT, () => {

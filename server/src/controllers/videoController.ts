@@ -4,7 +4,7 @@ import { Video } from '../models/Video.js';
 import { InteractiveEvent } from '../models/InteractiveEvent.js';
 import { UserResponse } from '../models/UserResponse.js';
 import { Course } from '../models/Course.js';
-
+import { UserVideoProgress } from '../models/UserVideoProgress.js';
 // --- IMPORTS FOR AI ---
 import path from 'path';
 import fs from 'fs';
@@ -215,6 +215,55 @@ export const resetVideoProgress = async (req: Request, res: Response) => {
         res.json({ success: true });
     } catch (e) {
         res.status(500).json(e);
+    }
+};
+
+export const saveVideoProgress = async (req: Request, res: Response) => {
+    try {
+        const { videoId, lastTime, isWatched } = req.body;
+        const userId = (req as any).user?.id; // Берем ID из токена
+
+        if (!userId) {
+            return res.status(401).json({ message: 'Авторизуйтесь для сохранения прогресса' });
+        }
+
+        // findOrCreate: если записи нет — создаст, если есть — вернет существующую
+        const [progress, created] = await UserVideoProgress.findOrCreate({
+            where: { userId, videoId: Number(videoId) },
+            defaults: { lastTime, isWatched }
+        });
+
+        // Если запись уже была, просто обновляем время
+        if (!created) {
+            progress.lastTime = lastTime;
+            // Помечаем как просмотренное только если передано true (обычно в конце видео)
+            if (isWatched) progress.isWatched = true; 
+            await progress.save();
+        }
+
+        res.json({ success: true, progress });
+    } catch (error) {
+        console.error("Ошибка сохранения прогресса:", error);
+        res.status(500).json({ message: 'Ошибка сервера', error });
+    }
+};
+
+// 2. Получение времени, на котором остановился пользователь
+export const getVideoProgress = async (req: Request, res: Response) => {
+    try {
+        const { videoId } = req.params;
+        const userId = (req as any).user?.id;
+
+        if (!userId) return res.json({ lastTime: 0, isWatched: false });
+
+        const progress = await UserVideoProgress.findOne({
+            where: { userId, videoId: Number(videoId) }
+        });
+
+        // Если прогресса нет, возвращаем нули, чтобы плеер начал с начала
+        res.json(progress || { lastTime: 0, isWatched: false });
+    } catch (error) {
+        res.status(500).json({ message: 'Ошибка получения прогресса', error });
     }
 };
 
