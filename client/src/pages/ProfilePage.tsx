@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom'; // 1. Импортируем useNavigate
 import { UserProfile } from '../components/UserProfile';
+import { useAuth } from '../context/AuthContext';
 import './ProfilePage.css';
 
 const Icons = {
@@ -13,6 +14,8 @@ const Icons = {
 };
 
 export const ProfilePage = () => {
+    const navigate = useNavigate(); // 2. Хук навигации
+    const { updateUser } = useAuth();
     const [userData, setUserData] = useState<any>(() => {
         const saved = localStorage.getItem('lumeo_user');
         try { return saved ? JSON.parse(saved) : {}; } catch (e) { return {}; }
@@ -44,6 +47,7 @@ export const ProfilePage = () => {
         const updated = { ...userData, avatarUrl: newUrl };
         setUserData(updated);
         localStorage.setItem('lumeo_user', JSON.stringify(updated));
+        updateUser({ avatarUrl: newUrl });
     };
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -67,7 +71,8 @@ export const ProfilePage = () => {
 
     const handleSaveProfile = async () => {
         if (!firstName.trim() || !lastName.trim() || !email.trim()) {
-            alert('Имя, Фамилия и Email обязательны!'); return;
+            alert('Имя, Фамилия и Email обязательны!');
+            return false;
         }
         
         setIsSaving(true);
@@ -78,7 +83,7 @@ export const ProfilePage = () => {
                 body: JSON.stringify({
                     userId: userData.id,
                     firstName, lastName, middleName, 
-                    email, phone, // Отправляем обновленные контакты
+                    email, phone, 
                     newPassword: newPassword || undefined
                 })
             });
@@ -86,19 +91,21 @@ export const ProfilePage = () => {
             const data = await res.json();
 
             if (res.ok) {
-                // Обновляем локальные данные данными ОТ СЕРВЕРА (там может быть нормализованный телефон и т.д.)
                 const updatedUser = { ...userData, ...data.user };
                 setUserData(updatedUser);
                 localStorage.setItem('lumeo_user', JSON.stringify(updatedUser));
-                
+                updateUser(updatedUser);
                 alert('Профиль успешно обновлен!');
                 setNewPassword('');
+                return true;
             } else { 
                 alert(data.message || 'Ошибка при сохранении'); 
+                return false;
             }
         } catch (e) { 
             console.error(e); 
-            alert('Ошибка сети'); 
+            alert('Ошибка сети');
+            return false;
         } finally { 
             setIsSaving(false); 
         }
@@ -111,7 +118,23 @@ export const ProfilePage = () => {
             <header className="lumeo-header">
                 <div className="logo">Lumeo<span className="dot">.</span></div>
                 <div style={{display: 'flex', alignItems: 'center', gap: '20px'}}>
-                    <Link to="/" className="nav-link">← На главную</Link>
+                    {/* 3. Кнопка "Назад" с navigate(-1) */}
+                    <button 
+                        onClick={() => navigate(-1)} 
+                        className="nav-link" 
+                        style={{
+                            background: 'transparent', 
+                            border: 'none', 
+                            cursor: 'pointer', 
+                            color: 'inherit',
+                            fontSize: 'inherit',
+                            fontFamily: 'inherit',
+                            padding: 0
+                        }}
+                    >
+                        ← Назад
+                    </button>
+
                     {userData.id && (
                         <UserProfile user={userData} onUpdate={handleAvatarUpdate} onLogout={handleLogout} />
                     )}
@@ -176,7 +199,7 @@ export const ProfilePage = () => {
 
                         <div className="form-divider"></div>
 
-                        {/* Секция 2: Безопасность и Вход (Теперь тут и контакты, и пароль) */}
+                        {/* Секция 2: Безопасность и Вход */}
                         <div className="form-section">
                             <div className="section-title"><Icons.Lock /> <span>Безопасность и Вход</span></div>
                             
@@ -204,8 +227,15 @@ export const ProfilePage = () => {
                         </div>
 
                         <div className="form-footer">
-                            <button className="save-btn" onClick={handleSaveProfile} disabled={isSaving}>
-                                {isSaving ? <span className="loader-dots">Проверка...</span> : <><Icons.Save /> Сохранить изменения</>}
+                            <button 
+                                className="header-save-btn" 
+                                disabled={isSaving}
+                                onClick={async () => {
+                                    const success = await handleSaveProfile(); // Ждем результат
+                                    if (success) navigate(-1);                 // Если ок -> уходим назад
+                                }} 
+                            >
+                                {isSaving ? <span className="loader-dots">...</span> : 'Сохранить и выйти'}
                             </button>
                         </div>
                     </main>

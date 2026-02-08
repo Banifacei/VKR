@@ -454,7 +454,14 @@ const handleVideoDoubleClick = (e: React.MouseEvent) => {
 // Hotkeys
 useEffect(() => {
   const handleKeyDown = (e: KeyboardEvent) => {
-    if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) return;
+    const target = e.target as HTMLElement;
+      const isInput = 
+          target.tagName === 'INPUT' || 
+          target.tagName === 'TEXTAREA' || 
+          target.tagName === 'SELECT' || 
+          target.isContentEditable;
+
+      if (isInput) return;
     if (activeEvent) return;
 
     const code = e.code;
@@ -496,11 +503,12 @@ useEffect(() => {
   };
   
   const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.code === 'Space' || e.code === 'KeyK') {
-          e.preventDefault();
-          handlePressEnd();
-      }
-  };
+        const target = e.target as HTMLElement;
+        const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable;
+        if (isInput) return;
+
+        if (e.code === 'Space' || e.code === 'KeyK') { e.preventDefault(); handlePressEnd(); }
+    };
 
   window.addEventListener('keydown', handleKeyDown);
   window.addEventListener('keyup', handleKeyUp);
