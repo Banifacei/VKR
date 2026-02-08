@@ -24,7 +24,7 @@ export const register = async (req: Request, res: Response) => {
             return res.status(400).json({ message: 'Пользователь с таким Email или телефоном уже существует' });
         }
 
-        const passwordHash = await bcrypt.hash(password, 10);
+        const hash = await bcrypt.hash(password, 10);
         
         const user = await User.create({ 
             firstName, 
@@ -32,7 +32,7 @@ export const register = async (req: Request, res: Response) => {
             middleName: middleName || null, 
             email, 
             phone: phone || null, // Если пустая строка, пишем null
-            passwordHash 
+            password: hash 
         });
 
         res.status(201).json({ message: 'Регистрация успешна' });
@@ -56,7 +56,7 @@ export const login = async (req: Request, res: Response) => {
             }
         });
 
-        if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+        if (!user || !(await bcrypt.compare(password, user.password))) {
             return res.status(401).json({ message: 'Неверный логин или пароль' });
         }
 
@@ -113,7 +113,7 @@ export const updateProfile = async (req: Request, res: Response) => {
         
         if (newPassword) {
             const salt = await bcrypt.genSalt(10);
-            user.passwordHash = await bcrypt.hash(newPassword, salt);
+            user.password = await bcrypt.hash(newPassword, salt);
         }
 
         await user.save();
@@ -133,5 +133,29 @@ export const updateProfile = async (req: Request, res: Response) => {
         });
     } catch (err) {
         res.status(500).json({ message: 'Ошибка при обновлении' });
+    }
+};
+
+// Проверка текущего пользователя по токену
+export const getMe = async (req: Request, res: Response) => {
+    try {
+        // @ts-ignore
+        const userId = req.user.id; // Берем из checkAuth
+        const user = await User.findByPk(userId);
+        
+        if (!user) {
+            return res.status(404).json({ message: 'Пользователь не найден' });
+        }
+
+        res.json({
+            id: user.id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            role: user.role,
+            avatarUrl: user.avatarUrl
+        });
+    } catch (e) {
+        res.status(500).json({ message: 'Ошибка сервера' });
     }
 };

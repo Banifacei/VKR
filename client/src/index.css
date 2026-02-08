@@ -21,7 +21,6 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background-color: #0f0f0f;
-  /* УБРАЛИ display: flex и place-items: center */
 }
 
 /* Корневой элемент React должен занимать всю ширину */
@@ -30,12 +29,12 @@ body {
   min-height: 100vh;
   margin: 0;
   padding: 0;
-  text-align: left; /* Возвращаем нормальное выравнивание текста */
+  text-align: left;
   display: flex;
   flex-direction: column;
 }
 
-/* Глобальный сброс для box-model, чтобы padding не ломал ширину */
+/* Глобальный сброс для box-model */
 *, *::before, *::after {
   box-sizing: border-box;
 }
@@ -49,20 +48,18 @@ a:hover {
   color: #535bf2;
 }
 
+/* --- ЧИСТЫЙ СБРОС ДЛЯ КНОПОК --- */
+/* Мы убрали отсюда padding и border, чтобы они не мешали нашим классам .btn */
 button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
+  font-size: 100%; /* Наследуем размер шрифта */
+  line-height: 1.15; /* Нормализуем высоту строки */
+  margin: 0;
   cursor: pointer;
-  transition: border-color 0.25s;
+  background-color: transparent; /* По умолчанию прозрачная */
+  border: none; /* Убираем рамку по умолчанию */
 }
-button:hover {
-  border-color: #646cff;
-}
+
 button:focus,
 button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;

@@ -161,7 +161,10 @@ export const ProfilePage = () => {
                             <h2 className="visual-name">
                                 {firstName} <br/> {lastName}
                             </h2>
-                            <div className="role-tag">{userData.role === 'teacher' ? 'Преподаватель' : 'Студент'}</div>
+                            <div className={`role-tag ${userData.role || 'student'}`}>
+                                {userData.role === 'admin' ? 'Администратор' : 
+                                userData.role === 'teacher' ? 'Преподаватель' : 'Студент'}
+                            </div>
                         </div>
                         
                         <div className="visual-decoration">

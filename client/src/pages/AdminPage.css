@@ -151,32 +151,70 @@
 
 /* Кнопки */
 .btn {
+    /* Размеры */
     padding: 10px 20px;
     border-radius: 8px;
-    border: none;
+    
+    /* ГЛАВНОЕ: Задаем рамку сразу всем кнопкам. 
+       Она занимает место (1px), но по умолчанию невидима. */
+    border: 1px solid transparent; 
+    
+    /* Шрифт и выравнивание */
     font-weight: 600;
     font-size: 13px;
+    line-height: 1.4; /* Фиксируем высоту строки, чтобы текст не прыгал */
     cursor: pointer;
     transition: all 0.2s;
-    display: flex; align-items: center; gap: 8px;
+    
+    /* Flexbox для центрирования иконок и текста */
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    gap: 8px;
+    
+    /* Важно для правильного расчета размеров */
+    box-sizing: border-box;
 }
-.btn-primary { background: var(--primary); color: #fff; }
-.btn-primary:hover { background: var(--primary-hover); box-shadow: 0 4px 15px rgba(0, 174, 239, 0.3); }
-.btn-secondary { background: #222; color: #ddd; border: 1px solid #333; }
-.btn-secondary:hover { background: #333; border-color: #444; }
 
-/* Таблица */
+.btn-primary { 
+    background: var(--primary); 
+    color: #fff;
+    /* У этой кнопки рамка уже есть (от .btn), она прозрачная. 
+       Высота = контент + padding + 1px рамки */
+}
+
+.btn-primary:hover { 
+    background: var(--primary-hover); 
+    box-shadow: 0 4px 15px rgba(0, 174, 239, 0.3); 
+}
+
+/* Состояние disabled для кнопки "Сохранить" */
+.btn-primary:disabled {
+    background: #333;
+    color: #666;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.btn-secondary { 
+    background: #222; 
+    color: #ddd; 
+    /* Здесь мы меняем ТОЛЬКО цвет рамки. Толщина (1px) остается прежней. */
+    border-color: #333; 
+}
+
+.btn-secondary:hover { 
+    background: #333; 
+    border-color: #444; 
+    color: #fff;
+}
+
+/* --- Таблица --- */
 .data-table { width: 100%; border-collapse: collapse; }
 .data-table th { text-align: left; padding: 15px 30px; color: var(--text-muted); font-size: 12px; text-transform: uppercase; font-weight: 600; border-bottom: 1px solid var(--border-color); background: rgba(0,0,0,0.2); }
 .data-table td { padding: 20px 30px; border-bottom: 1px solid var(--border-color); color: #eee; font-size: 14px; }
 .data-table tr:last-child td { border-bottom: none; }
 .data-table tr:hover td { background: rgba(255,255,255,0.02); }
-
-.role-badge {
-    padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase;
-}
-.role-badge.teacher { background: rgba(0, 174, 239, 0.1); color: var(--primary); }
-.role-badge.student { background: rgba(255, 255, 255, 0.1); color: #aaa; }
 
 .btn-icon { background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 6px; border-radius: 6px; }
 .btn-icon:hover { background: #333; color: #fff; }
@@ -186,4 +224,159 @@
     .stats-grid { grid-template-columns: 1fr; }
     .section-header { flex-direction: column; align-items: flex-start; gap: 15px; }
     .data-table th, .data-table td { padding: 15px; }
+}
+
+/* Стили для выпадающего списка ролей в таблице */
+.role-select {
+    appearance: none;
+    background-color: #333;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+}
+
+.role-select:hover { border-color: #555; }
+.role-select:focus { outline: none; border-color: #00aeef; }
+
+.role-select.student { background-color: rgba(0, 174, 239, 0.15); color: #00aeef; }
+.role-select.teacher { background-color: rgba(255, 215, 0, 0.15); color: #ffd700; }
+.role-select.admin { background-color: rgba(255, 77, 77, 0.15); color: #ff4d4d; }
+
+/* --- МОДАЛЬНОЕ ОКНО (Обновленный дизайн) --- */
+
+/* Анимация для фона */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Анимация для самого окна (всплытие) */
+@keyframes slideUp {
+    from { opacity: 0; transform: scale(0.95) translateY(10px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.modal-content {
+    background: rgba(20, 20, 20, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    width: 420px;
+    padding: 30px;
+    box-shadow: 
+        0 20px 40px rgba(0,0,0,0.6),
+        0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+    animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex;
+    flex-direction: column;
+}
+
+/* Заголовок модалки */
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.modal-header h3 { 
+    margin: 0; 
+    font-size: 1.25rem; 
+    font-weight: 700; 
+    color: #fff; 
+    letter-spacing: -0.5px;
+}
+
+/* Кнопка закрытия (крестик) */
+.modal-header .btn-icon {
+    color: var(--text-muted);
+    transition: 0.2s;
+    background: rgba(255,255,255,0.05);
+    border-radius: 50%;
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+}
+.modal-header .btn-icon:hover {
+    background: rgba(255, 77, 77, 0.2);
+    color: var(--danger);
+    transform: rotate(90deg);
+}
+
+/* Поля ввода внутри модалки */
+.modal-body .form-group { margin-bottom: 20px; }
+.modal-body label { 
+    display: block; 
+    margin-bottom: 8px; 
+    font-size: 13px; 
+    font-weight: 500; 
+    color: var(--text-muted); 
+}
+
+/* Стили для инпутов (modern-input) */
+.modern-input {
+    width: 100%;
+    background: #0a0a0a;
+    border: 1px solid #333;
+    color: #fff;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    transition: all 0.2s;
+    outline: none;
+    box-sizing: border-box;
+}
+
+.modern-input:focus {
+    border-color: var(--primary);
+    background: #111;
+    box-shadow: 0 0 0 3px rgba(0, 174, 239, 0.15);
+}
+
+.modern-input::placeholder { color: #444; }
+
+/* Select внутри модалки */
+select.modern-input {
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px;
+    padding-right: 40px;
+    cursor: pointer;
+}
+
+/* Футер с кнопками */
+.modal-footer {
+    margin-top: 10px;
+    padding-top: 20px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.modal-footer .btn {
+    /* Выравниваем высоту */
+    padding: 14px 24px; 
+    font-size: 14px;
 }

@@ -269,3 +269,5 @@
         grid-template-columns: 1fr;
     }
 }
+
+.role-tag.admin { background: rgba(255, 77, 77, 0.2); color: #ff4d4d; border: 1px solid rgba(255, 77, 77, 0.3); }

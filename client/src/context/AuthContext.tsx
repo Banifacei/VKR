@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react'; // Импортируем тип отдельно
+import api from '../api/axiosInstance';
 
 // Тип данных пользователя
 interface User {
@@ -21,11 +22,13 @@ interface AuthContextType {
     logout: () => void;
     updateUser: (updates: Partial<User>) => void;
     isAuthenticated: boolean;
+    loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
+    const [loading, setLoading] = useState(true);
     // Инициализация из localStorage (ленивая)
     const [user, setUser] = useState<User | null>(() => {
         try {
@@ -45,6 +48,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(userData);
         localStorage.setItem('lumeo_token', newToken);
         localStorage.setItem('lumeo_user', JSON.stringify(userData));
+        setLoading(false);
     };
 
     const logout = () => {
@@ -52,7 +56,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(null);
         localStorage.removeItem('lumeo_token');
         localStorage.removeItem('lumeo_user');
-        window.location.href = '/auth'; // Жесткий редирект для очистки состояний
+        window.location.href = '/auth';
     };
 
     const updateUser = (updates: Partial<User>) => {
@@ -62,6 +66,44 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         localStorage.setItem('lumeo_user', JSON.stringify(updatedUser));
     };
 
+// 2. ГЛАВНОЕ ИЗМЕНЕНИЕ: Проверка сессии при старте
+    useEffect(() => {
+        const checkUser = async () => {
+            const storedToken = localStorage.getItem('lumeo_token');
+            
+            // Если токена нет, то и проверять нечего
+            if (!storedToken) {
+                setLoading(false);
+                return;
+            }
+
+            try {
+                // Пытаемся получить свежие данные о себе с сервера
+                const { data } = await api.get('/auth/me');
+                
+                // Если успешно — обновляем данные (вдруг роль сменилась или аватарка)
+                setUser(data);
+                // Обновляем и в localStorage на всякий случай
+                localStorage.setItem('lumeo_user', JSON.stringify(data));
+            } catch (error) {
+                console.error("Сессия недействительна или пользователь удален", error);
+                // Если ошибка (401 или 404) — выкидываем пользователя
+                logout();
+            } finally {
+                // В любом случае загрузка завершена
+                setLoading(false);
+            }
+        };
+
+        checkUser();
+    }, []);
+
+    // 3. Пока идет проверка — показываем загрузку или ничего
+    // Это предотвращает "мигание" контента, если токен протух
+    if (loading) {
+        return <div style={{height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#111', color: '#fff'}}>Загрузка...</div>;
+    }
+
     return (
         <AuthContext.Provider value={{ 
             user, 
@@ -69,14 +111,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             login, 
             logout, 
             updateUser,
-            isAuthenticated: !!token 
+            isAuthenticated: !!token,
+            loading
         }}>
             {children}
         </AuthContext.Provider>
     );
 };
 
-// Хук для удобного использования
 export const useAuth = () => {
     const context = useContext(AuthContext);
     if (!context) {
