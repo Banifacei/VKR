@@ -49,11 +49,12 @@ export const UserPage = () => {
               
               // Сравниваем списки видео. Если препод добавил/удалил урок, ID не совпадут
               setVideos(prevVideos => {
-                  const currentIds = prevVideos.map(v => v.id).join(',');
-                  const newIds = newData.map(v => v.id).join(',');
+                  // Сравниваем ВСЕ данные целиком (чтобы поймать новые субтитры или смену настроек)
+                  const currentHash = JSON.stringify(prevVideos);
+                  const newHash = JSON.stringify(newData);
                   
-                  if (currentIds !== newIds) {
-                      console.log('📺 Препод добавил (или удалил) урок! Обновляем плейлист...');
+                  if (currentHash !== newHash) {
+                      console.log('📺 Препод обновил курс (добавил урок или сгенерировались субтитры)! Обновляем...');
                       return newData; // Обновляем список!
                   }
                   return prevVideos; // Если ничего не поменялось, не дергаем интерфейс
@@ -65,7 +66,17 @@ export const UserPage = () => {
 
       return () => clearInterval(interval);
   }, [courseId]);
-
+  // --- СИНХРОНИЗАЦИЯ ПЛЕЕРА (Студент) ---
+  // Проталкиваем новые субтитры или изменения настроек прямо в плеер
+  useEffect(() => {
+      if (selectedVideo && videos.length > 0) {
+          const updated = videos.find(v => v.id === selectedVideo.id);
+          if (updated && JSON.stringify(updated) !== JSON.stringify(selectedVideo)) {
+              console.log('📺 Подхватили новые субтитры или настройки для текущего видео!');
+              setSelectedVideo(updated);
+          }
+      }
+  }, [videos]);
   const handleLoginSuccess = (data: any) => {
       localStorage.setItem('lumeo_user', JSON.stringify(data));
       setUserData(data);

@@ -85,7 +85,62 @@ export const PrepodPage = () => {
   useEffect(() => {
     loadCourses();
   }, []);
+  // --- ДИНАМИЧЕСКАЯ СТАТИСТИКА (Обновление каждые 5 сек) ---
+  useEffect(() => {
+      // Работает только если модалка открыта и выбрано видео
+      if (!showStats || !selectedVideo) return;
 
+      const interval = setInterval(async () => {
+          try {
+              const freshStats = await getVideoStats(selectedVideo.id);
+              
+              setStatsData(prev => {
+                  // Сравниваем слепок старых и новых данных
+                  if (JSON.stringify(prev) !== JSON.stringify(freshStats)) {
+                      console.log('📈 Кто-то из студентов только что ответил! Обновляем графики...');
+                      // Если студент был развернут (Подробнее), данные внутри тоже обновятся
+                      return freshStats;
+                  }
+                  return prev;
+              });
+          } catch (e) {
+              // Игнорируем тихие ошибки сети
+          }
+      }, 5000); // 5 секунд — идеально для ощущения "реального времени"
+
+      return () => clearInterval(interval);
+  }, [showStats, selectedVideo]);
+  // --- ДИНАМИЧЕСКИЕ ВИДЕО И СУБТИТРЫ (Обновление каждые 10 сек) ---
+  useEffect(() => {
+      if (!selectedCourseId) return;
+
+      const interval = setInterval(async () => {
+          try {
+              const freshVideos = await getVideosByCourse(selectedCourseId);
+              setVideos(prev => {
+                  if (JSON.stringify(prev) !== JSON.stringify(freshVideos)) {
+                      console.log('🔄 Видео обновились (возможно, ИИ закончил генерацию субтитров)!');
+                      return freshVideos;
+                  }
+                  return prev;
+              });
+          } catch (e) {}
+      }, 10000);
+
+      return () => clearInterval(interval);
+  }, [selectedCourseId]);
+
+  // --- СИНХРОНИЗАЦИЯ ПЛЕЕРА ---
+  // Если videos обновились (появились субтитры), обновляем и selectedVideo, 
+  // чтобы плеер сразу подхватил новые дорожки <track>
+  useEffect(() => {
+      if (selectedVideo && videos.length > 0) {
+          const updated = videos.find(v => v.id === selectedVideo.id);
+          if (updated && JSON.stringify(updated) !== JSON.stringify(selectedVideo)) {
+              setSelectedVideo(updated);
+          }
+      }
+  }, [videos]);
   // Следим за сменой курса
   useEffect(() => {
       if (selectedCourseId) {
