@@ -395,3 +395,39 @@ export const getAllVideos = async (req: Request, res: Response) => {
         res.status(500).json(error);
     }
 };
+
+// --- РЕДАКТИРОВАНИЕ СОБЫТИЯ ---
+export const updateEvent = async (req: Request, res: Response) => {
+    try {
+        const { eventId } = req.params;
+        const { time, type, question, options, correctAnswer, isStrict, weight, rewindTo, explanation, aiThreshold } = req.body;
+
+        const event = await InteractiveEvent.findByPk(eventId);
+        if (!event) return res.status(404).json({ message: 'Событие не найдено' });
+
+        await event.update({
+            time, type, question, options, correctAnswer,
+            isStrict, weight, rewindTo, explanation, aiThreshold
+        });
+
+        res.json({ success: true, event });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Ошибка при обновлении события', error });
+    }
+};
+
+// --- УДАЛЕНИЕ СОБЫТИЯ ---
+export const deleteEvent = async (req: Request, res: Response) => {
+    try {
+        const { eventId } = req.params;
+        const event = await InteractiveEvent.findByPk(eventId);
+        if (!event) return res.status(404).json({ message: 'Событие не найдено' });
+        await UserResponse.destroy({ where: { eventId } });
+        await event.destroy();
+        res.json({ success: true });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Ошибка при удалении события', error });
+    }
+};

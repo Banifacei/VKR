@@ -15,7 +15,7 @@ import {
     getVideoProgress
 } from '../controllers/videoController.js';
 import { checkAuth } from '../middleware/authMiddleware.js';
-
+import { updateEvent, deleteEvent } from '../controllers/videoController.js';
 console.log("!!! ЗАГРУЖАЮТСЯ НОВЫЕ РОУТЫ С AI !!!");
 
 const router = Router();
@@ -48,5 +48,6 @@ router.post('/playback-progress', checkAuth, saveVideoProgress);
 
 // --- ОСТАЛЬНОЕ ---
 router.post('/:videoId/events', createEvent);
-
+router.put('/events/:eventId', updateEvent);
+router.delete('/events/:eventId', deleteEvent);
 export default router;

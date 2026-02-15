@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
-    getVideosByCourse, 
-    addEvent, 
-    getVideoStats, 
-    updateVideo, 
-    getCourses, 
-    createCourse, 
+    getVideosByCourse,
+    addEvent,
+    updateEvent,
+    deleteEvent, // <--- Добавили две новые
+    getVideoStats,
+    updateVideo,
+    getCourses,
+    createCourse,
     generateAutoSubtitles
 } from '../api/videoApi';
 import { VideoPlayer } from '../components/VideoPlayer';
@@ -56,7 +58,7 @@ export const PrepodPage = () => {
   const [rewindTo, setRewindTo] = useState<number | ''>('');
   const [explanation, setExplanation] = useState('');
   const [aiThreshold, setAiThreshold] = useState(50);
-  
+  const [editingEventId, setEditingEventId] = useState<number | null>(null);
   const [isAddingEvent, setIsAddingEvent] = useState(false);
   const [isGeneratingSubs, setIsGeneratingSubs] = useState(false);
 
@@ -163,28 +165,31 @@ export const PrepodPage = () => {
 
       setIsAddingEvent(true);
       try {
-          await addEvent(selectedVideo.id, {
+          const eventPayload = {
               time: currentTime,
               type: eventType,
               question: questionText, 
               options: (eventType === 'single_choice' || eventType === 'multiple_choice') ? options : [],
               correctAnswer: eventType === 'free_text' ? freeTextAnswer : '',
-              isStrict,
-              weight: Number(weight),
+              isStrict, weight: Number(weight),
               rewindTo: rewindTo === '' ? undefined : Number(rewindTo),
-              explanation,
-              aiThreshold
-          });
-          
-          alert('Событие успешно добавлено на таймлайн!');
+              explanation, aiThreshold
+          };
+
+          if (editingEventId) {
+              await updateEvent(editingEventId, eventPayload);
+              alert('Метка успешно обновлена!');
+          } else {
+              await addEvent(selectedVideo.id, eventPayload);
+              alert('Метка успешно добавлена на таймлайн!');
+          }
           
           // Сбрасываем форму
           setQuestionText(''); 
           setOptions([{ text: '', isCorrect: false }, { text: '', isCorrect: false }]);
-          setFreeTextAnswer('');
-          setExplanation('');
-          setRewindTo('');
-          setAiThreshold(50);
+          setFreeTextAnswer(''); setExplanation(''); setRewindTo(''); setAiThreshold(50);
+          setEditingEventId(null); // Выходим из режима редактирования
+          
           await loadVideos();
       } catch (e) {
           alert('Ошибка при добавлении метки');
@@ -192,7 +197,33 @@ export const PrepodPage = () => {
           setIsAddingEvent(false);
       }
   };
+  const handleEditClick = (ev: any) => {
+      setEditingEventId(ev.id);
+      setCurrentTime(ev.time);
+      setEventType(ev.type);
+      setQuestionText(ev.question);
+      if (ev.type === 'free_text') setFreeTextAnswer(ev.correctAnswer || '');
+      if (ev.options && ev.options.length > 0) setOptions(ev.options);
+      setIsStrict(ev.isStrict || false);
+      setWeight(ev.weight || 1);
+      setRewindTo(ev.rewindTo !== null && ev.rewindTo !== undefined ? ev.rewindTo : '');
+      setExplanation(ev.explanation || '');
+      setAiThreshold(ev.aiThreshold || 50);
+      
+      // Скроллим наверх к плееру, чтобы было удобно
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
+  const handleDeleteClick = async (eventId: number) => {
+      if (!window.confirm('Точно удалить этот вопрос?')) return;
+      try {
+          await deleteEvent(eventId);
+          if (editingEventId === eventId) setEditingEventId(null); // Если удалили то, что редактировали
+          await loadVideos();
+      } catch (e) {
+          alert('Ошибка при удалении');
+      }
+  };
   const handleGenerateSubs = async () => {
       if (!selectedVideo) return;
       const confirm = window.confirm("Генерация займет время. Продолжить?");
@@ -558,10 +589,18 @@ export const PrepodPage = () => {
                                             style={{ minHeight: '80px', resize: 'vertical' }}
                                         />
                                     )}
-                                    
-                                    <button className="btn btn-primary" style={{ width: '100%' }} onClick={handleAddEvent} disabled={isAddingEvent}>
-                                        {isAddingEvent ? 'Сохранение...' : 'Добавить метку на таймлайн'}
-                                    </button>
+                                    <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+                                        <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleAddEvent} disabled={isAddingEvent}>
+                                            {isAddingEvent ? 'Сохранение...' : (editingEventId ? 'Сохранить изменения' : 'Добавить метку')}
+                                        </button>
+                                        {editingEventId && (
+                                            <button className="btn btn-ghost" onClick={() => {
+                                                setEditingEventId(null);
+                                                setQuestionText(''); 
+                                                setExplanation('');
+                                            }}>Отмена</button>
+                                        )}
+                                    </div>
                                 </div>
 
                                 {/* ПРАВАЯ КОЛОНКА: НАСТРОЙКИ */}
@@ -609,6 +648,31 @@ export const PrepodPage = () => {
                                 </div>
                             </div>
                         </div>
+                        {/* СПИСОК СОЗДАННЫХ МЕТОК */}
+                        {selectedVideo.events && selectedVideo.events.length > 0 && (
+                            <div style={{ marginTop: '30px', background: '#111', borderRadius: '12px', padding: '20px', border: '1px solid #333', maxWidth: '1000px' }}>
+                                <h3 style={{ margin: '0 0 20px 0', color: '#fff' }}>Метки и вопросы ({selectedVideo.events.length})</h3>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                    {[...selectedVideo.events].sort((a, b) => a.time - b.time).map(ev => (
+                                        <div key={ev.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1a1a1a', padding: '15px', borderRadius: '8px', borderLeft: `3px solid ${ev.type === 'info' ? '#ffd700' : '#00aeef'}` }}>
+                                            <div>
+                                                <strong style={{ color: ev.type === 'info' ? '#ffd700' : '#00aeef', marginRight: '10px' }}>
+                                                    {Math.floor(ev.time / 60)}:{(Math.floor(ev.time % 60)).toString().padStart(2, '0')}
+                                                </strong>
+                                                <span style={{ color: '#eee' }}>{ev.question}</span>
+                                                <span style={{ marginLeft: '10px', fontSize: '11px', color: '#666', background: '#222', padding: '2px 6px', borderRadius: '4px' }}>
+                                                    {ev.type}
+                                                </span>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '10px' }}>
+                                                <button className="btn btn-ghost" style={{ padding: '6px' }} onClick={() => handleEditClick(ev)} title="Редактировать">✏️</button>
+                                                <button className="btn btn-ghost" style={{ padding: '6px', color: '#ff4d4d' }} onClick={() => handleDeleteClick(ev.id)} title="Удалить">🗑️</button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </>
                 ) : (
                     <div className="empty-state">

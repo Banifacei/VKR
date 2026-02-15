@@ -25,17 +25,45 @@ export const UserPage = () => {
   const [showAuthModal, setShowAuthModal] = useState(!userData || !userData.id);
 
   useEffect(() => {
-    const fetchVideos = async () => {
-        if (!courseId) return;
-        try {
-            const data = await getVideosByCourse(Number(courseId)); 
-            setVideos(data);
-            if (data.length > 0) setSelectedVideo(data[0]);
-        } finally {
-            setLoading(false);
-        }
-    };
-    fetchVideos();
+      if (!courseId) return;
+
+      // 1. Первая (мгновенная) загрузка при входе на страницу
+      const fetchInitial = async () => {
+          try {
+              const data = await getVideosByCourse(Number(courseId));
+              setVideos(data);
+              // Выбираем первое видео только если еще ничего не выбрано
+              if (data.length > 0) {
+                  setSelectedVideo(prev => prev ? prev : data[0]);
+              }
+          } finally {
+              setLoading(false);
+          }
+      };
+      fetchInitial();
+
+      // 2. Фоновый радар (Long Polling) для плейлиста
+      const interval = setInterval(async () => {
+          try {
+              const newData = await getVideosByCourse(Number(courseId));
+              
+              // Сравниваем списки видео. Если препод добавил/удалил урок, ID не совпадут
+              setVideos(prevVideos => {
+                  const currentIds = prevVideos.map(v => v.id).join(',');
+                  const newIds = newData.map(v => v.id).join(',');
+                  
+                  if (currentIds !== newIds) {
+                      console.log('📺 Препод добавил (или удалил) урок! Обновляем плейлист...');
+                      return newData; // Обновляем список!
+                  }
+                  return prevVideos; // Если ничего не поменялось, не дергаем интерфейс
+              });
+          } catch (e) {
+              // Тихо игнорируем ошибки
+          }
+      }, 15000); // Для плейлиста опрос раз в 15 секунд — идеально
+
+      return () => clearInterval(interval);
   }, [courseId]);
 
   const handleLoginSuccess = (data: any) => {
@@ -93,6 +121,12 @@ export const UserPage = () => {
                         hideResults={selectedVideo.hideResults} 
                         onOpenTest={() => alert('Тест доступен')}
                         onResetTest={() => alert('Прогресс сброшен')}
+                        onRefreshEvents={async () => {
+                          if (!courseId || !selectedVideo) return []; // Защита от пустых значений
+                          const data = await getVideosByCourse(Number(courseId)); 
+                          const updatedVideo = data.find(v => v.id === selectedVideo.id);
+                          return updatedVideo?.events || [];
+                      }}
                     />
                   <div className="video-info">
                       <h1>{selectedVideo.title}</h1>

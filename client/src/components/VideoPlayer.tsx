@@ -28,13 +28,14 @@ interface VideoPlayerProps {
   onResetTest?: () => void;
   onOpenTest?: () => void;
   onTimeUpdate?: (time: number) => void;
+  onRefreshEvents?: () => Promise<IInteractiveEvent[]>;
 }
 
-export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'guest', hideResults = false, onResetTest, onOpenTest, onTimeUpdate }: VideoPlayerProps) => {
+export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'guest', hideResults = false, onResetTest, onOpenTest, onTimeUpdate, onRefreshEvents }: VideoPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<number | null>(null);
-
+  const [localEvents, setLocalEvents] = useState<IInteractiveEvent[]>(events);    
   const safeSource = (sources && sources.length > 0) ? sources[0] : { quality: 'Error', url: '', subtitles: [] };
   const [currentSource, setCurrentSource] = useState(safeSource);
 
@@ -75,12 +76,15 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   const [hoverChapter, setHoverChapter] = useState<IInteractiveEvent | null>(null);
 
   // Разделяем события
-  const questions = events.filter(e => e.type !== 'chapter');
-  const chapters = events.filter(e => e.type === 'chapter').sort((a, b) => a.time - b.time);
+  const questions = localEvents.filter(e => e.type !== 'chapter');
+  const chapters = localEvents.filter(e => e.type === 'chapter').sort((a, b) => a.time - b.time);
 
   // --- NEW: Активная глава (для текста внизу) ---
   const activeChapter = chapters.slice().reverse().find(chap => chap.time <= currentTime);
   const totalPossibleScore = questions.reduce((sum, q) => sum + (q.weight || 1), 0);
+  useEffect(() => {
+        setLocalEvents(events);
+    }, [events]);
   useEffect(() => {
     const fetchProgress = async () => {
         if (!videoId || !userId) return;
@@ -129,6 +133,29 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
         alert("Не удалось сбросить прогресс");
     }
 };
+  useEffect(() => {
+        if (!onRefreshEvents) return; // Если функцию не передали, не делаем ничего
+
+        const interval = setInterval(async () => {
+            try {
+                // Тихо скачиваем новые события
+                const freshEvents = await onRefreshEvents();
+                
+                // ИСПОЛЬЗУЕМ JSON.stringify, ЧТОБЫ ЛОВИТЬ НЕ ТОЛЬКО УДАЛЕНИЕ, НО И РЕДАКТИРОВАНИЕ ТЕКСТА
+                const currentHash = JSON.stringify(localEvents);
+                const freshHash = JSON.stringify(freshEvents);
+                
+                if (currentHash !== freshHash) {
+                    console.log('🔄 Нашли изменения (новые, удаленные или отредактированные вопросы)! Обновляем таймлайн...');
+                    setLocalEvents(freshEvents);
+                }
+            } catch (e) {
+                // Игнорируем ошибки сети в фоне
+            }
+        }, 10000); // Каждые 10 секунд
+
+        return () => clearInterval(interval);
+    }, [localEvents, onRefreshEvents]);
 
   useEffect(() => {
     if (sources && sources.length > 0) setCurrentSource(sources[0]);
