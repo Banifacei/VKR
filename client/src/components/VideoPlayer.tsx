@@ -64,6 +64,7 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   // Logic States
   const [activeEvent, setActiveEvent] = useState<IInteractiveEvent | null>(null);
   const [processedEventIds, setProcessedEventIds] = useState<number[]>([]);
+  const [currentAnswer, setCurrentAnswer] = useState<string | string[]>('');
   const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null);
   const [score, setScore] = useState(0);
   const [showEndScreen, setShowEndScreen] = useState(false);
@@ -79,7 +80,7 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
 
   // --- NEW: Активная глава (для текста внизу) ---
   const activeChapter = chapters.slice().reverse().find(chap => chap.time <= currentTime);
-
+  const totalPossibleScore = questions.reduce((sum, q) => sum + (q.weight || 1), 0);
   useEffect(() => {
     const fetchProgress = async () => {
         if (!videoId || !userId) return;
@@ -238,37 +239,85 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
       // Если мы просто провели мышкой и ушли - ничего не произойдет.
   };
 
-  const handleAnswer = async (answer: string) => {
-      // Отправляем ответ всегда
+  const handleAnswerSubmit = async () => {
+      if (!activeEvent) return;
+      
+      let isCorrectLocally = false;
+      let answerString = '';
+
+      // Локальная проверка в зависимости от типа вопроса
+      if (activeEvent.type === 'info') {
+          handleContinue(true); // Инфо-панель просто закрывается
+          return;
+      } else if (activeEvent.type === 'single_choice') {
+          const selectedOpt = activeEvent.options?.find((o: any) => o.text === currentAnswer);
+          isCorrectLocally = !!selectedOpt?.isCorrect;
+          answerString = currentAnswer as string;
+      } else if (activeEvent.type === 'multiple_choice') {
+          const selectedArr = currentAnswer as string[];
+          const correctOpts = activeEvent.options?.filter((o: any) => o.isCorrect).map((o: any) => o.text) || [];
+          isCorrectLocally = selectedArr.length === correctOpts.length && selectedArr.every(v => correctOpts.includes(v));
+          answerString = selectedArr.join(', ');
+      } else if (activeEvent.type === 'free_text') {
+          isCorrectLocally = true; 
+          answerString = currentAnswer as string;
+      } else {
+          // Старый тип 'question' для обратной совместимости
+          isCorrectLocally = activeEvent.correctAnswer === currentAnswer;
+          answerString = currentAnswer as string;
+      }
+
       try {
+          let serverIsCorrect = isCorrectLocally;
+
           if (videoId) {
-              const res = await sendAnswer(videoId, activeEvent!.id, answer);
-              // Если скрыты результаты, не используем isCorrect из ответа
-              if (hideResults) {
-                  // Просто идем дальше без показа "Верно/Неверно"
-                  setTimeout(() => handleContinue(false), 500); 
-                  return;
-              }
+              // Ждем ответа от сервера, где отработал ИИ
+              const res = await sendAnswer(videoId, activeEvent.id, answerString);
               
-              const isCorrect = res.data.isCorrect;
-              setFeedback(isCorrect ? 'correct' : 'incorrect');
-              setTimeout(() => handleContinue(isCorrect), 1500);
-          } else {
-              // Режим превью (без videoId)
-              const isCorrect = activeEvent?.correctAnswer === answer;
-              setFeedback(isCorrect ? 'correct' : 'incorrect');
-              setTimeout(() => handleContinue(isCorrect), 1500);
+              // ВАЖНО: берем вердикт ИИ из ответа сервера
+              serverIsCorrect = res.data.isCorrect; 
+          }
+          
+          if (hideResults) {
+              handleContinue(serverIsCorrect);
+              return;
+          }
+
+          // Показываем результат (теперь точно такой же, как в консоли бэкенда)
+          setFeedback(serverIsCorrect ? 'correct' : 'incorrect');
+          
+          if (serverIsCorrect) {
+              setTimeout(() => handleContinue(true), 1500);
           }
       } catch (e) {
+          console.error(e);
           handleContinue(false);
       }
   };
 
   const handleContinue = (wasCorrect: boolean) => {
-      if (wasCorrect) setScore(s => s + 1);
+      // Теперь прибавляем не +1, а вес вопроса (или 1 по умолчанию)
+      if (wasCorrect) setScore(s => s + (activeEvent?.weight || 1));
       setFeedback(null);
+      // Очищаем поле ответа для следующего вопроса
+      setCurrentAnswer(activeEvent?.type === 'multiple_choice' ? [] : '');
       setActiveEvent(null);
       videoRef.current?.play();
+  };
+  const handleRewind = () => {
+      if (activeEvent?.rewindTo !== undefined && videoRef.current) {
+          videoRef.current.currentTime = activeEvent.rewindTo;
+          // Удаляем из решенных, чтобы вопрос задался снова, когда студент досмотрит
+          setProcessedEventIds(prev => prev.filter(id => id !== activeEvent.id)); 
+      }
+      setFeedback(null);
+      setCurrentAnswer(activeEvent?.type === 'multiple_choice' ? [] : '');
+      setActiveEvent(null);
+      videoRef.current?.play();
+  };
+  const handleRetry = () => {
+      setFeedback(null);
+      setCurrentAnswer(activeEvent?.type === 'multiple_choice' ? [] : '');
   };
 // --- Хендлер для ползунка громкости ---
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -296,6 +345,7 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
             videoRef.current.pause();
             setIsPlaying(false);
             setActiveEvent(eventToTrigger);
+            setCurrentAnswer(eventToTrigger.type === 'multiple_choice' ? [] : '');
             setShowControls(false);
             setProcessedEventIds(prev => [...prev, eventToTrigger.id]);
         }
@@ -577,18 +627,117 @@ const renderMainMenu = () => (
 
   return (
     <div ref={containerRef} className={`yt-player-container ${isZoomFill ? 'zoom-active' : ''} ${isFullscreen ? 'is-fullscreen' : ''}`} onMouseMove={showControlsTemporarily} onMouseLeave={() => !showSettings && setShowControls(false)}>
+      {/* --- ОВЕРЛЕЙ ИНТЕРАКТИВА (ИСПРАВЛЕННЫЙ) --- */}
       {activeEvent && (
         <div className="interaction-overlay">
             <div className={`interaction-card ${feedback ? feedback : ''}`}>
-                {!hideResults && feedback === 'correct' && <div className="feedback-icon">✅ Верно!</div>}
-                {!hideResults && feedback === 'incorrect' && <div className="feedback-icon">❌ Ошибка</div>}
                 
+                {/* 1. Блок Успеха: показываем только если ответ верный и результаты не скрыты */}
+                {feedback === 'correct' && !hideResults && (
+                    <div className="feedback-icon">✅ Верно!</div>
+                )}
+                
+                {/* 2. Блок Ошибки: показываем пояснение и кнопки действий */}
+                {feedback === 'incorrect' && !hideResults && (
+                    <div>
+                        <div className="feedback-icon">❌ Ошибка</div>
+                        {activeEvent.explanation && <div className="explanation-box">{activeEvent.explanation}</div>}
+                        
+                        <div style={{ marginTop: '25px', display: 'flex', gap: '15px', justifyContent: 'center' }}>
+                            {activeEvent.rewindTo !== undefined && activeEvent.rewindTo !== null ? (
+                                <button className="primary-btn" onClick={handleRewind}>🔙 Пересмотреть фрагмент</button>
+                            ) : activeEvent.isStrict ? (
+                                <button className="primary-btn" onClick={handleRetry}>🔄 Попробовать снова</button>
+                            ) : (
+                                <button className="primary-btn" style={{background: '#444'}} onClick={() => handleContinue(false)}>Пропустить ⏭</button>
+                            )}
+                        </div>
+                    </div>
+                )}
+                
+                {/* Само задание (до ответа) */}
                 {!feedback && (
                     <>
-                        <h3>Вопрос</h3>
+                        <h3 style={{color: '#00aeef'}}>
+                            {activeEvent.type === 'info' ? '💡 Информация' : '❓ Вопрос'}
+                        </h3>
                         <p className="question-text">{activeEvent.question}</p>
-                        <div className="options-list">
-                            {activeEvent.options?.map((opt, idx) => (<button key={idx} className="option-btn" onClick={() => handleAnswer(opt)}>{opt}</button>))}
+                        
+                        {/* 1. Один вариант (Radio) или старый тип */}
+                        {(activeEvent.type === 'single_choice' || activeEvent.type === 'question') && (
+                            <div className="options-list">
+                                {activeEvent.options?.map((opt: any, idx: number) => {
+                                    // Поддержка и старых строк, и новых объектов
+                                    const text = typeof opt === 'string' ? opt : opt.text;
+                                    return (
+                                        <label key={idx} className={`option-label-interactive ${currentAnswer === text ? 'selected' : ''}`}>
+                                            <input type="radio" checked={currentAnswer === text} onChange={() => setCurrentAnswer(text)} />
+                                            {text}
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        {/* 2. Множественный выбор (Checkbox) */}
+                        {activeEvent.type === 'multiple_choice' && (
+                            <div className="options-list">
+                                {activeEvent.options?.map((opt: any, idx: number) => {
+                                    const text = typeof opt === 'string' ? opt : opt.text;
+                                    const isChecked = Array.isArray(currentAnswer) && currentAnswer.includes(text);
+                                    return (
+                                        <label key={idx} className={`option-label-interactive ${isChecked ? 'selected' : ''}`}>
+                                            <input 
+                                                type="checkbox" 
+                                                checked={isChecked}
+                                                onChange={(e) => {
+                                                    const arr = Array.isArray(currentAnswer) ? [...currentAnswer] : [];
+                                                    if (e.target.checked) arr.push(text);
+                                                    else {
+                                                        const i = arr.indexOf(text);
+                                                        if (i > -1) arr.splice(i, 1);
+                                                    }
+                                                    setCurrentAnswer(arr);
+                                                }}
+                                            />
+                                            {text}
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        {/* 3. Открытый вопрос (Textarea) */}
+                        {activeEvent.type === 'free_text' && (
+                            <textarea 
+                                className="modern-textarea"
+                                placeholder="Введите ваш ответ..."
+                                value={currentAnswer as string}
+                                onChange={(e) => setCurrentAnswer(e.target.value)}
+                            />
+                        )}
+
+                        {/* 4. Инфо-карточка (Пояснение) */}
+                        {activeEvent.type === 'info' && activeEvent.explanation && (
+                             <div className="explanation-box info-box">{activeEvent.explanation}</div>
+                        )}
+
+                        <div style={{ marginTop: '25px' }}>
+                            {activeEvent.type === 'info' ? (
+                                <button className="primary-btn" onClick={handleAnswerSubmit}>Понятно, продолжить</button>
+                            ) : (
+                                <button 
+                                    className="primary-btn" 
+                                    onClick={handleAnswerSubmit}
+                                    disabled={
+                                        ((activeEvent.type === 'single_choice' || activeEvent.type === 'question') && !currentAnswer) ||
+                                        (activeEvent.type === 'multiple_choice' && (currentAnswer as string[]).length === 0) ||
+                                        (activeEvent.type === 'free_text' && !(currentAnswer as string).trim())
+                                    }
+                                >
+                                    Ответить
+                                </button>
+                            )}
                         </div>
                     </>
                 )}
@@ -601,7 +750,7 @@ const renderMainMenu = () => (
               <div className="interaction-card end-screen">
                   <h3>Урок завершен!</h3>
                   {!hideResults ? (
-                      <div className="score-circle"><span>{score}</span><small>из {questions.length}</small></div>
+                      <div className="score-circle"><span>{score}</span><small>из {totalPossibleScore}</small></div>
                   ) : (
                       <p style={{marginTop: '10px', color: '#aaa'}}>Ответы сохранены и отправлены преподавателю.</p>
                   )}

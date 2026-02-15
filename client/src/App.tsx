@@ -1,8 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext'; // <--- Импорт
+import { AuthProvider, useAuth } from './context/AuthContext';
 
-// Страницы
 import { UserPage } from './pages/UserPage';
 import { PrepodPage } from './pages/PrepodPage';
 import { AdminPage } from './pages/AdminPage';
@@ -10,9 +9,8 @@ import { CoursesPage } from './pages/CoursesPage';
 import { AuthPage } from './pages/AuthPage';
 import { ProfilePage } from './pages/ProfilePage';
 
-// Упрощенные защитники
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-    const { isAuthenticated } = useAuth(); // Используем хук!
+    const { isAuthenticated } = useAuth();
     return isAuthenticated ? <>{children}</> : <Navigate to="/auth" replace />;
 };
 
@@ -23,7 +21,6 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
 
 function App() {
     return (
-        // Оборачиваем все в провайдер
         <AuthProvider>
             <BrowserRouter>
                 <Routes>

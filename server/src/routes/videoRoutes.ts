@@ -37,6 +37,7 @@ router.get('/courses/:courseId/videos', getVideosByCourse);
 router.post('/progress', checkAuth, saveProgress); 
 router.delete('/:videoId/progress', resetVideoProgress);
 router.get('/:videoId/stats', getVideoStats);
+router.patch('/:videoId', checkAuth, updateVideoSettings);
 
 // --- НОВЫЕ РОУТЫ ДЛЯ ТАЙМЛАЙНА (UserVideoProgress) ---
 // 1. Получение времени, на котором остановился пользователь

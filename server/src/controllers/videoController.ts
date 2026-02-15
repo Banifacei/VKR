@@ -5,23 +5,50 @@ import { InteractiveEvent } from '../models/InteractiveEvent.js';
 import { UserResponse } from '../models/UserResponse.js';
 import { Course } from '../models/Course.js';
 import { UserVideoProgress } from '../models/UserVideoProgress.js';
-// --- IMPORTS FOR AI ---
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegPath from 'ffmpeg-static';
 import { pipeline } from '@xenova/transformers';
+import { User } from '../models/User.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+let semanticExtractor: any = null;
 
-// Настройка FFmpeg
+// Функция вычисления смыслового сходства текста
+const calculateSemanticSimilarity = async (studentAnswer: string, correctAnswer: string) => {
+    if (!studentAnswer || !correctAnswer) return 0;
+    
+    try {
+        if (!semanticExtractor) {
+            console.log('[AI] Загрузка модели семантического анализа (это займет немного времени при первом запуске)...');
+            // Используем мультиязычную модель, которая отлично понимает русский
+            semanticExtractor = await pipeline('feature-extraction', 'Xenova/paraphrase-multilingual-MiniLM-L12-v2', { quantized: true });
+        }
+
+        // 1. Получаем векторы (эмбеддинги) для обоих текстов
+        const out1 = await semanticExtractor(studentAnswer.toLowerCase(), { pooling: 'mean', normalize: true });
+        const out2 = await semanticExtractor(correctAnswer.toLowerCase(), { pooling: 'mean', normalize: true });
+
+        // 2. Считаем косинусное сходство (dot product)
+        let similarity = 0;
+        for (let i = 0; i < out1.data.length; i++) {
+            similarity += out1.data[i] * out2.data[i];
+        }
+        
+        return similarity;
+    } catch (e) {
+        console.error('[AI] Ошибка семантического анализа:', e);
+        // Фолбэк: если ИИ упал, проверяем просто вхождение ключевых слов
+        return studentAnswer.toLowerCase().includes(correctAnswer.toLowerCase()) ? 1 : 0;
+    }
+};
+
 if (ffmpegPath) {
     ffmpeg.setFfmpegPath(ffmpegPath as unknown as string);
 }
-
-// === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ===
 const formatVttTime = (seconds: number) => {
     const date = new Date(0);
     date.setMilliseconds(seconds * 1000);
@@ -52,9 +79,6 @@ const extractAudio = (videoPath: string, audioPath: string): Promise<void> => {
             .save(audioPath);
     });
 };
-
-// === КОНТРОЛЛЕРЫ ===
-
 export const createCourse = async (req: Request, res: Response) => {
     try {
         const { title, description, instructor } = req.body;
@@ -67,17 +91,15 @@ export const createCourse = async (req: Request, res: Response) => {
 
 export const getAllCourses = async (req: Request, res: Response) => {
     try {
-        const courses = await Course.findAll({ include: [Video] }); // Подгружаем видео, чтобы посчитать их кол-во
+        const courses = await Course.findAll({ include: [Video] });
         res.json(courses);
     } catch (e) {
         res.status(500).json(e);
     }
 };
-
-// Создать видео
 export const createVideo = async (req: Request, res: Response) => {
   try {
-    const { title, url, subtitles, hideResults, courseId } = req.body; // <--- берем courseId
+    const { title, url, subtitles, hideResults, courseId } = req.body;
     
     const video = await Video.create({ 
         title,
@@ -97,8 +119,8 @@ export const getVideosByCourse = async (req: Request, res: Response) => {
   try {
     const { courseId } = req.params;
     const videos = await Video.findAll({
-      where: { courseId }, // <--- Фильтр
-      order: [['createdAt', 'ASC']], // В курсе логичнее от старого к новому
+      where: { courseId },
+      order: [['createdAt', 'ASC']],
       include: [InteractiveEvent]
     });
     res.json(videos);
@@ -111,7 +133,7 @@ export const getVideosByCourse = async (req: Request, res: Response) => {
 export const createEvent = async (req: Request, res: Response) => {
     try {
         const { videoId } = req.params;
-        const { time, type, question, options, correctAnswer } = req.body;
+        const { time, type, question, options, correctAnswer, isStrict, weight, rewindTo, explanation, aiThreshold } = req.body;
 
         const event = await InteractiveEvent.create({
             videoId: Number(videoId),
@@ -119,7 +141,12 @@ export const createEvent = async (req: Request, res: Response) => {
             type,
             question,
             options,
-            correctAnswer
+            correctAnswer,
+            isStrict: isStrict || false,
+            weight: weight || 1,
+            rewindTo: rewindTo || null,
+            explanation: explanation || null,
+            aiThreshold: aiThreshold || 50
         });
 
         res.status(201).json(event);
@@ -128,46 +155,78 @@ export const createEvent = async (req: Request, res: Response) => {
         res.status(500).json({ message: 'Ошибка при создании события', error });
     }
 };
-
 export const saveProgress = async (req: Request, res: Response) => {
     try {
+        // @ts-ignore
+        const userId = req.user.id;
         const { videoId, eventId, answer } = req.body;
-        
-        // 1. Получаем ID. TypeScript теперь должен видеть req.user
-        // Если все равно красное - используй (req as any).user?.id
-        const userId = (req as any).user?.id;
-
-        // 2. ВАЖНО: Если юзера нет, запрещаем (так как база требует числовой ID)
-        if (!userId) {
-             return res.status(401).json({ message: 'Для сохранения прогресса нужно войти в систему' });
-        }
 
         const event = await InteractiveEvent.findByPk(eventId);
-        if (!event) return res.status(404).json({ message: 'Событие не найдено' });
+        if (!event) {
+            return res.status(404).json({ message: 'Событие не найдено' });
+        }
 
-        console.log('--- ПРОВЕРКА ОТВЕТА ---');
-        console.log(`Правильный: "${event.correctAnswer}"`);
-        console.log(`Студент:    "${answer}"`);
-
-        const dbAnswer = event.correctAnswer ? event.correctAnswer.trim() : '';
-        const userAnswer = answer ? answer.trim() : '';
-        const isCorrect = dbAnswer.toLowerCase() === userAnswer.toLowerCase(); 
+        let isCorrect = false;
+        let similarityValue: number | null = null;
+        // --- ЛОГИКА ПРОВЕРКИ ---
         
-        console.log(`Результат: ${isCorrect ? 'ВЕРНО' : 'НЕВЕРНО'}`);
+        if (event.type === 'info') {
+            isCorrect = true; // Инфо-панель всегда засчитывается
+        } 
+        else if (event.type === 'single_choice' || event.type === 'question') {
+            // Поддержка и старых (строки) и новых (объекты) вариантов
+            if (event.options && typeof event.options[0] === 'object') {
+                const correctOpt = event.options.find((o: any) => o.isCorrect);
+                isCorrect = correctOpt ? correctOpt.text === answer : false;
+            } else {
+                isCorrect = event.correctAnswer === answer;
+            }
+        } 
+        else if (event.type === 'multiple_choice') {
+            // Ожидаем, что answer пришел в виде строки: "Вариант 1, Вариант 2"
+            const correctOpts = event.options?.filter((o: any) => o.isCorrect).map((o: any) => o.text) || [];
+            const studentAnsArr = typeof answer === 'string' ? answer.split(', ') : [];
+            
+            isCorrect = studentAnsArr.length === correctOpts.length && 
+                        studentAnsArr.every((v: string) => correctOpts.includes(v));
+        } 
+        else if (event.type === 'free_text') {
+            // --- AI ПРОВЕРКА ОТКРЫТОГО ТЕКСТА ---
+            const threshold = (event.aiThreshold || 50) / 100; // Порог: 70% смыслового совпадения
+            const similarity = await calculateSemanticSimilarity(answer, event.correctAnswer || '');
+            similarityValue = Math.round(similarity * 100);
+            console.log(`\n[AI ОЦЕНКА]`);
+            console.log(`Студент написал: "${answer}"`);
+            console.log(`Эталон препода: "${event.correctAnswer}"`);
+            console.log(`[AI ОЦЕНКА] Сходство: ${similarityValue}%`);
+            console.log(`Вердикт: ${similarity >= threshold ? '✅ ЗАЧТЕНО' : '❌ ОШИБКА'}\n`);
+            
+            isCorrect = similarity >= threshold;
+        }
 
-        // 3. Сохраняем ТОЛЬКО ОДИН РАЗ (убрали дубликат)
-        await UserResponse.create({
-            userId: userId, // Здесь теперь точно число
-            videoId,
-            eventId,
-            answer,
-            isCorrect
-        });
+        // Сохраняем или обновляем ответ в базе данных
+        let responseRecord = await UserResponse.findOne({ where: { userId, videoId, eventId } });
 
-        res.json({ success: true, isCorrect });
+        if (responseRecord) {
+            responseRecord.answer = answer;
+            responseRecord.isCorrect = isCorrect;
+            responseRecord.similarity = similarityValue;
+            await responseRecord.save();
+        } else {
+            responseRecord = await UserResponse.create({
+                userId,
+                videoId,
+                eventId,
+                answer,
+                isCorrect,
+                similarity: similarityValue
+            });
+        }
+
+        res.json({ success: true, isCorrect, responseRecord });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Ошибка сохранения прогресса', error });
+        res.status(500).json({ message: 'Ошибка сохранения ответа', error });
     }
 };
 export const getVideoStats = async (req: Request, res: Response) => {
@@ -176,7 +235,10 @@ export const getVideoStats = async (req: Request, res: Response) => {
 
         const stats = await UserResponse.findAll({
             where: { videoId },
-            include: [InteractiveEvent],
+            include: [
+                InteractiveEvent,
+                { model: User, attributes: ['id', 'firstName', 'lastName'] }
+            ],
             order: [['createdAt', 'DESC']]
         });
 
@@ -204,7 +266,7 @@ export const updateVideoSettings = async (req: Request, res: Response) => {
 export const resetVideoProgress = async (req: Request, res: Response) => {
     try {
         const { videoId } = req.params;
-        const { userId } = req.query; // Получаем "Кокорин" из URL
+        const { userId } = req.query;
 
         await UserResponse.destroy({
             where: {
@@ -221,22 +283,17 @@ export const resetVideoProgress = async (req: Request, res: Response) => {
 export const saveVideoProgress = async (req: Request, res: Response) => {
     try {
         const { videoId, lastTime, isWatched } = req.body;
-        const userId = (req as any).user?.id; // Берем ID из токена
+        const userId = (req as any).user?.id;
 
         if (!userId) {
             return res.status(401).json({ message: 'Авторизуйтесь для сохранения прогресса' });
         }
-
-        // findOrCreate: если записи нет — создаст, если есть — вернет существующую
         const [progress, created] = await UserVideoProgress.findOrCreate({
             where: { userId, videoId: Number(videoId) },
             defaults: { lastTime, isWatched }
         });
-
-        // Если запись уже была, просто обновляем время
         if (!created) {
             progress.lastTime = lastTime;
-            // Помечаем как просмотренное только если передано true (обычно в конце видео)
             if (isWatched) progress.isWatched = true; 
             await progress.save();
         }
@@ -247,8 +304,6 @@ export const saveVideoProgress = async (req: Request, res: Response) => {
         res.status(500).json({ message: 'Ошибка сервера', error });
     }
 };
-
-// 2. Получение времени, на котором остановился пользователь
 export const getVideoProgress = async (req: Request, res: Response) => {
     try {
         const { videoId } = req.params;
@@ -259,15 +314,12 @@ export const getVideoProgress = async (req: Request, res: Response) => {
         const progress = await UserVideoProgress.findOne({
             where: { userId, videoId: Number(videoId) }
         });
-
-        // Если прогресса нет, возвращаем нули, чтобы плеер начал с начала
         res.json(progress || { lastTime: 0, isWatched: false });
     } catch (error) {
         res.status(500).json({ message: 'Ошибка получения прогресса', error });
     }
 };
 
-// --- ИСПРАВЛЕННАЯ ФУНКЦИЯ ---
 export const generateSubtitles = async (req: Request, res: Response) => {
     try {
         const { videoId } = req.params;
@@ -289,26 +341,15 @@ export const generateSubtitles = async (req: Request, res: Response) => {
         }
 
         console.log(`[AI] Старт для видео: ${videoId}`);
-
-        // 1. Извлекаем аудио через FFmpeg (ОБЯЗАТЕЛЬНО: 16k rate, mono, wav)
         await extractAudio(videoPath, tempAudioPath);
-
-        // 2. Читаем WAV файл в буфер (ВАЖНО ДЛЯ NODE.JS)
-        
         console.log('[AI] Запуск Whisper...');
         const transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-small');
-        
-        // ДАВАЙ ПОПРОБУЕМ ВОТ ТАК (через wavefile):
         const wav = await import('wavefile');
         const buffer = fs.readFileSync(tempAudioPath);
         const wavFile = new wav.WaveFile(buffer);
-        wavFile.toBitDepth('32f'); // Конвертируем в 32-bit float
+        wavFile.toBitDepth('32f');
         const audioData = wavFile.getSamples();
-        
-        // Если стерео, берем первый канал, если моно - просто данные
         let float32Array = Array.isArray(audioData) ? audioData[0] : audioData;
-
-        // 3. Распознавание
         const output = await transcriber(float32Array, {
             chunk_length_s: 30,
             stride_length_s: 5,
@@ -316,15 +357,11 @@ export const generateSubtitles = async (req: Request, res: Response) => {
             task: 'transcribe',
             return_timestamps: true,
         });
-
-        // 4. VTT
         // @ts-ignore
         createVttFile(output.chunks, vttPath);
 
-        // 5. Чистка
         if (fs.existsSync(tempAudioPath)) fs.unlinkSync(tempAudioPath);
 
-        // 6. БД
         const protocol = req.protocol;
         const host = req.get('host');
         const vttUrl = `${protocol}://${host}/uploads/${vttFileName}`;

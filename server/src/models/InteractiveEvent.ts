@@ -7,7 +7,7 @@ export class InteractiveEvent extends Model {
   declare time: number;
 
   @Column({ type: DataType.STRING, allowNull: false })
-  declare type: string;
+  declare type: string; 
 
   @Column({ type: DataType.STRING, allowNull: false })
   declare question: string;
@@ -17,8 +17,24 @@ export class InteractiveEvent extends Model {
 
   @Column({ type: DataType.STRING, allowNull: true })
   declare correctAnswer?: string;
+  
+  @Column({ type: DataType.BOOLEAN, defaultValue: false })
+  declare isStrict: boolean;
+
+  @Column({ type: DataType.INTEGER, defaultValue: 1 })
+  declare weight: number;
+
+  @Column({ type: DataType.FLOAT, allowNull: true })
+  declare rewindTo?: number;
+
+  @Column({ type: DataType.TEXT, allowNull: true })
+  declare explanation?: string;
+
+  @Column({ type: DataType.INTEGER, defaultValue: 50 })
+  declare aiThreshold: number;
 
   @ForeignKey(() => Video)
+  
   @Column({ type: DataType.INTEGER })
   declare videoId: number;
 

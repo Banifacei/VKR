@@ -373,4 +373,83 @@ video.controls-visible::-webkit-media-text-track-container { transform: translat
   box-shadow: 0 1px 3px rgba(0,0,0,0.4);
 }
 
+/* --- НОВЫЕ ИНТЕРАКТИВНЫЕ ЭЛЕМЕНТЫ ТЕСТА --- */
+
+.option-label-interactive {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: 0.2s;
+  text-align: left;
+  color: #eee;
+  margin-bottom: 8px;
+}
+
+.option-label-interactive:hover {
+  background: #333;
+  border-color: #666;
+}
+
+.option-label-interactive.selected {
+  background: rgba(0, 174, 239, 0.1);
+  border-color: #00aeef;
+}
+
+.option-label-interactive input {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #00aeef;
+  flex-shrink: 0;
+}
+
+.modern-textarea {
+  width: 100%;
+  min-height: 100px;
+  background: #2a2a2a;
+  border: 1px solid #444;
+  color: white;
+  padding: 15px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 1rem;
+  resize: vertical;
+  outline: none;
+  transition: 0.2s;
+}
+
+.modern-textarea:focus {
+  border-color: #00aeef;
+  background: #333;
+}
+
+.explanation-box {
+  background: rgba(255, 77, 77, 0.1);
+  border-left: 4px solid #ff4d4d;
+  padding: 15px;
+  text-align: left;
+  margin-top: 15px;
+  border-radius: 0 8px 8px 0;
+  color: #ddd;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.info-box {
+  background: rgba(0, 174, 239, 0.1);
+  border-color: #00aeef;
+  margin-bottom: 20px;
+}
+
+.primary-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #444;
+}
+
 @keyframes fadeIn { from { opacity: 0; transform: translate(-50%, -10px); } to { opacity: 1; transform: translate(-50%, 0); } }

@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { Op } from 'sequelize'; // <--- ВАЖНО: Добавь этот импорт
+import { Op } from 'sequelize';
 import { User } from '../models/User.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'lumeo_super_secret_2024';
@@ -9,13 +9,11 @@ const JWT_SECRET = process.env.JWT_SECRET || 'lumeo_super_secret_2024';
 export const register = async (req: Request, res: Response) => {
     try {
         const { firstName, lastName, middleName, email, phone, password } = req.body;
-        
-        // Проверяем, есть ли уже такой email ИЛИ телефон
         const existingUser = await User.findOne({ 
             where: { 
                 [Op.or]: [
                     { email },
-                    ...(phone ? [{ phone }] : []) // Проверяем телефон только если он передан
+                    ...(phone ? [{ phone }] : [])
                 ]
             } 
         });
@@ -31,7 +29,7 @@ export const register = async (req: Request, res: Response) => {
             lastName, 
             middleName: middleName || null, 
             email, 
-            phone: phone || null, // Если пустая строка, пишем null
+            phone: phone || null,
             password: hash 
         });
 
@@ -44,9 +42,7 @@ export const register = async (req: Request, res: Response) => {
 
 export const login = async (req: Request, res: Response) => {
     try {
-        const { identifier, password } = req.body; // identifier = email ИЛИ телефон
-
-        // Ищем пользователя где (email == identifier) ИЛИ (phone == identifier)
+        const { identifier, password } = req.body;
         const user = await User.findOne({
             where: {
                 [Op.or]: [
@@ -91,7 +87,7 @@ export const updateProfile = async (req: Request, res: Response) => {
             const existingUser = await User.findOne({
                 where: {
                     [Op.and]: [
-                        { id: { [Op.ne]: userId } }, // ID НЕ равен текущему пользователю
+                        { id: { [Op.ne]: userId } },
                         {
                             [Op.or]: [
                                 ...(email ? [{ email }] : []),
@@ -108,7 +104,7 @@ export const updateProfile = async (req: Request, res: Response) => {
         if (firstName) user.firstName = firstName;
         if (lastName) user.lastName = lastName;
         if (middleName !== undefined) user.middleName = middleName;
-        if (email) user.email = email; // Теперь обновляем и Email
+        if (email) user.email = email;
         if (phone !== undefined) user.phone = phone;
         
         if (newPassword) {
@@ -125,7 +121,7 @@ export const updateProfile = async (req: Request, res: Response) => {
                 firstName: user.firstName,
                 lastName: user.lastName,
                 middleName: user.middleName,
-                email: user.email, // Возвращаем обновленный email
+                email: user.email,
                 phone: user.phone,
                 role: user.role,
                 avatarUrl: user.avatarUrl
@@ -136,11 +132,10 @@ export const updateProfile = async (req: Request, res: Response) => {
     }
 };
 
-// Проверка текущего пользователя по токену
 export const getMe = async (req: Request, res: Response) => {
     try {
         // @ts-ignore
-        const userId = req.user.id; // Берем из checkAuth
+        const userId = req.user.id;
         const user = await User.findByPk(userId);
         
         if (!user) {

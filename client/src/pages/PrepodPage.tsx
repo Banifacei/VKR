@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
     getVideosByCourse, 
@@ -31,12 +31,6 @@ export const PrepodPage = () => {
   const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null);
   const { user, logout, updateUser } = useAuth();
 
-  const handleLogout = () => {
-    localStorage.removeItem('lumeo_user');
-    localStorage.removeItem('lumeo_token');
-    window.location.href = '/auth';
-  };
-
   // Функция для обновления аватара в состоянии админки
   const handleAvatarUpdate = (newUrl: string) => {
         updateUser({ avatarUrl: newUrl });
@@ -52,22 +46,37 @@ export const PrepodPage = () => {
   
   // Конструктор событий (меток)
   const [currentTime, setCurrentTime] = useState(0);
-  const [eventType, setEventType] = useState<'question' | 'chapter'>('question');
+  const [eventType, setEventType] = useState<'single_choice' | 'multiple_choice' | 'free_text' | 'info'>('single_choice');
   
   const [questionText, setQuestionText] = useState('');
-  const [option1, setOption1] = useState('');
-  const [option2, setOption2] = useState('');
-  const [correctAnswer, setCorrectAnswer] = useState('');
-  const [isAddingEvent, setIsAddingEvent] = useState(false);
-
-  // Авто Субтитры
-  const [isGeneratingSubs, setIsGeneratingSubs] = useState(false);
+  const [options, setOptions] = useState([{ text: '', isCorrect: false }, { text: '', isCorrect: false }]);
+  const [freeTextAnswer, setFreeTextAnswer] = useState(''); // Эталонный ответ для ИИ
+  const [isStrict, setIsStrict] = useState(false);
+  const [weight, setWeight] = useState(1);
+  const [rewindTo, setRewindTo] = useState<number | ''>('');
+  const [explanation, setExplanation] = useState('');
+  const [aiThreshold, setAiThreshold] = useState(50);
   
+  const [isAddingEvent, setIsAddingEvent] = useState(false);
+  const [isGeneratingSubs, setIsGeneratingSubs] = useState(false);
+
   // Статистика
   const [showStats, setShowStats] = useState(false);
   const [statsData, setStatsData] = useState<any[]>([]);
-  const [expandedStudent, setExpandedStudent] = useState<string | null>(null);
-
+  const [expandedStudent, setExpandedStudent] = useState<number | null>(null);
+  const handleAddOption = () => setOptions([...options, { text: '', isCorrect: false }]);
+  
+  const handleRemoveOption = (index: number) => setOptions(options.filter((_, i) => i !== index));
+  
+  const handleOptionChange = (index: number, field: 'text' | 'isCorrect', value: any) => {
+      const newOptions = [...options];
+      // Если это выбор одного ответа, сбрасываем остальные галочки
+      if (eventType === 'single_choice' && field === 'isCorrect' && value === true) {
+          newOptions.forEach(opt => opt.isCorrect = false);
+      }
+      newOptions[index] = { ...newOptions[index], [field]: value };
+      setOptions(newOptions);
+  };
   // --- ЭФФЕКТЫ И ЛОГИКА ---
 
   // 1. ПРИ ЗАГРУЗКЕ СТРАНИЦЫ - ГРУЗИМ СПИСОК КУРСОВ
@@ -141,13 +150,15 @@ export const PrepodPage = () => {
   const handleAddEvent = async () => {
       if (!selectedVideo) return;
       
-      if (eventType === 'question' && (!questionText || !option1 || !option2 || !correctAnswer)) {
-          alert('Заполните все поля вопроса!');
-          return;
+      if (!questionText.trim()) return alert('Введите текст вопроса или информации!');
+      
+      if (eventType === 'single_choice' || eventType === 'multiple_choice') {
+          if (options.some(o => !o.text.trim())) return alert('Заполните все варианты ответов!');
+          if (!options.some(o => o.isCorrect)) return alert('Выберите хотя бы один правильный ответ!');
       }
-      if (eventType === 'chapter' && !questionText) {
-          alert('Введите название главы!');
-          return;
+
+      if (eventType === 'free_text' && !freeTextAnswer.trim()) {
+          return alert('Введите эталонный ответ (ключевые слова) для проверки!');
       }
 
       setIsAddingEvent(true);
@@ -156,15 +167,27 @@ export const PrepodPage = () => {
               time: currentTime,
               type: eventType,
               question: questionText, 
-              options: eventType === 'question' ? [option1, option2] : [],
-              correctAnswer: eventType === 'question' ? correctAnswer : ''
+              options: (eventType === 'single_choice' || eventType === 'multiple_choice') ? options : [],
+              correctAnswer: eventType === 'free_text' ? freeTextAnswer : '',
+              isStrict,
+              weight: Number(weight),
+              rewindTo: rewindTo === '' ? undefined : Number(rewindTo),
+              explanation,
+              aiThreshold
           });
           
-          alert(eventType === 'question' ? 'Вопрос добавлен!' : 'Глава добавлена!');
-          setQuestionText(''); setOption1(''); setOption2(''); setCorrectAnswer('');
+          alert('Событие успешно добавлено на таймлайн!');
+          
+          // Сбрасываем форму
+          setQuestionText(''); 
+          setOptions([{ text: '', isCorrect: false }, { text: '', isCorrect: false }]);
+          setFreeTextAnswer('');
+          setExplanation('');
+          setRewindTo('');
+          setAiThreshold(50);
           await loadVideos();
       } catch (e) {
-          alert('Ошибка при добавлении');
+          alert('Ошибка при добавлении метки');
       } finally {
           setIsAddingEvent(false);
       }
@@ -202,22 +225,29 @@ export const PrepodPage = () => {
   };
 
   const getGroupedStats = () => {
-      const groups: Record<string, { correct: number; incorrect: number }> = {};
+      // Группируем по ID, чтобы избежать багов с однофамильцами
+      const groups: Record<number, { correct: number; incorrect: number; name: string; userId: number }> = {};
+      
       statsData.forEach(stat => {
-          const name = stat.userId;
-          if (!groups[name]) groups[name] = { correct: 0, incorrect: 0 };
-          if (stat.isCorrect) groups[name].correct++;
-          else groups[name].incorrect++;
+          const uId = stat.userId;
+          // Собираем имя из пришедших данных или пишем ID, если данных вдруг нет
+          const name = stat.user ? `${stat.user.firstName} ${stat.user.lastName}`.trim() : `Студент ID: ${uId}`;
+          
+          if (!groups[uId]) groups[uId] = { correct: 0, incorrect: 0, name, userId: uId };
+          
+          if (stat.isCorrect) groups[uId].correct++;
+          else groups[uId].incorrect++;
       });
-      return Object.entries(groups).map(([name, data]) => ({
-          name,
+      
+      return Object.values(groups).map(data => ({
           ...data,
           total: data.correct + data.incorrect
       }));
   };
 
   const groupedStats = getGroupedStats();
-  const studentDetails = expandedStudent ? statsData.filter(s => s.userId === expandedStudent) : [];
+  const studentDetails = expandedStudent !== null ? statsData.filter(s => s.userId === expandedStudent) : [];
+  const expandedStudentName = expandedStudent !== null ? groupedStats.find(s => s.userId === expandedStudent)?.name : '';
 
   // === RENDER ===
 
@@ -304,12 +334,12 @@ export const PrepodPage = () => {
                                         <thead><tr><th>Студент</th><th>Статус</th><th style={{ textAlign: 'center' }}>Верно</th><th style={{ textAlign: 'center' }}>Ошибок</th><th></th></tr></thead>
                                         <tbody>
                                             {groupedStats.map((student) => (
-                                                <tr key={student.name} className="stats-row">
+                                                <tr key={student.userId} className="stats-row">
                                                     <td className="student-name-cell">{student.name}</td>
                                                     <td><span className="status-badge solved">Решён</span></td>
                                                     <td style={{ textAlign: 'center' }}><div className="count-badge correct">{student.correct}</div></td>
                                                     <td style={{ textAlign: 'center' }}><div className={`count-badge incorrect ${student.incorrect === 0 ? 'zero' : ''}`}>{student.incorrect}</div></td>
-                                                    <td style={{ textAlign: 'right' }}><button className="details-btn" onClick={() => setExpandedStudent(student.name)}>Подробнее</button></td>
+                                                    <td style={{ textAlign: 'right' }}><button className="details-btn" onClick={() => setExpandedStudent(student.userId)}>Подробнее</button></td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -317,15 +347,41 @@ export const PrepodPage = () => {
                                 )}
                                 {expandedStudent && (
                                     <div>
-                                        <h4 style={{ color: '#00aeef', marginTop: 0, marginBottom: '25px', fontSize: '1.2rem' }}>Ответы студента: <span style={{color: 'white'}}>{expandedStudent}</span></h4>
+                                        <h4 style={{ color: '#00aeef', marginTop: 0, marginBottom: '25px', fontSize: '1.2rem' }}>
+                                            Ответы студента: <span style={{color: 'white'}}>{expandedStudentName}</span>
+                                        </h4>
                                         <table className="stats-table">
-                                            <thead><tr><th>Вопрос</th><th>Ответ</th><th style={{ textAlign: 'right' }}>Результат</th></tr></thead>
+                                            <thead><tr><th>Вопрос</th><th>Ответ</th><th style={{ textAlign: 'center' }}>Точность (ИИ)</th><th style={{ textAlign: 'right' }}>Результат</th></tr></thead>
                                             <tbody>
                                                 {studentDetails.map((stat) => (
                                                     <tr key={stat.id} className="stats-row">
                                                         <td style={{ color: '#ccc' }}>{stat.event?.question || 'Вопрос удален'}</td>
                                                         <td style={{ color: '#fff', fontWeight: '500' }}>{stat.answer}</td>
-                                                        <td style={{ textAlign: 'right' }}>{stat.isCorrect ? (<span style={{ color: '#4dff88', fontWeight: 'bold' }}>✅ Верно</span>) : (<span style={{ color: '#ff4d4d', fontWeight: 'bold' }}>❌ Ошибка</span>)}</td>
+                                                        
+                                                        {/* НОВАЯ ЯЧЕЙКА: */}
+                                                        <td style={{ textAlign: 'center' }}>
+                                                            {stat.event?.type === 'free_text' && stat.similarity !== null ? (
+                                                                <span style={{ 
+                                                                    color: stat.isCorrect ? '#4dff88' : '#ff4d4d', 
+                                                                    fontSize: '13px', 
+                                                                    background: 'rgba(255,255,255,0.05)',
+                                                                    padding: '2px 8px',
+                                                                    borderRadius: '12px'
+                                                                }}>
+                                                                    {stat.similarity}%
+                                                                </span>
+                                                            ) : (
+                                                                <span style={{ color: '#444' }}>—</span>
+                                                            )}
+                                                        </td>
+
+                                                        <td style={{ textAlign: 'right' }}>
+                                                            {stat.isCorrect ? (
+                                                                <span style={{ color: '#4dff88', fontWeight: 'bold' }}>✅ Верно</span>
+                                                            ) : (
+                                                                <span style={{ color: '#ff4d4d', fontWeight: 'bold' }}>❌ Ошибка</span>
+                                                            )}
+                                                        </td>
                                                     </tr>
                                                 ))}
                                             </tbody>
@@ -418,42 +474,128 @@ export const PrepodPage = () => {
                             <div style={{ display: 'flex', gap: '40px', flexWrap: 'wrap' }}>
                                 {/* ЛЕВАЯ КОЛОНКА: ИНПУТЫ */}
                                 <div style={{ flex: 2, minWidth: '300px' }}>
-                                    <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '10px'}}>
-                                        <div className="type-switch">
-                                            <button className={`type-btn ${eventType === 'question' ? 'active' : ''}`} onClick={() => setEventType('question')}>Вопрос</button>
-                                            <button className={`type-btn ${eventType === 'chapter' ? 'active' : ''}`} onClick={() => setEventType('chapter')}>Глава</button>
-                                        </div>
+                                    <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '15px'}}>
+                                        <select 
+                                            className="deck-input" 
+                                            style={{ width: 'auto', marginBottom: 0, padding: '5px 10px', fontSize: '13px' }}
+                                            value={eventType}
+                                            onChange={(e) => setEventType(e.target.value as any)}
+                                        >
+                                            <option value="single_choice">Один из списка (Radio)</option>
+                                            <option value="multiple_choice">Несколько ответов (Checkbox)</option>
+                                            <option value="free_text">Открытый вопрос (ИИ Проверка)</option>
+                                            <option value="info">Инфо-пауза (без ответа)</option>
+                                        </select>
                                         <div style={{color: '#666', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px'}}>
                                             <Icons.Time /> {currentTime.toFixed(1)}s
                                         </div>
                                     </div>
-
+                                    {eventType === 'free_text' && (
+                                            <div style={{ marginBottom: '15px', background: 'rgba(0, 174, 239, 0.05)', padding: '15px', borderRadius: '8px', borderLeft: '3px solid #00aeef' }}>
+                                                <label style={{ fontSize: '13px', color: '#00aeef', display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontWeight: 'bold' }}>
+                                                    <span>Точность совпадения (ИИ):</span>
+                                                    <span>{aiThreshold}%</span>
+                                                </label>
+                                                <input 
+                                                    type="range" 
+                                                    min="10" 
+                                                    max="100" 
+                                                    value={aiThreshold} 
+                                                    onChange={e => setAiThreshold(Number(e.target.value))} 
+                                                    style={{ width: '100%', accentColor: '#00aeef' }} 
+                                                />
+                                                <p style={{fontSize: '11px', color: '#888', marginTop: '8px', lineHeight: '1.4'}}>
+                                                    Установите <strong>30-40%</strong>, если достаточно передать общий смысл своими словами. <strong>80-90%</strong> — для строгой терминологии.
+                                                </p>
+                                            </div>
+                                        )}
                                     <input 
                                         className="deck-input" 
-                                        placeholder={eventType === 'question' ? "Текст вопроса..." : "Название главы"} 
+                                        placeholder={eventType === 'info' ? "Текст карточки (напр. 'Запомните эту формулу')..." : "Текст вопроса..."} 
                                         value={questionText} 
                                         onChange={e => setQuestionText(e.target.value)} 
                                     />
                                     
-                                    {eventType === 'question' && (
-                                        <>
-                                            <div className="deck-row">
-                                                <input className="deck-input" style={{marginBottom: 0}} placeholder="Вариант A" value={option1} onChange={e => setOption1(e.target.value)} />
-                                                <input className="deck-input" style={{marginBottom: 0}} placeholder="Вариант B" value={option2} onChange={e => setOption2(e.target.value)} />
-                                            </div>
-                                            <input className="deck-input" placeholder="Правильный ответ (скопируйте текст варианта)" value={correctAnswer} onChange={e => setCorrectAnswer(e.target.value)} />
-                                        </>
+                                    {/* ДИНАМИЧЕСКИЕ ВАРИАНТЫ ОТВЕТОВ */}
+                                    {(eventType === 'single_choice' || eventType === 'multiple_choice') && (
+                                        <div style={{ background: '#1a1a1a', padding: '15px', borderRadius: '8px', marginBottom: '15px' }}>
+                                            <h5 style={{ margin: '0 0 10px 0', color: '#888' }}>Варианты ответа (отметьте верные):</h5>
+                                            {options.map((opt, idx) => (
+                                                <div key={idx} style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px' }}>
+                                                    <input 
+                                                        type={eventType === 'single_choice' ? 'radio' : 'checkbox'}
+                                                        checked={opt.isCorrect}
+                                                        onChange={(e) => handleOptionChange(idx, 'isCorrect', e.target.checked)}
+                                                        style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                                                    />
+                                                    <input 
+                                                        className="deck-input" 
+                                                        style={{ marginBottom: 0, flex: 1 }} 
+                                                        placeholder={`Вариант ${idx + 1}`} 
+                                                        value={opt.text} 
+                                                        onChange={e => handleOptionChange(idx, 'text', e.target.value)} 
+                                                    />
+                                                    {options.length > 2 && (
+                                                        <button className="btn btn-ghost" style={{ padding: '6px' }} onClick={() => handleRemoveOption(idx)}>
+                                                            ✕
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            ))}
+                                            <button className="btn btn-ghost" style={{ marginTop: '10px', fontSize: '12px' }} onClick={handleAddOption}>
+                                                + Добавить вариант
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {/* ОТКРЫТЫЙ ВОПРОС */}
+                                    {eventType === 'free_text' && (
+                                        <textarea 
+                                            className="deck-input" 
+                                            placeholder="Введите эталонный ответ, ключевые слова или факты. ИИ будет сверять ответ студента с этим текстом..." 
+                                            value={freeTextAnswer} 
+                                            onChange={e => setFreeTextAnswer(e.target.value)} 
+                                            style={{ minHeight: '80px', resize: 'vertical' }}
+                                        />
                                     )}
                                     
-                                    <button className="btn btn-primary" onClick={handleAddEvent} disabled={isAddingEvent}>
+                                    <button className="btn btn-primary" style={{ width: '100%' }} onClick={handleAddEvent} disabled={isAddingEvent}>
                                         {isAddingEvent ? 'Сохранение...' : 'Добавить метку на таймлайн'}
                                     </button>
                                 </div>
 
                                 {/* ПРАВАЯ КОЛОНКА: НАСТРОЙКИ */}
-                                <div style={{ flex: 1, minWidth: '200px', borderLeft: '1px solid rgba(255,255,255,0.05)', paddingLeft: '30px' }}>
-                                    <h4 style={{marginTop: 0, marginBottom: '20px', color: '#888'}}>Настройки урока</h4>
+                                <div style={{ flex: 1, minWidth: '250px', borderLeft: '1px solid rgba(255,255,255,0.05)', paddingLeft: '30px' }}>
+                                    <h4 style={{marginTop: 0, marginBottom: '20px', color: '#888'}}>Настройки логики</h4>
                                     
+                                    {eventType !== 'info' && (
+                                        <>
+                                            <label className="toggle-wrapper" style={{ marginBottom: '15px' }}>
+                                                <input type="checkbox" className="toggle-input" checked={isStrict} onChange={e => setIsStrict(e.target.checked)} />
+                                                <div className="toggle-track"><div className="toggle-thumb"></div></div>
+                                                <span className="toggle-label">Строгий режим (нельзя пропустить)</span>
+                                            </label>
+
+                                            <div style={{ marginBottom: '15px' }}>
+                                                <label style={{ fontSize: '12px', color: '#888', display: 'block', marginBottom: '5px' }}>Вес в баллах:</label>
+                                                <input type="number" className="deck-input" min="1" max="100" value={weight} onChange={e => setWeight(Number(e.target.value))} style={{ marginBottom: 0 }} />
+                                            </div>
+
+                                            <div style={{ marginBottom: '15px' }}>
+                                                <label style={{ fontSize: '12px', color: '#888', display: 'block', marginBottom: '5px' }}>Откинуть при ошибке на (секунду):</label>
+                                                <input type="number" className="deck-input" placeholder="Например: 120 (оставить пустым для отключения)" value={rewindTo} onChange={e => setRewindTo(e.target.value ? Number(e.target.value) : '')} style={{ marginBottom: 0 }} />
+                                            </div>
+
+                                            <div style={{ marginBottom: '15px' }}>
+                                                <label style={{ fontSize: '12px', color: '#888', display: 'block', marginBottom: '5px' }}>Объяснение при ошибке:</label>
+                                                <textarea className="deck-input" placeholder="Неверно, потому что..." value={explanation} onChange={e => setExplanation(e.target.value)} style={{ minHeight: '60px', marginBottom: 0, resize: 'vertical' }} />
+                                            </div>
+                                            
+                                            <div style={{ borderTop: '1px solid #333', margin: '20px 0' }}></div>
+                                        </>
+                                    )}
+                                    
+                                    <h4 style={{marginTop: 0, marginBottom: '20px', color: '#888'}}>Настройки видео</h4>
                                     <label className="toggle-wrapper">
                                         <input 
                                             type="checkbox" 
@@ -462,12 +604,8 @@ export const PrepodPage = () => {
                                             onChange={toggleHideResults}
                                         />
                                         <div className="toggle-track"><div className="toggle-thumb"></div></div>
-                                        <span className="toggle-label">Скрыть результаты теста</span>
+                                        <span className="toggle-label">Скрыть результаты теста сразу</span>
                                     </label>
-                                    
-                                    <p style={{fontSize: '12px', color: '#555', marginTop: '10px', lineHeight: '1.4'}}>
-                                        Если включено, студент не увидит правильные ответы сразу после выбора.
-                                    </p>
                                 </div>
                             </div>
                         </div>

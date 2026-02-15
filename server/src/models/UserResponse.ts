@@ -25,6 +25,9 @@ export class UserResponse extends Model {
   @Column({ type: DataType.BOOLEAN })
   declare isCorrect: boolean;
 
+  @Column({ type: DataType.INTEGER, allowNull: true })
+  declare similarity: number | null;
+
   @BelongsTo(() => Video)
   declare video: Video;
 
