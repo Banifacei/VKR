@@ -158,7 +158,21 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
     }, [localEvents, onRefreshEvents]);
 
   useEffect(() => {
-    if (sources && sources.length > 0) setCurrentSource(sources[0]);
+      if (sources && sources.length > 0) {
+          setCurrentSource(prev => {
+              // Если URL видео не изменился, мы НЕ ПЕРЕЗАГРУЖАЕМ источник,
+              // а только аккуратно подмешиваем новые субтитры.
+              // Это спасает от сброса плеера и ошибки AbortError!
+              if (prev.url === sources[0].url) {
+                  // Если субтитры обновились, меняем их
+                  if (JSON.stringify(prev.subtitles) !== JSON.stringify(sources[0].subtitles)) {
+                      return { ...prev, subtitles: sources[0].subtitles };
+                  }
+                  return prev; // Вообще ничего не меняем
+              }
+              return sources[0]; // Если это реально другое видео (следующий урок), тогда грузим
+          });
+      }
   }, [sources]);
 
   useEffect(() => {

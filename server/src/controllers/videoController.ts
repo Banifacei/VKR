@@ -12,7 +12,9 @@ import ffmpeg from 'fluent-ffmpeg';
 import ffmpegPath from 'ffmpeg-static';
 import { pipeline } from '@xenova/transformers';
 import { User } from '../models/User.js';
-
+import { Worker } from 'worker_threads';
+import { pathToFileURL } from 'url';
+import { transformSync } from 'esbuild';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 let semanticExtractor: any = null;
@@ -330,60 +332,83 @@ export const generateSubtitles = async (req: Request, res: Response) => {
         const fileName = video.url.split('/').pop();
         if (!fileName) return res.status(400).json({ message: 'Некорректный URL' });
 
+        const protocol = req.protocol;
+        const host = req.get('host');
+
         const uploadsDir = path.join(__dirname, '../../uploads'); 
         const videoPath = path.join(uploadsDir, fileName);
         const tempAudioPath = path.join(uploadsDir, `temp-${Date.now()}.wav`);
         const vttFileName = `sub-${Date.now()}.vtt`;
         const vttPath = path.join(uploadsDir, vttFileName);
-
+        
         if (!fs.existsSync(videoPath)) {
              return res.status(404).json({ message: 'Файл видео не найден на диске' });
         }
 
-        console.log(`[AI] Старт для видео: ${videoId}`);
-        await extractAudio(videoPath, tempAudioPath);
-        console.log('[AI] Запуск Whisper...');
-        const transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-small');
-        const wav = await import('wavefile');
-        const buffer = fs.readFileSync(tempAudioPath);
-        const wavFile = new wav.WaveFile(buffer);
-        wavFile.toBitDepth('32f');
-        const audioData = wavFile.getSamples();
-        let float32Array = Array.isArray(audioData) ? audioData[0] : audioData;
-        const output = await transcriber(float32Array, {
-            chunk_length_s: 30,
-            stride_length_s: 5,
-            language: 'russian',
-            task: 'transcribe',
-            return_timestamps: true,
+        const workerPath = path.resolve(__dirname, '../subtitleWorker.ts');
+        const tsCode = fs.readFileSync(workerPath, 'utf8');
+        // ВАЖНО: Превращаем путь в URL (file:///opt/VKR/...), иначе import внутри воркера упадет
+        const workerUrl = pathToFileURL(workerPath).href;
+
+        console.log(`[DEBUG] Запускаем воркер через враппер. URL: ${workerUrl}`);
+
+        // 2. СОЗДАЕМ ВОРКЕР
+        // Мы используем eval: true, чтобы скормить ему JS-код напрямую.
+        // Этот код сначала грузит tsx/esm, а потом динамически импортирует твой TS файл.
+        const { code: jsCode } = transformSync(tsCode, {
+            loader: 'ts',
+            target: 'es2022', // Используем современный JS
+            format: 'cjs',    // Важно: формат модулей
         });
-        // @ts-ignore
-        createVttFile(output.chunks, vttPath);
+        res.status(202).json({ success: true, message: 'Генерация запущена в фоновом режиме!' });
 
-        if (fs.existsSync(tempAudioPath)) fs.unlinkSync(tempAudioPath);
+        // Запускаем воркер, скармливая ему уже готовый JS код
+        const worker = new Worker(jsCode, {
+            eval: true,
+            workerData: { videoPath, tempAudioPath, vttPath }
+        });
+        // 3. СЛУШАЕМ ОТВЕТЫ ОТ ВОРКЕРА
+        worker.on('message', async (msg) => {
+            if (msg.status === 'done') {
+                console.log(`[AI WORKER] Готово! Субтитры для видео ${videoId} сгенерированы.`);
+                const vttUrl = `${protocol}://${host}/uploads/${vttFileName}`;
+                
+                const newSubtitle = { lang: 'ru-auto', label: 'Авто (AI)', src: vttUrl };
+                
+                // 1. Извлекаем текущие субтитры
+                let currentSubs = video.subtitles ? JSON.parse(JSON.stringify(video.subtitles)) : [];
+                
+                // 2. ИСПРАВЛЕНИЕ: Фильтруем массив, удаляя старые авто-субтитры, чтобы избежать дублей ключей
+                currentSubs = currentSubs.filter((s: any) => s.lang !== 'ru-auto');
+                
+                // 3. Теперь безопасно добавляем новые
+                currentSubs.push(newSubtitle);
+                
+                video.subtitles = currentSubs;
+                await video.save();
+                
+            } else if (msg.status === 'error') {
+                console.error(`[AI WORKER] Ошибка для видео ${videoId}:`, msg.error);
+            } else {
+                console.log(`[AI WORKER - Видео ${videoId}]: ${msg.status}`);
+            }
+        });
+        worker.on('error', (err) => {
+            console.error(`[AI WORKER FATAL ERROR] Видео ${videoId}:`, err);
+        });
 
-        const protocol = req.protocol;
-        const host = req.get('host');
-        const vttUrl = `${protocol}://${host}/uploads/${vttFileName}`;
-
-        const newSubtitle = {
-            lang: 'ru-auto',
-            label: 'Авто (AI)',
-            src: vttUrl
-        };
-
-        const currentSubs = video.subtitles ? JSON.parse(JSON.stringify(video.subtitles)) : [];
-        currentSubs.push(newSubtitle);
-        
-        video.subtitles = currentSubs;
-        await video.save();
-
-        console.log('[AI] Готово!');
-        res.json({ success: true, subtitles: video.subtitles });
-
+        // Очистка ресурсов при завершении
+        worker.on('exit', (code) => {
+            if (code !== 0) {
+                console.error(`[AI WORKER] Поток завершился с кодом ошибки: ${code}`);
+            }
+            console.log(`[AI WORKER] Поток для видео ${videoId} завершил работу.`);
+        });
     } catch (error) {
-        console.error("[AI] Ошибка:", error);
-        res.status(500).json({ message: 'Ошибка генерации', error });
+        console.error("[AI] Ошибка старта:", error);
+        if (!res.headersSent) {
+            res.status(500).json({ message: 'Ошибка запуска генерации', error });
+        }
     }
 };
 

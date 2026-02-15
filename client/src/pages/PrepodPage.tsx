@@ -281,19 +281,18 @@ export const PrepodPage = () => {
   };
   const handleGenerateSubs = async () => {
       if (!selectedVideo) return;
-      const confirm = window.confirm("Генерация займет время. Продолжить?");
+      const confirm = window.confirm("Генерация займет несколько минут. Процесс пойдет в фоновом режиме. Продолжить?");
       if (!confirm) return;
 
-      setIsGeneratingSubs(true);
       try {
+          // Отправляем запрос
           await generateAutoSubtitles(selectedVideo.id);
-          alert("Готово! Субтитры успешно созданы.");
-          await loadVideos(); 
+          
+          // Показываем уведомление и сразу отпускаем человека по делам
+          alert("Генерация запущена! Вы можете продолжать добавлять метки или переключиться на другой урок. Субтитры появятся в плеере автоматически.");
       } catch (e) {
           console.error(e);
-          alert("Ошибка при генерации.");
-      } finally {
-          setIsGeneratingSubs(false);
+          alert("Ошибка при старте генерации.");
       }
   };
 
@@ -551,7 +550,7 @@ export const PrepodPage = () => {
                                     <button className="btn btn-ghost" onClick={loadStats}>
                                         <Icons.Stats /> Статистика
                                     </button>
-                                    <button className="btn btn-ai" onClick={handleGenerateSubs} disabled={isGeneratingSubs}>
+                                    <button className="btn btn-ai" onClick={handleGenerateSubs}>
                                         <Icons.AI /> {isGeneratingSubs ? 'Создаю...' : 'AI Субтитры'}
                                     </button>
                                 </div>
