@@ -22,8 +22,31 @@ export const CoursesPage = () => {
         updateUser({ avatarUrl: newUrl });
     };
 
+    // --- РАДАР КУРСОВ (Long Polling) ---
     useEffect(() => {
+        // 1. Быстрая загрузка при входе
         getCourses().then(setCourses);
+
+        // 2. Запускаем фоновый опрос каждые 15 секунд
+        const interval = setInterval(async () => {
+            try {
+                const freshCourses = await getCourses();
+                
+                setCourses(prev => {
+                    // Если хэш старых и новых данных не совпадает — кто-то создал/удалил курс
+                    if (JSON.stringify(prev) !== JSON.stringify(freshCourses)) {
+                        console.log('🔄 Нашли новые курсы! Обновляем витрину...');
+                        return freshCourses;
+                    }
+                    return prev;
+                });
+            } catch (e) {
+                // Игнорируем ошибки сети, чтобы не спамить в консоль
+            }
+        }, 15000);
+
+        // Очищаем интервал при уходе со страницы
+        return () => clearInterval(interval);
     }, []);
 
     return (

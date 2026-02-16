@@ -219,15 +219,6 @@
 .btn-primary:hover { background: var(--primary-hover); }
 .btn-primary:disabled { background: #333; color: #666; cursor: not-allowed; }
 
-.btn-ai {
-    background: var(--ai-gradient);
-    color: #fff;
-    border-radius: 20px;
-    padding: 6px 16px;
-    font-size: 12px;
-}
-.btn-ai:hover { box-shadow: 0 0 15px rgba(181, 23, 158, 0.5); transform: translateY(-1px); }
-
 .btn-ghost { background: transparent; border: 1px solid var(--border-color); color: #ddd; }
 .btn-ghost:hover { background: rgba(255,255,255,0.05); border-color: #555; }
 
@@ -387,4 +378,65 @@
     cursor: not-allowed;
     box-shadow: none;
     transform: none;
+}
+
+/* --- АНИМАЦИЯ КНОПКИ ИИ --- */
+.btn-ai {
+    background: linear-gradient(135deg, #8a2be2, #00aeef);
+    color: white;
+    border: none;
+    transition: all 0.3s ease;
+}
+
+.btn-ai:hover:not(:disabled) {
+    box-shadow: 0 0 15px rgba(0, 174, 239, 0.5);
+    transform: translateY(-1px);
+}
+
+/* Состояние загрузки */
+.btn-ai.generating {
+    background: linear-gradient(90deg, #8a2be2, #00aeef, #8a2be2);
+    background-size: 200% 200%;
+    animation: ai-pulse 2s linear infinite;
+    cursor: not-allowed;
+    opacity: 0.9;
+}
+
+/* Вращение спиннера */
+.ai-spinner {
+    animation: spin 1s linear infinite;
+}
+/* --- КРАСИВОЕ УВЕДОМЛЕНИЕ (TOAST) --- */
+.ai-toast {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    background: linear-gradient(135deg, #111, #1a1a1a);
+    border: 1px solid #00aeef;
+    color: white;
+    padding: 16px 24px;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 174, 239, 0.2);
+    font-weight: 500;
+    font-size: 14px;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    animation: slideInUp 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes slideInUp {
+    from { transform: translateY(100px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes spin {
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes ai-pulse {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
 }

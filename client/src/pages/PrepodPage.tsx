@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { 
     getVideosByCourse,
     addEvent,
     updateEvent,
-    deleteEvent, // <--- Добавили две новые
+    deleteEvent, 
     getVideoStats,
     updateVideo,
     getCourses,
@@ -15,29 +15,32 @@ import { VideoPlayer } from '../components/VideoPlayer';
 import { AddVideoForm } from '../components/AddVideoForm';
 import type { IVideo, ICourse } from '../types';
 import './PrepodPage.css';
-import './UserPage.css'; // На случай если нужны общие стили
+import './UserPage.css'; 
 import { UserProfile } from '../components/UserProfile';
 import { useAuth } from '../context/AuthContext';
-
+import * as XLSX from 'xlsx';
 // Иконки SVG для интерфейса
 const Icons = {
     Time: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
     Back: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>,
     Stats: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
-    AI: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2a10 10 0 1 0 10 10H12V2z"/><path d="M12 12L2.1 10.5"/></svg>
+    AI: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2a10 10 0 1 0 10 10H12V2z"/><path d="M12 12L2.1 10.5"/></svg>,
+    Download: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
+    Spinner: () => (<svg className="ai-spinner" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>)
 };
-
 export const PrepodPage = () => {
-  // --- СОСТОЯНИЕ: КУРСЫ ---
+  // --- СОСТОЯНИЕ: КУРСЫ --- (С сохранением после F5)
   const [courses, setCourses] = useState<ICourse[]>([]);
-  const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null);
+  const [selectedCourseId, setSelectedCourseId] = useState<number | null>(() => {
+      const saved = localStorage.getItem('prepod_course_id');
+      return saved ? Number(saved) : null;
+  });
   const { user, logout, updateUser } = useAuth();
 
-  // Функция для обновления аватара в состоянии админки
   const handleAvatarUpdate = (newUrl: string) => {
-        updateUser({ avatarUrl: newUrl });
-    };
-  // Форма создания нового курса
+      updateUser({ avatarUrl: newUrl });
+  };
+
   const [newCourseTitle, setNewCourseTitle] = useState('');
   const [newCourseDesc, setNewCourseDesc] = useState('');
   const [newCourseInstructor, setNewCourseInstructor] = useState('');
@@ -45,14 +48,26 @@ export const PrepodPage = () => {
   // --- СОСТОЯНИЕ: ВИДЕО И РЕДАКТОР ---
   const [videos, setVideos] = useState<IVideo[]>([]);
   const [selectedVideo, setSelectedVideo] = useState<IVideo | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const toastTimerRef = useRef<any>(null);
+  const prevVideosRef = useRef<IVideo[]>([]);
+  const showToast = (msg: string) => {
+      setToastMessage(msg);
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = setTimeout(() => setToastMessage(null), 6000); // Скрываем через 6 сек
+  };
+  // Вспомогательный стейт для восстановления видео после F5
+  const [savedVideoId, setSavedVideoId] = useState<number | null>(() => {
+      const saved = localStorage.getItem('prepod_video_id');
+      return saved ? Number(saved) : null;
+  });
   
-  // Конструктор событий (меток)
+  // Конструктор событий
   const [currentTime, setCurrentTime] = useState(0);
   const [eventType, setEventType] = useState<'single_choice' | 'multiple_choice' | 'free_text' | 'info'>('single_choice');
-  
   const [questionText, setQuestionText] = useState('');
   const [options, setOptions] = useState([{ text: '', isCorrect: false }, { text: '', isCorrect: false }]);
-  const [freeTextAnswer, setFreeTextAnswer] = useState(''); // Эталонный ответ для ИИ
+  const [freeTextAnswer, setFreeTextAnswer] = useState(''); 
   const [isStrict, setIsStrict] = useState(false);
   const [weight, setWeight] = useState(1);
   const [rewindTo, setRewindTo] = useState<number | ''>('');
@@ -60,94 +75,124 @@ export const PrepodPage = () => {
   const [aiThreshold, setAiThreshold] = useState(50);
   const [editingEventId, setEditingEventId] = useState<number | null>(null);
   const [isAddingEvent, setIsAddingEvent] = useState(false);
-  const [isGeneratingSubs, setIsGeneratingSubs] = useState(false);
+  // Храним массив ID видео, для которых сейчас генерируются субтитры
+  const [generatingVideos, setGeneratingVideos] = useState<number[]>(() => {
+      const saved = localStorage.getItem('prepod_generating_videos');
+      return saved ? JSON.parse(saved) : [];
+  });
+  // --- УМНЫЙ НАБЛЮДАТЕЛЬ ЗА ОКОНЧАНИЕМ ГЕНЕРАЦИИ ---
+  useEffect(() => {
+      if (videos.length > 0 && prevVideosRef.current.length > 0) {
+          generatingVideos.forEach(genId => {
+              const oldVid = prevVideosRef.current.find(v => v.id === genId);
+              const newVid = videos.find(v => v.id === genId);
+              
+              // Если субтитры обновились у видео, которое мы ждали
+              if (oldVid && newVid && JSON.stringify(oldVid.subtitles) !== JSON.stringify(newVid.subtitles)) {
+                  // 1. Показываем красивое уведомление
+                  showToast(`✨ Субтитры для урока "${newVid.title}" успешно созданы!`);
+                  // 2. Убираем видео из списка генерации (останавливаем лоадер)
+                  setGeneratingVideos(prev => prev.filter(id => id !== genId));
+              }
+          });
+      }
+      prevVideosRef.current = videos; // Запоминаем текущий список для следующей проверки
+  }, [videos, generatingVideos]);
+  // Сохраняем этот список в кэш браузера при каждом изменении
+  useEffect(() => {
+      localStorage.setItem('prepod_generating_videos', JSON.stringify(generatingVideos));
+  }, [generatingVideos]);
 
   // Статистика
   const [showStats, setShowStats] = useState(false);
   const [statsData, setStatsData] = useState<any[]>([]);
   const [expandedStudent, setExpandedStudent] = useState<number | null>(null);
+
+  // --- СОХРАНЕНИЕ В LOCAL STORAGE ---
+  useEffect(() => {
+      if (selectedCourseId) localStorage.setItem('prepod_course_id', selectedCourseId.toString());
+      else localStorage.removeItem('prepod_course_id');
+  }, [selectedCourseId]);
+
+  useEffect(() => {
+      if (selectedVideo) localStorage.setItem('prepod_video_id', selectedVideo.id.toString());
+      else localStorage.removeItem('prepod_video_id');
+  }, [selectedVideo]);
+
   const handleAddOption = () => setOptions([...options, { text: '', isCorrect: false }]);
-  
   const handleRemoveOption = (index: number) => setOptions(options.filter((_, i) => i !== index));
   
   const handleOptionChange = (index: number, field: 'text' | 'isCorrect', value: any) => {
       const newOptions = [...options];
-      // Если это выбор одного ответа, сбрасываем остальные галочки
       if (eventType === 'single_choice' && field === 'isCorrect' && value === true) {
           newOptions.forEach(opt => opt.isCorrect = false);
       }
       newOptions[index] = { ...newOptions[index], [field]: value };
       setOptions(newOptions);
   };
-  // --- ЭФФЕКТЫ И ЛОГИКА ---
 
-  // 1. ПРИ ЗАГРУЗКЕ СТРАНИЦЫ - ГРУЗИМ СПИСОК КУРСОВ
+  // 1. ПРИ ЗАГРУЗКЕ СТРАНИЦЫ И РАДАР КУРСОВ
   useEffect(() => {
-    loadCourses();
-  }, []);
-  // --- ДИНАМИЧЕСКАЯ СТАТИСТИКА (Обновление каждые 5 сек) ---
-  useEffect(() => {
-      // Работает только если модалка открыта и выбрано видео
-      if (!showStats || !selectedVideo) return;
-
+      loadCourses();
       const interval = setInterval(async () => {
           try {
-              const freshStats = await getVideoStats(selectedVideo.id);
-              
-              setStatsData(prev => {
-                  // Сравниваем слепок старых и новых данных
-                  if (JSON.stringify(prev) !== JSON.stringify(freshStats)) {
-                      console.log('📈 Кто-то из студентов только что ответил! Обновляем графики...');
-                      // Если студент был развернут (Подробнее), данные внутри тоже обновятся
-                      return freshStats;
-                  }
-                  return prev;
-              });
-          } catch (e) {
-              // Игнорируем тихие ошибки сети
-          }
-      }, 5000); // 5 секунд — идеально для ощущения "реального времени"
-
-      return () => clearInterval(interval);
-  }, [showStats, selectedVideo]);
-  // --- ДИНАМИЧЕСКИЕ ВИДЕО И СУБТИТРЫ (Обновление каждые 10 сек) ---
-  useEffect(() => {
-      if (!selectedCourseId) return;
-
-      const interval = setInterval(async () => {
-          try {
-              const freshVideos = await getVideosByCourse(selectedCourseId);
-              setVideos(prev => {
-                  if (JSON.stringify(prev) !== JSON.stringify(freshVideos)) {
-                      console.log('🔄 Видео обновились (возможно, ИИ закончил генерацию субтитров)!');
-                      return freshVideos;
+              const freshCourses = await getCourses();
+              setCourses(prev => {
+                  if (JSON.stringify(prev) !== JSON.stringify(freshCourses)) {
+                      return freshCourses;
                   }
                   return prev;
               });
           } catch (e) {}
-      }, 10000);
+      }, 15000); 
+      return () => clearInterval(interval);
+  }, []);
 
+  // 2. РАДАР СТАТИСТИКИ
+  useEffect(() => {
+      if (!showStats || !selectedVideo) return;
+      const interval = setInterval(async () => {
+          try {
+              const freshStats = await getVideoStats(selectedVideo.id);
+              setStatsData(prev => {
+                  if (JSON.stringify(prev) !== JSON.stringify(freshStats)) {
+                      return freshStats;
+                  }
+                  return prev;
+              });
+          } catch (e) {}
+      }, 5000);
+      return () => clearInterval(interval);
+  }, [showStats, selectedVideo]);
+
+  // 3. РАДАР ВИДЕО
+  useEffect(() => {
+      if (!selectedCourseId) return;
+      const interval = setInterval(async () => {
+          try {
+              const freshVideos = await getVideosByCourse(selectedCourseId);
+              setVideos(prev => {
+                  if (JSON.stringify(prev) !== JSON.stringify(freshVideos)) return freshVideos;
+                  return prev;
+              });
+          } catch (e) {}
+      }, 10000);
       return () => clearInterval(interval);
   }, [selectedCourseId]);
 
-  // --- СИНХРОНИЗАЦИЯ ПЛЕЕРА ---
-  // Если videos обновились (появились субтитры), обновляем и selectedVideo, 
-  // чтобы плеер сразу подхватил новые дорожки <track>
+  // СИНХРОНИЗАЦИЯ ПЛЕЕРА
   useEffect(() => {
       if (selectedVideo && videos.length > 0) {
           const updated = videos.find(v => v.id === selectedVideo.id);
           if (updated && JSON.stringify(updated) !== JSON.stringify(selectedVideo)) {
               setSelectedVideo(updated);
+              
+              // МАГИЯ: Убираем ИМЕННО ЭТО видео из списка загружаемых, так как данные пришли!
+              setGeneratingVideos(prev => prev.filter(id => id !== updated.id));
           }
       }
   }, [videos]);
-  // Следим за сменой курса
-  useEffect(() => {
-      if (selectedCourseId) {
-          loadVideos();
-          setSelectedVideo(null);
-      }
-  }, [selectedCourseId]);
+  
 
   const loadCourses = async () => {
       try {
@@ -185,6 +230,13 @@ export const PrepodPage = () => {
         if (selectedVideo) {
             const updated = data.find(v => v.id === selectedVideo.id);
             if (updated) setSelectedVideo(updated);
+        } else if (savedVideoId) {
+            // Восстанавливаем видео после обновления страницы
+            const saved = data.find(v => v.id === savedVideoId);
+            if (saved) {
+                setSelectedVideo(saved);
+                setSavedVideoId(null); // Очищаем кэш после восстановления
+            }
         }
     } catch (e) {
         console.error("Ошибка загрузки видео", e);
@@ -196,7 +248,6 @@ export const PrepodPage = () => {
       try {
           const newState = !selectedVideo.hideResults;
           await updateVideo(selectedVideo.id, { hideResults: newState });
-          
           setSelectedVideo({ ...selectedVideo, hideResults: newState });
           setVideos(prev => prev.map(v => v.id === selectedVideo.id ? { ...v, hideResults: newState } : v));
       } catch (e) {
@@ -206,7 +257,6 @@ export const PrepodPage = () => {
 
   const handleAddEvent = async () => {
       if (!selectedVideo) return;
-      
       if (!questionText.trim()) return alert('Введите текст вопроса или информации!');
       
       if (eventType === 'single_choice' || eventType === 'multiple_choice') {
@@ -239,12 +289,10 @@ export const PrepodPage = () => {
               alert('Метка успешно добавлена на таймлайн!');
           }
           
-          // Сбрасываем форму
           setQuestionText(''); 
           setOptions([{ text: '', isCorrect: false }, { text: '', isCorrect: false }]);
           setFreeTextAnswer(''); setExplanation(''); setRewindTo(''); setAiThreshold(50);
-          setEditingEventId(null); // Выходим из режима редактирования
-          
+          setEditingEventId(null); 
           await loadVideos();
       } catch (e) {
           alert('Ошибка при добавлении метки');
@@ -252,6 +300,7 @@ export const PrepodPage = () => {
           setIsAddingEvent(false);
       }
   };
+
   const handleEditClick = (ev: any) => {
       setEditingEventId(ev.id);
       setCurrentTime(ev.time);
@@ -264,8 +313,6 @@ export const PrepodPage = () => {
       setRewindTo(ev.rewindTo !== null && ev.rewindTo !== undefined ? ev.rewindTo : '');
       setExplanation(ev.explanation || '');
       setAiThreshold(ev.aiThreshold || 50);
-      
-      // Скроллим наверх к плееру, чтобы было удобно
       window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -273,26 +320,26 @@ export const PrepodPage = () => {
       if (!window.confirm('Точно удалить этот вопрос?')) return;
       try {
           await deleteEvent(eventId);
-          if (editingEventId === eventId) setEditingEventId(null); // Если удалили то, что редактировали
+          if (editingEventId === eventId) setEditingEventId(null);
           await loadVideos();
       } catch (e) {
           alert('Ошибка при удалении');
       }
   };
+
   const handleGenerateSubs = async () => {
       if (!selectedVideo) return;
-      const confirm = window.confirm("Генерация займет несколько минут. Процесс пойдет в фоновом режиме. Продолжить?");
-      if (!confirm) return;
+      // ДОБАВЛЯЕМ текущее видео в список обрабатываемых
+      setGeneratingVideos(prev => [...prev, selectedVideo.id]); 
 
       try {
-          // Отправляем запрос
           await generateAutoSubtitles(selectedVideo.id);
-          
-          // Показываем уведомление и сразу отпускаем человека по делам
-          alert("Генерация запущена! Вы можете продолжать добавлять метки или переключиться на другой урок. Субтитры появятся в плеере автоматически.");
+          // Вместо грубого alert показываем наш красивый Toast!
+          showToast("🚀 ИИ начал работу! Вы можете переключиться на другой урок.");
       } catch (e) {
           console.error(e);
-          alert("Ошибка при старте генерации.");
+          showToast("❌ Ошибка при старте генерации.");
+          setGeneratingVideos(prev => prev.filter(id => id !== selectedVideo.id)); 
       }
   };
 
@@ -309,21 +356,96 @@ export const PrepodPage = () => {
       }
   };
 
+
+  // --- ВЫГРУЗКА В EXCEL (.xlsx) С НАСТРОЙКОЙ ШИРИНЫ КОЛОНОК ---
+  const exportToExcel = () => {
+      if (statsData.length === 0) return alert('Нет данных для выгрузки!');
+
+      const courseName = courses.find(c => c.id === selectedCourseId)?.title || 'Неизвестный курс';
+      const videoName = selectedVideo?.title || 'Неизвестный урок';
+      const teacherName = user ? `${user.firstName} ${user.lastName}`.trim() : 'Неизвестно';
+      const exportDate = new Date().toLocaleDateString('ru-RU');
+
+      // 1. Формируем данные по строкам (двумерный массив)
+      const wsData: any[][] = [];
+
+      // Шапка
+      wsData.push(['ВЕДОМОСТЬ РЕЗУЛЬТАТОВ ТЕСТИРОВАНИЯ']);
+      wsData.push(['Курс:', courseName]);
+      wsData.push(['Урок/Тема:', videoName]);
+      wsData.push(['Преподаватель:', teacherName]);
+      wsData.push(['Дата формирования:', exportDate]);
+      wsData.push([]); // Пустая строка
+
+      // Сводная таблица
+      wsData.push(['СВОДНАЯ СТАТИСТИКА ПО СТУДЕНТАМ']);
+      wsData.push(['№ п/п', 'ФИО обучающегося', 'Всего ответов', 'Правильных', 'С ошибками', 'Процент усвоения', 'Рекомендуемая оценка']);
+
+      const groups = getGroupedStats();
+      groups.forEach((student, index) => {
+          const percent = student.total > 0 ? Math.round((student.correct / student.total) * 100) : 0;
+          let grade = 'Неудовлетворительно (2)';
+          if (percent >= 90) grade = 'Отлично (5)';
+          else if (percent >= 75) grade = 'Хорошо (4)';
+          else if (percent >= 50) grade = 'Удовлетворительно (3)';
+
+          wsData.push([index + 1, student.name, student.total, student.correct, student.incorrect, `${percent}%`, grade]);
+      });
+
+      wsData.push([]);
+      wsData.push([]);
+
+      // Детализация
+      wsData.push(['ДЕТАЛИЗАЦИЯ ОТВЕТОВ И ИИ-АНАЛИЗ']);
+      wsData.push(['ФИО обучающегося', 'Текст вопроса', 'Ответ студента', 'Результат проверки', 'Смысловая точность (ИИ)']);
+
+      statsData.forEach(stat => {
+          const name = stat.user ? `${stat.user.firstName} ${stat.user.lastName}`.trim() : `Студент ID: ${stat.userId}`;
+          const question = stat.event?.question || 'Вопрос удален';
+          const answer = stat.answer || '—';
+          const result = stat.isCorrect ? 'Верно' : 'Ошибка';
+          const aiScore = stat.similarity !== null ? `${stat.similarity}%` : '—';
+
+          wsData.push([name, question, answer, result, aiScore]);
+      });
+
+      // 2. Создаем рабочий лист (Worksheet) из массива
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+      // --- МАГИЯ: ЗАДАЕМ ИДЕАЛЬНУЮ ШИРИНУ КОЛОНОК (в символах) ---
+      ws['!cols'] = [
+          { wch: 30 }, // A: ФИО / Номера
+          { wch: 55 }, // B: Длинные вопросы
+          { wch: 45 }, // C: Ответы студентов
+          { wch: 20 }, // D: Верно/Ошибка
+          { wch: 25 }, // E: Проценты / ИИ
+          { wch: 20 }, // F: Процент усвоения
+          { wch: 25 }, // G: Оценка
+      ];
+
+      // 3. Создаем книгу (Workbook) и добавляем в нее лист
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Ведомость');
+
+      // Формируем безопасное имя файла
+      const safeCourseName = courseName.replace(/[^a-zа-яё0-9]/gi, '_');
+      const safeVideoName = videoName.replace(/[^a-zа-яё0-9]/gi, '_');
+      const fileName = `Ведомость_${safeCourseName}_${safeVideoName}.xlsx`;
+
+      // 4. Скачиваем готовый настоящий .xlsx файл!
+      XLSX.writeFile(wb, fileName);
+  };
+  
   const getGroupedStats = () => {
-      // Группируем по ID, чтобы избежать багов с однофамильцами
       const groups: Record<number, { correct: number; incorrect: number; name: string; userId: number }> = {};
-      
       statsData.forEach(stat => {
           const uId = stat.userId;
-          // Собираем имя из пришедших данных или пишем ID, если данных вдруг нет
           const name = stat.user ? `${stat.user.firstName} ${stat.user.lastName}`.trim() : `Студент ID: ${uId}`;
-          
           if (!groups[uId]) groups[uId] = { correct: 0, incorrect: 0, name, userId: uId };
           
           if (stat.isCorrect) groups[uId].correct++;
           else groups[uId].incorrect++;
       });
-      
       return Object.values(groups).map(data => ({
           ...data,
           total: data.correct + data.incorrect
@@ -333,10 +455,6 @@ export const PrepodPage = () => {
   const groupedStats = getGroupedStats();
   const studentDetails = expandedStudent !== null ? statsData.filter(s => s.userId === expandedStudent) : [];
   const expandedStudentName = expandedStudent !== null ? groupedStats.find(s => s.userId === expandedStudent)?.name : '';
-
-  // === RENDER ===
-
-  // === RENDER ===
 
   // СЦЕНАРИЙ 1: ВЫБОР КУРСА
   if (!selectedCourseId) {
@@ -349,14 +467,7 @@ export const PrepodPage = () => {
             </div>
             <div style={{display: 'flex', alignItems: 'center', gap: '24px'}}>
               <Link to="/" className="nav-link">Выход на сайт →</Link>
-              
-              {user && (
-                    <UserProfile 
-                        user={user} 
-                        onUpdate={handleAvatarUpdate} 
-                        onLogout={logout} 
-                    />
-                )}
+              {user && <UserProfile user={user} onUpdate={handleAvatarUpdate} onLogout={logout} />}
             </div>
             </header>
 
@@ -368,7 +479,10 @@ export const PrepodPage = () => {
 
                 <div className="courses-grid">
                     {courses.map(c => (
-                        <div key={c.id} className="course-card" onClick={() => setSelectedCourseId(c.id)}>
+                        <div key={c.id} className="course-card" onClick={() => {
+                            setSelectedCourseId(c.id);
+                            setSelectedVideo(null); // При ручном выборе курса всегда сбрасываем видео
+                        }}>
                             <h3 className="course-title">{c.title}</h3>
                             <div className="course-instructor">👨‍🏫 {c.instructor}</div>
                             <div className="course-desc">{c.description || 'Нет описания'}</div>
@@ -398,12 +512,18 @@ export const PrepodPage = () => {
         {showStats && (
             <div className="stats-modal-overlay">
                 <div className="stats-modal-content">
-                    <div className="stats-modal-header">
+                    <div className="stats-modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
                             <h3 style={{margin: 0}}>Статистика: {selectedVideo?.title}</h3>
                             {expandedStudent && (<button className="back-link" onClick={() => setExpandedStudent(null)}>← К списку группы</button>)}
                         </div>
-                        <button className="close-btn" onClick={() => setShowStats(false)}>✕</button>
+                        <div style={{display: 'flex', gap: '12px', alignItems: 'center'}}>
+                            {/* КНОПКА ВЫГРУЗКИ EXCEL */}
+                            <button className="btn btn-primary" onClick={exportToExcel} style={{padding: '6px 12px', fontSize: '13px', display: 'flex', gap: '6px'}}>
+                                <Icons.Download /> Выгрузить в Excel
+                            </button>
+                            <button className="close-btn" onClick={() => setShowStats(false)}>✕</button>
+                        </div>
                     </div>
                     
                     <div className="stats-modal-body">
@@ -442,30 +562,16 @@ export const PrepodPage = () => {
                                                     <tr key={stat.id} className="stats-row">
                                                         <td style={{ color: '#ccc' }}>{stat.event?.question || 'Вопрос удален'}</td>
                                                         <td style={{ color: '#fff', fontWeight: '500' }}>{stat.answer}</td>
-                                                        
-                                                        {/* НОВАЯ ЯЧЕЙКА: */}
                                                         <td style={{ textAlign: 'center' }}>
                                                             {stat.event?.type === 'free_text' && stat.similarity !== null ? (
                                                                 <span style={{ 
                                                                     color: stat.isCorrect ? '#4dff88' : '#ff4d4d', 
-                                                                    fontSize: '13px', 
-                                                                    background: 'rgba(255,255,255,0.05)',
-                                                                    padding: '2px 8px',
-                                                                    borderRadius: '12px'
-                                                                }}>
-                                                                    {stat.similarity}%
-                                                                </span>
-                                                            ) : (
-                                                                <span style={{ color: '#444' }}>—</span>
-                                                            )}
+                                                                    fontSize: '13px', background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: '12px'
+                                                                }}>{stat.similarity}%</span>
+                                                            ) : (<span style={{ color: '#444' }}>—</span>)}
                                                         </td>
-
                                                         <td style={{ textAlign: 'right' }}>
-                                                            {stat.isCorrect ? (
-                                                                <span style={{ color: '#4dff88', fontWeight: 'bold' }}>✅ Верно</span>
-                                                            ) : (
-                                                                <span style={{ color: '#ff4d4d', fontWeight: 'bold' }}>❌ Ошибка</span>
-                                                            )}
+                                                            {stat.isCorrect ? (<span style={{ color: '#4dff88', fontWeight: 'bold' }}>✅ Верно</span>) : (<span style={{ color: '#ff4d4d', fontWeight: 'bold' }}>❌ Ошибка</span>)}
                                                         </td>
                                                     </tr>
                                                 ))}
@@ -483,7 +589,10 @@ export const PrepodPage = () => {
         {/* HEADER */}
         <header className="lumeo-header">
              <div style={{display: 'flex', alignItems: 'center', gap: '16px'}}>
-                 <button className="btn btn-ghost" onClick={() => setSelectedCourseId(null)} style={{padding: '6px 12px'}}>
+                 <button className="btn btn-ghost" onClick={() => {
+                     setSelectedCourseId(null);
+                     setSelectedVideo(null); // Очищаем стейты при выходе Назад
+                 }} style={{padding: '6px 12px'}}>
                     <Icons.Back /> Назад
                  </button>
                  <div style={{height: '24px', width: '1px', background: '#333'}}></div>
@@ -494,15 +603,7 @@ export const PrepodPage = () => {
              </div>
              <div style={{display: 'flex', alignItems: 'center', gap: '24px'}}>
               <Link to="/" className="nav-link">Выход на сайт →</Link>
-              
-              {/* Вставляем профиль */}
-              {user && (
-                    <UserProfile 
-                        user={user} 
-                        onUpdate={handleAvatarUpdate} 
-                        onLogout={logout} 
-                    />
-                )}
+              {user && <UserProfile user={user} onUpdate={handleAvatarUpdate} onLogout={logout} />}
             </div>
         </header>
 
@@ -539,7 +640,7 @@ export const PrepodPage = () => {
                             />
                         </div>
 
-                        {/* ПАНЕЛЬ УПРАВЛЕНИЯ (CONTROL DECK) */}
+                        {/* ПАНЕЛЬ УПРАВЛЕНИЯ */}
                         <div className="control-deck">
                             <div className="deck-header">
                                 <div className="deck-title">
@@ -550,14 +651,27 @@ export const PrepodPage = () => {
                                     <button className="btn btn-ghost" onClick={loadStats}>
                                         <Icons.Stats /> Статистика
                                     </button>
-                                    <button className="btn btn-ai" onClick={handleGenerateSubs}>
-                                        <Icons.AI /> {isGeneratingSubs ? 'Создаю...' : 'AI Субтитры'}
-                                    </button>
+                                        {(() => {
+                                            const isThisVideoGenerating = generatingVideos.includes(selectedVideo.id);
+                                            return (
+                                                <button 
+                                                    className={`btn btn-ai ${isThisVideoGenerating ? 'generating' : ''}`} 
+                                                    onClick={handleGenerateSubs}
+                                                    disabled={isThisVideoGenerating}
+                                                >
+                                                    {isThisVideoGenerating ? (
+                                                        <><Icons.Spinner /> Обработка ИИ...</>
+                                                    ) : (
+                                                        <><Icons.AI /> AI Субтитры</>
+                                                    )}
+                                                </button>
+                                            );
+                                        })()}
                                 </div>
                             </div>
 
                             <div style={{ display: 'flex', gap: '40px', flexWrap: 'wrap' }}>
-                                {/* ЛЕВАЯ КОЛОНКА: ИНПУТЫ */}
+                                {/* ЛЕВАЯ КОЛОНКА */}
                                 <div style={{ flex: 2, minWidth: '300px' }}>
                                     <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '15px'}}>
                                         <select 
@@ -601,7 +715,6 @@ export const PrepodPage = () => {
                                         onChange={e => setQuestionText(e.target.value)} 
                                     />
                                     
-                                    {/* ДИНАМИЧЕСКИЕ ВАРИАНТЫ ОТВЕТОВ */}
                                     {(eventType === 'single_choice' || eventType === 'multiple_choice') && (
                                         <div style={{ background: '#1a1a1a', padding: '15px', borderRadius: '8px', marginBottom: '15px' }}>
                                             <h5 style={{ margin: '0 0 10px 0', color: '#888' }}>Варианты ответа (отметьте верные):</h5>
@@ -621,19 +734,14 @@ export const PrepodPage = () => {
                                                         onChange={e => handleOptionChange(idx, 'text', e.target.value)} 
                                                     />
                                                     {options.length > 2 && (
-                                                        <button className="btn btn-ghost" style={{ padding: '6px' }} onClick={() => handleRemoveOption(idx)}>
-                                                            ✕
-                                                        </button>
+                                                        <button className="btn btn-ghost" style={{ padding: '6px' }} onClick={() => handleRemoveOption(idx)}>✕</button>
                                                     )}
                                                 </div>
                                             ))}
-                                            <button className="btn btn-ghost" style={{ marginTop: '10px', fontSize: '12px' }} onClick={handleAddOption}>
-                                                + Добавить вариант
-                                            </button>
+                                            <button className="btn btn-ghost" style={{ marginTop: '10px', fontSize: '12px' }} onClick={handleAddOption}>+ Добавить вариант</button>
                                         </div>
                                     )}
 
-                                    {/* ОТКРЫТЫЙ ВОПРОС */}
                                     {eventType === 'free_text' && (
                                         <textarea 
                                             className="deck-input" 
@@ -657,7 +765,7 @@ export const PrepodPage = () => {
                                     </div>
                                 </div>
 
-                                {/* ПРАВАЯ КОЛОНКА: НАСТРОЙКИ */}
+                                {/* ПРАВАЯ КОЛОНКА */}
                                 <div style={{ flex: 1, minWidth: '250px', borderLeft: '1px solid rgba(255,255,255,0.05)', paddingLeft: '30px' }}>
                                     <h4 style={{marginTop: 0, marginBottom: '20px', color: '#888'}}>Настройки логики</h4>
                                     
@@ -736,6 +844,12 @@ export const PrepodPage = () => {
                 )}
             </main>
         </div>
+        {/* ВСПЛЫВАЮЩЕЕ УВЕДОМЛЕНИЕ ДЛЯ СЦЕНАРИЯ 2 */}
+        {toastMessage && (
+            <div className="ai-toast">
+                {toastMessage.includes('✨') ? '🎉' : '🤖'} {toastMessage}
+            </div>
+        )}
     </div>
   );
 };
