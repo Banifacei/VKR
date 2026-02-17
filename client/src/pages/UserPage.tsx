@@ -138,6 +138,7 @@ export const UserPage = () => {
                           const updatedVideo = data.find(v => v.id === selectedVideo.id);
                           return updatedVideo?.events || [];
                       }}
+                      maxAttempts={selectedVideo.maxAttempts}
                     />
                   <div className="video-info">
                       <h1>{selectedVideo.title}</h1>

@@ -193,6 +193,11 @@ export const PrepodPage = () => {
       }
   }, [videos]);
   
+  useEffect(() => {
+      if (selectedCourseId) {
+          loadVideos();
+      }
+  }, [selectedCourseId]);
 
   const loadCourses = async () => {
       try {
@@ -243,13 +248,12 @@ export const PrepodPage = () => {
     }
   };
 
-  const toggleHideResults = async () => {
+  const handleUpdateSettings = async (updates: Partial<IVideo>) => {
       if (!selectedVideo) return;
       try {
-          const newState = !selectedVideo.hideResults;
-          await updateVideo(selectedVideo.id, { hideResults: newState });
-          setSelectedVideo({ ...selectedVideo, hideResults: newState });
-          setVideos(prev => prev.map(v => v.id === selectedVideo.id ? { ...v, hideResults: newState } : v));
+          await updateVideo(selectedVideo.id, updates);
+          setSelectedVideo({ ...selectedVideo, ...updates });
+          setVideos(prev => prev.map(v => v.id === selectedVideo.id ? { ...v, ...updates } : v));
       } catch (e) {
           alert("Ошибка при обновлении настроек");
       }
@@ -635,8 +639,11 @@ export const PrepodPage = () => {
                                 sources={[{ quality: 'Auto', url: selectedVideo.url, subtitles: selectedVideo.subtitles }]} 
                                 title={selectedVideo.title} 
                                 events={selectedVideo.events || []}
-                                hideResults={selectedVideo.hideResults} 
+                                hideResults={selectedVideo.hideResults}
+                                videoId={selectedVideo.id}
+                                userId={user?.id?.toString()}
                                 onTimeUpdate={(t) => setCurrentTime(t)}
+                                maxAttempts={selectedVideo.maxAttempts}
                             />
                         </div>
 
@@ -797,16 +804,37 @@ export const PrepodPage = () => {
                                     )}
                                     
                                     <h4 style={{marginTop: 0, marginBottom: '20px', color: '#888'}}>Настройки видео</h4>
-                                    <label className="toggle-wrapper">
+
+                                    {/* 1. Переключатель скрытия результатов */}
+                                    <label className="toggle-wrapper" style={{ marginBottom: '20px' }}>
                                         <input 
                                             type="checkbox" 
                                             className="toggle-input"
                                             checked={selectedVideo.hideResults || false}
-                                            onChange={toggleHideResults}
+                                            onChange={(e) => handleUpdateSettings({ hideResults: e.target.checked })}
                                         />
                                         <div className="toggle-track"><div className="toggle-thumb"></div></div>
-                                        <span className="toggle-label">Скрыть результаты теста сразу</span>
+                                        <span className="toggle-label">Скрыть результаты теста</span>
                                     </label>
+
+                                    <div style={{ marginBottom: '15px' }}>
+                                        <label style={{ fontSize: '12px', color: '#888', display: 'block', marginBottom: '5px' }}>
+                                            Количество попыток пересдачи:
+                                        </label>
+                                        <input 
+                                            type="number" 
+                                            className="deck-input" 
+                                            min="0" 
+                                            max="10" 
+                                            /* Используем ?? чтобы разрешить преподу ставить 0 (безлимит) */
+                                            value={selectedVideo.maxAttempts ?? 3} 
+                                            onChange={(e) => handleUpdateSettings({ maxAttempts: Number(e.target.value) })} 
+                                            style={{ marginBottom: 0 }} 
+                                        />
+                                        <p style={{fontSize: '11px', color: '#666', marginTop: '5px', lineHeight: '1.4'}}>
+                                            0 — неограниченно. По умолчанию дается 3 попытки. Студент не сможет сбросить прогресс больше указанного числа раз.
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                         </div>

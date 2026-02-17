@@ -26,4 +26,7 @@ export class Video extends Model {
 
   @HasMany(() => InteractiveEvent)
   declare events: InteractiveEvent[];
+
+  @Column({ type: DataType.INTEGER, defaultValue: 3 }) // <--- Ставим 3
+  declare maxAttempts: number;
 }

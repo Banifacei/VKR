@@ -23,4 +23,7 @@ export class UserVideoProgress extends Model {
 
   @BelongsTo(() => Video)
   declare video: Video;
+
+  @Column({ type: DataType.INTEGER, defaultValue: 0 })
+  declare attemptsUsed: number;
 }

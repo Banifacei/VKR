@@ -25,20 +25,36 @@ interface VideoPlayerProps {
   videoId?: number;
   userId?: string;
   hideResults?: boolean;
+  maxAttempts?: number;
   onResetTest?: () => void;
   onOpenTest?: () => void;
   onTimeUpdate?: (time: number) => void;
   onRefreshEvents?: () => Promise<IInteractiveEvent[]>;
 }
 
-export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'guest', hideResults = false, onResetTest, onOpenTest, onTimeUpdate, onRefreshEvents }: VideoPlayerProps) => {
+interface IAnswerResult {
+    event: IInteractiveEvent;
+    userAnswer: string;
+    isCorrect: boolean;
+    similarity?: number | null;
+}
+
+export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'guest', hideResults = false, maxAttempts, onResetTest, onOpenTest, onTimeUpdate, onRefreshEvents }: VideoPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<number | null>(null);
   const [localEvents, setLocalEvents] = useState<IInteractiveEvent[]>(events);    
   const safeSource = (sources && sources.length > 0) ? sources[0] : { quality: 'Error', url: '', subtitles: [] };
   const [currentSource, setCurrentSource] = useState(safeSource);
+  const [sessionResults, setSessionResults] = useState<IAnswerResult[]>([]);
+  const [attemptsUsed, setAttemptsUsed] = useState(0);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [hasNewAnswers, setHasNewAnswers] = useState(false);
 
+  const showToast = (msg: string) => {
+      setToastMessage(msg);
+      setTimeout(() => setToastMessage(null), 4000);
+  }
   // States
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -85,54 +101,86 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   useEffect(() => {
         setLocalEvents(events);
     }, [events]);
+    
   useEffect(() => {
     const fetchProgress = async () => {
         if (!videoId || !userId) return;
         try {
             const data = await getPlaybackProgress(videoId);
-            // Если есть сохраненное время и оно больше 0
-            if (data && data.lastTime > 0 && videoRef.current) {
-                // Устанавливаем время
-                videoRef.current.currentTime = data.lastTime;
-                lastSavedTimeRef.current = data.lastTime;
-                setCurrentTime(data.lastTime);
+            if (data) {
+                // 1. Восстанавливаем время
+                if (data.lastTime > 0 && videoRef.current) {
+                    videoRef.current.currentTime = data.lastTime;
+                    lastSavedTimeRef.current = data.lastTime;
+                    setCurrentTime(data.lastTime);
+                }
+                setAttemptsUsed(data.attemptsUsed || 0);
+                // 2. ВОССТАНАВЛИВАЕМ ИСТОРИЮ ОТВЕТОВ
+                if (data.responses && data.responses.length > 0) {
+                    // Конвертируем данные с сервера в формат нашего стейта
+                    const historyResults = data.responses.map((r: any) => ({
+                        event: r.event,
+                        userAnswer: r.answer,
+                        isCorrect: r.isCorrect,
+                        similarity: r.similarity
+                    }));
+                    
+                    setSessionResults(historyResults);
+                    
+                    // Самое главное: закидываем ID решенных вопросов в память, 
+                    // чтобы они исчезли с таймлайна и не всплывали!
+                    setProcessedEventIds(data.responses.map((r: any) => r.eventId));
+
+                    // Пересчитываем заработанные баллы
+                    const restoredScore = historyResults.reduce((sum: number, r: any) => {
+                        return r.isCorrect ? sum + (r.event?.weight || 1) : sum;
+                    }, 0);
+                    setScore(restoredScore);
+                }
             }
         } catch (e) {
             console.error("Ошибка загрузки прогресса", e);
         }
     };
     
-    // Запускаем только при монтировании или смене видео
     fetchProgress();
-  }, [videoId, userId]); // Зависимости важны!
+  }, [videoId, userId]);
 
   const handleResetAction = async () => {
     if (!videoId) return;
 
+    // Локальная блокировка: если лимит исчерпан — даже не стучимся на сервер
+    if (maxAttempts && maxAttempts > 0 && attemptsUsed >= maxAttempts) {
+        showToast('❌ Лимит попыток исчерпан!');
+        setShowSettings(false);
+        return;
+    }
+
     try {
-        // 1. Сбрасываем на сервере
         await resetProgress(videoId, userId);
         
-        // 2. Сбрасываем локальное состояние
         setProcessedEventIds([]);
+        setSessionResults([]); // Очищаем историю!
         setScore(0);
         setShowEndScreen(false);
         setActiveEvent(null);
-        
-        // 3. Перематываем в начало и запускаем
+        setAttemptsUsed(prev => prev + 1); // Локально плюсуем потраченную попытку
+        setHasNewAnswers(false);
         if (videoRef.current) {
             videoRef.current.currentTime = 0;
             videoRef.current.play();
         }
 
-        // 4. Вызываем внешний колбэк, если он передан (например, для уведомления родителя)
         if (onResetTest) onResetTest();
-        
-        setShowSettings(false); // Закрываем меню
-    } catch (e) {
-        alert("Не удалось сбросить прогресс");
+        setShowSettings(false);
+        showToast('🔄 Прогресс сброшен. Попытка потрачена!');
+    } catch (e: any) {
+        // Если сервер всё-таки ругнулся
+        const msg = e.response?.data?.message || "Не удалось сбросить прогресс";
+        showToast(`❌ ${msg}`);
+        setShowSettings(false);
     }
-};
+  };
   useEffect(() => {
         if (!onRefreshEvents) return; // Если функцию не передали, не делаем ничего
 
@@ -288,7 +336,7 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
 
       // Локальная проверка в зависимости от типа вопроса
       if (activeEvent.type === 'info') {
-          handleContinue(true); // Инфо-панель просто закрывается
+          handleContinue(true); 
           return;
       } else if (activeEvent.type === 'single_choice') {
           const selectedOpt = activeEvent.options?.find((o: any) => o.text === currentAnswer);
@@ -303,33 +351,45 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
           isCorrectLocally = true; 
           answerString = currentAnswer as string;
       } else {
-          // Старый тип 'question' для обратной совместимости
           isCorrectLocally = activeEvent.correctAnswer === currentAnswer;
           answerString = currentAnswer as string;
       }
 
       try {
           let serverIsCorrect = isCorrectLocally;
+          let similarity = null;
 
+          // 1. Отправляем на сервер и ждем ИИ
           if (videoId) {
-              // Ждем ответа от сервера, где отработал ИИ
               const res = await sendAnswer(videoId, activeEvent.id, answerString);
-              
-              // ВАЖНО: берем вердикт ИИ из ответа сервера
               serverIsCorrect = res.data.isCorrect; 
+              if (res.data.similarity !== undefined) {
+                  similarity = res.data.similarity;
+              }
           }
-          
+
+          // 2. СОХРАНЯЕМ В ЛОКАЛЬНУЮ ИСТОРИЮ (ВАЖНО: это должно быть ЗДЕСЬ, внутри try)
+          setSessionResults(prev => {
+              const filtered = prev.filter(r => r.event.id !== activeEvent.id);
+              return [...filtered, {
+                  event: activeEvent,
+                  userAnswer: answerString,
+                  isCorrect: serverIsCorrect,
+                  similarity: similarity
+              }];
+          });
+          setHasNewAnswers(true);
+          // 3. Продолжаем работу плеера
           if (hideResults) {
               handleContinue(serverIsCorrect);
               return;
           }
 
-          // Показываем результат (теперь точно такой же, как в консоли бэкенда)
           setFeedback(serverIsCorrect ? 'correct' : 'incorrect');
-          
           if (serverIsCorrect) {
               setTimeout(() => handleContinue(true), 1500);
           }
+
       } catch (e) {
           console.error(e);
           handleContinue(false);
@@ -349,7 +409,7 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
       if (activeEvent?.rewindTo !== undefined && videoRef.current) {
           videoRef.current.currentTime = activeEvent.rewindTo;
           // Удаляем из решенных, чтобы вопрос задался снова, когда студент досмотрит
-          setProcessedEventIds(prev => prev.filter(id => id !== activeEvent.id)); 
+          setProcessedEventIds(prev => prev.filter(id => id !== activeEvent.id));
       }
       setFeedback(null);
       setCurrentAnswer(activeEvent?.type === 'multiple_choice' ? [] : '');
@@ -381,7 +441,9 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
     }
 
     if (questions.length > 0 && !activeEvent && !showEndScreen) {
-        const eventToTrigger = questions.find(ev => Math.abs(ev.time - time) < 0.5 && !processedEventIds.includes(ev.id));
+        const eventToTrigger = questions.find(ev => 
+            Math.abs(ev.time - time) < 0.5 && !processedEventIds.includes(ev.id)
+        );
         if (eventToTrigger) {
             videoRef.current.pause();
             setIsPlaying(false);
@@ -423,13 +485,9 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   
   const replayVideo = () => {
       setShowEndScreen(false); 
-      setProcessedEventIds([]); 
-      setScore(0);
-      
-      // 👇 ДОБАВЛЕНО: Сброс состояний ускорения
       setIsSpeedingUp(false);
       wasLongPressRef.current = false;
-
+      setHasNewAnswers(false);
       if (videoRef.current) { 
           videoRef.current.playbackRate = 1; // 👈 Принудительно 1x
           videoRef.current.currentTime = 0; 
@@ -660,10 +718,16 @@ const renderMainMenu = () => (
     <div className="menu-divider" />
 
     {/* 6. КНОПКА СБРОСА (Оставляем одну здесь) */}
-    <div className="menu-item reset-item" onClick={handleResetAction}>
-      <span className="menu-label" style={{ color: '#ff4d4d' }}>Сбросить прогресс</span>
+    <div 
+        className={`menu-item reset-item ${maxAttempts && attemptsUsed >= maxAttempts ? 'disabled' : ''}`} 
+        onClick={handleResetAction}
+    >
+      <span className="menu-label" style={{ color: maxAttempts && attemptsUsed >= maxAttempts ? '#666' : '#ff4d4d' }}>
+          Сбросить прогресс 
+          {maxAttempts && maxAttempts > 0 ? ` (Осталось: ${Math.max(0, maxAttempts - attemptsUsed)})` : ''}
+      </span>
     </div>
-  </div>
+   </div>
 );
 
   return (
@@ -786,22 +850,82 @@ const renderMainMenu = () => (
         </div>
       )}
 
-      {showEndScreen && (
-          <div className="interaction-overlay">
-              <div className="interaction-card end-screen">
-                  <h3>Урок завершен!</h3>
-                  {!hideResults ? (
-                      <div className="score-circle"><span>{score}</span><small>из {totalPossibleScore}</small></div>
-                  ) : (
-                      <p style={{marginTop: '10px', color: '#aaa'}}>Ответы сохранены и отправлены преподавателю.</p>
-                  )}
-                  <button className="primary-btn" onClick={replayVideo} style={{marginTop: '20px', gap: '10px'}}><Icons.Refresh /> Заново</button>
-              </div>
-          </div>
-      )}
+      {showEndScreen && (() => {
+          // Вычисляем, нужно ли показывать компактный экран. 
+          // Показывать если: в видео вообще нет вопросов ИЛИ это пересмотр старых результатов
+          const hasTestQuestions = questions.filter(q => q.type !== 'info').length > 0;
+          const isCompactEndScreen = !hasTestQuestions || (sessionResults.length > 0 && !hasNewAnswers);
 
+          return (
+            <div className="interaction-overlay">
+                <div className={`interaction-card ${!isCompactEndScreen && !hideResults ? 'end-screen-large' : ''}`}>
+                    <h3 style={{ marginBottom: '20px' }}>Урок завершен! 🎉</h3>
+                    
+                    {isCompactEndScreen ? (
+                        /* МИНИ-ЭКРАН ДЛЯ ПЕРЕСМОТРА */
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <p style={{ color: '#aaa', marginBottom: '20px' }}>
+                                {!hasTestQuestions 
+                                    ? 'Надеемся, лекция была полезной!' 
+                                    : 'Вы уже успешно прошли тестирование к этому уроку.'}
+                            </p>
+                            <button className="primary-btn" onClick={replayVideo} style={{ padding: '10px 20px' }}>
+                                <Icons.Refresh /> Смотреть лекцию заново
+                            </button>
+                        </div>
+                    ) : !hideResults ? (
+                        /* ПОЛНЫЙ ЭКРАН С РЕЗУЛЬТАТАМИ (Показывается только сразу после теста) */
+                        <div className="results-container">
+                            <div className="score-header">
+                                <div className="score-circle"><span>{score}</span><small>из {totalPossibleScore}</small></div>
+                                <div className="score-stats">
+                                    <p>Всего вопросов: <strong>{questions.filter(q => q.type !== 'info').length}</strong></p>
+                                    <p style={{color: '#4dff88'}}>Верных ответов: <strong>{sessionResults.filter(r => r.isCorrect).length}</strong></p>
+                                    <p style={{color: '#ff4d4d'}}>Ошибок: <strong>{sessionResults.filter(r => !r.isCorrect).length}</strong></p>
+                                </div>
+                                <div className="score-actions">
+                                    <button className="primary-btn" onClick={replayVideo} style={{ padding: '10px 16px', fontSize: '13px' }}>
+                                        <Icons.Refresh /> Смотреть лекцию заново
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            {sessionResults.length > 0 && (
+                                <div className="results-list">
+                                    {sessionResults.map((res, i) => (
+                                        <div key={i} className={`result-row ${res.isCorrect ? 'correct' : 'incorrect'}`}>
+                                            <div className="res-q">{res.event.question}</div>
+                                            <div className="res-a">Ваш ответ: <span>{res.userAnswer}</span></div>
+                                            <div className="res-meta">
+                                                <span className="res-status">{res.isCorrect ? '✅ Верно' : '❌ Ошибка'}</span>
+                                                {res.event.type === 'free_text' && res.similarity !== null && res.similarity !== undefined && (
+                                                    <span className="res-ai">ИИ-Оценка: {res.similarity}%</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+                            <p style={{marginTop: '20px', color: '#aaa'}}>Ваши ответы успешно сохранены и отправлены преподавателю.</p>
+                            <button className="primary-btn" onClick={replayVideo} style={{marginTop: '20px'}}><Icons.Refresh /> Смотреть заново</button>
+                        </div>
+                    )}
+                </div>
+            </div>
+          );
+      })()}
+      
       <div className={`video-title-overlay ${showControls ? 'show' : ''}`}>
         <div className="video-title-text">{title || 'Лекция'}</div>
+        {/* Индикатор попыток прямо под названием */}
+        {maxAttempts !== undefined && maxAttempts > 0 && (
+            <div className="video-attempts-badge">
+                Попыток пересдачи: {Math.max(0, maxAttempts - attemptsUsed)} из {maxAttempts}
+            </div>
+        )}
       </div>
 
       <video
@@ -881,9 +1005,13 @@ const renderMainMenu = () => (
 
               <div className="yt-progress-handle" style={{ left: `${(currentTime / duration) * 100}%` }} />
               
-              {questions.map(ev => (
-                <div key={ev.id} className="yt-event-marker" style={{ left: `${(ev.time / duration) * 100}%` }} />
-              ))}
+              {/* Отрисовываем маркеры ТОЛЬКО для нерешенных вопросов */}
+                {questions.map(ev => {
+                    if (processedEventIds.includes(ev.id)) return null; 
+                    return (
+                        <div key={ev.id} className="yt-event-marker" style={{ left: `${(ev.time / duration) * 100}%` }} />
+                    );
+                })}
           </div>
         
 
@@ -987,13 +1115,18 @@ const renderMainMenu = () => (
                   )}
                 </div>
               )}
-            </div>
+          </div>
             <button className="yt-btn" onClick={toggleFullscreen} title="Полный экран (f)">
                 <Icons.Fullscreen />
             </button>
           </div>
         </div>
       </div>
+      {toastMessage && (
+          <div className="player-toast">
+              {toastMessage}
+          </div>
+      )}
   </div>
   );
 };

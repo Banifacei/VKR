@@ -34,6 +34,7 @@ export interface IVideo {
     courseId?: number; 
     createdAt?: string;
     updatedAt?: string;
+    maxAttempts?: number;
 }
 
 export interface ICourse {

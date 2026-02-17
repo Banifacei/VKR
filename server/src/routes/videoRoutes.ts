@@ -35,7 +35,7 @@ router.get('/courses/:courseId/videos', getVideosByCourse);
 // --- РОУТЫ ДЛЯ ТЕСТОВ (UserResponse) ---
 // saveProgress — это сохранение ответов на вопросы внутри видео
 router.post('/progress', checkAuth, saveProgress); 
-router.delete('/:videoId/progress', resetVideoProgress);
+router.delete('/:videoId/progress', checkAuth, resetVideoProgress);
 router.get('/:videoId/stats', getVideoStats);
 router.patch('/:videoId', checkAuth, updateVideoSettings);
 

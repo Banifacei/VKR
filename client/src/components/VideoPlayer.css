@@ -354,6 +354,7 @@ video.controls-visible::-webkit-media-text-track-container { transform: translat
 
 .volume-slider {
   -webkit-appearance: none;
+  appearance: none;
   width: 100%;
   height: 3px;
   background: rgba(255, 255, 255, 0.3);
@@ -450,6 +451,175 @@ video.controls-visible::-webkit-media-text-track-container { transform: translat
   opacity: 0.5;
   cursor: not-allowed;
   background: #444;
+}
+
+/* --- ФИНАЛЬНЫЙ ЭКРАН РЕЗУЛЬТАТОВ (Широкий) --- */
+.interaction-card.end-screen-large {
+  max-width: 800px;
+  width: 95%;
+  /* МАГИЯ ЗДЕСЬ: Высота считается от высоты плеера, а не окна браузера */
+  max-height: 90%; 
+  display: flex;
+  flex-direction: column;
+  padding: 20px; /* Уменьшили внутренний отступ для компактности */
+  background: #1a1a1a;
+  box-sizing: border-box;
+}
+
+.interaction-card.end-screen-large h3 {
+  margin-top: 0;
+  margin-bottom: 15px !important;
+  flex-shrink: 0; /* Запрещаем заголовку сжиматься */
+}
+
+.results-container {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  overflow: hidden;
+  flex: 1;
+  /* МАГИЯ FLEXBOX: это позволяет скроллу внутри работать, не раздувая контейнер */
+  min-height: 0; 
+}
+
+.score-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap; /* Позволяет кнопке перепрыгнуть вниз на узких экранах */
+  gap: 15px;
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  border: 1px solid #333;
+  flex-shrink: 0; /* Шапка всегда держит свой размер */
+}
+
+/* Делаем кружок со счетом чуть компактнее */
+.end-screen-large .score-circle {
+  width: 70px;
+  height: 70px;
+  border-width: 3px;
+  font-size: 1.5rem;
+  margin: 0; 
+}
+.end-screen-large .score-circle small {
+  font-size: 0.8rem;
+}
+
+.score-stats {
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #ddd;
+  flex: 1; /* Текст занимает свободное место */
+  min-width: 150px;
+}
+
+.score-stats strong {
+  font-size: 15px;
+  margin-left: 8px;
+}
+
+/* Скроллируемый список ответов */
+.results-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-right: 10px;
+  text-align: left;
+  min-height: 0; /* МАГИЯ FLEXBOX 2 */
+}
+
+/* Стилизация скроллбара */
+.results-list::-webkit-scrollbar { width: 6px; }
+.results-list::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); border-radius: 3px; }
+.results-list::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
+.results-list::-webkit-scrollbar-thumb:hover { background: #777; }
+
+.result-row {
+  background: #222;
+  border-left: 4px solid #444;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.result-row.correct { border-left-color: #4dff88; background: rgba(77, 255, 136, 0.05); }
+.result-row.incorrect { border-left-color: #ff4d4d; background: rgba(255, 77, 77, 0.05); }
+
+.res-q { font-weight: 600; color: #fff; margin-bottom: 6px; font-size: 14px; }
+.res-a { color: #aaa; margin-bottom: 10px; }
+.res-a span { color: #eee; font-weight: 500; font-style: italic; }
+
+.res-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding-top: 10px;
+}
+
+.res-status { font-weight: bold; }
+.result-row.correct .res-status { color: #4dff88; }
+.result-row.incorrect .res-status { color: #ff4d4d; }
+
+.res-ai {
+  background: rgba(0, 174, 239, 0.15);
+  color: #00aeef;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+.end-screen-actions {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  margin-top: 30px;
+}
+
+/* --- СТИЛИ ДЛЯ ПОПЫТОК --- */
+.video-attempts-badge {
+    display: inline-block;
+    background: rgba(0, 174, 239, 0.2);
+    color: #00aeef;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-top: 8px;
+    border: 1px solid rgba(0, 174, 239, 0.4);
+}
+
+.menu-item.disabled {
+    cursor: not-allowed;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.player-toast {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(15, 15, 15, 0.95);
+    border: 1px solid #333;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    z-index: 9999;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    animation: dropDown 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes dropDown {
+    from { top: -50px; opacity: 0; }
+    to { top: 20px; opacity: 1; }
 }
 
 @keyframes fadeIn { from { opacity: 0; transform: translate(-50%, -10px); } to { opacity: 1; transform: translate(-50%, 0); } }

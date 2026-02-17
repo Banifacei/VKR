@@ -251,13 +251,17 @@ export const getVideoStats = async (req: Request, res: Response) => {
     }
 };
 
+// --- ОБНОВЛЕНИЕ НАСТРОЕК ВИДЕО (ДОБАВЛЕНЫ ПОПЫТКИ) ---
 export const updateVideoSettings = async (req: Request, res: Response) => {
     try {
         const { videoId } = req.params;
-        const { hideResults } = req.body;
+        const { hideResults, maxAttempts } = req.body;
         const video = await Video.findByPk(videoId);
         if (!video) return res.status(404).json({ message: 'Видео не найдено' });
-        video.hideResults = hideResults;
+        
+        if (hideResults !== undefined) video.hideResults = hideResults;
+        if (maxAttempts !== undefined) video.maxAttempts = Number(maxAttempts); // Сохраняем попытки
+        
         await video.save();
         res.json(video);
     } catch (error) {
@@ -265,18 +269,44 @@ export const updateVideoSettings = async (req: Request, res: Response) => {
     }
 };
 
+// --- СБРОС ПРОГРЕССА (ТЕПЕРЬ ТРАТИТ ПОПЫТКУ) ---
 export const resetVideoProgress = async (req: Request, res: Response) => {
     try {
         const { videoId } = req.params;
-        const { userId } = req.query;
+        const userId = (req as any).user?.id || req.query.userId;
 
-        await UserResponse.destroy({
-            where: {
-                videoId: Number(videoId),
-                userId: Number(userId)
-            }
+        const video = await Video.findByPk(videoId);
+        if (!video) return res.status(404).json({ message: 'Видео не найдено' });
+
+        const progress = await UserVideoProgress.findOne({
+            where: { videoId: Number(videoId), userId: Number(userId) }
         });
-        res.json({ success: true });
+
+        // Проверяем попытки (0 = бесконечно)
+        if (video.maxAttempts > 0) {
+            const used = progress?.attemptsUsed || 0;
+            if (used >= video.maxAttempts) {
+                return res.status(403).json({ message: 'Лимит попыток исчерпан!' });
+            }
+        }
+
+        // Увеличиваем счетчик потраченных попыток
+        if (progress) {
+            progress.attemptsUsed += 1;
+            await progress.save();
+        } else {
+            await UserVideoProgress.create({
+                userId: Number(userId),
+                videoId: Number(videoId),
+                attemptsUsed: 1
+            });
+        }
+
+        // Удаляем ответы
+        await UserResponse.destroy({
+            where: { videoId: Number(videoId), userId: Number(userId) }
+        });
+        res.json({ success: true, attemptsUsed: progress ? progress.attemptsUsed : 1 });
     } catch (e) {
         res.status(500).json(e);
     }
@@ -311,13 +341,27 @@ export const getVideoProgress = async (req: Request, res: Response) => {
         const { videoId } = req.params;
         const userId = (req as any).user?.id;
 
-        if (!userId) return res.json({ lastTime: 0, isWatched: false });
+        if (!userId) return res.json({ lastTime: 0, isWatched: false, responses: [] });
 
+        // 1. Получаем время и попытки
         const progress = await UserVideoProgress.findOne({
             where: { userId, videoId: Number(videoId) }
         });
-        res.json(progress || { lastTime: 0, isWatched: false });
+
+        // 2. Получаем ВСЕ ответы студента для этого видео вместе с текстом вопросов
+        const responses = await UserResponse.findAll({
+            where: { userId, videoId: Number(videoId) },
+            include: [InteractiveEvent] // Подтягиваем инфу о вопросе (вес, текст и т.д.)
+        });
+
+        res.json({ 
+            lastTime: progress?.lastTime || 0, 
+            isWatched: progress?.isWatched || false,
+            attemptsUsed: progress?.attemptsUsed || 0,
+            responses: responses || [] // Отдаем историю на фронт!
+        });
     } catch (error) {
+        console.error("Ошибка getVideoProgress:", error);
         res.status(500).json({ message: 'Ошибка получения прогресса', error });
     }
 };
