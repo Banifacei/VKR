@@ -642,6 +642,7 @@ export const PrepodPage = () => {
                                 hideResults={selectedVideo.hideResults}
                                 videoId={selectedVideo.id}
                                 userId={user?.id?.toString()}
+                                userRole={user?.role}
                                 onTimeUpdate={(t) => setCurrentTime(t)}
                                 maxAttempts={selectedVideo.maxAttempts}
                             />

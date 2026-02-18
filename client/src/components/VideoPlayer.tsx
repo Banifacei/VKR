@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { sendAnswer, resetProgress, savePlaybackProgress, getPlaybackProgress } from '../api/videoApi';
 import './VideoPlayer.css';
 import type { IInteractiveEvent, ISubtitle } from '../types';
+import { TestModeButton } from './TestModeButton'; // <--- ИМПОРТ НОВОЙ КНОПКИ
 
 const Icons = {
   Play: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="6 3 20 12 6 21 6 3" fill="currentColor" /></svg>,
@@ -24,12 +25,14 @@ interface VideoPlayerProps {
   events?: IInteractiveEvent[];
   videoId?: number;
   userId?: string;
+  userRole?: string;
   hideResults?: boolean;
   maxAttempts?: number;
   onResetTest?: () => void;
-  onOpenTest?: () => void;
   onTimeUpdate?: (time: number) => void;
   onRefreshEvents?: () => Promise<IInteractiveEvent[]>;
+  isExternalTestMode?: boolean;
+  onToggleTestMode?: () => void;
 }
 
 interface IAnswerResult {
@@ -39,9 +42,10 @@ interface IAnswerResult {
     similarity?: number | null;
 }
 
-export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'guest', hideResults = false, maxAttempts, onResetTest, onOpenTest, onTimeUpdate, onRefreshEvents }: VideoPlayerProps) => {
+export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'guest', userRole = 'student', hideResults = false, maxAttempts, onResetTest, onTimeUpdate, onRefreshEvents,isExternalTestMode = false,onToggleTestMode }: VideoPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const settingsRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<number | null>(null);
   const [localEvents, setLocalEvents] = useState<IInteractiveEvent[]>(events);    
   const safeSource = (sources && sources.length > 0) ? sources[0] : { quality: 'Error', url: '', subtitles: [] };
@@ -98,6 +102,24 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   // --- NEW: Активная глава (для текста внизу) ---
   const activeChapter = chapters.slice().reverse().find(chap => chap.time <= currentTime);
   const totalPossibleScore = questions.reduce((sum, q) => sum + (q.weight || 1), 0);
+  // --- ЗАКРЫТИЕ НАСТРОЕК ПО КЛИКУ ВНЕ МЕНЮ ---
+  useEffect(() => {
+      const handleClickOutside = (event: MouseEvent) => {
+          // Если клик был НЕ по меню настроек и НЕ по кнопке-шестеренке
+          if (settingsRef.current && !settingsRef.current.contains(event.target as Node)) {
+              setShowSettings(false);
+          }
+      };
+
+      // Вешаем слушатель только когда меню открыто
+      if (showSettings) {
+          document.addEventListener('mousedown', handleClickOutside);
+      }
+
+      return () => {
+          document.removeEventListener('mousedown', handleClickOutside);
+      };
+  }, [showSettings]);
   useEffect(() => {
         setLocalEvents(events);
     }, [events]);
@@ -158,24 +180,21 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
 
     try {
         await resetProgress(videoId, userId);
-        
         setProcessedEventIds([]);
-        setSessionResults([]); // Очищаем историю!
+        setSessionResults([]);
         setScore(0);
         setShowEndScreen(false);
         setActiveEvent(null);
-        setAttemptsUsed(prev => prev + 1); // Локально плюсуем потраченную попытку
+        setAttemptsUsed(prev => prev + 1);
         setHasNewAnswers(false);
         if (videoRef.current) {
             videoRef.current.currentTime = 0;
             videoRef.current.play();
         }
-
         if (onResetTest) onResetTest();
         setShowSettings(false);
         showToast('🔄 Прогресс сброшен. Попытка потрачена!');
-    } catch (e: any) {
-        // Если сервер всё-таки ругнулся
+        }catch (e: any) {
         const msg = e.response?.data?.message || "Не удалось сбросить прогресс";
         showToast(`❌ ${msg}`);
         setShowSettings(false);
@@ -251,6 +270,27 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
             }
         };
     }, [videoId]);
+
+    // --- УМНЫЙ АНТИ-СКИП: Ищет нерешенные вопросы на пути перемотки ---
+  const getBlockingEventTime = (fromTime: number, toTime: number) => {
+      // Преподы и админы мотают как хотят!
+      if (userRole === 'teacher' || userRole === 'admin' || isExternalTestMode) return null; 
+
+      // Ищем все вопросы, которые находятся между текущим временем и куда кликнули, 
+      // и на которые студент еще НЕ ответил
+      const blockingEvents = questions.filter(ev => 
+          ev.time > fromTime && 
+          ev.time <= toTime && 
+          !processedEventIds.includes(ev.id)
+      );
+
+      if (blockingEvents.length > 0) {
+          // Возвращаем время самого ПЕРВОГО вопроса на пути
+          return Math.min(...blockingEvents.map(ev => ev.time)); 
+      }
+      return null;
+  };
+
   // --- ЛОГИКА НАЖАТИЯ (Smart Touch/Click) ---
   
   const handlePressStart = () => {
@@ -431,7 +471,18 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   const handleTimeUpdate = () => {
     if (!videoRef.current) return;
     const time = videoRef.current.currentTime;
+
+    // Защита от читеров, которые меняют время через консоль браузера
+    if (time > currentTime + 1.5) { // Если время прыгнуло больше чем на 1.5 секунды
+        const blockTime = getBlockingEventTime(currentTime, time);
+        if (blockTime !== null) {
+            videoRef.current.currentTime = Math.max(currentTime, blockTime - 0.2);
+            return; 
+        }
+    }
+
     setCurrentTime(time);
+
     if (onTimeUpdate) onTimeUpdate(time);
 
     // НОВАЯ ЛОГИКА: Сохраняем каждые 30 секунд (не чаще)
@@ -440,7 +491,7 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
         lastSavedTimeRef.current = time;
     }
 
-    if (questions.length > 0 && !activeEvent && !showEndScreen) {
+    if (questions.length > 0 && !activeEvent && !showEndScreen && !isExternalTestMode) {
         const eventToTrigger = questions.find(ev => 
             Math.abs(ev.time - time) < 0.5 && !processedEventIds.includes(ev.id)
         );
@@ -465,7 +516,7 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   };
 
   // --- ОБНОВЛЕНО: Сохранение при завершении ---
-  const handleVideoEnd = () => { 
+  const handleVideoEnd = () => {
       // Сохраняем статус "просмотрено"
       if (videoId) {
           savePlaybackProgress(videoId, duration, true).catch(e => console.error(e));
@@ -517,10 +568,22 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
 
   const skipTime = (amount: number) => {
     if (videoRef.current && !activeEvent) {
-        videoRef.current.currentTime += amount;
+        let targetTime = videoRef.current.currentTime + amount;
+        
+        // Блокируем стрелочки клавиатуры
+        if (targetTime > currentTime) {
+            const blockTime = getBlockingEventTime(currentTime, targetTime);
+            if (blockTime !== null) {
+                targetTime = Math.max(currentTime, blockTime - 0.2);
+                showToast('⚠️ Сначала нужно ответить на вопрос!');
+            }
+        }
+
+        videoRef.current.currentTime = targetTime;
         showControlsTemporarily();
     }
   };
+
     const toggleSubtitles = () => {
     setActiveSubtitle(prev => {
         if (prev !== 'off') {
@@ -577,7 +640,26 @@ const handleVideoDoubleClick = (e: React.MouseEvent) => {
     return ((currentTime - segStart) / (segEnd - segStart)) * 100;
   };
 
-  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => { if (activeEvent || showEndScreen) return; const rect = e.currentTarget.getBoundingClientRect(); const pos = (e.clientX - rect.left) / rect.width; if (videoRef.current && duration) videoRef.current.currentTime = pos * duration; };
+  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => { 
+      if (activeEvent || showEndScreen) return; 
+      const rect = e.currentTarget.getBoundingClientRect(); 
+      const pos = (e.clientX - rect.left) / rect.width; 
+      let targetTime = pos * duration; 
+
+      // Блокируем перепрыгивание через вопросы (если мотаем вперед)
+      if (targetTime > currentTime) {
+          const blockTime = getBlockingEventTime(currentTime, targetTime);
+          if (blockTime !== null) {
+              // Откидываем прямо за 0.2 сек до вопроса, чтобы плеер сразу его открыл
+              targetTime = Math.max(currentTime, blockTime - 0.2);
+              showToast('⚠️ Сначала нужно ответить на вопрос!');
+          }
+      }
+
+      if (videoRef.current && duration) {
+          videoRef.current.currentTime = targetTime; 
+      }
+  };
 
   // --- NEW: Обработка движения мыши по прогресс-бару (для тултипа и подсветки) ---
   const handleProgressMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -707,12 +789,14 @@ const renderMainMenu = () => (
       <span className={`menu-status ${isZoomFill ? 'active' : ''}`}>{isZoomFill ? 'Вкл.' : 'Выкл.'}</span>
     </div>
 
-    {/* 5. Внешний тест (если есть) */}
-    {onOpenTest && (
-       <div className="menu-item" onClick={() => { onOpenTest(); setShowSettings(false); }}>
-         <span className="menu-label">Решить тест</span>
-         <span className="menu-value">›</span>
-       </div>
+    {userRole === 'student' && onToggleTestMode && (
+        <TestModeButton 
+            isExternalMode={isExternalTestMode} 
+            onToggle={() => {
+                onToggleTestMode();
+                setShowSettings(false); // Закрываем меню настроек
+            }} 
+        />
     )}
 
     <div className="menu-divider" />
@@ -1006,7 +1090,7 @@ const renderMainMenu = () => (
               <div className="yt-progress-handle" style={{ left: `${(currentTime / duration) * 100}%` }} />
               
               {/* Отрисовываем маркеры ТОЛЬКО для нерешенных вопросов */}
-                {questions.map(ev => {
+                {!isExternalTestMode && questions.map(ev => {
                     if (processedEventIds.includes(ev.id)) return null; 
                     return (
                         <div key={ev.id} className="yt-event-marker" style={{ left: `${(ev.time / duration) * 100}%` }} />
@@ -1063,7 +1147,7 @@ const renderMainMenu = () => (
                 <Icons.Pip />
             </button>
             
-            <div className="settings-wrapper">
+            <div className="settings-wrapper" ref={settingsRef}>
               <button 
                 className={`yt-btn ${showSettings ? 'rotate' : ''}`} 
                 onClick={() => { setShowSettings(!showSettings); setCurrentMenu('main'); }}

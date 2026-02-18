@@ -9,6 +9,7 @@ interface UserProfileProps {
         lastName: string;
         middleName?: string;
         avatarUrl?: string;
+        role?: string;
     };
     onUpdate: (newAvatarUrl: string) => void;
     onLogout: () => void;
@@ -62,6 +63,17 @@ export const UserProfile = ({ user, onUpdate, onLogout }: UserProfileProps) => {
                     >
                         ⚙️ Настройки
                     </button>
+                    {user.role === 'student' && (
+                        <button 
+                            className="dropdown-item" 
+                            onClick={() => { 
+                                setIsOpen(false);
+                                navigate('/history'); // ПРОСТО ПРЯМОЙ ПУТЬ
+                            }}
+                        >
+                            📊 Моя статистика
+                        </button>
+                    )}
                     <button className="dropdown-item danger" onClick={onLogout}>
                         🚪 Выйти
                     </button>

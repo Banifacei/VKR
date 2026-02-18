@@ -8,6 +8,7 @@ import { AdminPage } from './pages/AdminPage';
 import { CoursesPage } from './pages/CoursesPage';
 import { AuthPage } from './pages/AuthPage';
 import { ProfilePage } from './pages/ProfilePage';
+import { HistoryPage } from './pages/HistoryPage';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     const { isAuthenticated } = useAuth();
@@ -28,6 +29,9 @@ function App() {
                     
                     <Route path="/" element={<ProtectedRoute><CoursesPage /></ProtectedRoute>} />
                     <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+                    <Route path="/history" element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} /> {/* <--- НОВЫЙ РОУТ */}
+                    <Route path="/course/:courseId" element={<ProtectedRoute><UserPage /></ProtectedRoute>} />
+                    <Route path="/course/:courseId/lesson/:videoId" element={<ProtectedRoute><UserPage /></ProtectedRoute>} />
                     <Route path="/course/:courseId" element={<ProtectedRoute><UserPage /></ProtectedRoute>} />
                     <Route path="/prepod" element={<ProtectedRoute><PrepodPage /></ProtectedRoute>} />
                     <Route path="/adminpanel" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />

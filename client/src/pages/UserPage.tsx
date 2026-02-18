@@ -1,6 +1,6 @@
 // src/pages/UserPage.tsx
-import { useParams, Link } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useEffect, useState, useRef } from 'react';
 import { getVideosByCourse } from '../api/videoApi';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { AuthModal } from '../components/AuthModal';
@@ -8,9 +8,13 @@ import { VideoPlaylist } from '../components/VideoPlaylist';
 import type { IVideo } from '../types';
 import './UserPage.css';
 import {UserProfile} from '../components/UserProfile';
+import { TestCards } from '../components/TestCards';
 
 export const UserPage = () => {
-  const { courseId } = useParams();
+  // 👇 1. Достаем и courseId, и videoId из адресной строки
+  const { courseId, videoId } = useParams();
+  const navigate = useNavigate(); // <-- Хук для смены URL
+
   const [videos, setVideos] = useState<IVideo[]>([]);
   const [selectedVideo, setSelectedVideo] = useState<IVideo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -23,18 +27,48 @@ export const UserPage = () => {
       }
   });
   const [showAuthModal, setShowAuthModal] = useState(!userData || !userData.id);
-
+  const [testModeState, setTestModeState] = useState<Record<number, boolean>>(() => {
+      try {
+          const saved = localStorage.getItem('lumeo_test_modes');
+          return saved ? JSON.parse(saved) : {};
+      } catch (e) {
+          return {};
+      }
+  });
+  const isExternalTest = selectedVideo ? !!testModeState[selectedVideo.id] : false;
+  const testCardsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+      localStorage.setItem('lumeo_test_modes', JSON.stringify(testModeState));
+  }, [testModeState]);
+  // Умный переключатель
+  const handleToggleTestMode = () => {
+      if (!selectedVideo) return;
+      setTestModeState(prev => {
+          const isNowExternal = !prev[selectedVideo.id];
+          
+          // Если мы только что включили внешний режим — скроллим вниз
+          if (isNowExternal) {
+              setTimeout(() => {
+                  testCardsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }, 100);
+          }
+          
+          return { ...prev, [selectedVideo.id]: isNowExternal };
+      });
+  };
+  // 1. ЗАГРУЗКА ДАННЫХ КУРСА
   useEffect(() => {
       if (!courseId) return;
 
-      // 1. Первая (мгновенная) загрузка при входе на страницу
       const fetchInitial = async () => {
           try {
               const data = await getVideosByCourse(Number(courseId));
               setVideos(data);
-              // Выбираем первое видео только если еще ничего не выбрано
-              if (data.length > 0) {
-                  setSelectedVideo(prev => prev ? prev : data[0]);
+              
+              // Если загрузили курс, но в URL нет ID конкретного видео (зашли просто по /course/1)
+              // -> Автоматически перенаправляем на первое видео в списке
+              if (!videoId && data.length > 0) {
+                  navigate(`/course/${courseId}/lesson/${data[0].id}`, { replace: true });
               }
           } finally {
               setLoading(false);
@@ -42,41 +76,34 @@ export const UserPage = () => {
       };
       fetchInitial();
 
-      // 2. Фоновый радар (Long Polling) для плейлиста
       const interval = setInterval(async () => {
           try {
               const newData = await getVideosByCourse(Number(courseId));
-              
-              // Сравниваем списки видео. Если препод добавил/удалил урок, ID не совпадут
               setVideos(prevVideos => {
-                  // Сравниваем ВСЕ данные целиком (чтобы поймать новые субтитры или смену настроек)
                   const currentHash = JSON.stringify(prevVideos);
                   const newHash = JSON.stringify(newData);
-                  
-                  if (currentHash !== newHash) {
-                      console.log('📺 Препод обновил курс (добавил урок или сгенерировались субтитры)! Обновляем...');
-                      return newData; // Обновляем список!
-                  }
-                  return prevVideos; // Если ничего не поменялось, не дергаем интерфейс
+                  if (currentHash !== newHash) return newData;
+                  return prevVideos;
               });
-          } catch (e) {
-              // Тихо игнорируем ошибки
-          }
-      }, 15000); // Для плейлиста опрос раз в 15 секунд — идеально
+          } catch (e) {}
+      }, 15000); 
 
       return () => clearInterval(interval);
-  }, [courseId]);
-  // --- СИНХРОНИЗАЦИЯ ПЛЕЕРА (Студент) ---
-  // Проталкиваем новые субтитры или изменения настроек прямо в плеер
+  }, [courseId, navigate, videoId]); // Зависимости обновлены
+
+  // 👇 2. СИНХРОНИЗАЦИЯ URL И ПЛЕЕРА (Магия роутинга)
   useEffect(() => {
-      if (selectedVideo && videos.length > 0) {
-          const updated = videos.find(v => v.id === selectedVideo.id);
-          if (updated && JSON.stringify(updated) !== JSON.stringify(selectedVideo)) {
-              console.log('📺 Подхватили новые субтитры или настройки для текущего видео!');
-              setSelectedVideo(updated);
+      if (videos.length > 0 && videoId) {
+          const targetVideo = videos.find(v => v.id === Number(videoId));
+          if (targetVideo) {
+              setSelectedVideo(targetVideo);
+          } else {
+              // Если кто-то ввел кривой URL руками -> кидаем на первое видео
+              navigate(`/course/${courseId}/lesson/${videos[0].id}`, { replace: true });
           }
       }
-  }, [videos]);
+  }, [videoId, videos, courseId, navigate]);
+
   const handleLoginSuccess = (data: any) => {
       localStorage.setItem('lumeo_user', JSON.stringify(data));
       setUserData(data);
@@ -104,8 +131,6 @@ export const UserPage = () => {
             <div className="logo">Lumeo<span className="dot">.</span></div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                 <Link to="/" style={{color: '#fff', textDecoration: 'none'}}>← Курсы</Link>
-                
-                {/* КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Добавлена проверка userData */}
                 {userData && userData.id && (
                     <UserProfile 
                         user={userData} 
@@ -128,22 +153,47 @@ export const UserPage = () => {
                         title={selectedVideo.title}
                         events={selectedVideo.events || []}
                         videoId={selectedVideo.id} 
-                        userId={userData?.id} // Опциональная цепочка защищает, если userData еще null
+                        userId={userData?.id} 
+                        userRole={userData?.role}
                         hideResults={selectedVideo.hideResults} 
-                        onOpenTest={() => alert('Тест доступен')}
                         onResetTest={() => alert('Прогресс сброшен')}
                         onRefreshEvents={async () => {
-                          if (!courseId || !selectedVideo) return []; // Защита от пустых значений
+                          if (!courseId || !selectedVideo) return []; 
                           const data = await getVideosByCourse(Number(courseId)); 
                           const updatedVideo = data.find(v => v.id === selectedVideo.id);
                           return updatedVideo?.events || [];
                       }}
                       maxAttempts={selectedVideo.maxAttempts}
+                      isExternalTestMode={isExternalTest}
+                      onToggleTestMode={handleToggleTestMode}
                     />
                   <div className="video-info">
                       <h1>{selectedVideo.title}</h1>
                       <p className="video-meta">Опубликовано: {new Date(selectedVideo.createdAt || Date.now()).toLocaleDateString()}</p>
                   </div>
+                  {/* 👇 ИНЛАЙН БЛОК С ТЕСТАМИ 👇 */}
+                  {isExternalTest && selectedVideo.events && selectedVideo.events.length > 0 && userData?.role === 'student' && (
+                      <div ref={testCardsRef} style={{ marginTop: '30px', animation: 'fadeIn 0.4s ease' }}>
+                          <TestCards 
+                              events={selectedVideo.events} 
+                              videoId={selectedVideo.id} 
+                              userId={userData.id}
+                              onAllSolved={() => {
+                                  // Автоматически выключаем режим после решения
+                                  setTimeout(() => handleToggleTestMode(), 3000);
+                              }}
+                          />
+                          
+                          <div style={{ textAlign: 'center', marginTop: '15px' }}>
+                              <button 
+                                  onClick={handleToggleTestMode}
+                                  style={{ background: 'transparent', border: 'none', color: '#888', cursor: 'pointer', textDecoration: 'underline', fontSize: '14px' }}
+                              >
+                                  Скрыть вопросы (решать в видео)
+                              </button>
+                          </div>
+                      </div>
+                  )}
               </div>
             ) : (
               <div className="empty-state">
@@ -156,7 +206,8 @@ export const UserPage = () => {
         <VideoPlaylist 
           videos={videos} 
           selectedVideoId={selectedVideo?.id} 
-          onSelect={setSelectedVideo} 
+          // 👇 3. ПРИ КЛИКЕ В ПЛЕЙЛИСТЕ МЕНЯЕМ URL, А НЕ СТЕЙТ
+          onSelect={(video) => navigate(`/course/${courseId}/lesson/${video.id}`)} 
         />
       </div>
     </div>
