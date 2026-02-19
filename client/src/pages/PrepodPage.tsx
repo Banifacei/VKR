@@ -1,23 +1,32 @@
 import { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { 
-    getVideosByCourse,
-    addEvent,
-    updateEvent,
-    deleteEvent, 
-    getVideoStats,
-    updateVideo,
-    getCourses,
-    createCourse,
-    generateAutoSubtitles
-} from '../api/videoApi';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { AddVideoForm } from '../components/AddVideoForm';
+import { DraggableVideoList } from '../components/DraggableVideoList';
+import { 
+    getVideosByCourse, 
+    addEvent, 
+    updateEvent, 
+    deleteEvent, 
+    getVideoStats, 
+    updateVideo, 
+    getCourses, 
+    createCourse,
+    updateCourseApi,
+    deleteCourseApi,
+    generateAutoSubtitles, 
+    reorderVideos,
+    deleteVideoApi
+} from '../api/videoApi';
 import type { IVideo, ICourse } from '../types';
 import './PrepodPage.css';
 import './UserPage.css'; 
 import { UserProfile } from '../components/UserProfile';
 import { useAuth } from '../context/AuthContext';
+import { 
+    getCourseTests, createCourseTest, deleteCourseTest, deleteTestQuestion,addTestQuestion,
+    type ICourseTest 
+} from '../api/testApi';
 import * as XLSX from 'xlsx';
 // Иконки SVG для интерфейса
 const Icons = {
@@ -102,12 +111,72 @@ export const PrepodPage = () => {
   useEffect(() => {
       localStorage.setItem('prepod_generating_videos', JSON.stringify(generatingVideos));
   }, [generatingVideos]);
+  
+  // --- СОСТОЯНИЕ: ТЕСТЫ ---
+  const [activeTab, setActiveTab] = useState<'videos' | 'tests'>('videos');
+  const [tests, setTests] = useState<ICourseTest[]>([]);
+  const [selectedTest, setSelectedTest] = useState<ICourseTest | null>(null);
+  // Загрузка тестов при выборе курса
+    const loadTests = async () => {
+        if (!selectedCourseId) return;
+        try {
+            const data = await getCourseTests(selectedCourseId);
+            setTests(data);
+        } catch (e) { console.error("Ошибка загрузки тестов"); }
+    };
+  // --- СИНХРОНИЗАЦИЯ ТЕСТА (как с видео) ---
+  useEffect(() => {
+      if (selectedTest && tests.length > 0) {
+          const updated = tests.find(t => t.id === selectedTest.id);
+          if (updated && JSON.stringify(updated) !== JSON.stringify(selectedTest)) {
+              setSelectedTest(updated);
+          }
+      }
+  }, [tests]);
 
+  // --- ДОБАВЛЕНИЕ И УДАЛЕНИЕ ВОПРОСОВ В ТЕСТ ---
+  const handleAddTestQuestion = async () => {
+      if (!selectedTest) return;
+      if (!questionText.trim()) return alert('Введите текст вопроса!');
+      if ((eventType === 'single_choice' || eventType === 'multiple_choice') && !options.some(o => o.isCorrect)) {
+          return alert('Выберите хотя бы один правильный ответ!');
+      }
+
+      setIsAddingEvent(true);
+      try {
+          await addTestQuestion(selectedTest.id, {
+              type: eventType,
+              text: questionText,
+              options: (eventType === 'single_choice' || eventType === 'multiple_choice') ? options : [],
+              correctAnswer: eventType === 'free_text' ? freeTextAnswer : '',
+              weight: Number(weight),
+              aiThreshold
+          });
+          showToast('✅ Вопрос добавлен в тест!');
+          setQuestionText(''); setOptions([{ text: '', isCorrect: false }, { text: '', isCorrect: false }]);
+          setFreeTextAnswer('');
+          loadTests(); // Обновляем список, чтобы вопрос появился
+      } catch (e) {
+          showToast('❌ Ошибка при добавлении вопроса');
+      } finally {
+          setIsAddingEvent(false);
+      }
+  };
+
+  const handleDeleteTestQuestion = async (qId: number) => {
+      if (!window.confirm('Точно удалить этот вопрос?')) return;
+      try {
+          await deleteTestQuestion(qId);
+          loadTests();
+      } catch (e) { showToast('❌ Ошибка удаления'); }
+  };
   // Статистика
   const [showStats, setShowStats] = useState(false);
   const [statsData, setStatsData] = useState<any[]>([]);
   const [expandedStudent, setExpandedStudent] = useState<number | null>(null);
-
+  // Настройки курса
+  const [showCourseSettings, setShowCourseSettings] = useState(false);
+  const [editCourseData, setEditCourseData] = useState({ title: '', description: '', instructor: '' });
   // --- СОХРАНЕНИЕ В LOCAL STORAGE ---
   useEffect(() => {
       if (selectedCourseId) localStorage.setItem('prepod_course_id', selectedCourseId.toString());
@@ -196,6 +265,7 @@ export const PrepodPage = () => {
   useEffect(() => {
       if (selectedCourseId) {
           loadVideos();
+          loadTests();
       }
   }, [selectedCourseId]);
 
@@ -461,6 +531,7 @@ export const PrepodPage = () => {
   const expandedStudentName = expandedStudent !== null ? groupedStats.find(s => s.userId === expandedStudent)?.name : '';
 
   // СЦЕНАРИЙ 1: ВЫБОР КУРСА
+  // СЦЕНАРИЙ 1: ВЫБОР КУРСА
   if (!selectedCourseId) {
     return (
         <div className="prepod-layout">
@@ -483,12 +554,18 @@ export const PrepodPage = () => {
 
                 <div className="courses-grid">
                     {courses.map(c => (
-                        <div key={c.id} className="course-card" onClick={() => {
-                            setSelectedCourseId(c.id);
-                            setSelectedVideo(null); // При ручном выборе курса всегда сбрасываем видео
-                        }}>
-                            <h3 className="course-title">{c.title}</h3>
+                        <div 
+                            key={c.id} 
+                            className="course-card" 
+                            style={{ position: 'relative' }} 
+                            onClick={() => {
+                                setSelectedCourseId(c.id);
+                                setSelectedVideo(null);
+                            }}
+                        >
+                            <h3 className="course-title" style={{ paddingRight: '60px' }}>{c.title}</h3>
                             <div className="course-instructor">👨‍🏫 {c.instructor}</div>
+                            {/* ВОТ ЭТИХ СТРОК И ЗАКРЫВАЮЩИХ ТЕГОВ НЕ ХВАТАЛО! 👇 */}
                             <div className="course-desc">{c.description || 'Нет описания'}</div>
                             <div className="course-meta">{c.videos?.length || 0} УРОКОВ</div>
                         </div>
@@ -589,7 +666,75 @@ export const PrepodPage = () => {
                 </div>
             </div>
         )}
+        {/* MODAL COURSE SETTINGS */}
+        {showCourseSettings && (() => {
+            const currentCourse = courses.find(c => c.id === selectedCourseId);
+            const isChanged = currentCourse && (
+                currentCourse.title !== editCourseData.title ||
+                (currentCourse.description || '') !== editCourseData.description ||
+                (currentCourse.instructor || '') !== editCourseData.instructor
+            );
+            return (
+                <div className="stats-modal-overlay">
+                    <div className="stats-modal-content" style={{ maxWidth: '500px' }}>
+                        <div className="stats-modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h3 style={{margin: 0}}>Настройки курса</h3>
+                            <button className="close-btn" onClick={() => setShowCourseSettings(false)}>✕</button>
+                        </div>
+                        <div className="stats-modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                            <div>
+                                <label style={{ fontSize: '12px', color: '#888', marginBottom: '5px', display: 'block' }}>Название курса</label>
+                                <input className="modern-input" value={editCourseData.title} onChange={e => setEditCourseData({...editCourseData, title: e.target.value})} />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: '12px', color: '#888', marginBottom: '5px', display: 'block' }}>ФИО Преподавателя</label>
+                                <input className="modern-input" value={editCourseData.instructor} onChange={e => setEditCourseData({...editCourseData, instructor: e.target.value})} />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: '12px', color: '#888', marginBottom: '5px', display: 'block' }}>Описание</label>
+                                <textarea className="modern-input" style={{ minHeight: '80px', resize: 'vertical' }} value={editCourseData.description} onChange={e => setEditCourseData({...editCourseData, description: e.target.value})} />
+                            </div>
+                            
+                            <div style={{ borderTop: '1px solid #333', margin: '10px 0' }}></div>
 
+                            <div style={{ display: 'flex', gap: '10px' }}>
+                                <button 
+                                    className="btn btn-primary" 
+                                    style={{ 
+                                        flex: 1, 
+                                        opacity: isChanged ? 1 : 0.5, 
+                                        cursor: isChanged ? 'pointer' : 'not-allowed',
+                                        transition: 'all 0.3s ease'
+                                    }} 
+                                    disabled={!isChanged}
+                                    onClick={async () => {
+                                        try {
+                                            await updateCourseApi(selectedCourseId!, editCourseData);
+                                            loadCourses();
+                                            setShowCourseSettings(false);
+                                            showToast('✅ Курс успешно обновлен!');
+                                        } catch (e) { alert('Ошибка при обновлении'); }
+                                    }}
+                                >
+                                    Сохранить изменения
+                                </button>
+                                
+                                <button className="btn btn-ghost" style={{ background: 'rgba(255, 77, 77, 0.1)', color: '#ff4d4d' }} onClick={async () => {
+                                    if (window.confirm(`⚠️ Вы уверены, что хотите удалить курс "${currentCourse?.title}"?\nВсе уроки, тесты и результаты студентов будут стерты навсегда!`)) {
+                                        try {
+                                            await deleteCourseApi(selectedCourseId!);
+                                            setShowCourseSettings(false);
+                                            setSelectedCourseId(null);
+                                            loadCourses();
+                                        } catch (e) { alert('Ошибка при удалении'); }
+                                    }
+                                }}>🗑️ Удалить курс</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        })()}
         {/* HEADER */}
         <header className="lumeo-header">
              <div style={{display: 'flex', alignItems: 'center', gap: '16px'}}>
@@ -600,9 +745,22 @@ export const PrepodPage = () => {
                     <Icons.Back /> Назад
                  </button>
                  <div style={{height: '24px', width: '1px', background: '#333'}}></div>
-                 <div className="logo" style={{fontSize: '18px'}}>
+                 <div className="logo" style={{fontSize: '18px', display: 'flex', alignItems: 'center', gap: '15px'}}>
                     {courses.find(c => c.id === selectedCourseId)?.title}
-                    <span style={{color: '#666', fontWeight: 400, marginLeft: '8px'}}>| Редактор</span>
+                    <span style={{color: '#666', fontWeight: 400}}>| Редактор</span>
+                    <button 
+                        className="btn btn-ghost" 
+                        style={{ padding: '4px 10px', fontSize: '13px', background: 'rgba(255,255,255,0.05)' }}
+                        onClick={() => {
+                            const c = courses.find(crs => crs.id === selectedCourseId);
+                            if (c) {
+                                setEditCourseData({ title: c.title, description: c.description || '', instructor: c.instructor || '' });
+                                setShowCourseSettings(true);
+                            }
+                        }}
+                    >
+                        ⚙️ Настройки курса
+                    </button>
                  </div>
              </div>
              <div style={{display: 'flex', alignItems: 'center', gap: '24px'}}>
@@ -613,263 +771,297 @@ export const PrepodPage = () => {
 
         <div className="editor-container">
             {/* SIDEBAR */}
-            <aside className="editor-sidebar">
-                <div style={{ padding: '20px' }}>
-                     <AddVideoForm onVideoAdded={loadVideos} courseId={selectedCourseId} />
+            {/* SIDEBAR */}
+            <aside className="editor-sidebar" style={{ display: 'flex', flexDirection: 'column' }}>
+                
+                {/* ВКЛАДКИ */}
+                <div className="sidebar-tabs">
+                    <button className={`tab-btn ${activeTab === 'videos' ? 'active' : ''}`} onClick={() => setActiveTab('videos')}>Уроки (Видео)</button>
+                    <button className={`tab-btn ${activeTab === 'tests' ? 'active' : ''}`} onClick={() => setActiveTab('tests')}>Тесты курса</button>
+                    {tests.length === 0 && <div style={{ textAlign: 'center', color: '#666', fontSize: '13px', marginTop: '20px' }}>Нет тестов</div>}
                 </div>
-                <div className="sidebar-header"><h3>Список уроков</h3></div>
-                <div className="video-list">
-                    {videos.map((v, idx) => (
-                        <div key={v.id} className={`video-item ${selectedVideo?.id === v.id ? 'active' : ''}`} onClick={() => { if (selectedVideo?.id !== v.id) setSelectedVideo(v); }}>
-                            <div className="video-idx">{idx + 1}</div>
-                            <div className="video-title">{v.title}</div>
+
+                <div style={{ flex: 1, overflowY: 'auto' }}>
+                    {activeTab === 'videos' ? (
+                        <>
+                            <div style={{ padding: '20px', paddingBottom: '0' }}>
+                                <AddVideoForm onVideoAdded={loadVideos} courseId={selectedCourseId} />
+                            </div>
+                            <div className="sidebar-header"><h3>Список уроков</h3></div>
+                            <DraggableVideoList 
+                                videos={videos} 
+                                selectedVideoId={selectedVideo?.id}
+                                onSelectVideo={(v) => { 
+                                    if (selectedVideo?.id !== v.id) setSelectedVideo(v); 
+                                    setSelectedTest(null); // Сбрасываем тест
+                                }}
+                                onReorder={async (newVideosArray) => {
+                                    setVideos(newVideosArray);
+                                    try {
+                                        const orderedIds = newVideosArray.map(v => v.id);
+                                        await reorderVideos(orderedIds); 
+                                    } catch (e) { showToast("❌ Ошибка при сохранении."); loadVideos(); }
+                                }}
+                                onEdit={async (videoToEdit, e) => {
+                                    e.stopPropagation(); 
+                                    const newTitle = window.prompt('Введите новое название урока:', videoToEdit.title);
+                                    if (!newTitle || newTitle === videoToEdit.title) return;
+                                    try {
+                                        await updateVideo(videoToEdit.id, { title: newTitle });
+                                        showToast('✅ Название успешно обновлено!');
+                                        loadVideos(); 
+                                    } catch (err) { showToast('❌ Ошибка'); }
+                                }}
+                                onDelete={async (videoToDelete, e) => {
+                                    e.stopPropagation();
+                                    if (!window.confirm(`Вы уверены, что хотите удалить урок "${videoToDelete.title}"?`)) return;
+                                    try {
+                                        await deleteVideoApi(videoToDelete.id);
+                                        showToast('✅ Урок успешно удален!');
+                                        if (selectedVideo?.id === videoToDelete.id) setSelectedVideo(null);
+                                        loadVideos();
+                                    } catch (err) { showToast('❌ Ошибка'); }
+                                }}
+                            />
+                        </>
+                    ) : (
+                        <div style={{ padding: '20px' }}>
+                            <button className="btn btn-primary" style={{ width: '100%', marginBottom: '20px' }} onClick={async () => {
+                                const title = window.prompt('Введите название итогового теста:');
+                                if (!title) return;
+                                try {
+                                    await createCourseTest(selectedCourseId!, { title });
+                                    showToast('✅ Тест создан!');
+                                    loadTests();
+                                } catch (e) { showToast('❌ Ошибка создания теста'); }
+                            }}>
+                                + Создать тест
+                            </button>
+
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                {tests.map(test => (
+                                    <div 
+                                        key={test.id} 
+                                        className={`test-item ${selectedTest?.id === test.id ? 'active' : ''}`}
+                                        onClick={() => {
+                                            setSelectedTest(test);
+                                            setSelectedVideo(null); // Сбрасываем видео
+                                        }}
+                                    >
+                                        <div>
+                                            <div className="test-item-title">📝 {test.title}</div>
+                                            <div className="test-item-meta">{test.questions?.length || 0} вопросов</div>
+                                        </div>
+                                        <button className="btn-icon" style={{ color: '#ff4d4d' }} onClick={async (e) => {
+                                            e.stopPropagation();
+                                            if (window.confirm(`Удалить тест "${test.title}" навсегда?`)) {
+                                                try {
+                                                    await deleteCourseTest(test.id);
+                                                    if (selectedTest?.id === test.id) setSelectedTest(null);
+                                                    loadTests();
+                                                } catch (err) { showToast('❌ Ошибка удаления'); }
+                                            }
+                                        }}>🗑️</button>
+                                    </div>
+                                ))}
+                                {tests.length === 0 && <div style={{ textAlign: 'center', color: '#666', fontSize: '13px', marginTop: '20px' }}>Нет итоговых тестов</div>}
+                            </div>
                         </div>
-                    ))}
-                    {videos.length === 0 && <div style={{padding: '20px', color: '#666', fontSize: '13px', textAlign: 'center'}}>Нет видео в этом курсе</div>}
+                    )}
                 </div>
             </aside>
 
             {/* MAIN STAGE */}
+            {/* MAIN STAGE */}
             <main className="editor-stage">
-                {selectedVideo ? (
-                    <>
-                        <div className="player-wrapper-animation" style={{width: '100%', maxWidth: '1000px'}}>
-                            <VideoPlayer 
-                                key={selectedVideo.id}
-                                sources={[{ quality: 'Auto', url: selectedVideo.url, subtitles: selectedVideo.subtitles }]} 
-                                title={selectedVideo.title} 
-                                events={selectedVideo.events || []}
-                                hideResults={selectedVideo.hideResults}
-                                videoId={selectedVideo.id}
-                                userId={user?.id?.toString()}
-                                userRole={user?.role}
-                                onTimeUpdate={(t) => setCurrentTime(t)}
-                                maxAttempts={selectedVideo.maxAttempts}
-                            />
-                        </div>
-
-                        {/* ПАНЕЛЬ УПРАВЛЕНИЯ */}
-                        <div className="control-deck">
-                            <div className="deck-header">
-                                <div className="deck-title">
-                                    <div className="deck-icon">⚡</div>
-                                    <h3>Панель управления</h3>
-                                </div>
-                                <div style={{display: 'flex', gap: '10px'}}>
-                                    <button className="btn btn-ghost" onClick={loadStats}>
-                                        <Icons.Stats /> Статистика
-                                    </button>
-                                        {(() => {
-                                            const isThisVideoGenerating = generatingVideos.includes(selectedVideo.id);
-                                            return (
-                                                <button 
-                                                    className={`btn btn-ai ${isThisVideoGenerating ? 'generating' : ''}`} 
-                                                    onClick={handleGenerateSubs}
-                                                    disabled={isThisVideoGenerating}
-                                                >
-                                                    {isThisVideoGenerating ? (
-                                                        <><Icons.Spinner /> Обработка ИИ...</>
-                                                    ) : (
-                                                        <><Icons.AI /> AI Субтитры</>
-                                                    )}
-                                                </button>
-                                            );
-                                        })()}
-                                </div>
+                {activeTab === 'videos' ? (
+                    /* РЕДАКТОР ВИДЕО УРОКОВ */
+                    selectedVideo ? (
+                        <>
+                            <div className="player-wrapper-animation" style={{width: '100%', maxWidth: '1000px'}}>
+                                <VideoPlayer 
+                                    key={selectedVideo.id}
+                                    sources={[{ quality: 'Auto', url: selectedVideo.url, subtitles: selectedVideo.subtitles }]} 
+                                    title={selectedVideo.title} 
+                                    events={selectedVideo.events || []}
+                                    hideResults={selectedVideo.hideResults}
+                                    videoId={selectedVideo.id}
+                                    userId={user?.id?.toString()}
+                                    userRole={user?.role}
+                                    onTimeUpdate={(t) => setCurrentTime(t)}
+                                    maxAttempts={selectedVideo.maxAttempts}
+                                />
                             </div>
 
-                            <div style={{ display: 'flex', gap: '40px', flexWrap: 'wrap' }}>
-                                {/* ЛЕВАЯ КОЛОНКА */}
-                                <div style={{ flex: 2, minWidth: '300px' }}>
-                                    <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '15px'}}>
-                                        <select 
-                                            className="deck-input" 
-                                            style={{ width: 'auto', marginBottom: 0, padding: '5px 10px', fontSize: '13px' }}
-                                            value={eventType}
-                                            onChange={(e) => setEventType(e.target.value as any)}
-                                        >
-                                            <option value="single_choice">Один из списка (Radio)</option>
-                                            <option value="multiple_choice">Несколько ответов (Checkbox)</option>
-                                            <option value="free_text">Открытый вопрос (ИИ Проверка)</option>
-                                            <option value="info">Инфо-пауза (без ответа)</option>
-                                        </select>
-                                        <div style={{color: '#666', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px'}}>
-                                            <Icons.Time /> {currentTime.toFixed(1)}s
-                                        </div>
+                            {/* ПАНЕЛЬ УПРАВЛЕНИЯ ВИДЕО (Существующая) */}
+                            <div className="control-deck">
+                                <div className="deck-header">
+                                    <div className="deck-title">
+                                        <div className="deck-icon">⚡</div>
+                                        <h3>Добавление интерактива в видео</h3>
                                     </div>
-                                    {eventType === 'free_text' && (
-                                            <div style={{ marginBottom: '15px', background: 'rgba(0, 174, 239, 0.05)', padding: '15px', borderRadius: '8px', borderLeft: '3px solid #00aeef' }}>
-                                                <label style={{ fontSize: '13px', color: '#00aeef', display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontWeight: 'bold' }}>
-                                                    <span>Точность совпадения (ИИ):</span>
-                                                    <span>{aiThreshold}%</span>
-                                                </label>
-                                                <input 
-                                                    type="range" 
-                                                    min="10" 
-                                                    max="100" 
-                                                    value={aiThreshold} 
-                                                    onChange={e => setAiThreshold(Number(e.target.value))} 
-                                                    style={{ width: '100%', accentColor: '#00aeef' }} 
-                                                />
-                                                <p style={{fontSize: '11px', color: '#888', marginTop: '8px', lineHeight: '1.4'}}>
-                                                    Установите <strong>30-40%</strong>, если достаточно передать общий смысл своими словами. <strong>80-90%</strong> — для строгой терминологии.
-                                                </p>
-                                            </div>
-                                        )}
-                                    <input 
-                                        className="deck-input" 
-                                        placeholder={eventType === 'info' ? "Текст карточки (напр. 'Запомните эту формулу')..." : "Текст вопроса..."} 
-                                        value={questionText} 
-                                        onChange={e => setQuestionText(e.target.value)} 
-                                    />
-                                    
-                                    {(eventType === 'single_choice' || eventType === 'multiple_choice') && (
-                                        <div style={{ background: '#1a1a1a', padding: '15px', borderRadius: '8px', marginBottom: '15px' }}>
-                                            <h5 style={{ margin: '0 0 10px 0', color: '#888' }}>Варианты ответа (отметьте верные):</h5>
-                                            {options.map((opt, idx) => (
-                                                <div key={idx} style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px' }}>
-                                                    <input 
-                                                        type={eventType === 'single_choice' ? 'radio' : 'checkbox'}
-                                                        checked={opt.isCorrect}
-                                                        onChange={(e) => handleOptionChange(idx, 'isCorrect', e.target.checked)}
-                                                        style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                                                    />
-                                                    <input 
-                                                        className="deck-input" 
-                                                        style={{ marginBottom: 0, flex: 1 }} 
-                                                        placeholder={`Вариант ${idx + 1}`} 
-                                                        value={opt.text} 
-                                                        onChange={e => handleOptionChange(idx, 'text', e.target.value)} 
-                                                    />
-                                                    {options.length > 2 && (
-                                                        <button className="btn btn-ghost" style={{ padding: '6px' }} onClick={() => handleRemoveOption(idx)}>✕</button>
-                                                    )}
-                                                </div>
-                                            ))}
-                                            <button className="btn btn-ghost" style={{ marginTop: '10px', fontSize: '12px' }} onClick={handleAddOption}>+ Добавить вариант</button>
-                                        </div>
-                                    )}
-
-                                    {eventType === 'free_text' && (
-                                        <textarea 
-                                            className="deck-input" 
-                                            placeholder="Введите эталонный ответ, ключевые слова или факты. ИИ будет сверять ответ студента с этим текстом..." 
-                                            value={freeTextAnswer} 
-                                            onChange={e => setFreeTextAnswer(e.target.value)} 
-                                            style={{ minHeight: '80px', resize: 'vertical' }}
-                                        />
-                                    )}
-                                    <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
-                                        <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleAddEvent} disabled={isAddingEvent}>
-                                            {isAddingEvent ? 'Сохранение...' : (editingEventId ? 'Сохранить изменения' : 'Добавить метку')}
+                                    <div style={{display: 'flex', gap: '10px'}}>
+                                        <button className="btn btn-ghost" onClick={loadStats}><Icons.Stats /> Статистика</button>
+                                        <button className={`btn btn-ai ${generatingVideos.includes(selectedVideo.id) ? 'generating' : ''}`} onClick={handleGenerateSubs} disabled={generatingVideos.includes(selectedVideo.id)}>
+                                            {generatingVideos.includes(selectedVideo.id) ? <><Icons.Spinner /> Обработка ИИ...</> : <><Icons.AI /> AI Субтитры</>}
                                         </button>
-                                        {editingEventId && (
-                                            <button className="btn btn-ghost" onClick={() => {
-                                                setEditingEventId(null);
-                                                setQuestionText(''); 
-                                                setExplanation('');
-                                            }}>Отмена</button>
-                                        )}
                                     </div>
                                 </div>
-
-                                {/* ПРАВАЯ КОЛОНКА */}
-                                <div style={{ flex: 1, minWidth: '250px', borderLeft: '1px solid rgba(255,255,255,0.05)', paddingLeft: '30px' }}>
-                                    <h4 style={{marginTop: 0, marginBottom: '20px', color: '#888'}}>Настройки логики</h4>
-                                    
-                                    {eventType !== 'info' && (
-                                        <>
-                                            <label className="toggle-wrapper" style={{ marginBottom: '15px' }}>
-                                                <input type="checkbox" className="toggle-input" checked={isStrict} onChange={e => setIsStrict(e.target.checked)} />
-                                                <div className="toggle-track"><div className="toggle-thumb"></div></div>
-                                                <span className="toggle-label">Строгий режим (нельзя пропустить)</span>
-                                            </label>
-
-                                            <div style={{ marginBottom: '15px' }}>
-                                                <label style={{ fontSize: '12px', color: '#888', display: 'block', marginBottom: '5px' }}>Вес в баллах:</label>
-                                                <input type="number" className="deck-input" min="1" max="100" value={weight} onChange={e => setWeight(Number(e.target.value))} style={{ marginBottom: 0 }} />
-                                            </div>
-
-                                            <div style={{ marginBottom: '15px' }}>
-                                                <label style={{ fontSize: '12px', color: '#888', display: 'block', marginBottom: '5px' }}>Откинуть при ошибке на (секунду):</label>
-                                                <input type="number" className="deck-input" placeholder="Например: 120 (оставить пустым для отключения)" value={rewindTo} onChange={e => setRewindTo(e.target.value ? Number(e.target.value) : '')} style={{ marginBottom: 0 }} />
-                                            </div>
-
-                                            <div style={{ marginBottom: '15px' }}>
-                                                <label style={{ fontSize: '12px', color: '#888', display: 'block', marginBottom: '5px' }}>Объяснение при ошибке:</label>
-                                                <textarea className="deck-input" placeholder="Неверно, потому что..." value={explanation} onChange={e => setExplanation(e.target.value)} style={{ minHeight: '60px', marginBottom: 0, resize: 'vertical' }} />
-                                            </div>
-                                            
-                                            <div style={{ borderTop: '1px solid #333', margin: '20px 0' }}></div>
-                                        </>
-                                    )}
-                                    
-                                    <h4 style={{marginTop: 0, marginBottom: '20px', color: '#888'}}>Настройки видео</h4>
-
-                                    {/* 1. Переключатель скрытия результатов */}
-                                    <label className="toggle-wrapper" style={{ marginBottom: '20px' }}>
-                                        <input 
-                                            type="checkbox" 
-                                            className="toggle-input"
-                                            checked={selectedVideo.hideResults || false}
-                                            onChange={(e) => handleUpdateSettings({ hideResults: e.target.checked })}
-                                        />
-                                        <div className="toggle-track"><div className="toggle-thumb"></div></div>
-                                        <span className="toggle-label">Скрыть результаты теста</span>
-                                    </label>
-
-                                    <div style={{ marginBottom: '15px' }}>
-                                        <label style={{ fontSize: '12px', color: '#888', display: 'block', marginBottom: '5px' }}>
-                                            Количество попыток пересдачи:
-                                        </label>
-                                        <input 
-                                            type="number" 
-                                            className="deck-input" 
-                                            min="0" 
-                                            max="10" 
-                                            /* Используем ?? чтобы разрешить преподу ставить 0 (безлимит) */
-                                            value={selectedVideo.maxAttempts ?? 3} 
-                                            onChange={(e) => handleUpdateSettings({ maxAttempts: Number(e.target.value) })} 
-                                            style={{ marginBottom: 0 }} 
-                                        />
-                                        <p style={{fontSize: '11px', color: '#666', marginTop: '5px', lineHeight: '1.4'}}>
-                                            0 — неограниченно. По умолчанию дается 3 попытки. Студент не сможет сбросить прогресс больше указанного числа раз.
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        {/* СПИСОК СОЗДАННЫХ МЕТОК */}
-                        {selectedVideo.events && selectedVideo.events.length > 0 && (
-                            <div style={{ marginTop: '30px', background: '#111', borderRadius: '12px', padding: '20px', border: '1px solid #333', maxWidth: '1000px' }}>
-                                <h3 style={{ margin: '0 0 20px 0', color: '#fff' }}>Метки и вопросы ({selectedVideo.events.length})</h3>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                    {[...selectedVideo.events].sort((a, b) => a.time - b.time).map(ev => (
-                                        <div key={ev.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1a1a1a', padding: '15px', borderRadius: '8px', borderLeft: `3px solid ${ev.type === 'info' ? '#ffd700' : '#00aeef'}` }}>
-                                            <div>
-                                                <strong style={{ color: ev.type === 'info' ? '#ffd700' : '#00aeef', marginRight: '10px' }}>
-                                                    {Math.floor(ev.time / 60)}:{(Math.floor(ev.time % 60)).toString().padStart(2, '0')}
-                                                </strong>
-                                                <span style={{ color: '#eee' }}>{ev.question}</span>
-                                                <span style={{ marginLeft: '10px', fontSize: '11px', color: '#666', background: '#222', padding: '2px 6px', borderRadius: '4px' }}>
-                                                    {ev.type}
-                                                </span>
-                                            </div>
-                                            <div style={{ display: 'flex', gap: '10px' }}>
-                                                <button className="btn btn-ghost" style={{ padding: '6px' }} onClick={() => handleEditClick(ev)} title="Редактировать">✏️</button>
-                                                <button className="btn btn-ghost" style={{ padding: '6px', color: '#ff4d4d' }} onClick={() => handleDeleteClick(ev.id)} title="Удалить">🗑️</button>
-                                            </div>
+                                <div style={{ display: 'flex', gap: '40px', flexWrap: 'wrap' }}>
+                                    <div style={{ flex: 2, minWidth: '300px' }}>
+                                        <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '15px'}}>
+                                            <select className="deck-input" style={{ width: 'auto', marginBottom: 0, padding: '5px 10px', fontSize: '13px' }} value={eventType} onChange={(e) => setEventType(e.target.value as any)}>
+                                                <option value="single_choice">Один из списка (Radio)</option>
+                                                <option value="multiple_choice">Несколько ответов (Checkbox)</option>
+                                                <option value="free_text">Открытый вопрос (ИИ Проверка)</option>
+                                                <option value="info">Инфо-пауза (без ответа)</option>
+                                            </select>
+                                            <div style={{color: '#666', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px'}}><Icons.Time /> {currentTime.toFixed(1)}s</div>
                                         </div>
-                                    ))}
+                                        {eventType === 'free_text' && (
+                                            <div style={{ marginBottom: '15px', background: 'rgba(0, 174, 239, 0.05)', padding: '15px', borderRadius: '8px', borderLeft: '3px solid #00aeef' }}>
+                                                <label style={{ fontSize: '13px', color: '#00aeef', display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontWeight: 'bold' }}><span>Точность (ИИ):</span><span>{aiThreshold}%</span></label>
+                                                <input type="range" min="10" max="100" value={aiThreshold} onChange={e => setAiThreshold(Number(e.target.value))} style={{ width: '100%', accentColor: '#00aeef' }} />
+                                            </div>
+                                        )}
+                                        <input className="deck-input" placeholder={eventType === 'info' ? "Текст карточки..." : "Текст вопроса..."} value={questionText} onChange={e => setQuestionText(e.target.value)} />
+                                        {(eventType === 'single_choice' || eventType === 'multiple_choice') && (
+                                            <div style={{ background: '#1a1a1a', padding: '15px', borderRadius: '8px', marginBottom: '15px' }}>
+                                                <h5 style={{ margin: '0 0 10px 0', color: '#888' }}>Варианты ответа:</h5>
+                                                {options.map((opt, idx) => (
+                                                    <div key={idx} style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px' }}>
+                                                        <input type={eventType === 'single_choice' ? 'radio' : 'checkbox'} checked={opt.isCorrect} onChange={(e) => handleOptionChange(idx, 'isCorrect', e.target.checked)} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
+                                                        <input className="deck-input" style={{ marginBottom: 0, flex: 1 }} placeholder={`Вариант ${idx + 1}`} value={opt.text} onChange={e => handleOptionChange(idx, 'text', e.target.value)} />
+                                                        {options.length > 2 && <button className="btn btn-ghost" style={{ padding: '6px' }} onClick={() => handleRemoveOption(idx)}>✕</button>}
+                                                    </div>
+                                                ))}
+                                                <button className="btn btn-ghost" style={{ marginTop: '10px', fontSize: '12px' }} onClick={handleAddOption}>+ Добавить вариант</button>
+                                            </div>
+                                        )}
+                                        {eventType === 'free_text' && <textarea className="deck-input" placeholder="Эталонный ответ для ИИ..." value={freeTextAnswer} onChange={e => setFreeTextAnswer(e.target.value)} style={{ minHeight: '80px', resize: 'vertical' }} />}
+                                        <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+                                            <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleAddEvent} disabled={isAddingEvent}>{isAddingEvent ? 'Сохранение...' : (editingEventId ? 'Сохранить изменения' : 'Добавить метку')}</button>
+                                            {editingEventId && <button className="btn btn-ghost" onClick={() => { setEditingEventId(null); setQuestionText(''); setExplanation(''); }}>Отмена</button>}
+                                        </div>
+                                    </div>
+
+                                    <div style={{ flex: 1, minWidth: '250px', borderLeft: '1px solid rgba(255,255,255,0.05)', paddingLeft: '30px' }}>
+                                        <h4 style={{marginTop: 0, marginBottom: '20px', color: '#888'}}>Логика и видео</h4>
+                                        {eventType !== 'info' && (
+                                            <>
+                                                <label className="toggle-wrapper" style={{ marginBottom: '15px' }}><input type="checkbox" className="toggle-input" checked={isStrict} onChange={e => setIsStrict(e.target.checked)} /><div className="toggle-track"><div className="toggle-thumb"></div></div><span className="toggle-label">Строгий режим</span></label>
+                                                <div style={{ marginBottom: '15px' }}><label style={{ fontSize: '12px', color: '#888', display: 'block', marginBottom: '5px' }}>Вес в баллах:</label><input type="number" className="deck-input" min="1" max="100" value={weight} onChange={e => setWeight(Number(e.target.value))} style={{ marginBottom: 0 }} /></div>
+                                                <div style={{ marginBottom: '15px' }}><label style={{ fontSize: '12px', color: '#888', display: 'block', marginBottom: '5px' }}>Откинуть при ошибке (сек):</label><input type="number" className="deck-input" placeholder="Напр. 120" value={rewindTo} onChange={e => setRewindTo(e.target.value ? Number(e.target.value) : '')} style={{ marginBottom: 0 }} /></div>
+                                                <div style={{ marginBottom: '15px' }}><label style={{ fontSize: '12px', color: '#888', display: 'block', marginBottom: '5px' }}>Объяснение при ошибке:</label><textarea className="deck-input" placeholder="Неверно, потому что..." value={explanation} onChange={e => setExplanation(e.target.value)} style={{ minHeight: '60px', marginBottom: 0, resize: 'vertical' }} /></div>
+                                                <div style={{ borderTop: '1px solid #333', margin: '20px 0' }}></div>
+                                            </>
+                                        )}
+                                        <label className="toggle-wrapper" style={{ marginBottom: '20px' }}><input type="checkbox" className="toggle-input" checked={selectedVideo.hideResults || false} onChange={(e) => handleUpdateSettings({ hideResults: e.target.checked })} /><div className="toggle-track"><div className="toggle-thumb"></div></div><span className="toggle-label">Скрыть результаты</span></label>
+                                        <div><label style={{ fontSize: '12px', color: '#888', display: 'block', marginBottom: '5px' }}>Попыток пересдачи (0 - безлимит):</label><input type="number" className="deck-input" min="0" value={selectedVideo.maxAttempts ?? 3} onChange={(e) => handleUpdateSettings({ maxAttempts: Number(e.target.value) })} style={{ marginBottom: 0 }} /></div>
+                                    </div>
                                 </div>
                             </div>
-                        )}
-                    </>
+                            
+                            {/* СПИСОК МЕТОК ВИДЕО */}
+                            {selectedVideo.events && selectedVideo.events.length > 0 && (
+                                <div style={{ marginTop: '30px', background: '#111', borderRadius: '12px', padding: '20px', border: '1px solid #333', maxWidth: '1000px' }}>
+                                    <h3 style={{ margin: '0 0 20px 0', color: '#fff' }}>Метки ({selectedVideo.events.length})</h3>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                        {[...selectedVideo.events].sort((a, b) => a.time - b.time).map(ev => (
+                                            <div key={ev.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1a1a1a', padding: '15px', borderRadius: '8px', borderLeft: `3px solid ${ev.type === 'info' ? '#ffd700' : '#00aeef'}` }}>
+                                                <div>
+                                                    <strong style={{ color: ev.type === 'info' ? '#ffd700' : '#00aeef', marginRight: '10px' }}>{Math.floor(ev.time / 60)}:{(Math.floor(ev.time % 60)).toString().padStart(2, '0')}</strong>
+                                                    <span style={{ color: '#eee' }}>{ev.question}</span>
+                                                </div>
+                                                <div style={{ display: 'flex', gap: '10px' }}>
+                                                    <button className="btn btn-ghost" style={{ padding: '6px' }} onClick={() => handleEditClick(ev)}>✏️</button>
+                                                    <button className="btn btn-ghost" style={{ padding: '6px', color: '#ff4d4d' }} onClick={() => handleDeleteClick(ev.id)}>🗑️</button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                    ) : (
+                        <div className="empty-state"><h2>Выберите урок</h2><p>Нажмите на видео слева, чтобы начать редактирование.</p></div>
+                    )
                 ) : (
-                    <div className="empty-state">
-                        <h2>Выберите урок</h2>
-                        <p>Нажмите на видео в списке слева, чтобы начать редактирование.</p>
-                    </div>
+                    /* РЕДАКТОР ГЛОБАЛЬНЫХ ТЕСТОВ (НОВАЯ ВКЛАДКА) */
+                    selectedTest ? (
+                        <div style={{ width: '100%', maxWidth: '1000px' }}>
+                            <div className="admin-header" style={{ marginBottom: '20px' }}>
+                                <h1>{selectedTest.title}</h1>
+                                <p>Добавляйте вопросы, которые студенты будут решать отдельно от видео.</p>
+                            </div>
+
+                            {/* КОНСТРУКТОР ВОПРОСА ДЛЯ ТЕСТА */}
+                            <div className="control-deck">
+                                <div className="deck-header">
+                                    <div className="deck-title"><div className="deck-icon" style={{background: 'rgba(255, 215, 0, 0.1)', color: '#ffd700'}}>📝</div><h3>Новый вопрос в тест</h3></div>
+                                </div>
+                                <div style={{ display: 'flex', gap: '40px', flexWrap: 'wrap' }}>
+                                    <div style={{ flex: 2, minWidth: '300px' }}>
+                                        <div style={{marginBottom: '15px'}}>
+                                            <select className="deck-input" style={{ width: '100%', marginBottom: 0, padding: '12px 16px' }} value={eventType} onChange={(e) => setEventType(e.target.value as any)}>
+                                                <option value="single_choice">Один из списка (Radio)</option>
+                                                <option value="multiple_choice">Несколько ответов (Checkbox)</option>
+                                                <option value="free_text">Открытый вопрос (ИИ Проверка)</option>
+                                            </select>
+                                        </div>
+                                        
+                                        {eventType === 'free_text' && (
+                                            <div style={{ marginBottom: '15px', background: 'rgba(0, 174, 239, 0.05)', padding: '15px', borderRadius: '8px', borderLeft: '3px solid #00aeef' }}>
+                                                <label style={{ fontSize: '13px', color: '#00aeef', display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontWeight: 'bold' }}><span>Точность (ИИ):</span><span>{aiThreshold}%</span></label>
+                                                <input type="range" min="10" max="100" value={aiThreshold} onChange={e => setAiThreshold(Number(e.target.value))} style={{ width: '100%', accentColor: '#00aeef' }} />
+                                            </div>
+                                        )}
+                                        <input className="deck-input" placeholder="Текст вопроса..." value={questionText} onChange={e => setQuestionText(e.target.value)} />
+                                        
+                                        {(eventType === 'single_choice' || eventType === 'multiple_choice') && (
+                                            <div style={{ background: '#1a1a1a', padding: '15px', borderRadius: '8px', marginBottom: '15px' }}>
+                                                <h5 style={{ margin: '0 0 10px 0', color: '#888' }}>Варианты ответа:</h5>
+                                                {options.map((opt, idx) => (
+                                                    <div key={idx} style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px' }}>
+                                                        <input type={eventType === 'single_choice' ? 'radio' : 'checkbox'} checked={opt.isCorrect} onChange={(e) => handleOptionChange(idx, 'isCorrect', e.target.checked)} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
+                                                        <input className="deck-input" style={{ marginBottom: 0, flex: 1 }} placeholder={`Вариант ${idx + 1}`} value={opt.text} onChange={e => handleOptionChange(idx, 'text', e.target.value)} />
+                                                        {options.length > 2 && <button className="btn btn-ghost" style={{ padding: '6px' }} onClick={() => handleRemoveOption(idx)}>✕</button>}
+                                                    </div>
+                                                ))}
+                                                <button className="btn btn-ghost" style={{ marginTop: '10px', fontSize: '12px' }} onClick={handleAddOption}>+ Добавить вариант</button>
+                                            </div>
+                                        )}
+                                        {eventType === 'free_text' && <textarea className="deck-input" placeholder="Эталонный ответ для ИИ..." value={freeTextAnswer} onChange={e => setFreeTextAnswer(e.target.value)} style={{ minHeight: '80px', resize: 'vertical' }} />}
+                                    </div>
+                                    <div style={{ flex: 1, minWidth: '250px', borderLeft: '1px solid rgba(255,255,255,0.05)', paddingLeft: '30px' }}>
+                                        <div style={{ marginBottom: '15px' }}><label style={{ fontSize: '12px', color: '#888', display: 'block', marginBottom: '5px' }}>Вес вопроса в баллах:</label><input type="number" className="deck-input" min="1" max="100" value={weight} onChange={e => setWeight(Number(e.target.value))} style={{ marginBottom: 0 }} /></div>
+                                        <button className="btn btn-primary" style={{ width: '100%', marginTop: '20px' }} onClick={handleAddTestQuestion} disabled={isAddingEvent}>{isAddingEvent ? 'Сохранение...' : 'Сохранить вопрос'}</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* СПИСОК ВОПРОСОВ ТЕСТА */}
+                            {selectedTest.questions && selectedTest.questions.length > 0 && (
+                                <div style={{ marginTop: '30px', background: '#111', borderRadius: '12px', padding: '20px', border: '1px solid #333' }}>
+                                    <h3 style={{ margin: '0 0 20px 0', color: '#fff' }}>Вопросы ({selectedTest.questions.length})</h3>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                        {selectedTest.questions.map((q, i) => (
+                                            <div key={q.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1a1a1a', padding: '15px', borderRadius: '8px', borderLeft: `3px solid #ffd700` }}>
+                                                <div>
+                                                    <strong style={{ color: '#888', marginRight: '10px' }}>Вопрос {i + 1}.</strong>
+                                                    <span style={{ color: '#eee' }}>{q.text}</span>
+                                                    <span style={{ marginLeft: '10px', fontSize: '11px', color: '#666', background: '#222', padding: '2px 6px', borderRadius: '4px' }}>{q.type}</span>
+                                                </div>
+                                                <button className="btn btn-ghost" style={{ padding: '6px', color: '#ff4d4d' }} onClick={() => handleDeleteTestQuestion(q.id)}>🗑️</button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="empty-state"><h2>Выберите тест</h2><p>Нажмите на тест слева, чтобы добавить в него вопросы.</p></div>
+                    )
                 )}
             </main>
         </div>

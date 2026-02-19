@@ -337,7 +337,7 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
       } 
       // 3. Если ускорения НЕ было -> Значит это обычный КЛИК -> Пауза/Плей
       else {
-          if (!activeEvent && !showEndScreen) {
+          if (!activeEvent) {
               togglePlay();
           }
       }
@@ -547,40 +547,51 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   };
 
   const showControlsTemporarily = () => {
-    if (activeEvent || showEndScreen) return;
+    if (activeEvent) return;
     if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
     setShowControls(true);
     timeoutRef.current = window.setTimeout(() => { if (!showSettings) setShowControls(false); }, 3000);
   };
 
   const togglePlay = () => { 
-      // 👇 ДОБАВЛЕНО: Если это было долгое нажатие, ничего не делаем (паузу не ставим)
       if (wasLongPressRef.current) {
           wasLongPressRef.current = false;
           return;
       }
-      // ☝️
       
-      if (!videoRef.current || activeEvent || showEndScreen) return; 
+      if (!videoRef.current || activeEvent) return; 
+
+      if (showEndScreen) {
+          replayVideo();
+          return;
+      }
+
       videoRef.current.paused ? videoRef.current.play() : videoRef.current.pause(); 
       showControlsTemporarily(); 
   };
 
   const skipTime = (amount: number) => {
     if (videoRef.current && !activeEvent) {
-        let targetTime = videoRef.current.currentTime + amount;
+        const currentVideoTime = videoRef.current.currentTime; // Берем самое свежее время
+        let targetTime = currentVideoTime + amount;
         
-        // Блокируем стрелочки клавиатуры
-        if (targetTime > currentTime) {
-            const blockTime = getBlockingEventTime(currentTime, targetTime);
+        // Блокируем читерство
+        if (targetTime > currentVideoTime) {
+            const blockTime = getBlockingEventTime(currentVideoTime, targetTime);
             if (blockTime !== null) {
-                targetTime = Math.max(currentTime, blockTime - 0.2);
+                targetTime = Math.max(currentVideoTime, blockTime - 0.2);
                 showToast('⚠️ Сначала нужно ответить на вопрос!');
             }
         }
 
         videoRef.current.currentTime = targetTime;
         showControlsTemporarily();
+
+        // 👇 Прячем финальный экран, если перемотали назад стрелками
+        if (showEndScreen) {
+            setShowEndScreen(false);
+            setHasNewAnswers(false);
+        }
     }
   };
 
@@ -641,16 +652,15 @@ const handleVideoDoubleClick = (e: React.MouseEvent) => {
   };
 
   const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => { 
-      if (activeEvent || showEndScreen) return; 
+      if (activeEvent) return; // Убрали блокировку
+
       const rect = e.currentTarget.getBoundingClientRect(); 
       const pos = (e.clientX - rect.left) / rect.width; 
       let targetTime = pos * duration; 
 
-      // Блокируем перепрыгивание через вопросы (если мотаем вперед)
       if (targetTime > currentTime) {
           const blockTime = getBlockingEventTime(currentTime, targetTime);
           if (blockTime !== null) {
-              // Откидываем прямо за 0.2 сек до вопроса, чтобы плеер сразу его открыл
               targetTime = Math.max(currentTime, blockTime - 0.2);
               showToast('⚠️ Сначала нужно ответить на вопрос!');
           }
@@ -658,6 +668,11 @@ const handleVideoDoubleClick = (e: React.MouseEvent) => {
 
       if (videoRef.current && duration) {
           videoRef.current.currentTime = targetTime; 
+          // Если кликнули по таймлайну - прячем финальный экран!
+          if (showEndScreen) {
+              setShowEndScreen(false);
+              setHasNewAnswers(false);
+          }
       }
   };
 
@@ -748,7 +763,7 @@ useEffect(() => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
   };
-}, [activeEvent, isSpeedingUp, volume]);
+}, [activeEvent, isSpeedingUp, volume, showEndScreen, processedEventIds, localEvents]);
   
   const hasSubtitles = currentSource.subtitles && currentSource.subtitles.length > 0;
   const hasChapters = chapters.length > 0;
@@ -818,8 +833,20 @@ const renderMainMenu = () => (
     <div ref={containerRef} className={`yt-player-container ${isZoomFill ? 'zoom-active' : ''} ${isFullscreen ? 'is-fullscreen' : ''}`} onMouseMove={showControlsTemporarily} onMouseLeave={() => !showSettings && setShowControls(false)}>
       {/* --- ОВЕРЛЕЙ ИНТЕРАКТИВА (ИСПРАВЛЕННЫЙ) --- */}
       {activeEvent && (
-        <div className="interaction-overlay">
-            <div className={`interaction-card ${feedback ? feedback : ''}`}>
+        <div 
+            className="interaction-overlay"
+            style={{ 
+                // Динамический отступ: если панель видна, сдвигаем карточку вверх на 90px
+                paddingBottom: showControls ? '90px' : '20px',
+                paddingTop: '20px',
+                boxSizing: 'border-box',
+                transition: 'padding 0.3s ease' // Плавная анимация движения
+            }}
+        >
+            <div 
+                className={`interaction-card ${feedback ? feedback : ''}`}
+                style={{ maxHeight: '100%', overflowY: 'auto' }} // Включаем скролл, если карточка огромная
+            >
                 
                 {/* 1. Блок Успеха: показываем только если ответ верный и результаты не скрыты */}
                 {feedback === 'correct' && !hideResults && (
@@ -941,8 +968,25 @@ const renderMainMenu = () => (
           const isCompactEndScreen = !hasTestQuestions || (sessionResults.length > 0 && !hasNewAnswers);
 
           return (
-            <div className="interaction-overlay">
-                <div className={`interaction-card ${!isCompactEndScreen && !hideResults ? 'end-screen-large' : ''}`}>
+            <div 
+                className="interaction-overlay"
+                style={{ 
+                    paddingBottom: showControls ? '90px' : '20px',
+                    paddingTop: '20px',
+                    boxSizing: 'border-box',
+                    transition: 'padding 0.3s ease'
+                }}
+                onClick={(e) => {
+                    // Если юзер кликнул по пустому фону мимо карточки -> Перезапускаем!
+                    if (e.target === e.currentTarget) {
+                        togglePlay();
+                    }
+                }}
+            >
+                <div 
+                    className={`interaction-card ${!isCompactEndScreen && !hideResults ? 'end-screen-large' : ''}`}
+                    style={{ maxHeight: '100%', overflowY: 'auto' }}
+                >
                     <h3 style={{ marginBottom: '20px' }}>Урок завершен! 🎉</h3>
                     
                     {isCompactEndScreen ? (
@@ -1039,7 +1083,7 @@ const renderMainMenu = () => (
         muted={isMuted}
       >
           {currentSource.subtitles?.map((sub, idx) => (
-              <track key={idx} kind="subtitles" src={sub.src} srcLang={sub.lang} label={sub.label} default={idx === 0} />
+              <track key={idx} kind="subtitles" src={sub.src} srcLang={sub.lang} label={sub.label} />
           ))}
           {isSpeedingUp && (
           <div className="speed-overlay">
@@ -1050,7 +1094,7 @@ const renderMainMenu = () => (
       
       {!isPlaying && showControls && !activeEvent && !showEndScreen && (<div className="center-play-overlay-static" onClick={togglePlay}><Icons.Play /></div>)}
 
-      <div className={`yt-controls ${showControls && !activeEvent && !showEndScreen ? 'show' : ''}`}>
+      <div className={`yt-controls ${showControls && !activeEvent ? 'show' : ''}`} style={{ zIndex: 100 }}>
         
         {activeChapter && (
             <div className="active-chapter-display">

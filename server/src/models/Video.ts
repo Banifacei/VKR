@@ -29,4 +29,7 @@ export class Video extends Model {
 
   @Column({ type: DataType.INTEGER, defaultValue: 3 }) // <--- Ставим 3
   declare maxAttempts: number;
+
+  @Column({ type: DataType.INTEGER, defaultValue: 0 })
+  declare orderIndex: number;
 }

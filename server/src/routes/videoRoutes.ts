@@ -12,7 +12,11 @@ import {
     getAllVideos,
     resetVideoProgress,
     saveVideoProgress,
-    getVideoProgress
+    getVideoProgress,
+    reorderVideos,
+    deleteVideo,
+    updateCourse, 
+    deleteCourse
 } from '../controllers/videoController.js';
 import { checkAuth } from '../middleware/authMiddleware.js';
 import { updateEvent, deleteEvent } from '../controllers/videoController.js';
@@ -26,10 +30,13 @@ router.post('/:videoId/autocaptions', (req, res, next) => {
     next();
 }, generateSubtitles);
 // --- СУЩЕСТВУЮЩИЕ РОУТЫ ---
+router.put('/reorder', reorderVideos);
 router.post('/:videoId/autocaptions', generateSubtitles);
 router.post('/', createVideo);
 router.get('/courses', getAllCourses);
 router.post('/courses', createCourse);
+router.put('/courses/:courseId', checkAuth, updateCourse);
+router.delete('/courses/:courseId', checkAuth, deleteCourse);
 router.get('/courses/:courseId/videos', getVideosByCourse);
 
 // --- РОУТЫ ДЛЯ ТЕСТОВ (UserResponse) ---
@@ -50,4 +57,5 @@ router.post('/playback-progress', checkAuth, saveVideoProgress);
 router.post('/:videoId/events', createEvent);
 router.put('/events/:eventId', updateEvent);
 router.delete('/events/:eventId', deleteEvent);
+router.delete('/:videoId', checkAuth, deleteVideo);
 export default router;

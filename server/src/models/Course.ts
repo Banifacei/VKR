@@ -1,6 +1,6 @@
 import { Table, Column, Model, DataType, HasMany } from 'sequelize-typescript';
 import { Video } from './Video.js';
-
+import { CourseTest } from './CourseTest.js';
 @Table({ tableName: 'courses' })
 export class Course extends Model {
   @Column({ type: DataType.STRING, allowNull: false })
@@ -17,4 +17,7 @@ export class Course extends Model {
 
   @HasMany(() => Video)
   declare videos: Video[];
+
+  @HasMany(() => CourseTest)
+  declare tests: CourseTest[];
 }

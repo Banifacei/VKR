@@ -78,3 +78,23 @@ export const deleteEvent = async (eventId: number) => {
     const response = await api.delete(`/videos/events/${eventId}`);
     return response.data;
 };
+
+export const reorderVideos = async (orderedIds: number[]) => {
+    const response = await api.put('/videos/reorder', { orderedIds });
+    return response.data;
+};
+
+export const deleteVideoApi = async (videoId: number) => {
+    const response = await api.delete(`/videos/${videoId}`);
+    return response.data;
+};
+
+export const updateCourseApi = async (courseId: number, data: Partial<ICourse>) => {
+    const response = await api.put(`/videos/courses/${courseId}`, data);
+    return response.data;
+};
+
+export const deleteCourseApi = async (courseId: number) => {
+    const response = await api.delete(`/videos/courses/${courseId}`);
+    return response.data;
+};

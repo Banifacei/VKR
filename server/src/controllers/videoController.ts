@@ -91,6 +91,54 @@ export const createCourse = async (req: Request, res: Response) => {
     }
 };
 
+// --- ОБНОВЛЕНИЕ КУРСА ---
+export const updateCourse = async (req: Request, res: Response) => {
+    try {
+        const { courseId } = req.params;
+        const { title, description, instructor } = req.body;
+        const course = await Course.findByPk(courseId);
+        if (!course) return res.status(404).json({ message: 'Курс не найден' });
+
+        if (title) course.title = title;
+        if (description !== undefined) course.description = description;
+        if (instructor) course.instructor = instructor;
+
+        await course.save();
+        res.json({ success: true, course });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ message: 'Ошибка обновления курса' });
+    }
+};
+
+// --- УДАЛЕНИЕ КУРСА ---
+export const deleteCourse = async (req: Request, res: Response) => {
+    try {
+        const { courseId } = req.params;
+        const course = await Course.findByPk(courseId);
+        if (!course) return res.status(404).json({ message: 'Курс не найден' });
+
+        // Чтобы база не выдала ошибку "Foreign Key Constraint", сначала находим все видео курса
+        const videos = await Video.findAll({ where: { courseId } });
+        const videoIds = videos.map((v: any) => v.id);
+
+        // Если в курсе есть видео, сносим весь их "мусор" (ответы, метки, прогресс)
+        if (videoIds.length > 0) {
+            await UserResponse.destroy({ where: { videoId: videoIds } });
+            await UserVideoProgress.destroy({ where: { videoId: videoIds } });
+            await InteractiveEvent.destroy({ where: { videoId: videoIds } });
+            await Video.destroy({ where: { courseId } });
+        }
+
+        // Теперь безопасно удаляем сам курс
+        await course.destroy();
+        res.json({ success: true, message: 'Курс удален' });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ message: 'Ошибка удаления курса' });
+    }
+};
+
 export const getAllCourses = async (req: Request, res: Response) => {
     try {
         const courses = await Course.findAll({ include: [Video] });
@@ -122,7 +170,7 @@ export const getVideosByCourse = async (req: Request, res: Response) => {
     const { courseId } = req.params;
     const videos = await Video.findAll({
       where: { courseId },
-      order: [['createdAt', 'ASC']],
+      order: [['orderIndex', 'ASC'], ['createdAt', 'ASC']], 
       include: [InteractiveEvent]
     });
     res.json(videos);
@@ -255,17 +303,39 @@ export const getVideoStats = async (req: Request, res: Response) => {
 export const updateVideoSettings = async (req: Request, res: Response) => {
     try {
         const { videoId } = req.params;
-        const { hideResults, maxAttempts } = req.body;
+        const { hideResults, maxAttempts, title } = req.body; // <--- Добавили title
         const video = await Video.findByPk(videoId);
         if (!video) return res.status(404).json({ message: 'Видео не найдено' });
         
+        if (title !== undefined) video.title = title; // <--- Если прислали title, меняем
         if (hideResults !== undefined) video.hideResults = hideResults;
-        if (maxAttempts !== undefined) video.maxAttempts = Number(maxAttempts); // Сохраняем попытки
+        if (maxAttempts !== undefined) video.maxAttempts = Number(maxAttempts); 
         
         await video.save();
         res.json(video);
     } catch (error) {
         res.status(500).json(error);
+    }
+};
+
+// --- УДАЛЕНИЕ ВИДЕО ---
+export const deleteVideo = async (req: Request, res: Response) => {
+    try {
+        const { videoId } = req.params;
+        const video = await Video.findByPk(videoId);
+        if (!video) return res.status(404).json({ message: 'Видео не найдено' });
+
+        // Сначала удаляем все связанные данные, чтобы база не ругалась
+        await UserResponse.destroy({ where: { videoId } });
+        await UserVideoProgress.destroy({ where: { videoId } });
+        await InteractiveEvent.destroy({ where: { videoId } });
+        
+        // Теперь удаляем само видео
+        await video.destroy();
+        res.json({ success: true, message: 'Видео успешно удалено' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Ошибка при удалении видео' });
     }
 };
 
@@ -498,5 +568,24 @@ export const deleteEvent = async (req: Request, res: Response) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Ошибка при удалении события', error });
+    }
+};
+
+// --- СОХРАНЕНИЕ ПОРЯДКА ВИДЕО (DRAG & DROP) ---
+export const reorderVideos = async (req: Request, res: Response) => {
+    try {
+        const { orderedIds } = req.body; // Ожидаем массив ID: [5, 2, 8, 1]
+
+        // Проходимся по всем переданным ID и обновляем им индекс
+        await Promise.all(
+            orderedIds.map((id: number, index: number) => 
+                Video.update({ orderIndex: index }, { where: { id } })
+            )
+        );
+
+        res.json({ success: true, message: 'Порядок успешно сохранен' });
+    } catch (error) {
+        console.error("Ошибка при сортировке:", error);
+        res.status(500).json({ message: 'Ошибка сохранения порядка', error });
     }
 };

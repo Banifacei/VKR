@@ -1,215 +1,278 @@
-// src/pages/UserPage.tsx
-import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useEffect, useState, useRef } from 'react';
-import { getVideosByCourse } from '../api/videoApi';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { getVideosByCourse, getCourses } from '../api/videoApi';
+import { getCourseTests, type ICourseTest } from '../api/testApi';
+import type { IVideo, ICourse } from '../types';
 import { VideoPlayer } from '../components/VideoPlayer';
+import { TestRunner } from '../components/TestRunner';
+import { UserProfile } from '../components/UserProfile';
 import { AuthModal } from '../components/AuthModal';
-import { VideoPlaylist } from '../components/VideoPlaylist';
-import type { IVideo } from '../types';
-import './UserPage.css';
-import {UserProfile} from '../components/UserProfile';
 import { TestCards } from '../components/TestCards';
+import './UserPage.css';
+
+// Объединенный тип для плитки
+type DashboardItem = 
+    | ({ type: 'video' } & IVideo) 
+    | ({ type: 'test' } & ICourseTest);
 
 export const UserPage = () => {
-  // 👇 1. Достаем и courseId, и videoId из адресной строки
-  const { courseId, videoId } = useParams();
-  const navigate = useNavigate(); // <-- Хук для смены URL
+    const { courseId } = useParams();
+    const navigate = useNavigate();
+    
+    // 👇 1. ЛОКАЛЬНАЯ ЗАГРУЗКА ЮЗЕРА (Самый надежный вариант для этой страницы)
+    const [userData, setUserData] = useState<any>(() => {
+        const saved = localStorage.getItem('lumeo_user');
+        try {
+            return saved && saved.startsWith('{') ? JSON.parse(saved) : null;
+        } catch (e) {
+            return null;
+        }
+    });
 
-  const [videos, setVideos] = useState<IVideo[]>([]);
-  const [selectedVideo, setSelectedVideo] = useState<IVideo | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [userData, setUserData] = useState<any>(() => {
-      const saved = localStorage.getItem('lumeo_user');
-      try {
-          return saved && saved.startsWith('{') ? JSON.parse(saved) : null;
-      } catch (e) {
-          return null;
-      }
-  });
-  const [showAuthModal, setShowAuthModal] = useState(!userData || !userData.id);
-  const [testModeState, setTestModeState] = useState<Record<number, boolean>>(() => {
-      try {
-          const saved = localStorage.getItem('lumeo_test_modes');
-          return saved ? JSON.parse(saved) : {};
-      } catch (e) {
-          return {};
-      }
-  });
-  const isExternalTest = selectedVideo ? !!testModeState[selectedVideo.id] : false;
-  const testCardsRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-      localStorage.setItem('lumeo_test_modes', JSON.stringify(testModeState));
-  }, [testModeState]);
-  // Умный переключатель
-  const handleToggleTestMode = () => {
-      if (!selectedVideo) return;
-      setTestModeState(prev => {
-          const isNowExternal = !prev[selectedVideo.id];
-          
-          // Если мы только что включили внешний режим — скроллим вниз
-          if (isNowExternal) {
-              setTimeout(() => {
-                  testCardsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }, 100);
-          }
-          
-          return { ...prev, [selectedVideo.id]: isNowExternal };
-      });
-  };
-  // 1. ЗАГРУЗКА ДАННЫХ КУРСА
-  useEffect(() => {
-      if (!courseId) return;
+    const [course, setCourse] = useState<ICourse | null>(null);
+    const [items, setItems] = useState<DashboardItem[]>([]);
+    const [loading, setLoading] = useState(true);
+    
+    // Активный элемент (вместо selectedVideo)
+    const [activeItem, setActiveItem] = useState<DashboardItem | null>(null);
+    
+    // Модалка авторизации
+    const [showAuthModal, setShowAuthModal] = useState(!userData || !userData.id);
 
-      const fetchInitial = async () => {
-          try {
-              const data = await getVideosByCourse(Number(courseId));
-              setVideos(data);
-              
-              // Если загрузили курс, но в URL нет ID конкретного видео (зашли просто по /course/1)
-              // -> Автоматически перенаправляем на первое видео в списке
-              if (!videoId && data.length > 0) {
-                  navigate(`/course/${courseId}/lesson/${data[0].id}`, { replace: true });
-              }
-          } finally {
-              setLoading(false);
-          }
-      };
-      fetchInitial();
+    // 👇 2. ЛОГИКА TEST CARDS
+    const testCardsRef = useRef<HTMLDivElement>(null);
+    const [testModeState, setTestModeState] = useState<Record<number, boolean>>(() => {
+        try {
+            const saved = localStorage.getItem('lumeo_test_modes');
+            return saved ? JSON.parse(saved) : {};
+        } catch (e) { return {}; }
+    });
 
-      const interval = setInterval(async () => {
-          try {
-              const newData = await getVideosByCourse(Number(courseId));
-              setVideos(prevVideos => {
-                  const currentHash = JSON.stringify(prevVideos);
-                  const newHash = JSON.stringify(newData);
-                  if (currentHash !== newHash) return newData;
-                  return prevVideos;
-              });
-          } catch (e) {}
-      }, 15000); 
+    useEffect(() => {
+        localStorage.setItem('lumeo_test_modes', JSON.stringify(testModeState));
+    }, [testModeState]);
 
-      return () => clearInterval(interval);
-  }, [courseId, navigate, videoId]); // Зависимости обновлены
+    const handleToggleTestMode = () => {
+        if (!activeItem || activeItem.type !== 'video') return;
+        
+        setTestModeState(prev => {
+            const isNowExternal = !prev[activeItem.id];
+            if (isNowExternal) {
+                setTimeout(() => {
+                    testCardsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 100);
+            }
+            return { ...prev, [activeItem.id]: isNowExternal };
+        });
+    };
+    // -----------------------------------------------------
 
-  // 👇 2. СИНХРОНИЗАЦИЯ URL И ПЛЕЕРА (Магия роутинга)
-  useEffect(() => {
-      if (videos.length > 0 && videoId) {
-          const targetVideo = videos.find(v => v.id === Number(videoId));
-          if (targetVideo) {
-              setSelectedVideo(targetVideo);
-          } else {
-              // Если кто-то ввел кривой URL руками -> кидаем на первое видео
-              navigate(`/course/${courseId}/lesson/${videos[0].id}`, { replace: true });
-          }
-      }
-  }, [videoId, videos, courseId, navigate]);
+    const handleAvatarUpdate = (newUrl: string) => {
+        const updatedUser = { ...userData, avatarUrl: newUrl };
+        setUserData(updatedUser);
+        localStorage.setItem('lumeo_user', JSON.stringify(updatedUser));
+    };
 
-  const handleLoginSuccess = (data: any) => {
-      localStorage.setItem('lumeo_user', JSON.stringify(data));
-      setUserData(data);
-      setShowAuthModal(false);
-  };
+    const handleLogout = () => {
+        localStorage.removeItem('lumeo_user');
+        localStorage.removeItem('lumeo_token');
+        setUserData(null);
+        window.location.reload(); 
+    };
 
-  const handleLogout = () => {
-    localStorage.removeItem('lumeo_user');
-    localStorage.removeItem('lumeo_token');
-    setUserData(null);
-    window.location.reload(); 
-  };
-  
-  const handleAvatarUpdate = (newUrl: string) => {
-    const updatedUser = { ...userData, avatarUrl: newUrl };
-    setUserData(updatedUser);
-    localStorage.setItem('lumeo_user', JSON.stringify(updatedUser));
-  };
+    const handleLoginSuccess = (data: any) => {
+        localStorage.setItem('lumeo_user', JSON.stringify(data));
+        setUserData(data);
+        setShowAuthModal(false);
+    };
 
-  return (
-    <div className="lumeo-layout">
-      {showAuthModal && <AuthModal onLoginSuccess={handleLoginSuccess} />}
-      
-        <header className="lumeo-header">
-            <div className="logo">Lumeo<span className="dot">.</span></div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                <Link to="/" style={{color: '#fff', textDecoration: 'none'}}>← Курсы</Link>
-                {userData && userData.id && (
+    // Загрузка данных курса
+    useEffect(() => {
+        const loadData = async () => {
+            if (!courseId) return;
+            try {
+                setLoading(true);
+                const allCourses = await getCourses();
+                const foundCourse = allCourses.find(c => c.id === Number(courseId));
+                setCourse(foundCourse || null);
+
+                const videos = await getVideosByCourse(Number(courseId));
+                const tests = await getCourseTests(Number(courseId));
+
+                const combinedItems: DashboardItem[] = [
+                    ...videos.map(v => ({ ...v, type: 'video' as const })),
+                    ...tests.map(t => ({ ...t, type: 'test' as const }))
+                ];
+                setItems(combinedItems);
+            } catch (e) {
+                console.error("Ошибка загрузки", e);
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadData();
+    }, [courseId]);
+
+    // --- Рендер ПЛЕЕРА или ТЕСТА (Focus Mode) ---
+    if (activeItem) {
+        const isExternalTest = activeItem.type === 'video' ? !!testModeState[activeItem.id] : false;
+
+        return (
+            <div className="focus-mode-layout" style={{ background: '#000', minHeight: '100vh', overflowY: 'auto' }}>
+                <div style={{ padding: '20px', borderBottom: '1px solid #222', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: '#000', zIndex: 10 }}>
+                    <button className="btn btn-ghost" onClick={() => setActiveItem(null)}>← Назад к курсу</button>
+                    <div style={{ color: '#888' }}>
+                        {activeItem.type === 'video' ? '📺 Просмотр видео' : '📝 Прохождение теста'}
+                    </div>
+                    <div style={{ width: '100px' }}></div> 
+                </div>
+
+                <div style={{ maxWidth: '1200px', margin: '0 auto', paddingBottom: '50px' }}>
+                    {activeItem.type === 'video' ? (
+                        <div style={{ padding: '20px' }}>
+                            <div className="player-wrapper-animation">
+                                <VideoPlayer 
+                                    key={activeItem.id} 
+                                    videoId={activeItem.id}
+                                    title={activeItem.title}
+                                    sources={[{ quality: 'Auto', url: activeItem.url, subtitles: activeItem.subtitles }]}
+                                    events={activeItem.events || []}
+                                    hideResults={activeItem.hideResults}
+                                    maxAttempts={activeItem.maxAttempts}
+                                    userId={userData?.id} 
+                                    userRole={userData?.role}
+                                    
+                                    // Кнопки управления режимом теста
+                                    isExternalTestMode={isExternalTest}
+                                    onToggleTestMode={handleToggleTestMode}
+                                    
+                                    // 👇 3. ФУНКЦИИ ДЛЯ СЧЕТЧИКА ПОПЫТОК
+                                    onResetTest={() => alert('Прогресс сброшен')}
+                                    onRefreshEvents={async () => {
+                                        if (!courseId || !activeItem) return []; 
+                                        try {
+                                            const data = await getVideosByCourse(Number(courseId)); 
+                                            const updatedVideo = data.find(v => v.id === activeItem.id);
+                                            if (updatedVideo) {
+                                                setActiveItem(prev => (prev && prev.id === updatedVideo.id) ? { ...prev, ...updatedVideo, type: 'video' } : prev);
+                                            }
+                                            return updatedVideo?.events || [];
+                                        } catch (e) { return []; }
+                                    }}
+                                />
+                            </div>
+                            
+                            <div className="video-info">
+                                <h1>{activeItem.title}</h1>
+                                <p className="video-meta">Опубликовано: {new Date(activeItem.createdAt || Date.now()).toLocaleDateString()}</p>
+                            </div>
+
+                            {/* 👇 4. БЛОК С КАРТОЧКАМИ ВОПРОСОВ */}
+                            {isExternalTest && activeItem.events && activeItem.events.length > 0 && userData?.role === 'student' && (
+                                <div ref={testCardsRef} style={{ marginTop: '30px', animation: 'fadeIn 0.4s ease' }}>
+                                    <div style={{ background: '#111', padding: '20px', borderRadius: '12px', border: '1px solid #333', marginBottom: '20px' }}>
+                                        <h3 style={{marginTop: 0, color: '#00aeef'}}>📝 Вопросы к уроку</h3>
+                                        <p style={{color: '#666', fontSize: '14px'}}>Вы можете ответить на вопросы здесь, не просматривая видео целиком.</p>
+                                    </div>
+                                    
+                                    <TestCards 
+                                        events={activeItem.events} 
+                                        videoId={activeItem.id} 
+                                        userId={userData.id}
+                                        onAllSolved={() => {
+                                            setTimeout(() => handleToggleTestMode(), 3000);
+                                        }}
+                                    />
+                                    
+                                    <div style={{ textAlign: 'center', marginTop: '20px' }}>
+                                        <button 
+                                            onClick={handleToggleTestMode}
+                                            style={{ background: 'transparent', border: 'none', color: '#888', cursor: 'pointer', textDecoration: 'underline', fontSize: '14px' }}
+                                        >
+                                            Скрыть вопросы (вернуться к режиму видео)
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <TestRunner 
+                            test={activeItem} 
+                            onExit={() => setActiveItem(null)} 
+                        />
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    // --- Рендер ДАШБОРДА (Сетка Плиток) ---
+    return (
+        <div className="lumeo-layout">
+            {showAuthModal && <AuthModal onLoginSuccess={handleLoginSuccess} />}
+
+            <header className="lumeo-header">
+                <div className="logo">
+                    <Link to="/courses" className="logo-link">Lumeo<span className="dot">.</span></Link>
+                </div>
+                {userData && (
                     <UserProfile 
                         user={userData} 
                         onUpdate={handleAvatarUpdate} 
                         onLogout={handleLogout} 
                     />
                 )}
+            </header>
+
+            <div className="dashboard-container">
+                <div className="course-header-big">
+                    <button className="btn btn-ghost" onClick={() => window.location.href='/courses'} style={{marginBottom: '10px', paddingLeft: 0, color: '#666'}}>
+                        ← Все курсы
+                    </button>
+                    <h1 className="course-title-large">{course?.title || 'Загрузка...'}</h1>
+                    <div className="course-progress-section">
+                        <span>👨‍🏫 {course?.instructor}</span>
+                        <span>•</span>
+                        <span>{items.filter(i => i.type === 'video').length} уроков</span>
+                        <span>•</span>
+                        <span>{items.filter(i => i.type === 'test').length} тестов</span>
+                    </div>
+                    <p style={{ color: '#ccc', marginTop: '15px', maxWidth: '800px', lineHeight: '1.5' }}>
+                        {course?.description}
+                    </p>
+                </div>
+
+                {loading ? (
+                    <div className="loader" style={{padding: '50px'}}>Загрузка материалов...</div>
+                ) : (
+                    <div className="content-grid">
+                        {items.map((item, idx) => (
+                            <div 
+                                key={`${item.type}-${item.id}`} 
+                                className="content-card"
+                                onClick={() => setActiveItem(item)}
+                            >
+                                <div className="card-thumbnail">
+                                    <div className="card-type-icon" style={{ background: item.type === 'video' ? 'rgba(0,0,0,0.6)' : 'rgba(255, 215, 0, 0.8)', color: item.type === 'video' ? '#fff' : '#000' }}>
+                                        {item.type === 'video' ? 'ВИДЕО' : 'ТЕСТ'}
+                                    </div>
+                                    <span style={{ fontSize: '50px' }}>
+                                        {item.type === 'video' ? '📺' : '📝'}
+                                    </span>
+                                </div>
+                                <div className="card-body">
+                                    <h3 className="card-title">{idx + 1}. {item.title}</h3>
+                                    <div className="card-meta">
+                                        {item.type === 'video' ? <span>▶ Урок</span> : <span>{item.questions?.length || 0} вопросов</span>}
+                                        <span style={{ color: '#444' }}>◯</span>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+                {!loading && items.length === 0 && <div style={{ textAlign: 'center', padding: '50px', color: '#666' }}>В этом курсе пока нет материалов.</div>}
             </div>
-        </header>
-      
-      <div className="lumeo-container">
-        <main className="video-stage">
-            {loading ? (
-                <div className="loader">Загрузка платформы...</div>
-            ) : selectedVideo ? (
-              <div className="player-wrapper-animation">
-                  <VideoPlayer 
-                        key={selectedVideo.id}
-                        sources={[{ quality: 'Auto', url: selectedVideo.url, subtitles: selectedVideo.subtitles }]}
-                        title={selectedVideo.title}
-                        events={selectedVideo.events || []}
-                        videoId={selectedVideo.id} 
-                        userId={userData?.id} 
-                        userRole={userData?.role}
-                        hideResults={selectedVideo.hideResults} 
-                        onResetTest={() => alert('Прогресс сброшен')}
-                        onRefreshEvents={async () => {
-                          if (!courseId || !selectedVideo) return []; 
-                          const data = await getVideosByCourse(Number(courseId)); 
-                          const updatedVideo = data.find(v => v.id === selectedVideo.id);
-                          return updatedVideo?.events || [];
-                      }}
-                      maxAttempts={selectedVideo.maxAttempts}
-                      isExternalTestMode={isExternalTest}
-                      onToggleTestMode={handleToggleTestMode}
-                    />
-                  <div className="video-info">
-                      <h1>{selectedVideo.title}</h1>
-                      <p className="video-meta">Опубликовано: {new Date(selectedVideo.createdAt || Date.now()).toLocaleDateString()}</p>
-                  </div>
-                  {/* 👇 ИНЛАЙН БЛОК С ТЕСТАМИ 👇 */}
-                  {isExternalTest && selectedVideo.events && selectedVideo.events.length > 0 && userData?.role === 'student' && (
-                      <div ref={testCardsRef} style={{ marginTop: '30px', animation: 'fadeIn 0.4s ease' }}>
-                          <TestCards 
-                              events={selectedVideo.events} 
-                              videoId={selectedVideo.id} 
-                              userId={userData.id}
-                              onAllSolved={() => {
-                                  // Автоматически выключаем режим после решения
-                                  setTimeout(() => handleToggleTestMode(), 3000);
-                              }}
-                          />
-                          
-                          <div style={{ textAlign: 'center', marginTop: '15px' }}>
-                              <button 
-                                  onClick={handleToggleTestMode}
-                                  style={{ background: 'transparent', border: 'none', color: '#888', cursor: 'pointer', textDecoration: 'underline', fontSize: '14px' }}
-                              >
-                                  Скрыть вопросы (решать в видео)
-                              </button>
-                          </div>
-                      </div>
-                  )}
-              </div>
-            ) : (
-              <div className="empty-state">
-                  <h2>Нет доступных уроков</h2>
-                  <p>Попросите преподавателя добавить материал.</p>
-              </div>
-            )}
-        </main>
-        
-        <VideoPlaylist 
-          videos={videos} 
-          selectedVideoId={selectedVideo?.id} 
-          // 👇 3. ПРИ КЛИКЕ В ПЛЕЙЛИСТЕ МЕНЯЕМ URL, А НЕ СТЕЙТ
-          onSelect={(video) => navigate(`/course/${courseId}/lesson/${video.id}`)} 
-        />
-      </div>
-    </div>
-  );
+        </div>
+    );
 };
