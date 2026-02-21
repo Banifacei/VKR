@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { getVideosByCourse, getCourses } from '../api/videoApi';
-import { getCourseTests, type ICourseTest } from '../api/testApi';
+import { getCourseTests, getUserCourseProgress, type ICourseTest } from '../api/testApi';
 import type { IVideo, ICourse } from '../types';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { TestRunner } from '../components/TestRunner';
@@ -17,18 +17,16 @@ type DashboardItem =
 
 export const UserPage = () => {
     const { courseId } = useParams();
-    const navigate = useNavigate();
-    
-    // 👇 1. ЛОКАЛЬНАЯ ЗАГРУЗКА ЮЗЕРА (Самый надежный вариант для этой страницы)
     const [userData, setUserData] = useState<any>(() => {
-        const saved = localStorage.getItem('lumeo_user');
+    const saved = localStorage.getItem('lumeo_user');
         try {
             return saved && saved.startsWith('{') ? JSON.parse(saved) : null;
         } catch (e) {
             return null;
         }
     });
-
+    const [completedVideoIds, setCompletedVideoIds] = useState<number[]>([]);
+    const [testResults, setTestResults] = useState<Record<number, {score: number, passed: boolean}>>({}); // ID пройденных элементов
     const [course, setCourse] = useState<ICourse | null>(null);
     const [items, setItems] = useState<DashboardItem[]>([]);
     const [loading, setLoading] = useState(true);
@@ -87,11 +85,12 @@ export const UserPage = () => {
     };
 
     // Загрузка данных курса
+    // Загрузка данных курса
     useEffect(() => {
         const loadData = async () => {
             if (!courseId) return;
             try {
-                setLoading(true);
+                // 👇 1. ВОЗВРАЩАЕМ ЗАГРУЗКУ ВИДЕО И ТЕСТОВ
                 const allCourses = await getCourses();
                 const foundCourse = allCourses.find(c => c.id === Number(courseId));
                 setCourse(foundCourse || null);
@@ -103,16 +102,36 @@ export const UserPage = () => {
                     ...videos.map(v => ({ ...v, type: 'video' as const })),
                     ...tests.map(t => ({ ...t, type: 'test' as const }))
                 ];
-                setItems(combinedItems);
-            } catch (e) {
-                console.error("Ошибка загрузки", e);
+                setItems(combinedItems); // Записали контент в стейт!
+
+                // 👇 2. А ВОТ НАШ НОВЫЙ ПРОГРЕСС
+                const progressData = await getUserCourseProgress(Number(courseId));
+                // Сохраняем просмотренные видео
+                setCompletedVideoIds(progressData.completedVideoIds || []);
+                
+                // Превращаем массив тестов в удобный объект (словарь)
+                const resultsMap: Record<number, {score: number, passed: boolean}> = {};
+                (progressData.testResults || []).forEach((tr: any) => {
+                    resultsMap[tr.testId] = { score: tr.score, passed: tr.passed };
+                });
+                setTestResults(resultsMap);
+
+            } catch (err) {
+                console.error("Не удалось загрузить прогресс", err);
             } finally {
                 setLoading(false);
             }
         };
         loadData();
     }, [courseId]);
-
+    // --- РАСЧЕТ ПРОГРЕССА КУРСА ---
+    const totalItems = items.length;
+    const completedItemsCount = items.filter(item => {
+        if (item.type === 'video') return completedVideoIds.includes(item.id);
+        if (item.type === 'test') return testResults[item.id]?.passed;
+        return false;
+    }).length;
+    const progressPercent = totalItems > 0 ? Math.round((completedItemsCount / totalItems) * 100) : 0;
     // --- Рендер ПЛЕЕРА или ТЕСТА (Focus Mode) ---
     if (activeItem) {
         const isExternalTest = activeItem.type === 'video' ? !!testModeState[activeItem.id] : false;
@@ -168,7 +187,7 @@ export const UserPage = () => {
                             </div>
 
                             {/* 👇 4. БЛОК С КАРТОЧКАМИ ВОПРОСОВ */}
-                            {isExternalTest && activeItem.events && activeItem.events.length > 0 && userData?.role === 'student' && (
+                            {isExternalTest && activeItem.events && activeItem.events.some(e => ['single_choice', 'multiple_choice', 'free_text', 'question'].includes(e.type)) && userData?.role === 'student' && (
                                 <div ref={testCardsRef} style={{ marginTop: '30px', animation: 'fadeIn 0.4s ease' }}>
                                     <div style={{ background: '#111', padding: '20px', borderRadius: '12px', border: '1px solid #333', marginBottom: '20px' }}>
                                         <h3 style={{marginTop: 0, color: '#00aeef'}}>📝 Вопросы к уроку</h3>
@@ -231,6 +250,20 @@ export const UserPage = () => {
                     </button>
                     <h1 className="course-title-large">{course?.title || 'Загрузка...'}</h1>
                     <div className="course-progress-section">
+                    <div style={{ marginTop: '20px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '14px', color: '#888' }}>
+                            <span>Прогресс курса</span>
+                            <span style={{ color: progressPercent === 100 ? '#4dff88' : '#00aeef', fontWeight: 'bold' }}>{progressPercent}%</span>
+                        </div>
+                        <div style={{ background: '#222', borderRadius: '10px', height: '8px', overflow: 'hidden' }}>
+                            <div style={{ 
+                                width: `${progressPercent}%`, 
+                                background: progressPercent === 100 ? '#4dff88' : '#00aeef', 
+                                height: '100%', 
+                                transition: 'width 0.8s ease' 
+                            }} />
+                        </div>
+                    </div>
                         <span>👨‍🏫 {course?.instructor}</span>
                         <span>•</span>
                         <span>{items.filter(i => i.type === 'video').length} уроков</span>
@@ -264,7 +297,29 @@ export const UserPage = () => {
                                     <h3 className="card-title">{idx + 1}. {item.title}</h3>
                                     <div className="card-meta">
                                         {item.type === 'video' ? <span>▶ Урок</span> : <span>{item.questions?.length || 0} вопросов</span>}
-                                        <span style={{ color: '#444' }}>◯</span>
+
+                                        {/* УМНЫЙ СТАТУС ПЛИТКИ */}
+                                        {item.type === 'video' ? (
+                                            completedVideoIds.includes(item.id) ? (
+                                                <span style={{ color: '#4dff88', fontWeight: 'bold', fontSize: '14px' }}>✅ Просмотрено</span>
+                                            ) : (
+                                                <span style={{ color: '#444' }}>◯</span>
+                                            )
+                                        ) : (
+                                            testResults[item.id] ? (
+                                                <span style={{ 
+                                                    color: testResults[item.id].passed ? '#4dff88' : '#ff4d4d', 
+                                                    fontWeight: 'bold', 
+                                                    fontSize: '14px' 
+                                                }}>
+                                                    {testResults[item.id].passed 
+                                                        ? `✅ Сдан на ${testResults[item.id].score}% ⭐` 
+                                                        : `❌ Не сдан (${testResults[item.id].score}%)`}
+                                                </span>
+                                            ) : (
+                                                <span style={{ color: '#444' }}>◯</span>
+                                            )
+                                        )}
                                     </div>
                                 </div>
                             </div>

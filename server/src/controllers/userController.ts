@@ -5,6 +5,8 @@ import { UserVideoProgress } from '../models/UserVideoProgress.js';
 import { UserResponse } from '../models/UserResponse.js';
 import { Video } from '../models/Video.js';
 import { Course } from '../models/Course.js';
+import { UserTestResult } from '../models/UserTestResult.js';
+import { CourseTest } from '../models/CourseTest.js';
 export const getAllUsers = async (req: Request, res: Response) => {
     try {
         const users = await User.findAll({
@@ -109,7 +111,55 @@ export const getUserStats = async (req: Request, res: Response) => {
             : 0;
 
         const watchedVideosCount = history.filter(h => h.isWatched).length;
+        // 👇 1. НОВОЕ: ИЩЕМ СДАННЫЕ ИТОГОВЫЕ ТЕСТЫ
+        const globalTestResults = await UserTestResult.findAll({
+            where: { userId },
+            include: [{ model: CourseTest, attributes: ['title', 'passingScore'] }],
+            order: [['updatedAt', 'DESC']]
+        });
 
+        // 👇 2. ФОРМАТИРУЕМ ДЛЯ ФРОНТА
+        const formattedTests = globalTestResults.map(tr => ({
+            id: tr.id,
+            testId: tr.testId,
+            testTitle: tr.test?.title || 'Неизвестный тест',
+            score: tr.score,
+            passingScore: tr.test?.passingScore || 80,
+            passed: tr.score >= (tr.test?.passingScore || 80),
+            updatedAt: tr.updatedAt
+        }));
+
+        // 👇 3. ОБНОВЛЯЕМ ОТПРАВКУ (добавляем globalTests)
+        res.json({
+            stats: {
+                totalAnswers,
+                successRate,
+                aiChecksCount: aiChecks.length,
+                averageAiScore,
+                watchedVideosCount,
+                completedTestsCount: formattedTests.length // <--- Добавили счетчик
+            },
+            history: history.filter(h => h.isWatched).map(h => ({ 
+                // ... твой старый код ...
+                videoId: h.videoId,
+                videoTitle: h.video?.title || 'Удаленное видео',
+                courseTitle: h.video?.course?.title || 'Без курса',
+                courseId: h.video?.courseId,
+                lastTime: h.lastTime,
+                isWatched: h.isWatched,
+                updatedAt: h.updatedAt
+            })),
+            unfinished: unfinished.map(h => ({ 
+                // ... твой старый код ...
+                videoId: h.videoId,
+                videoTitle: h.video?.title || 'Удаленное видео',
+                courseTitle: h.video?.course?.title || 'Без курса',
+                courseId: h.video?.courseId,
+                lastTime: h.lastTime,
+                updatedAt: h.updatedAt
+            })),
+            globalTests: formattedTests // <--- ДОБАВИЛИ МАССИВ ТЕСТОВ СЮДА
+        });
         // Отправляем
         res.json({
             stats: {

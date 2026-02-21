@@ -45,3 +45,15 @@ export const deleteTestQuestion = async (questionId: number) => {
     const res = await api.delete(`/tests/questions/${questionId}`);
     return res.data;
 };
+
+export const submitTestResult = async (testId: number, score: number, answers: any) => {
+    // answers - это объект { questionId: answerValue }
+    const res = await api.post(`/tests/${testId}/submit`, { score, answers });
+    return res.data;
+};
+
+// 👇 Функция для получения прогресса по тестам курса (чтобы рисовать галочки)
+export const getUserCourseProgress = async (courseId: number) => {
+    const res = await api.get(`/tests/courses/${courseId}/progress`);
+    return res.data; // Ожидаем массив ID пройденных тестов/видео
+};

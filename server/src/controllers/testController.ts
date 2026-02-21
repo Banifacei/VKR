@@ -1,7 +1,9 @@
 import { Request, Response } from 'express';
 import { CourseTest } from '../models/CourseTest.js';
 import { TestQuestion } from '../models/TestQuestion.js';
-
+import { UserTestResult } from '../models/UserTestResult.js';
+import { UserVideoProgress } from '../models/UserVideoProgress.js';
+import { Video } from '../models/Video.js';
 // --- ПОЛУЧИТЬ ВСЕ ТЕСТЫ КУРСА ---
 export const getCourseTests = async (req: Request, res: Response) => {
     try {
@@ -74,5 +76,78 @@ export const deleteTestQuestion = async (req: Request, res: Response) => {
     } catch (e) {
         console.error(e);
         res.status(500).json({ message: 'Ошибка при удалении вопроса' });
+    }
+};
+
+// --- СОХРАНИТЬ РЕЗУЛЬТАТ ТЕСТА ---
+export const submitTestResult = async (req: Request, res: Response) => {
+    try {
+        const { testId } = req.params;
+        const { score, answers } = req.body;
+        // @ts-ignore
+        const userId = req.user.id;
+
+        // Ищем, сдавал ли юзер этот тест раньше
+        const [result, created] = await UserTestResult.findOrCreate({
+            where: { userId, testId: Number(testId) },
+            defaults: { score, answers, userId, testId: Number(testId) }
+        });
+
+        // Если сдавал и пересдал — обновляем
+        if (!created) {
+            result.score = score;
+            result.answers = answers;
+            await result.save();
+        }
+
+        res.status(200).json({ success: true, result });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ message: 'Ошибка при сохранении результата' });
+    }
+};
+
+// --- ПОЛУЧИТЬ ОБЩИЙ ПРОГРЕСС ПО КУРСУ (ДЛЯ ГАЛОЧЕК) ---
+// --- ПОЛУЧИТЬ ОБЩИЙ ПРОГРЕСС ПО КУРСУ (ДЛЯ ПРОГРЕСС-БАРА И ОЦЕНОК) ---
+export const getUserCourseProgress = async (req: Request, res: Response) => {
+    try {
+        const { courseId } = req.params;
+        // @ts-ignore
+        const userId = req.user.id;
+
+        // 1. Ищем все ПРОСМОТРЕННЫЕ ДО КОНЦА видео в этом курсе (isWatched: true)
+        const videoProgress = await UserVideoProgress.findAll({
+            where: { userId, isWatched: true },
+            include: [{ model: Video, where: { courseId: Number(courseId) }, attributes: ['id'] }]
+        });
+        const completedVideoIds = videoProgress.map(vp => vp.videoId);
+
+        // 2. Ищем все тесты в этом курсе
+        const courseTests = await CourseTest.findAll({ 
+            where: { courseId: Number(courseId) }, 
+            attributes: ['id', 'passingScore'] 
+        });
+        const testIds = courseTests.map(t => t.id);
+
+        // 3. Ищем результаты юзера по этим тестам
+        const userTestResults = await UserTestResult.findAll({
+            where: { userId, testId: testIds }
+        });
+
+        // 4. Формируем массив с результатами тестов (прошел / не прошел / балл)
+        const testResults = userTestResults.map(tr => {
+            const test = courseTests.find(t => t.id === tr.testId);
+            const passed = test ? tr.score >= test.passingScore : false;
+            return { testId: tr.testId, score: tr.score, passed };
+        });
+
+        // Отдаем структурированные данные
+        res.json({
+            completedVideoIds,
+            testResults
+        });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ message: 'Ошибка при получении прогресса' });
     }
 };

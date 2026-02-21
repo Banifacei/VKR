@@ -16,7 +16,8 @@ import {
     reorderVideos,
     deleteVideo,
     updateCourse, 
-    deleteCourse
+    deleteCourse,
+    getUserVideoAnswers
 } from '../controllers/videoController.js';
 import { checkAuth } from '../middleware/authMiddleware.js';
 import { updateEvent, deleteEvent } from '../controllers/videoController.js';
@@ -43,6 +44,7 @@ router.get('/courses/:courseId/videos', getVideosByCourse);
 // saveProgress — это сохранение ответов на вопросы внутри видео
 router.post('/progress', checkAuth, saveProgress); 
 router.delete('/:videoId/progress', checkAuth, resetVideoProgress);
+router.get('/progress/:videoId/:userId', checkAuth, getUserVideoAnswers);
 router.get('/:videoId/stats', getVideoStats);
 router.patch('/:videoId', checkAuth, updateVideoSettings);
 

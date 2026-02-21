@@ -589,3 +589,20 @@ export const reorderVideos = async (req: Request, res: Response) => {
         res.status(500).json({ message: 'Ошибка сохранения порядка', error });
     }
 };
+
+// Получить ответы юзера для конкретного видео (для компонента TestCards)
+export const getUserVideoAnswers = async (req: Request, res: Response) => {
+    try {
+        const { videoId, userId } = req.params;
+        const responses = await UserResponse.findAll({
+            where: { videoId, userId },
+            include: [{ model: InteractiveEvent }]
+        });
+        
+        // Отдаем в том формате, который ждет TestCards (sessionResults)
+        res.json({ sessionResults: responses });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Ошибка при загрузке прогресса ответов' });
+    }
+};

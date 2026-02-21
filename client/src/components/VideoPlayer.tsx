@@ -98,7 +98,7 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   // Разделяем события
   const questions = localEvents.filter(e => e.type !== 'chapter');
   const chapters = localEvents.filter(e => e.type === 'chapter').sort((a, b) => a.time - b.time);
-
+  const hasQuestions = events && events.some(e => ['single_choice', 'multiple_choice', 'free_text', 'question'].includes(e.type));
   // --- NEW: Активная глава (для текста внизу) ---
   const activeChapter = chapters.slice().reverse().find(chap => chap.time <= currentTime);
   const totalPossibleScore = questions.reduce((sum, q) => sum + (q.weight || 1), 0);
@@ -804,7 +804,7 @@ const renderMainMenu = () => (
       <span className={`menu-status ${isZoomFill ? 'active' : ''}`}>{isZoomFill ? 'Вкл.' : 'Выкл.'}</span>
     </div>
 
-    {userRole === 'student' && onToggleTestMode && (
+    {onToggleTestMode && hasQuestions && (
         <TestModeButton 
             isExternalMode={isExternalTestMode} 
             onToggle={() => {

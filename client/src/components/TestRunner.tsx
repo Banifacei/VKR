@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { ICourseTest } from '../api/testApi';
+import { submitTestResult, type ICourseTest } from '../api/testApi';
 
 interface TestRunnerProps {
     test: ICourseTest;
@@ -11,7 +11,7 @@ export const TestRunner = ({ test, onExit }: TestRunnerProps) => {
     const [currentQIndex, setCurrentQIndex] = useState(0);
     const [answers, setAnswers] = useState<Record<number, any>>({});
     const [score, setScore] = useState(0);
-
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const questions = test.questions || [];
     const currentQ = questions[currentQIndex];
 
@@ -27,8 +27,10 @@ export const TestRunner = ({ test, onExit }: TestRunnerProps) => {
         }
     };
 
-    const finishTest = () => {
-        // Простая локальная проверка
+    const finishTest = async () => {
+        setIsSubmitting(true);
+        
+        // 1. Локальный подсчет (для мгновенного отображения)
         let correctCount = 0;
         questions.forEach(q => {
             const userAns = answers[q.id];
@@ -38,13 +40,25 @@ export const TestRunner = ({ test, onExit }: TestRunnerProps) => {
                 const correctOpt = q.options.find((o: any) => o.isCorrect);
                 if (userAns === correctOpt?.text) correctCount++;
             } else if (q.type === 'free_text') {
-                // Пока засчитываем любой непустой ответ (для MVP)
+                // В идеале тут должна быть проверка на сервере, но пока так
                 if (userAns.trim().length > 0) correctCount++; 
             }
         });
 
-        setScore(Math.round((correctCount / questions.length) * 100));
-        setStep('result');
+        const calculatedScore = Math.round((correctCount / questions.length) * 100);
+        setScore(calculatedScore);
+
+        // 2. Отправка на сервер
+        try {
+            await submitTestResult(test.id, calculatedScore, answers);
+            console.log('Результат сохранен!');
+        } catch (e) {
+            console.error('Ошибка сохранения результата', e);
+            // Можно добавить alert, но лучше просто показать результат локально
+        } finally {
+            setIsSubmitting(false);
+            setStep('result');
+        }
     };
 
     if (step === 'start') {
@@ -131,8 +145,15 @@ export const TestRunner = ({ test, onExit }: TestRunnerProps) => {
                 </div>
 
                 <div className="runner-footer">
-                    <button className="btn btn-primary" style={{width: '100%'}} onClick={handleNext}>
-                        {currentQIndex === questions.length - 1 ? 'Завершить тест' : 'Следующий вопрос →'}
+                    <button 
+                        className="btn btn-primary" 
+                        style={{width: '100%'}} 
+                        onClick={handleNext}
+                        disabled={isSubmitting}
+                    >
+                        {isSubmitting 
+                            ? 'Сохранение...' 
+                            : (currentQIndex === questions.length - 1 ? 'Завершить тест' : 'Следующий вопрос →')}
                     </button>
                 </div>
             </div>

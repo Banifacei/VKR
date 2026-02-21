@@ -140,10 +140,71 @@ export const HistoryPage = () => {
                                             <div style={{ fontSize: '46px', opacity: 0.9 }}>🏆</div>
                                         </div>
                                     </div>
+
+                                    {/* НОВЫЙ ВИДЖЕТ: Сданные тесты */}
+                                    <div className="stat-widget highlight-widget" style={{ background: 'linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%)', border: '1px solid #333' }}>
+                                        <div className="widget-info" style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <div>
+                                                <div className="widget-value" style={{ fontSize: '28px', color: '#ffd700' }}>{stats.stats.completedTestsCount || 0}</div>
+                                                <div className="widget-label" style={{ color: '#888' }}>Тестов сдано</div>
+                                            </div>
+                                            <div style={{ fontSize: '40px', opacity: 0.9 }}>📝</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* НОВЫЙ БЛОК: Результаты глобальных тестов */}
+                                <div className="profile-history-card" style={{ marginTop: '30px' }}>
+                                    <h3 className="history-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        📝 Результаты тестов
+                                    </h3>
+                                    
+                                    {stats.globalTests && stats.globalTests.length > 0 ? (
+                                        <div className="history-list" style={{ display: 'grid', gap: '15px' }}>
+                                            {stats.globalTests.map((test: any) => (
+                                                <div key={test.id} className="history-card" style={{ 
+                                                    background: '#111', 
+                                                    padding: '15px 20px', 
+                                                    borderRadius: '12px', 
+                                                    border: `1px solid ${test.passed ? '#1a4d2e' : '#4d1a1a'}`,
+                                                    display: 'flex',
+                                                    justifyContent: 'space-between',
+                                                    alignItems: 'center'
+                                                }}>
+                                                    <div>
+                                                        <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#fff', marginBottom: '5px' }}>
+                                                            {test.testTitle}
+                                                        </div>
+                                                        <div style={{ fontSize: '13px', color: '#666' }}>
+                                                            Сдано: {new Date(test.updatedAt).toLocaleDateString('ru-RU')}
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div style={{ textAlign: 'right' }}>
+                                                        <div style={{ 
+                                                            fontSize: '20px', 
+                                                            fontWeight: 'bold', 
+                                                            color: test.passed ? '#4dff88' : '#ff4d4d' 
+                                                        }}>
+                                                            {test.score}%
+                                                        </div>
+                                                        <div style={{ fontSize: '12px', color: '#888' }}>
+                                                            Порог: {test.passingScore}%
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="empty-history">
+                                            <div style={{ fontSize: '30px', marginBottom: '10px' }}>🤷‍♂️</div>
+                                            <p style={{ color: '#666', fontSize: '14px' }}>Вы еще не сдавали тесты.</p>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {stats.unfinished?.length > 0 && (
-                                    <div className="profile-history-card unfinished-card">
+                                    <div className="profile-history-card unfinished-card" style={{ marginTop: '30px' }}>
                                         <h3 className="history-title" style={{ color: '#ffd700', borderBottomColor: 'rgba(255, 215, 0, 0.2)' }}>
                                             ⏳ Ждут завершения
                                         </h3>
@@ -167,7 +228,7 @@ export const HistoryPage = () => {
                                     </div>
                                 )}
 
-                                <div className="profile-history-card">
+                                <div className="profile-history-card" style={{ marginTop: '30px' }}>
                                     <h3 className="history-title">Завершенные уроки</h3>
                                     {stats.history?.length > 0 ? (
                                         <div className="history-list">
@@ -204,10 +265,12 @@ export const HistoryPage = () => {
                                 <div className="stats-widgets-grid">
                                     <div className="skeleton-box" style={{ height: '110px', borderRadius: '20px' }}></div>
                                     <div className="skeleton-box" style={{ height: '110px', borderRadius: '20px' }}></div>
-                                    <div className="skeleton-box" style={{ height: '110px', borderRadius: '20px', gridColumn: 'span 2' }}></div>
+                                    <div className="skeleton-box" style={{ height: '110px', borderRadius: '20px' }}></div>
+                                    <div className="skeleton-box" style={{ height: '110px', borderRadius: '20px' }}></div>
                                 </div>
 
-                                <div className="skeleton-box" style={{ height: '250px', borderRadius: '20px', marginTop: '10px' }}></div>
+                                <div className="skeleton-box" style={{ height: '200px', borderRadius: '20px', marginTop: '10px' }}></div>
+                                <div className="skeleton-box" style={{ height: '250px', borderRadius: '20px', marginTop: '30px' }}></div>
                             </div>
                         )}
                     </main>

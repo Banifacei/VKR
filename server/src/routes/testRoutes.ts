@@ -5,7 +5,9 @@ import {
     createCourseTest, 
     deleteCourseTest, 
     addTestQuestion, 
-    deleteTestQuestion 
+    deleteTestQuestion,
+    submitTestResult,
+    getUserCourseProgress
 } from '../controllers/testController.js';
 
 const router = Router();
@@ -18,5 +20,9 @@ router.delete('/:testId', checkAuth, deleteCourseTest);
 // Маршруты для управления вопросами внутри теста
 router.post('/:testId/questions', checkAuth, addTestQuestion);
 router.delete('/questions/:questionId', checkAuth, deleteTestQuestion);
+
+// Сохранение результатов и получение прогресса
+router.post('/:testId/submit', checkAuth, submitTestResult);
+router.get('/courses/:courseId/progress', checkAuth, getUserCourseProgress);
 
 export default router;

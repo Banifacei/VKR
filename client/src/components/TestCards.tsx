@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { sendAnswer } from '../api/videoApi';
 import './TestCards.css';
 
 interface TestCardsProps {
@@ -9,22 +10,19 @@ interface TestCardsProps {
 }
 
 export const TestCards = ({ events, videoId, userId, onAllSolved }: TestCardsProps) => {
-    // Оставляем только вопросы (убираем инфо-паузы)
+    // Оставляем только вопросы
     const questions = events.filter(ev => ev.type !== 'info').sort((a, b) => a.time - b.time);
 
-    // Храним ответы пользователя, которые он вводит прямо сейчас
     const [inputs, setInputs] = useState<Record<number, any>>({});
-    
-    // Храним результаты проверки (полученные с сервера или посчитанные локально)
     const [results, setResults] = useState<Record<number, { isCorrect: boolean; similarity?: number; answerText?: string }>>({});
     const [loadingId, setLoadingId] = useState<number | null>(null);
 
-    // 1. При загрузке получаем уже решенные вопросы с бэкенда
+    // 1. Загрузка прогресса с бэкенда
     useEffect(() => {
         const fetchProgress = async () => {
             try {
                 const token = localStorage.getItem('lumeo_token');
-                const res = await fetch(`http://localhost:5000/api/video/progress/${videoId}/${userId}`, {
+                const res = await fetch(`http://localhost:5000/api/videos/progress/${videoId}/${userId}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (res.ok) {
@@ -47,29 +45,26 @@ export const TestCards = ({ events, videoId, userId, onAllSolved }: TestCardsPro
         };
         fetchProgress();
     }, [videoId, userId]);
+
+    // 2. ЕДИНСТВЕННЫЙ хук для проверки "Всё ли решено верно?"
     useEffect(() => {
         if (questions.length > 0 && Object.keys(results).length === questions.length) {
             const allCorrect = Object.values(results).every(r => r.isCorrect);
             if (allCorrect && onAllSolved) {
-                onAllSolved();
+                // Даем задержку в 1.5 секунды, чтобы юзер успел увидеть зеленую галочку на последнем вопросе, 
+                // прежде чем карточки свернутся и включится видео
+                const timer = setTimeout(() => {
+                    onAllSolved();
+                }, 1500);
+                return () => clearTimeout(timer);
             }
         }
     }, [results, questions, onAllSolved]);
-    useEffect(() => {
-    if (questions.length > 0 && Object.keys(results).length === questions.length) {
-        const allCorrect = Object.values(results).every(r => r.isCorrect);
-        if (allCorrect) {
-            // Если всё решено, можно либо не показывать кнопку в плеере,
-            // либо внутри компонента вывести "Все тесты пройдены!"
-        }
-    }
-}, [results, questions]);
-    // Обработчик выбора вариантов (Radio и Checkbox)
+
     const handleOptionChange = (eventId: number, optText: string, isMultiple: boolean) => {
         setInputs(prev => {
-            if (!isMultiple) return { ...prev, [eventId]: optText }; // Single Choice
+            if (!isMultiple) return { ...prev, [eventId]: optText }; 
             
-            // Multiple Choice
             const current = prev[eventId] || [];
             if (current.includes(optText)) {
                 return { ...prev, [eventId]: current.filter((t: string) => t !== optText) };
@@ -79,71 +74,39 @@ export const TestCards = ({ events, videoId, userId, onAllSolved }: TestCardsPro
         });
     };
 
-    // Обработчик отправки ответа на проверку
-    const handleSubmit = async (event: any) => {
-        const answer = inputs[event.id];
-        if (!answer || (Array.isArray(answer) && answer.length === 0)) return alert("Введите или выберите ответ!");
-
-        setLoadingId(event.id);
-        
-        let isCorrect = false;
-        let stringAnswer = '';
-
-        // Предварительная локальная проверка для тестов
-        if (event.type === 'single_choice') {
-            const correctOpt = event.options.find((o: any) => o.isCorrect);
-            isCorrect = correctOpt?.text === answer;
-            stringAnswer = answer;
-        } else if (event.type === 'multiple_choice') {
-            const correctOpts = event.options.filter((o: any) => o.isCorrect).map((o: any) => o.text);
-            isCorrect = correctOpts.length === answer.length && correctOpts.every((o: string) => answer.includes(o));
-            stringAnswer = answer.join(', ');
-        } else if (event.type === 'free_text') {
-            stringAnswer = answer;
-            isCorrect = false; // Бэкенд (ИИ) сам решит, верно или нет
+    const handleSubmit = async (q: any) => {
+        let answerStr = inputs[q.id] || '';
+        if (Array.isArray(answerStr)) {
+            answerStr = answerStr.join(', ');
         }
+        
+        if (!answerStr.trim()) return alert("Введите или выберите ответ!");
+
+        setLoadingId(q.id);
 
         try {
-            const token = localStorage.getItem('lumeo_token');
-            const payload = {
-                videoId,
-                userId,
-                results: [{ eventId: event.id, isCorrect, answer: stringAnswer }]
-            };
-
-            const res = await fetch(`http://localhost:5000/api/video/progress`, {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}` 
-                },
-                body: JSON.stringify(payload)
-            });
-
-            if (res.ok) {
-                const data = await res.json();
-                // Находим обновленный результат в ответе сервера
-                const updatedResult = data.sessionResults?.find((r: any) => r.eventId === event.id);
-                if (updatedResult) {
-                    setResults(prev => ({
-                        ...prev,
-                        [event.id]: {
-                            isCorrect: updatedResult.isCorrect,
-                            similarity: updatedResult.similarity,
-                            answerText: updatedResult.answer
-                        }
-                    }));
+            // Вся магия проверки теперь на сервере! 
+            const res = await sendAnswer(videoId, q.id, answerStr);
+            
+            setResults(prev => ({
+                ...prev,
+                [q.id]: {
+                    isCorrect: res.data.isCorrect,
+                    similarity: res.data.similarity,
+                    answerText: answerStr
                 }
-            }
-        } catch (e) {
-            console.error("Ошибка отправки ответа", e);
-            alert("Ошибка сети");
+            }));
+            // Логика onAllSolved отсюда удалена, за ней теперь четко следит useEffect!
+
+        } catch (error) {
+            console.error('Ошибка проверки ответа:', error);
+            alert('Не удалось отправить ответ. Попробуйте еще раз.');
         } finally {
             setLoadingId(null);
         }
     };
 
-    if (questions.length === 0) return null; // Если вопросов нет — прячем компонент
+    if (questions.length === 0) return null;
 
     return (
         <div className="test-cards-container">
@@ -163,7 +126,6 @@ export const TestCards = ({ events, videoId, userId, onAllSolved }: TestCardsPro
                             
                             <h4 className="test-card-question">{q.question}</h4>
 
-                            {/* ЕСЛИ УЖЕ РЕШЕНО */}
                             {isSolved ? (
                                 <div className="test-card-solved-state">
                                     <div className="solved-answer">
@@ -171,13 +133,12 @@ export const TestCards = ({ events, videoId, userId, onAllSolved }: TestCardsPro
                                     </div>
                                     <div className={`solved-status ${result.isCorrect ? 'text-success' : 'text-error'}`}>
                                         {result.isCorrect ? '✅ Верно' : '❌ Неверно'} 
-                                        {q.type === 'free_text' && result.similarity !== undefined && (
+                                        {q.type === 'free_text' && result.similarity !== undefined && result.similarity !== null && (
                                             <span className="similarity-badge">Точность: {result.similarity}%</span>
                                         )}
                                     </div>
                                 </div>
                             ) : (
-                                /* ЕСЛИ ЕЩЕ НЕ РЕШЕНО */
                                 <div className="test-card-input-area">
                                     {q.type === 'single_choice' && q.options.map((opt: any, i: number) => (
                                         <label key={i} className="test-option-label radio">
