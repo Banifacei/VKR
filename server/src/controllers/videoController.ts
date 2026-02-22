@@ -15,6 +15,7 @@ import { User } from '../models/User.js';
 import { Worker } from 'worker_threads';
 import { pathToFileURL } from 'url';
 import { transformSync } from 'esbuild';
+import { CourseTest } from '../models/CourseTest.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 let semanticExtractor: any = null;
@@ -149,22 +150,36 @@ export const getAllCourses = async (req: Request, res: Response) => {
 };
 export const createVideo = async (req: Request, res: Response) => {
   try {
-    const { title, url, subtitles, hideResults, courseId } = req.body;
+    const { title, url, subtitles, hideResults, courseId, orderIndex } = req.body;
     
+    let finalOrderIndex = orderIndex;
+
+    // 🤖 УМНАЯ ЛОГИКА: Если фронт не прислал orderIndex, находим самый большой индекс в курсе
+    if (finalOrderIndex === undefined || finalOrderIndex === null) {
+        // Ищем максимальный индекс среди видео
+        const maxVideoIndex = await Video.max('orderIndex', { where: { courseId: Number(courseId) } }) as number || 0;
+        // Ищем максимальный индекс среди тестов
+        const maxTestIndex = await CourseTest.max('orderIndex', { where: { courseId: Number(courseId) } }) as number || 0;
+        
+        // Берем самое большое число и делаем +1
+        finalOrderIndex = Math.max(maxVideoIndex, maxTestIndex) + 1;
+    }
+
     const video = await Video.create({ 
         title,
-         url,
-         subtitles, 
+        url,
+        subtitles, 
         hideResults: hideResults || false, 
-        courseId: Number(courseId) 
+        courseId: Number(courseId),
+        orderIndex: finalOrderIndex // 👈 Железобетонно сохраняем в базу!
     });
+    
     res.status(201).json(video);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Ошибка при сохранении видео', error });
   }
 };
-
 export const getVideosByCourse = async (req: Request, res: Response) => {
   try {
     const { courseId } = req.params;
@@ -604,5 +619,33 @@ export const getUserVideoAnswers = async (req: Request, res: Response) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Ошибка при загрузке прогресса ответов' });
+    }
+};
+
+// --- СОХРАНЕНИЕ ПОРЯДКА ВИДЕО И ТЕСТОВ ---
+export const updateCourseContentOrder = async (req: Request, res: Response) => {
+    try {
+        const { courseId } = req.params;
+        const { items } = req.body; // Ожидаем массив [{ id: 1, type: 'video', orderIndex: 0 }, ...]
+
+        // Пробегаемся по массиву и обновляем индексы
+        for (const item of items) {
+            if (item.type === 'video') {
+                await Video.update(
+                    { orderIndex: item.orderIndex }, 
+                    { where: { id: item.id, courseId: Number(courseId) } }
+                );
+            } else if (item.type === 'test') {
+                await CourseTest.update(
+                    { orderIndex: item.orderIndex }, 
+                    { where: { id: item.id, courseId: Number(courseId) } }
+                );
+            }
+        }
+
+        res.json({ success: true, message: 'Порядок успешно сохранен' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Ошибка при сохранении порядка контента' });
     }
 };

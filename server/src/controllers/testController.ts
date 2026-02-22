@@ -21,11 +21,31 @@ export const getCourseTests = async (req: Request, res: Response) => {
 };
 
 // --- СОЗДАТЬ ТЕСТ ---
+// --- СОЗДАТЬ ТЕСТ ---
 export const createCourseTest = async (req: Request, res: Response) => {
     try {
         const { courseId } = req.params;
-        const { title, description } = req.body;
-        const test = await CourseTest.create({ title, description, courseId: Number(courseId) });
+        const { title, description, passingScore, maxAttempts, orderIndex } = req.body;
+
+        let finalOrderIndex = orderIndex;
+
+        // 🤖 УМНАЯ ЛОГИКА: Если фронт не прислал orderIndex, находим самый большой в курсе
+        if (finalOrderIndex === undefined || finalOrderIndex === null) {
+            const maxVideoIndex = await Video.max('orderIndex', { where: { courseId: Number(courseId) } }) as number || 0;
+            const maxTestIndex = await CourseTest.max('orderIndex', { where: { courseId: Number(courseId) } }) as number || 0;
+            
+            finalOrderIndex = Math.max(maxVideoIndex, maxTestIndex) + 1;
+        }
+
+        const test = await CourseTest.create({ 
+            title, 
+            description, 
+            courseId: Number(courseId),
+            passingScore: passingScore || 80, // Если создаем из старой формы, ставим дефолт 80%
+            maxAttempts: maxAttempts || 3,    // Дефолт 3 попытки
+            orderIndex: finalOrderIndex       // 👈 Железобетонно сохраняем в базу!
+        });
+        
         res.status(201).json(test);
     } catch (e) {
         console.error(e);
@@ -48,6 +68,20 @@ export const deleteCourseTest = async (req: Request, res: Response) => {
     }
 };
 
+export const reorderTestQuestions = async (req: Request, res: Response) => {
+    try {
+        const { orderedIds } = req.body; // Массив ID вопросов: [5, 2, 8]
+        if (!orderedIds || !Array.isArray(orderedIds)) return res.status(400).json({ message: 'Invalid payload' });
+
+        for (let i = 0; i < orderedIds.length; i++) {
+            await TestQuestion.update({ weight: i }, { where: { id: orderedIds[i] } });
+        }
+        res.json({ success: true });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Ошибка сортировки' });
+    }
+};
 // --- ДОБАВИТЬ ВОПРОС В ТЕСТ ---
 export const addTestQuestion = async (req: Request, res: Response) => {
     try {

@@ -17,7 +17,8 @@ import {
     deleteVideo,
     updateCourse, 
     deleteCourse,
-    getUserVideoAnswers
+    getUserVideoAnswers,
+    updateCourseContentOrder
 } from '../controllers/videoController.js';
 import { checkAuth } from '../middleware/authMiddleware.js';
 import { updateEvent, deleteEvent } from '../controllers/videoController.js';
@@ -39,7 +40,7 @@ router.post('/courses', createCourse);
 router.put('/courses/:courseId', checkAuth, updateCourse);
 router.delete('/courses/:courseId', checkAuth, deleteCourse);
 router.get('/courses/:courseId/videos', getVideosByCourse);
-
+router.post('/course/:courseId/reorder', checkAuth, updateCourseContentOrder);
 // --- РОУТЫ ДЛЯ ТЕСТОВ (UserResponse) ---
 // saveProgress — это сохранение ответов на вопросы внутри видео
 router.post('/progress', checkAuth, saveProgress); 

@@ -19,6 +19,9 @@ export interface ICourseTest {
     passingScore: number;
     courseId: number;
     questions?: ITestQuestion[];
+    orderIndex?: number;
+    isHidden?: boolean;
+    unlockDate?: string | null;
 }
 
 export const getCourseTests = async (courseId: number): Promise<ICourseTest[]> => {

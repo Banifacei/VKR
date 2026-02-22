@@ -455,6 +455,47 @@
   background: none;
   border: none;
 }
+
+/* --- СТИЛИ ДЛЯ РЕДАКТОРА (Hover-эффекты) --- */
+
+/* Прячем оверлей по умолчанию */
+.edit-overlay {
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(0px); /* Сначала без размытия */
+}
+
+/* Показываем оверлей при наведении на карточку (ТОЛЬКО если нет активного перетаскивания) */
+/* Мы используем .content-card:not(.is-dragging), чтобы не показывать меню, когда карточка летит за мышкой */
+.content-card:not(.is-dragging):hover .edit-overlay {
+    opacity: 1;
+    visibility: visible;
+    backdrop-filter: blur(4px); /* Добавляем красивое размытие фона */
+}
+
+/* Анимация кнопок внутри оверлея: они будут слегка "всплывать" снизу вверх */
+.edit-overlay button {
+    transform: translateY(10px);
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    opacity: 0;
+}
+
+.content-card:not(.is-dragging):hover .edit-overlay button {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+/* Делаем небольшую задержку для каждой кнопки, чтобы они вылетали по очереди (каскадом) */
+.edit-overlay button:nth-child(1) { transition-delay: 0.05s; }
+.edit-overlay button:nth-child(2) { transition-delay: 0.1s; }
+.edit-overlay button:nth-child(3) { transition-delay: 0.15s; }
+
+/* Эффект при наведении на саму кнопку внутри меню */
+.edit-overlay button:hover {
+    filter: brightness(1.2);
+    transform: scale(1.05) translateY(0);
+}
 .dropdown-item:hover { background: #252525; }
 .dropdown-item.logout { color: #ff4d4d; }
 .dropdown-item:hover { background: #252525; }
@@ -462,3 +503,7 @@
 .dropdown-item.logout { color: #ff4d4d; }
 
 .dropdown-divider { height: 1px; background: #2a2a2a; margin: 4px 0; }
+.content-grid.is-global-dragging .edit-overlay {
+    opacity: 0 !important;
+    visibility: hidden !important;
+}

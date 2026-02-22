@@ -32,4 +32,16 @@ export class Video extends Model {
 
   @Column({ type: DataType.INTEGER, defaultValue: 0 })
   declare orderIndex: number;
+
+  // ... твои старые поля (courseId, events, maxAttempts, orderIndex)
+
+  // 👇 НОВЫЕ ПОЛЯ ДЛЯ РЕДАКТОРА ПРЕПОДА
+  @Column({ type: DataType.BOOLEAN, defaultValue: true })
+  declare allowExternalTest: boolean; // Разрешить решать тест под видео
+
+  @Column({ type: DataType.BOOLEAN, defaultValue: false })
+  declare isHidden: boolean; // Скрыто от студентов (черновик)
+
+  @Column({ type: DataType.DATE, allowNull: true })
+  declare unlockDate: Date | null; // Отложенный релиз (дата и время)
 }

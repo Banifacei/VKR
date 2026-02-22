@@ -35,6 +35,9 @@ export interface IVideo {
     createdAt?: string;
     updatedAt?: string;
     maxAttempts?: number;
+    allowExternalTest?: boolean;
+    isHidden?: boolean;
+    unlockDate?: string | null;
 }
 
 export interface ICourse {

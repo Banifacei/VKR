@@ -25,4 +25,13 @@ export class CourseTest extends Model {
 
   @HasMany(() => TestQuestion)
   declare questions: TestQuestion[];
+
+  @Column({ type: DataType.INTEGER, defaultValue: 0 })
+  declare orderIndex: number; // Порядковый номер в общем списке
+
+  @Column({ type: DataType.BOOLEAN, defaultValue: false })
+  declare isHidden: boolean; // Скрыто от студентов
+
+  @Column({ type: DataType.DATE, allowNull: true })
+  declare unlockDate: Date | null; // Отложенный релиз
 }
