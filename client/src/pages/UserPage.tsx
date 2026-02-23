@@ -445,7 +445,8 @@ export const UserPage = () => {
                     ) : (
                         <TestRunner 
                             test={activeItem} 
-                            onExit={() => setActiveItem(null)} 
+                            onExit={() => setActiveItem(null)}
+                            onSuccess={() => fetchCourseData()}
                         />
                     )}
                 </div>
@@ -684,7 +685,8 @@ export const UserPage = () => {
             {/* МОДАЛКА РЕДАКТОРА КОНТЕНТА (Твой код из PrepodPage) */}
             {editorItem && (
                 <ContentEditorModal 
-                    item={editorItem} 
+                    item={editorItem}
+                    userData={userData}
                     onClose={() => setEditorItem(null)} 
                     onSuccess={() => {
                         fetchCourseData(); // Мгновенно обновляем сетку при добавлении вопроса!

@@ -1,6 +1,7 @@
 import { Table, Column, Model, DataType, ForeignKey, BelongsTo, HasMany } from 'sequelize-typescript';
 import { Course } from './Course.js';
 import { TestQuestion } from './TestQuestion.js';
+import { UserTestResult } from './UserTestResult.js';
 
 @Table({ tableName: 'course_tests' })
 export class CourseTest extends Model {
@@ -25,6 +26,12 @@ export class CourseTest extends Model {
 
   @HasMany(() => TestQuestion)
   declare questions: TestQuestion[];
+
+  @Column({ type: DataType.BOOLEAN, defaultValue: false })
+  declare hideResults: boolean;
+
+  @HasMany(() => UserTestResult) // <--- ДОБАВЬ ЭТУ СТРОКУ
+  declare results: UserTestResult[];
 
   @Column({ type: DataType.INTEGER, defaultValue: 0 })
   declare orderIndex: number; // Порядковый номер в общем списке

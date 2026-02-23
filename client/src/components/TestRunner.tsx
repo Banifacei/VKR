@@ -4,19 +4,33 @@ import { submitTestResult, type ICourseTest } from '../api/testApi';
 interface TestRunnerProps {
     test: ICourseTest;
     onExit: () => void;
+    onSuccess?: () => void;
 }
 
-export const TestRunner = ({ test, onExit }: TestRunnerProps) => {
+export const TestRunner = ({ test, onExit, onSuccess }: TestRunnerProps) => {
     const [step, setStep] = useState<'start' | 'quiz' | 'result'>('start');
     const [currentQIndex, setCurrentQIndex] = useState(0);
     const [answers, setAnswers] = useState<Record<number, any>>({});
     const [score, setScore] = useState(0);
+    // НОВОЕ: Стейт для хранения детальной проверки с сервера (включая ИИ)
+    const [detailedResults, setDetailedResults] = useState<Record<number, any>>({}); 
     const [isSubmitting, setIsSubmitting] = useState(false);
+    
     const questions = test.questions || [];
     const currentQ = questions[currentQIndex];
 
     const handleAnswer = (val: any) => {
         setAnswers({ ...answers, [currentQ.id]: val });
+    };
+
+    // НОВОЕ: Хендлер для множественного выбора (multiple_choice)
+    const handleMultipleChoice = (optText: string) => {
+        const currentArr = answers[currentQ.id] || [];
+        if (currentArr.includes(optText)) {
+            setAnswers({ ...answers, [currentQ.id]: currentArr.filter((t: string) => t !== optText) });
+        } else {
+            setAnswers({ ...answers, [currentQ.id]: [...currentArr, optText] });
+        }
     };
 
     const handleNext = () => {
@@ -30,51 +44,69 @@ export const TestRunner = ({ test, onExit }: TestRunnerProps) => {
     const finishTest = async () => {
         setIsSubmitting(true);
         
-        // 1. Локальный подсчет (для мгновенного отображения)
-        let correctCount = 0;
-        questions.forEach(q => {
-            const userAns = answers[q.id];
-            if (!userAns) return;
-
-            if (q.type === 'single_choice' || q.type === 'multiple_choice') {
-                const correctOpt = q.options.find((o: any) => o.isCorrect);
-                if (userAns === correctOpt?.text) correctCount++;
-            } else if (q.type === 'free_text') {
-                // В идеале тут должна быть проверка на сервере, но пока так
-                if (userAns.trim().length > 0) correctCount++; 
-            }
-        });
-
-        const calculatedScore = Math.round((correctCount / questions.length) * 100);
-        setScore(calculatedScore);
-
-        // 2. Отправка на сервер
         try {
-            await submitTestResult(test.id, calculatedScore, answers);
+            // Теперь фронтенд не считает баллы сам! Отправляем просто ответы.
+            // Бэкенд сам всё проверит и вернет правильный score и detailedAnswers.
+            const res = await submitTestResult(test.id, 0, answers);
+            
+            setScore(res.score); // Берем балл с сервера
+            if (res.detailedAnswers) {
+                setDetailedResults(res.detailedAnswers); // Берем ИИ-разбор с сервера
+            }
+
             console.log('Результат сохранен!');
+            if (onSuccess) {
+                onSuccess();
+            }
         } catch (e) {
             console.error('Ошибка сохранения результата', e);
-            // Можно добавить alert, но лучше просто показать результат локально
         } finally {
             setIsSubmitting(false);
             setStep('result');
         }
     };
 
+    const attemptsUsed = test.attemptsUsed || 0;
+    const isExhausted = test.maxAttempts > 0 && attemptsUsed >= test.maxAttempts;
+
     if (step === 'start') {
         return (
             <div className="runner-container">
                 <div className="runner-card center">
-                    <h1>📝 {test.title}</h1>
-                    <p style={{color: '#888', marginBottom: '30px', lineHeight: '1.6'}}>
-                        Вопросов: <b>{questions.length}</b><br/>
-                        Проходной балл: <b>{test.passingScore}%</b><br/>
-                        Попыток: <b>{test.maxAttempts === 0 ? 'Безлимит' : test.maxAttempts}</b>
-                    </p>
-                    <button className="btn btn-primary" style={{padding: '12px 30px', fontSize: '16px'}} onClick={() => setStep('quiz')}>
-                        Начать тестирование
-                    </button>
-                    <button className="btn btn-ghost" style={{marginTop: '20px'}} onClick={onExit}>Вернуться назад</button>
+                    <div className="runner-icon-big">📝</div>
+                    <h1>{test.title}</h1>
+                    {test.description && <p className="runner-desc">{test.description}</p>}
+                    
+                    <div className="test-meta-info">
+                        <div className="meta-item">
+                            <span>Вопросов:</span>
+                            <strong>{test.questions?.length || 0}</strong>
+                        </div>
+                        <div className="meta-item">
+                            <span>Проходной балл:</span>
+                            <strong>{test.passingScore}%</strong>
+                        </div>
+                        {/* Добавляем информацию о попытках в инфо-блок */}
+                        <div className="meta-item">
+                            <span>Попытки:</span>
+                            <strong style={{ color: isExhausted ? '#ff4d4d' : '#00aeef' }}>
+                                {attemptsUsed} / {test.maxAttempts === 0 ? '∞' : test.maxAttempts}
+                            </strong>
+                        </div>
+                    </div>
+
+                    <div className="runner-actions">
+                        {isExhausted ? (
+                            <div className="exhausted-message" style={{ color: '#ff4d4d', marginBottom: '15px', fontWeight: 'bold' }}>
+                                ⚠️ Вы использовали все доступные попытки для этого теста.
+                            </div>
+                        ) : (
+                            <button className="btn btn-primary" onClick={() => setStep('quiz')}>
+                                {attemptsUsed > 0 ? 'Попробовать снова' : 'Начать тестирование'}
+                            </button>
+                        )}
+                        <button className="btn btn-ghost" onClick={onExit}>Назад к курсу</button>
+                    </div>
                 </div>
             </div>
         );
@@ -83,8 +115,8 @@ export const TestRunner = ({ test, onExit }: TestRunnerProps) => {
     if (step === 'result') {
         const isPassed = score >= test.passingScore;
         return (
-            <div className="runner-container">
-                <div className="runner-card center">
+            <div className="runner-container" style={{ padding: '20px 0' }}> 
+                <div className="runner-card center" style={{ maxWidth: '600px' }}> 
                     <div style={{fontSize: '60px', marginBottom: '20px'}}>{isPassed ? '🎉' : '😕'}</div>
                     <h2>{isPassed ? 'Тест сдан!' : 'Попробуйте еще раз'}</h2>
                     <div className="score-circle" style={{ borderColor: isPassed ? '#4dff88' : '#ff4d4d' }}>
@@ -93,12 +125,75 @@ export const TestRunner = ({ test, onExit }: TestRunnerProps) => {
                     <p style={{color: '#888', margin: '20px 0'}}>
                         Необходимый минимум: {test.passingScore}%
                     </p>
-                    <button className="btn btn-primary" onClick={onExit}>Вернуться к курсу</button>
+
+                    {/* ВСТАВЛЯЕМ БЛОК РАБОТЫ НАД ОШИБКАМИ ВНУТРЬ RETURN */}
+                    {!test.hideResults && Object.keys(detailedResults).length > 0 && (
+                        <div className="test-review-section" style={{ marginTop: '30px', textAlign: 'left', width: '100%' }}>
+                            <h3 style={{ borderBottom: '1px solid #333', paddingBottom: '10px', marginBottom: '15px' }}>
+                                Ваши ответы:
+                            </h3>
+                            
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '400px', overflowY: 'auto', paddingRight: '10px' }}>
+                                {questions.map((q, idx) => {
+                                    // НОВОЕ: Берем результаты проверки с бэкенда!
+                                    const resData = detailedResults[q.id] || {};
+                                    const userAns = resData.answer;
+                                    const isCorrect = resData.isCorrect || false;
+                                    const displayAns = Array.isArray(userAns) ? userAns.join(', ') : userAns;
+
+                                    return (
+                                        <div key={q.id} style={{
+                                            background: '#1a1a1a', 
+                                            padding: '15px', 
+                                            borderRadius: '10px', 
+                                            borderLeft: `4px solid ${isCorrect ? '#4dff88' : '#ff4d4d'}`,
+                                        }}>
+                                            <div style={{ marginBottom: '8px', fontWeight: 'bold', fontSize: '15px', color: '#eee' }}>
+                                                {idx + 1}. {q.text}
+                                            </div>
+                                            
+                                            <div style={{ fontSize: '14px', color: '#ccc', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                                                <div>
+                                                    <span style={{ color: '#888' }}>Ваш ответ: </span> 
+                                                    {displayAns ? (
+                                                        <span style={{ color: isCorrect ? '#4dff88' : '#ff4d4d' }}>{displayAns}</span>
+                                                    ) : (
+                                                        <i style={{ color: '#666' }}>Нет ответа</i>
+                                                    )}
+                                                </div>
+
+                                                {/* НОВОЕ: Показываем оценку ИИ, если она пришла с сервера */}
+                                                {resData.similarity !== null && resData.similarity !== undefined && (
+                                                    <span style={{ background: 'rgba(0, 174, 239, 0.15)', color: '#00aeef', padding: '2px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: 'bold' }}>
+                                                        ИИ: {resData.similarity}%
+                                                    </span>
+                                                )}
+                                            </div>
+                                            
+                                            {/* Можно даже показывать правильный ответ, если студент ошибся */}
+                                            {!isCorrect && (q.type === 'single_choice' || q.type === 'multiple_choice') && (
+                                                <div style={{ fontSize: '14px', marginTop: '5px' }}>
+                                                    <span style={{ color: '#888' }}>Правильный ответ: </span>
+                                                    <span style={{ color: '#4dff88' }}>
+                                                        {q.options?.filter((o: any) => o.isCorrect).map((o: any) => o.text).join(', ')}
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    <button className="btn btn-primary" onClick={onExit} style={{ marginTop: '25px' }}>
+                        Вернуться к курсу
+                    </button>
                 </div>
             </div>
         );
     }
-
+    
     return (
         <div className="runner-container">
             <div className="runner-card">
@@ -126,17 +221,25 @@ export const TestRunner = ({ test, onExit }: TestRunnerProps) => {
                         </label>
                     ))}
 
-                    {currentQ.type === 'multiple_choice' && currentQ.options?.map((opt: any, idx: number) => (
-                        <label key={idx} className="option-label">
-                            <input type="checkbox" /> {opt.text} 
-                            <span style={{fontSize: '10px', color: '#666', marginLeft: 'auto'}}>(WIP)</span>
-                        </label>
-                    ))}
+                    {/* ИСПРАВЛЕНО: Чекбоксы теперь работают с массивами */}
+                    {currentQ.type === 'multiple_choice' && currentQ.options?.map((opt: any, idx: number) => {
+                        const isChecked = (answers[currentQ.id] || []).includes(opt.text);
+                        return (
+                            <label key={idx} className={`option-label ${isChecked ? 'selected' : ''}`}>
+                                <input 
+                                    type="checkbox" 
+                                    checked={isChecked}
+                                    onChange={() => handleMultipleChoice(opt.text)} 
+                                /> 
+                                {opt.text}
+                            </label>
+                        );
+                    })}
 
                     {currentQ.type === 'free_text' && (
                         <textarea 
                             className="modern-input" 
-                            placeholder="Введите ваш ответ..." 
+                            placeholder="Введите ваш ответ (проверяет ИИ)..." 
                             value={answers[currentQ.id] || ''}
                             onChange={(e) => handleAnswer(e.target.value)}
                             style={{minHeight: '120px'}}
@@ -152,7 +255,7 @@ export const TestRunner = ({ test, onExit }: TestRunnerProps) => {
                         disabled={isSubmitting}
                     >
                         {isSubmitting 
-                            ? 'Сохранение...' 
+                            ? 'Проверка...' 
                             : (currentQIndex === questions.length - 1 ? 'Завершить тест' : 'Следующий вопрос →')}
                     </button>
                 </div>

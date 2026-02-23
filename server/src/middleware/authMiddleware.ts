@@ -14,7 +14,7 @@ export const checkAuth = (req: Request, res: Response, next: NextFunction) => {
         const token = req.headers.authorization?.split(' ')[1]; 
         
         if (!token) {
-            next();
+            return res.status(401).json({ message: 'Токен отсутствует. Пожалуйста, войдите в систему.' });
             return;
         }
 
@@ -24,6 +24,6 @@ export const checkAuth = (req: Request, res: Response, next: NextFunction) => {
         
         next();
     } catch (e) {
-        res.status(401).json({ message: 'Неверный токен' });
+        res.status(401).json({ message: 'Сессия истекла или токен неверный' });
     }
 };

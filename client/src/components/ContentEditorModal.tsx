@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { VideoPlayer } from './VideoPlayer';
 import { addEvent, updateEvent, deleteEvent, generateAutoSubtitles, updateVideo, getVideosByCourse, getVideoStats } from '../api/videoApi';
-import { addTestQuestion, deleteTestQuestion, getCourseTests, type ICourseTest } from '../api/testApi';
+import { addTestQuestion, deleteTestQuestion, getCourseTests, updateCourseTest, getTestStats, type ICourseTest } from '../api/testApi';
 import type { IVideo } from '../types';
 import * as XLSX from 'xlsx';
 
@@ -57,7 +57,51 @@ const SortableQuestion = ({ q, i, onEdit, onDelete }: any) => {
     );
 };
 
-export const ContentEditorModal = ({ item, onClose, onSuccess }: any) => {
+const SortableOption = ({ opt, idx, isCorrect, isDuplicate, accentColor, onChangeText, onToggleCorrect, onRemove }: any) => {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: `opt-${idx}` });
+    
+    const style = {
+        // Используем Translate вместо Transform (убирает дерганье)
+        transform: CSS.Translate.toString(transform),
+        // 🛑 Жестко отключаем анимацию, пока элемент летит!
+        transition: isDragging ? 'none' : (transition || 'all 0.2s ease'), 
+        zIndex: isDragging ? 9999 : 1, // Z-index повыше
+        opacity: isDragging ? 0.9 : 1,
+        scale: isDragging ? '1.02' : '1',
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: '12px', 
+        background: isCorrect ? `rgba(${accentColor === '#00aeef' ? '0,174,239' : '255,215,0'},0.1)` : 'rgba(0,0,0,0.3)', 
+        padding: '8px 12px', 
+        borderRadius: '12px', 
+        border: isDuplicate ? '1px solid #ff4d4d' : `1px solid ${isCorrect ? accentColor : 'transparent'}`,
+        boxShadow: isDragging ? '0 15px 30px rgba(0,0,0,0.5)' : 'none',
+    };
+
+    return (
+        <div ref={setNodeRef} style={style}>
+            {/* Ручка для перетаскивания */}
+            <div {...attributes} {...listeners} style={{ cursor: 'grab', padding: '5px', color: '#666' }}>
+                <Icons.Drag />
+            </div>
+            
+            <input type="checkbox" checked={isCorrect} onChange={onToggleCorrect} style={{ width: '20px', height: '20px', cursor: 'pointer', accentColor: accentColor }} />
+            
+            <input 
+                className="deck-input" 
+                value={opt.text} 
+                onChange={e => onChangeText(e.target.value)} 
+                placeholder={`Вариант ${idx + 1}`} 
+                style={{ marginBottom: 0, flex: 1, background: 'transparent', border: 'none', fontSize: '14px', padding: '5px', color: '#fff' }}
+            />
+            
+            <button className="btn btn-ghost" onClick={onRemove} style={{ padding: '8px', color: '#666', borderRadius: '8px' }} onMouseEnter={e => e.currentTarget.style.background='rgba(255,77,77,0.1)'} onMouseLeave={e => e.currentTarget.style.background='transparent'}>✕</button>
+        </div>
+    );
+};
+
+export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) => {
+    const isDraggingQuestionRef = useRef(false);
     const isVideo = item.type === 'video';
     const accentColor = isVideo ? '#00aeef' : '#ffd700';
 
@@ -145,10 +189,17 @@ export const ContentEditorModal = ({ item, onClose, onSuccess }: any) => {
     const [expandedStudent, setExpandedStudent] = useState<number | null>(null);
 
     const loadStats = async () => {
-        if (!selectedVideo) return;
         try {
-            const data = await getVideoStats(selectedVideo.id);
-            setStatsData(data);
+            let data = [];
+            if (isVideo && selectedVideo) {
+                data = await getVideoStats(selectedVideo.id);
+            } else if (!isVideo && selectedTest) {
+                const response = await getTestStats(selectedTest.id);
+                data = response.results || []; // 👈 Достаем именно массив results!
+            }
+            
+            // Защита от краша: убеждаемся, что передаем массив
+            setStatsData(Array.isArray(data) ? data : []); 
             setExpandedStudent(null); 
             setShowStats(true);
         } catch (e) { alert('Не удалось загрузить статистику'); }
@@ -159,6 +210,7 @@ export const ContentEditorModal = ({ item, onClose, onSuccess }: any) => {
         if (!showStats || !selectedVideo) return;
         
         const interval = setInterval(async () => {
+            if (isDraggingQuestionRef.current) return;
             try {
                 const newData = await getVideoStats(selectedVideo.id);
                 
@@ -176,42 +228,158 @@ export const ContentEditorModal = ({ item, onClose, onSuccess }: any) => {
         
         return () => clearInterval(interval);
     }, [showStats, selectedVideo]);
+
     const exportToExcel = () => {
         if (statsData.length === 0) return alert('Нет данных для выгрузки!');
-        const wsData: any[][] = [];
-        wsData.push(['ВЕДОМОСТЬ РЕЗУЛЬТАТОВ ТЕСТИРОВАНИЯ']);
-        wsData.push(['Урок/Тема:', selectedVideo?.title]);
-        wsData.push(['Дата формирования:', new Date().toLocaleDateString('ru-RU')]);
-        wsData.push([]); 
-        wsData.push(['СВОДНАЯ СТАТИСТИКА ПО СТУДЕНТАМ']);
-        wsData.push(['№ п/п', 'ФИО обучающегося', 'Всего ответов', 'Правильных', 'С ошибками', 'Процент усвоения', 'Рекомендуемая оценка']);
+        
+        const wb = XLSX.utils.book_new();
+        const currentTitle = isVideo ? selectedVideo?.title : selectedTest?.title;
+        const dateStr = new Date().toLocaleDateString('ru-RU');
+        const teacherName = userData?.firstName ? `${userData.firstName} ${userData.lastName}` : '_______________________';
+
+        // ==========================================
+        // ЛИСТ 1: ВЕДОМОСТЬ ПО ГОСТУ (ДЛЯ ПЕЧАТИ)
+        // ==========================================
+        const vedomostData: any[][] = [];
+        vedomostData.push(['МИНИСТЕРСТВО / НАЗВАНИЕ УЧЕБНОГО ЗАВЕДЕНИЯ']); 
+        vedomostData.push([]);
+        vedomostData.push(['', 'ЭКЗАМЕНАЦИОННАЯ / ЗАЧЕТНАЯ ВЕДОМОСТЬ']); 
+        vedomostData.push([]);
+        vedomostData.push(['Наименование материала:', currentTitle || 'Без названия']);
+        vedomostData.push(['Дата проведения:', dateStr]);
+        vedomostData.push(['Преподаватель:', teacherName]);
+        vedomostData.push([]);
+        
+        // Шапка таблицы ГОСТ
+        vedomostData.push(['№ п/п', 'ФИО обучающегося', 'Результат (%)', 'Оценка (прописью)', 'Подпись преподавателя']);
 
         const groups = getGroupedStats();
+        let count5 = 0, count4 = 0, count3 = 0, count2 = 0;
+
         groups.forEach((student, index) => {
-            const percent = student.total > 0 ? Math.round((student.correct / student.total) * 100) : 0;
-            let grade = 'Неудовлетворительно (2)';
-            if (percent >= 90) grade = 'Отлично (5)';
-            else if (percent >= 75) grade = 'Хорошо (4)';
-            else if (percent >= 50) grade = 'Удовлетворительно (3)';
-            wsData.push([index + 1, student.name, student.total, student.correct, student.incorrect, `${percent}%`, grade]);
+            const percent = isVideo 
+                ? (student.total > 0 ? Math.round((student.correct / student.total) * 100) : 0)
+                : (student.testScore || 0);
+
+            let gradeStr = 'Неудовлетворительно';
+            if (percent >= 90) { gradeStr = 'Отлично'; count5++; }
+            else if (percent >= 75) { gradeStr = 'Хорошо'; count4++; }
+            else if (percent >= 50) { gradeStr = 'Удовлетворительно'; count3++; }
+            else { count2++; }
+
+            vedomostData.push([index + 1, student.name, `${percent}%`, gradeStr, '']);
         });
-        const ws = XLSX.utils.aoa_to_sheet(wsData);
-        ws['!cols'] = [{ wch: 30 }, { wch: 55 }, { wch: 45 }, { wch: 20 }, { wch: 25 }, { wch: 20 }, { wch: 25 }];
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Ведомость');
-        XLSX.writeFile(wb, `Ведомость_${selectedVideo?.title}.xlsx`);
+
+        vedomostData.push([]);
+        vedomostData.push(['ИТОГИ ТЕСТИРОВАНИЯ:']);
+        vedomostData.push(['Отлично (5):', count5]);
+        vedomostData.push(['Хорошо (4):', count4]);
+        vedomostData.push(['Удовлетворительно (3):', count3]);
+        vedomostData.push(['Неудовлетворительно (2):', count2]);
+
+        const ws1 = XLSX.utils.aoa_to_sheet(vedomostData);
+        ws1['!cols'] = [
+            { wch: 25 }, // Колонка А (широкая для "Наименование материала:")
+            { wch: 45 }, // Колонка B (широкая для ФИО)
+            { wch: 15 }, // Колонка C (Результат)
+            { wch: 25 }, // Колонка D (Оценка)
+            { wch: 25 }  // Колонка E (Подпись)
+        ];
+        XLSX.utils.book_append_sheet(wb, ws1, 'Ведомость (ГОСТ)');
+
+        // ==========================================
+        // ЛИСТ 2: ДЕТАЛИЗАЦИЯ И ИИ (ИДЕАЛЬНЫЕ КОЛОНКИ)
+        // ==========================================
+        const detailsData: any[][] = [];
+
+        if (isVideo) {
+            detailsData.push(['ФИО обучающегося', 'Текст вопроса', 'Ответ студента', 'Оценка ИИ', 'Вердикт']);
+            statsData.forEach(stat => {
+                const name = stat.user ? `${stat.user.firstName} ${stat.user.lastName}`.trim() : `Студент ID: ${stat.userId}`;
+                const question = stat.event?.question || 'Вопрос удален';
+                const answer = stat.answer || '—';
+                const aiScore = stat.similarity !== null && stat.similarity !== undefined ? `${stat.similarity}%` : '—';
+                const result = stat.isCorrect ? 'Верно' : 'Ошибка';
+                detailsData.push([name, question, answer, aiScore, result]);
+            });
+        } else {
+            // 👇 ТЕПЕРЬ РАЗБИВАЕМ КАЖДЫЙ ВОПРОС НА ОТДЕЛЬНУЮ СТРОКУ!
+            detailsData.push(['ФИО обучающегося', 'Балл за попытку', 'Вопрос', 'Ответ студента', 'Статус / ИИ']);
+            
+            statsData.forEach(stat => {
+                const name = stat.user ? `${stat.user.firstName} ${stat.user.lastName}`.trim() : `Студент ID: ${stat.userId}`;
+                const answersObj = typeof stat.answers === 'string' ? JSON.parse(stat.answers) : (stat.answers || {});
+                
+                let isFirstRow = true; // Чтобы ФИО и Балл писались только один раз напротив первого вопроса
+
+                selectedTest?.questions?.forEach((q: any) => {
+                    const resData = answersObj[q.id] || {};
+                    const userAns = Array.isArray(resData.answer) ? resData.answer.join(', ') : (resData.answer || 'Нет ответа');
+                    
+                    let statusText = resData.isCorrect ? 'Верно' : 'Ошибка';
+                    
+                    // Жесткая проверка и вывод процента ИИ в колонку статуса
+                    if (q.type === 'free_text') {
+                        statusText = (resData.similarity !== undefined && resData.similarity !== null) 
+                            ? `Точность ИИ: ${resData.similarity}%` 
+                            : `ИИ: нет данных`;
+                    }
+                    
+                    if (isFirstRow) {
+                        detailsData.push([name, `${stat.score}%`, q.text, userAns, statusText]);
+                        isFirstRow = false;
+                    } else {
+                        // Оставляем пустые ячейки для ФИО и Балла, чтобы визуально сгруппировать попытку
+                        detailsData.push(['', '', q.text, userAns, statusText]);
+                    }
+                });
+                
+                // Пустая строка между попытками студентов для красоты
+                detailsData.push([]); 
+            });
+        }
+
+        const ws2 = XLSX.utils.aoa_to_sheet(detailsData);
+        // Задаем ширину столбцов
+        ws2['!cols'] = isVideo 
+            ? [{ wch: 35 }, { wch: 50 }, { wch: 50 }, { wch: 15 }, { wch: 15 }]
+            : [{ wch: 35 }, { wch: 15 }, { wch: 60 }, { wch: 40 }, { wch: 25 }]; // Идеальные пропорции
+
+        XLSX.utils.book_append_sheet(wb, ws2, 'Детализация и ИИ');
+
+        // Сохранение файла
+        const safeFileName = (currentTitle || 'Экспорт').replace(/[^a-zа-яё0-9]/gi, '_');
+        XLSX.writeFile(wb, `Зачетная_ведомость_${safeFileName}.xlsx`);
     };
 
     const getGroupedStats = () => {
-        const groups: Record<number, { correct: number; incorrect: number; name: string; userId: number }> = {};
+        const groups: Record<number, { correct: number; incorrect: number; name: string; userId: number; testScore?: number; total: number }> = {};
+        
+        if (!Array.isArray(statsData)) return []; // 🛡️ Защита от ошибки
+
         statsData.forEach(stat => {
             const uId = stat.userId;
             const name = stat.user ? `${stat.user.firstName} ${stat.user.lastName}`.trim() : `Студент ID: ${uId}`;
-            if (!groups[uId]) groups[uId] = { correct: 0, incorrect: 0, name, userId: uId };
-            if (stat.isCorrect) groups[uId].correct++;
-            else groups[uId].incorrect++;
+            
+            if (!groups[uId]) {
+                groups[uId] = { correct: 0, incorrect: 0, name, userId: uId, total: 0, testScore: 0 };
+            }
+            
+            if (stat.score !== undefined) {
+                // 📝 ЭТО ОБЫЧНЫЙ ТЕСТ: сохраняем ЛУЧШИЙ результат среди попыток
+                groups[uId].testScore = Math.max(groups[uId].testScore || 0, stat.score);
+                groups[uId].total++; // Считаем количество попыток
+            } else {
+                // 📺 ЭТО ВИДЕО-ИНТЕРАКТИВ: считаем правильные и неправильные
+                if (stat.isCorrect) groups[uId].correct++;
+                else groups[uId].incorrect++;
+            }
         });
-        return Object.values(groups).map(data => ({ ...data, total: data.correct + data.incorrect }));
+
+        return Object.values(groups).map(data => ({ 
+            ...data, 
+            total: isVideo ? data.correct + data.incorrect : data.total 
+        }));
     };
 
     const expandedStudentName = expandedStudent !== null ? getGroupedStats().find(s => s.userId === expandedStudent)?.name : '';
@@ -233,7 +401,14 @@ export const ContentEditorModal = ({ item, onClose, onSuccess }: any) => {
         if (updated) setSelectedTest(updated);
         onSuccess();
     };
-
+    const handleDragEndOption = (event: DragEndEvent) => {
+        const { active, over } = event;
+        if (over && active.id !== over.id) {
+            const oldIndex = parseInt((active.id as string).split('-')[1]);
+            const newIndex = parseInt((over.id as string).split('-')[1]);
+            setOptions(arrayMove(options, oldIndex, newIndex));
+        }
+    };
     // --- ЕДИНЫЙ ЖЕЛЕЗОБЕТОННЫЙ РАДАР (Обновление без сброса таймера) ---
     useEffect(() => {
         if (!item?.courseId) return;
@@ -416,6 +591,7 @@ export const ContentEditorModal = ({ item, onClose, onSuccess }: any) => {
 
     // --- Drag and Drop ---
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
+    
     const handleDragEndTest = async (event: DragEndEvent) => {
         const { active, over } = event;
         if (over && active.id !== over.id && selectedTest) {
@@ -432,7 +608,12 @@ export const ContentEditorModal = ({ item, onClose, onSuccess }: any) => {
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                     body: JSON.stringify({ orderedIds: newQuestions.map((q: any) => q.id) })
                 });
+                onSuccess();
             } catch (e) { console.error('Ошибка сохранения порядка вопросов'); }
+            finally {
+            // 👇 РАЗБЛОКИРУЕМ РАДАР ТОЛЬКО ТУТ
+            isDraggingQuestionRef.current = false; 
+        }
         }
     };
 
@@ -476,11 +657,9 @@ export const ContentEditorModal = ({ item, onClose, onSuccess }: any) => {
                     </div>
                     
                     <div style={{ display: 'flex', gap: '15px' }}>
-                        {isVideo && (
                             <button className="btn btn-ghost" onClick={loadStats} style={{ background: 'rgba(255,255,255,0.05)', padding: '10px 20px', borderRadius: '12px', fontWeight: 'bold' }}>
                                 <Icons.Stats /> Статистика
                             </button>
-                        )}
                         <button className="btn btn-primary" onClick={onClose} style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', padding: '10px 20px', borderRadius: '12px', fontWeight: 'bold' }}>✕ Закрыть</button>
                     </div>
                 </div>
@@ -519,7 +698,11 @@ export const ContentEditorModal = ({ item, onClose, onSuccess }: any) => {
                                                     <thead><tr style={{ color: '#888', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(0,0,0,0.3)' }}><th style={{padding:'20px'}}>Студент</th><th style={{padding:'20px'}}>Успеваемость (Прогресс)</th><th style={{padding:'20px'}}>Ответы (В / О)</th><th></th></tr></thead>
                                                     <tbody>
                                                         {getGroupedStats().map((student) => {
-                                                            const percent = student.total > 0 ? Math.round((student.correct / student.total) * 100) : 0;
+                                                            // Умный расчет процента: для видео считаем долю верных, для тестов берем готовый балл
+                                                            const percent = isVideo 
+                                                                ? (student.total > 0 ? Math.round((student.correct / student.total) * 100) : 0)
+                                                                : (student.testScore || 0);
+
                                                             return (
                                                                 <tr key={student.userId} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)', transition: 'background 0.2s' }}>
                                                                     <td style={{padding:'20px', color: '#fff', fontWeight: 500}}>{student.name}</td>
@@ -529,13 +712,19 @@ export const ContentEditorModal = ({ item, onClose, onSuccess }: any) => {
                                                                                 <div style={{ width: `${percent}%`, background: '#4dff88', height: '100%' }}></div>
                                                                                 <div style={{ width: `${100 - percent}%`, background: '#ff4d4d', height: '100%' }}></div>
                                                                             </div>
-                                                                            <span style={{ color: percent > 50 ? '#4dff88' : '#ff4d4d', fontWeight: 'bold', fontSize: '14px', width: '40px' }}>{percent}%</span>
+                                                                            <span style={{ color: percent >= 50 ? '#4dff88' : '#ff4d4d', fontWeight: 'bold', fontSize: '14px', width: '40px' }}>{percent}%</span>
                                                                         </div>
                                                                     </td>
                                                                     <td style={{padding:'20px', color: '#aaa', fontSize: '14px'}}>
-                                                                        <span style={{ color: '#4dff88' }}>{student.correct}</span> / <span style={{ color: '#ff4d4d' }}>{student.incorrect}</span>
+                                                                        {isVideo ? (
+                                                                            <><span style={{ color: '#4dff88' }}>{student.correct}</span> / <span style={{ color: '#ff4d4d' }}>{student.incorrect}</span></>
+                                                                        ) : (
+                                                                            <span>Попыток: {student.total}</span>
+                                                                        )}
                                                                     </td>
-                                                                    <td style={{padding:'20px', textAlign: 'right'}}><button className="btn btn-ghost" style={{color: accentColor, background: `rgba(${isVideo ? '0,174,239' : '255,215,0'}, 0.1)`, borderRadius: '8px', padding: '8px 16px'}} onClick={() => setExpandedStudent(student.userId)}>Детали</button></td>
+                                                                    <td style={{padding:'20px', textAlign: 'right'}}>
+                                                                            <button className="btn btn-ghost" style={{color: accentColor, background: `rgba(${isVideo ? '0,174,239' : '255,215,0'}, 0.1)`, borderRadius: '8px', padding: '8px 16px'}} onClick={() => setExpandedStudent(student.userId)}>Детали</button>
+                                                                    </td>
                                                                 </tr>
                                                             );
                                                         })}
@@ -544,35 +733,86 @@ export const ContentEditorModal = ({ item, onClose, onSuccess }: any) => {
                                             </div>
                                         )}
                                         {expandedStudent && (
-                                            <div style={{ animation: 'fadeIn 0.3s ease' }}>
+                                            <div style={{ animation: 'fadeIn 0.3s ease', marginTop: '20px' }}>
                                                 <h4 style={{ color: '#aaa', marginBottom: '20px', fontWeight: 'normal', fontSize: '18px' }}>
-                                                    Детализация ответов: <span style={{color: '#fff', fontWeight: 'bold'}}>{expandedStudentName}</span>
+                                                    {isVideo ? 'Детализация ответов:' : 'История попыток:'} <span style={{color: '#fff', fontWeight: 'bold'}}>{expandedStudentName}</span>
                                                 </h4>
-                                                <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden' }}>
-                                                    <table className="stats-table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
-                                                        <thead><tr style={{ color: '#888', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(0,0,0,0.3)' }}><th style={{padding:'20px'}}>Вопрос</th><th style={{padding:'20px'}}>Ответ студента</th><th style={{padding:'20px', textAlign:'center'}}>Оценка ИИ</th><th style={{padding:'20px', textAlign:'center'}}>Вердикт</th></tr></thead>
-                                                        <tbody>
-                                                            {studentDetails.map((stat: any) => (
-                                                                <tr key={stat.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
-                                                                    <td style={{padding:'20px', color: '#ccc', width: '40%', lineHeight: '1.5'}}>{stat.event?.question || 'Удален'}</td>
-                                                                    <td style={{padding:'20px', color: '#fff', fontWeight: '500'}}>{stat.answer}</td>
-                                                                    <td style={{padding:'20px', textAlign:'center'}}>
-                                                                        {stat.event?.type === 'free_text' && stat.similarity !== null ? (
-                                                                            <span style={{ color: stat.isCorrect ? '#4dff88' : '#ff4d4d', fontSize: '13px', background: 'rgba(255,255,255,0.05)', padding: '4px 10px', borderRadius: '12px', fontWeight: 'bold' }}>{stat.similarity}%</span>
-                                                                        ) : (<span style={{ color: '#444' }}>—</span>)}
-                                                                    </td>
-                                                                    <td style={{padding:'20px', textAlign:'center'}}>
-                                                                        {stat.isCorrect ? (
-                                                                            <div style={{background: 'rgba(77,255,136,0.1)', color: '#4dff88', padding: '6px 12px', borderRadius: '8px', display: 'inline-block', fontWeight: 'bold'}}>✅ Верно</div>
-                                                                        ) : (
-                                                                            <div style={{background: 'rgba(255,77,77,0.1)', color: '#ff4d4d', padding: '6px 12px', borderRadius: '8px', display: 'inline-block', fontWeight: 'bold'}}>❌ Ошибка</div>
-                                                                        )}
-                                                                    </td>
-                                                                </tr>
-                                                            ))}
-                                                        </tbody>
-                                                    </table>
-                                                </div>
+                                                
+                                                {isVideo ? (
+                                                    /* --- СТАРАЯ ТАБЛИЦА ДЛЯ ВИДЕО --- */
+                                                    <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+                                                        <table className="stats-table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
+                                                            <thead><tr style={{ color: '#888', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(0,0,0,0.3)' }}><th style={{padding:'20px'}}>Вопрос</th><th style={{padding:'20px'}}>Ответ студента</th><th style={{padding:'20px', textAlign:'center'}}>Оценка ИИ</th><th style={{padding:'20px', textAlign:'center'}}>Вердикт</th></tr></thead>
+                                                            <tbody>
+                                                                {studentDetails.map((stat: any) => (
+                                                                    <tr key={stat.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
+                                                                        <td style={{padding:'20px', color: '#ccc', width: '40%', lineHeight: '1.5'}}>{stat.event?.question || 'Удален'}</td>
+                                                                        <td style={{padding:'20px', color: '#fff', fontWeight: '500'}}>{stat.answer}</td>
+                                                                        <td style={{padding:'20px', textAlign:'center'}}>
+                                                                            {stat.event?.type === 'free_text' && stat.similarity !== null ? (
+                                                                                <span style={{ color: stat.isCorrect ? '#4dff88' : '#ff4d4d', fontSize: '13px', background: 'rgba(255,255,255,0.05)', padding: '4px 10px', borderRadius: '12px', fontWeight: 'bold' }}>{stat.similarity}%</span>
+                                                                            ) : (<span style={{ color: '#444' }}>—</span>)}
+                                                                        </td>
+                                                                        <td style={{padding:'20px', textAlign:'center'}}>
+                                                                            {stat.isCorrect ? (
+                                                                                <div style={{background: 'rgba(77,255,136,0.1)', color: '#4dff88', padding: '6px 12px', borderRadius: '8px', display: 'inline-block', fontWeight: 'bold'}}>✅ Верно</div>
+                                                                            ) : (
+                                                                                <div style={{background: 'rgba(255,77,77,0.1)', color: '#ff4d4d', padding: '6px 12px', borderRadius: '8px', display: 'inline-block', fontWeight: 'bold'}}>❌ Ошибка</div>
+                                                                            )}
+                                                                        </td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                ) : (
+                                                    /* --- НОВАЯ КАРТОЧКА ПОПЫТОК ДЛЯ ОБЫЧНЫХ ТЕСТОВ --- */
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                                        {studentDetails.map((attempt: any, idx: number) => {
+                                                            const answersObj = typeof attempt.answers === 'string' ? JSON.parse(attempt.answers) : (attempt.answers || {});
+                                                            
+                                                            return (
+                                                                <div key={attempt.id} style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', padding: '20px' }}>
+                                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '10px' }}>
+                                                                        <strong style={{ color: '#fff', fontSize: '16px' }}>Попытка {studentDetails.length - idx}</strong>
+                                                                        <span style={{ color: attempt.score >= (selectedTest?.passingScore || 0) ? '#4dff88' : '#ff4d4d', fontWeight: 'bold', background: 'rgba(0,0,0,0.3)', padding: '4px 12px', borderRadius: '8px', fontSize: '14px' }}>
+                                                                            Результат: {attempt.score}%
+                                                                        </span>
+                                                                    </div>
+                                                                    <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
+                                                                        <thead><tr style={{ color: '#888', fontSize: '13px' }}><th style={{padding:'8px 0'}}>Вопрос</th><th style={{padding:'8px 0'}}>Ответ студента</th><th style={{padding:'8px 0', textAlign: 'right'}}>Статус</th></tr></thead>
+                                                                        <tbody>
+                                                                            {selectedTest?.questions?.map((q: any) => {
+                                                                                // 👇 ДОСТАЕМ НОВУЮ СТРУКТУРУ ДАННЫХ
+                                                                                const resData = answersObj[q.id] || {};
+                                                                                const userAns = Array.isArray(resData.answer) ? resData.answer.join(', ') : (resData.answer || null);
+                                                                                const isCorrect = resData.isCorrect || false;
+
+                                                                                return (
+                                                                                    <tr key={q.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
+                                                                                        <td style={{padding:'12px 0', color: '#ccc', fontSize: '14px', width: '45%'}}>{q.text}</td>
+                                                                                        <td style={{padding:'12px 0', color: '#fff', fontSize: '14px', fontWeight: 500}}>
+                                                                                            {userAns || <i style={{color:'#666'}}>Нет ответа</i>}
+                                                                                            {/* Если есть оценка ИИ, покажем преподу! */}
+                                                                                            {resData.similarity !== undefined && resData.similarity !== null && (
+                                                                                                <span style={{ marginLeft: '8px', color: '#00aeef', fontSize: '12px', background: 'rgba(0,174,239,0.1)', padding: '2px 6px', borderRadius: '4px' }}>
+                                                                                                    ИИ: {resData.similarity}%
+                                                                                                </span>
+                                                                                            )}
+                                                                                        </td>
+                                                                                        <td style={{padding:'12px 0', textAlign: 'right', fontSize: '13px'}}>
+                                                                                            {isCorrect ? <span style={{color: '#4dff88'}}>✅ Верно</span> : <span style={{color: '#ff4d4d'}}>❌ Ошибка</span>}
+                                                                                        </td>
+                                                                                    </tr>
+                                                                                );
+                                                                            })}
+                                                                        </tbody>
+                                                                    </table>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
                                     </>
@@ -587,6 +827,7 @@ export const ContentEditorModal = ({ item, onClose, onSuccess }: any) => {
                                             <VideoPlayer 
                                                 key={selectedVideo.id} sources={[{ quality: 'Auto', url: selectedVideo.url, subtitles: selectedVideo.subtitles }]} 
                                                 title={selectedVideo.title} events={selectedVideo.events || []} hideResults={selectedVideo.hideResults}
+                                                userId={userData?.id} userRole={userData?.role}
                                                 videoId={selectedVideo.id} onTimeUpdate={(t) => setCurrentTime(t)} maxAttempts={selectedVideo.maxAttempts}
                                             />
                                         </div>
@@ -623,7 +864,16 @@ export const ContentEditorModal = ({ item, onClose, onSuccess }: any) => {
                                             <span style={{ color: '#888', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', fontSize: '13px' }}>Порядок вопросов:</span>
                                             <span style={{ color: '#666', fontSize: '12px' }}>Перетащите ☰ для сортировки</span>
                                         </div>
-                                        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndTest}>
+                                        <DndContext 
+                                            sensors={sensors} 
+                                            collisionDetection={closestCenter} 
+                                            onDragStart={() => { isDraggingQuestionRef.current = true; }} // Блокируем радар
+                                            onDragCancel={() => { isDraggingQuestionRef.current = false; }} // Разблокируем радар
+                                            onDragEnd={async (event) => {
+                                                await handleDragEndTest(event);
+                                                isDraggingQuestionRef.current = false; // Разблокируем после сохранения
+                                            }}
+                                        >
                                             <SortableContext items={selectedTest.questions.map(q => q.id)} strategy={verticalListSortingStrategy}>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                                     {selectedTest.questions.map((q, i) => (
@@ -666,6 +916,7 @@ export const ContentEditorModal = ({ item, onClose, onSuccess }: any) => {
                         <div style={{ padding: '25px 25px', overflowY: 'auto', flex: 1 }}>
                             
                             {/* --- ВКЛАДКА: НАСТРОЙКИ --- */}
+                            {/* --- ВКЛАДКА: НАСТРОЙКИ --- */}
                             {rightTab === 'settings' && (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', animation: 'fadeIn 0.2s ease' }}>
                                     <div style={{ background: 'rgba(255,255,255,0.02)', padding: '20px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
@@ -675,26 +926,39 @@ export const ContentEditorModal = ({ item, onClose, onSuccess }: any) => {
                                         
                                         {!isVideo && (
                                             <div style={{ marginTop: '20px' }}>
-                                                <label style={{ fontSize: '13px', color: '#aaa', display: 'block', marginBottom: '8px' }}>Проходной балл (%):</label>
-                                                <input type="number" className="deck-input" min="1" max="100" value={settingsData.passingScore} onChange={e => setSettingsData({...settingsData, passingScore: e.target.value === '' ? '' : Number(e.target.value)})} style={{ background: 'rgba(0,0,0,0.3)', width: '100%', fontSize: '16px', padding: '12px' }} />
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                                                    <span style={{ fontSize: '13px', color: '#aaa', fontWeight: 500 }}>Проходной балл:</span>
+                                                    <span style={{ fontSize: '14px', color: '#fff', fontWeight: 'bold', background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '8px' }}>
+                                                        {settingsData.passingScore}%
+                                                    </span>
+                                                </div>
+                                                <input 
+                                                    type="range" 
+                                                    min="1" 
+                                                    max="100" 
+                                                    value={settingsData.passingScore} 
+                                                    onChange={e => setSettingsData({...settingsData, passingScore: Number(e.target.value)})} 
+                                                    style={{ width: '100%', accentColor: accentColor, height: '6px', cursor: 'pointer' }} 
+                                                />
                                             </div>
                                         )}
 
+                                        {/* 👇 ЕДИНЫЙ ПЕРЕКЛЮЧАТЕЛЬ ДЛЯ ВСЕХ (и для видео, и для тестов) */}
+                                        <label className="toggle-wrapper" style={{ marginTop: '25px', display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.2)', padding: '15px', borderRadius: '12px', cursor: 'pointer' }}>
+                                            <input type="checkbox" className="toggle-input" checked={settingsData.hideResults} onChange={e => setSettingsData({...settingsData, hideResults: e.target.checked})} />
+                                            <div className="toggle-track"><div className="toggle-thumb"></div></div>
+                                            <span className="toggle-label" style={{color: '#fff', marginLeft: '12px', fontSize: '14px', fontWeight: 500}}>Скрыть работу над ошибками</span>
+                                        </label>
+                                        
+                                        {/* 👇 ЭТОТ ПЕРЕКЛЮЧАТЕЛЬ ТОЛЬКО ДЛЯ ВИДЕО */}
                                         {isVideo && (
-                                            <>
-                                                <label className="toggle-wrapper" style={{ marginTop: '25px', display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.2)', padding: '15px', borderRadius: '12px' }}>
-                                                    <input type="checkbox" className="toggle-input" checked={settingsData.hideResults} onChange={e => setSettingsData({...settingsData, hideResults: e.target.checked})} />
-                                                    <div className="toggle-track"><div className="toggle-thumb"></div></div>
-                                                    <span className="toggle-label" style={{color: '#fff', marginLeft: '12px', fontSize: '14px', fontWeight: 500}}>Скрыть результаты интерактива</span>
-                                                </label>
-                                                
-                                                <label className="toggle-wrapper" style={{ marginTop: '10px', display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.2)', padding: '15px', borderRadius: '12px' }}>
-                                                    <input type="checkbox" className="toggle-input" checked={settingsData.allowExternalTest} onChange={e => setSettingsData({...settingsData, allowExternalTest: e.target.checked})} />
-                                                    <div className="toggle-track"><div className="toggle-thumb"></div></div>
-                                                    <span className="toggle-label" style={{color: '#fff', marginLeft: '12px', fontSize: '14px', fontWeight: 500}}>Разрешить решать без видео</span>
-                                                </label>
-                                            </>
+                                            <label className="toggle-wrapper" style={{ marginTop: '10px', display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.2)', padding: '15px', borderRadius: '12px', cursor: 'pointer' }}>
+                                                <input type="checkbox" className="toggle-input" checked={settingsData.allowExternalTest} onChange={e => setSettingsData({...settingsData, allowExternalTest: e.target.checked})} />
+                                                <div className="toggle-track"><div className="toggle-thumb"></div></div>
+                                                <span className="toggle-label" style={{color: '#fff', marginLeft: '12px', fontSize: '14px', fontWeight: 500}}>Разрешить решать без видео</span>
+                                            </label>
                                         )}
+
                                         <button 
                                             className="btn btn-primary" 
                                             style={{ width: '100%', marginTop: '20px', opacity: isChanged ? 1 : 0.5, cursor: isChanged ? 'pointer' : 'not-allowed', transition: '0.3s' }} 
@@ -746,22 +1010,31 @@ export const ContentEditorModal = ({ item, onClose, onSuccess }: any) => {
                                     {(eventType === 'single_choice' || eventType === 'multiple_choice') && (
                                         <div style={{ background: 'rgba(255,255,255,0.02)', padding: '20px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
                                             <label style={{ fontSize: '12px', color: '#888', display: 'block', marginBottom: '15px', textTransform: 'uppercase', letterSpacing: '1px' }}>Варианты ответа (отметьте верные):</label>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                                {options.map((opt, idx) => (
-                                                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: opt.isCorrect ? `rgba(${isVideo?'0,174,239':'255,215,0'},0.1)` : 'rgba(0,0,0,0.3)', padding: '8px 12px', borderRadius: '12px', border: duplicateIndices.includes(idx) ? '1px solid #ff4d4d' : `1px solid ${opt.isCorrect ? accentColor : 'transparent'}`, transition: '0.2s' }}>
-                                                        <input type={eventType === 'single_choice' ? 'radio' : 'checkbox'} checked={opt.isCorrect} onChange={(e) => handleOptionChange(idx, 'isCorrect', e.target.checked)} style={{ width: '20px', height: '20px', cursor: 'pointer', accentColor: accentColor }} />
-                                                        <input className="deck-input" style={{ marginBottom: 0, flex: 1, background: 'transparent', border: 'none', fontSize: '14px', padding: '5px' }} placeholder={`Вариант ${idx + 1}`} value={opt.text} onChange={e => handleOptionChange(idx, 'text', e.target.value)} />
-                                                        <button className="btn btn-ghost" style={{ padding: '8px', color: '#666', borderRadius: '8px' }} onClick={() => handleRemoveOption(idx)} onMouseEnter={e => e.currentTarget.style.background='rgba(255,77,77,0.1)'} onMouseLeave={e => e.currentTarget.style.background='transparent'}>✕</button>
+                                            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndOption}>
+                                                <SortableContext items={options.map((_, idx) => `opt-${idx}`)} strategy={verticalListSortingStrategy}>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                                        {options.map((opt, idx) => (
+                                                            <SortableOption 
+                                                                key={`opt-${idx}`} 
+                                                                opt={opt} 
+                                                                idx={idx} 
+                                                                isCorrect={opt.isCorrect}
+                                                                isDuplicate={duplicateIndices.includes(idx)}
+                                                                accentColor={accentColor}
+                                                                onChangeText={(val: string) => handleOptionChange(idx, 'text', val)}
+                                                                onToggleCorrect={(e: any) => handleOptionChange(idx, 'isCorrect', e.target.checked)}
+                                                                onRemove={() => handleRemoveOption(idx)}
+                                                            />
+                                                        ))}
                                                     </div>
-                                                ))}
-                                            </div>
+                                                </SortableContext>
+                                            </DndContext>
                                             <button className="btn btn-ghost" style={{ marginTop: '15px', fontSize: '14px', color: accentColor, width: '100%', background: `rgba(${isVideo?'0,174,239':'255,215,0'},0.05)`, padding: '10px', borderRadius: '12px', fontWeight: 'bold' }} onClick={handleAddOption}>+ Добавить вариант</button>
                                         </div>
                                     )}
 
                                     {eventType === 'free_text' && (
                                         <div style={{ background: 'rgba(0, 174, 239, 0.05)', padding: '20px', borderRadius: '16px', border: '1px solid rgba(0, 174, 239, 0.3)', position: 'relative', overflow: 'hidden' }}>
-                                            <div style={{ position: 'absolute', top: 0, right: 0, padding: '10px', opacity: 0.2, fontSize: '40px' }}>🤖</div>
                                             <label style={{ fontSize: '12px', color: '#00aeef', display: 'block', marginBottom: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }}>Эталон для нейросети:</label>
                                             <textarea className="deck-input" placeholder="Напишите идеальный ответ или ключевые слова, которые должен упомянуть студент..." value={freeTextAnswer} onChange={e => setFreeTextAnswer(e.target.value)} style={{ background: 'rgba(0,0,0,0.5)', minHeight: '100px', resize: 'vertical', fontSize: '14px', border: '1px solid rgba(0, 174, 239, 0.2)' }} />
                                             

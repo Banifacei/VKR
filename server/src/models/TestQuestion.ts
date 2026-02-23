@@ -12,6 +12,9 @@ export class TestQuestion extends Model {
   @Column({ type: DataType.JSONB, allowNull: true })
   declare options?: any;
 
+  @Column({ type: DataType.INTEGER, defaultValue: 0 })
+  declare orderIndex: number;
+  
   @Column({ type: DataType.TEXT, allowNull: true })
   declare correctAnswer?: string;
 

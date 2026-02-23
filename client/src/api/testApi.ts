@@ -21,8 +21,16 @@ export interface ICourseTest {
     questions?: ITestQuestion[];
     orderIndex?: number;
     isHidden?: boolean;
+    hideResults?: boolean;
     unlockDate?: string | null;
+    attemptsUsed?: number;
+    bestScore?: number;
 }
+
+export const updateCourseTest = async (testId: number, data: Partial<ICourseTest>) => {
+    const res = await api.put(`/tests/${testId}`, data);
+    return res.data;
+};
 
 export const getCourseTests = async (courseId: number): Promise<ICourseTest[]> => {
     const res = await api.get(`/tests/courses/${courseId}`);
@@ -41,6 +49,11 @@ export const deleteCourseTest = async (testId: number) => {
 
 export const addTestQuestion = async (testId: number, data: any) => {
     const res = await api.post(`/tests/${testId}/questions`, data);
+    return res.data;
+};
+
+export const getTestStats = async (testId: number) => {
+    const res = await api.get(`/tests/${testId}/stats`);
     return res.data;
 };
 
