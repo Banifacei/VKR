@@ -243,7 +243,7 @@ export const HistoryPage = () => {
                                                         <div className="history-video-course">{item.courseTitle}</div>
                                                         <div className="history-meta">
                                                             <span className="history-date">{new Date(item.updatedAt).toLocaleDateString('ru-RU')}</span>
-                                                            <span className="history-badge success"><Icons.Check /> Просмотрено</span>
+                                                            <span className="history-badge success"><Icons.Check /></span>
                                                         </div>
                                                     </div>
                                                 </div>

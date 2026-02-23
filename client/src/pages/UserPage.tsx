@@ -75,7 +75,7 @@ const SortableCard = ({ item, idx, isEditMode, completedVideoIds, testResults, o
                     {item.type === 'video' ? <span>▶ Урок</span> : <span>{item.questions?.length || 0} вопросов</span>}
                     {/* Логика галочек */}
                     {item.type === 'video' ? (
-                        completedVideoIds.includes(item.id) ? <span style={{ color: '#4dff88', fontWeight: 'bold', fontSize: '14px' }}>✅ Просмотрено</span> : <span style={{ color: '#444' }}>◯</span>
+                        completedVideoIds.includes(item.id) ? <span style={{ color: '#4dff88', fontWeight: 'bold', fontSize: '14px' }}>✅</span> : <span style={{ color: '#444' }}>◯</span>
                     ) : (
                         testResults[item.id] ? (
                             <span style={{ color: testResults[item.id].passed ? '#4dff88' : '#ff4d4d', fontWeight: 'bold', fontSize: '14px' }}>

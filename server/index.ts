@@ -13,7 +13,7 @@ import { User } from './src/models/User.js';
 import authRoutes from './src/routes/authRoutes.js';
 import userRoutes from './src/routes/userRoutes.js';
 import testRoutes from './src/routes/testRoutes.js';
-
+import adminRoutes from './src/routes/adminRoutes.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -47,6 +47,7 @@ app.use('/uploads', express.static(uploadDir));
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/tests', testRoutes);
+app.use('/api/admin', adminRoutes);
 app.post('/api/upload', upload.single('video'), (req: Request, res: Response): void => {
     try {
         if (!req.file) {

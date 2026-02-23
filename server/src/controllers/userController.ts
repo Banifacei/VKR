@@ -7,6 +7,7 @@ import { Video } from '../models/Video.js';
 import { Course } from '../models/Course.js';
 import { UserTestResult } from '../models/UserTestResult.js';
 import { CourseTest } from '../models/CourseTest.js';
+
 export const getAllUsers = async (req: Request, res: Response) => {
     try {
         const users = await User.findAll({
@@ -19,16 +20,27 @@ export const getAllUsers = async (req: Request, res: Response) => {
         res.status(500).json({ message: 'Ошибка получения списка пользователей' });
     }
 };
+
 export const updateUserRole = async (req: Request, res: Response) => {
     try {
-        const { id } = req.params;
+        const userIdToUpdate = Number(req.params.id);
+        const adminId = Number((req as any).user?.id); // Тот, кто нажал кнопку
         const { role } = req.body;
+        
+        // ИБ: Защита от левых ролей
         const validRoles = ['student', 'teacher', 'admin'];
         if (!validRoles.includes(role)) {
             return res.status(400).json({ message: 'Недопустимая роль' });
         }
 
-        const user = await User.findByPk(id);
+        // 🔥 ИБ: Защита от случайного лишения себя прав (чтобы не заблокировать админку)
+        if (userIdToUpdate === adminId && role !== 'admin') {
+            return res.status(403).json({ 
+                message: 'Ошибка ИБ: Вы не можете снять с себя права администратора!' 
+            });
+        }
+
+        const user = await User.findByPk(userIdToUpdate);
         if (!user) return res.status(404).json({ message: 'Пользователь не найден' });
 
         user.role = role;
@@ -43,15 +55,25 @@ export const updateUserRole = async (req: Request, res: Response) => {
 
 export const updateUserByAdmin = async (req: Request, res: Response) => {
     try {
-        const { id } = req.params;
+        const userIdToUpdate = Number(req.params.id);
+        const adminId = Number((req as any).user?.id);
         const { firstName, lastName, email, role, password } = req.body;
 
-        const user = await User.findByPk(id);
+        // 🔥 ИБ: Защита от случайного лишения себя прав через модальное окно редактирования
+        if (userIdToUpdate === adminId && role !== 'admin') {
+            return res.status(403).json({ 
+                message: 'Ошибка ИБ: Вы не можете снять с себя права администратора!' 
+            });
+        }
+
+        const user = await User.findByPk(userIdToUpdate);
         if (!user) return res.status(404).json({ message: 'Пользователь не найден' });
+        
         user.firstName = firstName;
         user.lastName = lastName;
         user.email = email;
         user.role = role;
+        
         if (password && password.trim() !== "") {
             const salt = await bcrypt.genSalt(10);
             user.password = await bcrypt.hash(password, salt);
@@ -66,7 +88,6 @@ export const updateUserByAdmin = async (req: Request, res: Response) => {
     }
 };
 
-// 👇 ОБНОВЛЕННАЯ ФУНКЦИЯ ДЛЯ ПРОФИЛЯ СТУДЕНТА
 export const getUserStats = async (req: Request, res: Response) => {
     try {
         const userId = (req as any).user?.id;
@@ -84,7 +105,7 @@ export const getUserStats = async (req: Request, res: Response) => {
                 include: [{ model: Course, attributes: ['title'] }] 
             }],
             order: [['updatedAt', 'DESC']],
-            limit: 20 // Увеличим лимит
+            limit: 20
         });
 
         // 2. ОТДЕЛЯЕМ: Недорешанные (isWatched: false)
@@ -111,14 +132,14 @@ export const getUserStats = async (req: Request, res: Response) => {
             : 0;
 
         const watchedVideosCount = history.filter(h => h.isWatched).length;
-        // 👇 1. НОВОЕ: ИЩЕМ СДАННЫЕ ИТОГОВЫЕ ТЕСТЫ
+        
+        // 4. ИЩЕМ СДАННЫЕ ИТОГОВЫЕ ТЕСТЫ
         const globalTestResults = await UserTestResult.findAll({
             where: { userId },
             include: [{ model: CourseTest, attributes: ['title', 'passingScore'] }],
             order: [['updatedAt', 'DESC']]
         });
 
-        // 👇 2. ФОРМАТИРУЕМ ДЛЯ ФРОНТА
         const formattedTests = globalTestResults.map(tr => ({
             id: tr.id,
             testId: tr.testId,
@@ -129,7 +150,7 @@ export const getUserStats = async (req: Request, res: Response) => {
             updatedAt: tr.updatedAt
         }));
 
-        // 👇 3. ОБНОВЛЯЕМ ОТПРАВКУ (добавляем globalTests)
+        // 5. ОТПРАВЛЯЕМ ЕДИНЫЙ ОТВЕТ (дубль удален)
         res.json({
             stats: {
                 totalAnswers,
@@ -137,10 +158,9 @@ export const getUserStats = async (req: Request, res: Response) => {
                 aiChecksCount: aiChecks.length,
                 averageAiScore,
                 watchedVideosCount,
-                completedTestsCount: formattedTests.length // <--- Добавили счетчик
+                completedTestsCount: formattedTests.length
             },
             history: history.filter(h => h.isWatched).map(h => ({ 
-                // ... твой старый код ...
                 videoId: h.videoId,
                 videoTitle: h.video?.title || 'Удаленное видео',
                 courseTitle: h.video?.course?.title || 'Без курса',
@@ -150,7 +170,6 @@ export const getUserStats = async (req: Request, res: Response) => {
                 updatedAt: h.updatedAt
             })),
             unfinished: unfinished.map(h => ({ 
-                // ... твой старый код ...
                 videoId: h.videoId,
                 videoTitle: h.video?.title || 'Удаленное видео',
                 courseTitle: h.video?.course?.title || 'Без курса',
@@ -158,37 +177,64 @@ export const getUserStats = async (req: Request, res: Response) => {
                 lastTime: h.lastTime,
                 updatedAt: h.updatedAt
             })),
-            globalTests: formattedTests // <--- ДОБАВИЛИ МАССИВ ТЕСТОВ СЮДА
-        });
-        // Отправляем
-        res.json({
-            stats: {
-                totalAnswers,
-                successRate,
-                aiChecksCount: aiChecks.length,
-                averageAiScore,
-                watchedVideosCount
-            },
-            history: history.filter(h => h.isWatched).map(h => ({ // В обычную историю кидаем только пройденные
-                videoId: h.videoId,
-                videoTitle: h.video?.title || 'Удаленное видео',
-                courseTitle: h.video?.course?.title || 'Без курса',
-                courseId: h.video?.courseId,
-                lastTime: h.lastTime,
-                isWatched: h.isWatched,
-                updatedAt: h.updatedAt
-            })),
-            unfinished: unfinished.map(h => ({ // А недорешанные пойдут отдельным массивом
-                videoId: h.videoId,
-                videoTitle: h.video?.title || 'Удаленное видео',
-                courseTitle: h.video?.course?.title || 'Без курса',
-                courseId: h.video?.courseId,
-                lastTime: h.lastTime,
-                updatedAt: h.updatedAt
-            }))
+            globalTests: formattedTests
         });
     } catch (e) {
         console.error(e);
         res.status(500).json({ message: 'Ошибка получения статистики профиля' });
+    }
+};
+
+export const createUserByAdmin = async (req: Request, res: Response) => {
+    try {
+        const { firstName, lastName, email, role, password } = req.body;
+
+        // Проверяем, нет ли уже такого email
+        const existingUser = await User.findOne({ where: { email } });
+        if (existingUser) {
+            return res.status(400).json({ message: 'Пользователь с таким email уже существует' });
+        }
+
+        // Хэшируем пароль
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        // Создаем пользователя
+        const newUser = await User.create({
+            firstName,
+            lastName,
+            email,
+            role,
+            password: hashedPassword
+        });
+
+        res.status(201).json(newUser);
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ message: 'Ошибка при создании пользователя' });
+    }
+};
+
+export const deleteUserByAdmin = async (req: Request, res: Response) => {
+    try {
+        const userIdToDelete = Number(req.params.id);
+        const currentAdminId = Number((req as any).user?.id);
+
+        // Защита от удаления самого себя
+        if (userIdToDelete === currentAdminId) {
+            return res.status(403).json({ message: 'Вы не можете удалить свой собственный аккаунт!' });
+        }
+
+        const user = await User.findByPk(userIdToDelete);
+        if (!user) {
+            return res.status(404).json({ message: 'Пользователь не найден' });
+        }
+
+        await user.destroy(); // Удаляем из БД
+
+        res.json({ success: true, message: 'Пользователь удален' });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ message: 'Ошибка при удалении пользователя' });
     }
 };

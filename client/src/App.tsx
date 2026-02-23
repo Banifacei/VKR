@@ -10,9 +10,22 @@ import { AuthPage } from './pages/AuthPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { HistoryPage } from './pages/HistoryPage';
 
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-    const { isAuthenticated } = useAuth();
-    return isAuthenticated ? <>{children}</> : <Navigate to="/auth" replace />;
+// Обновленный ProtectedRoute с поддержкой проверки ролей
+const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) => {
+    const { isAuthenticated, user } = useAuth(); // Достаем user из AuthContext
+
+    // 1. Если не авторизован вообще -> кидаем на страницу входа
+    if (!isAuthenticated) {
+        return <Navigate to="/auth" replace />;
+    }
+
+    // 2. Если для страницы указаны конкретные роли, а у юзера её нет -> кидаем на главную
+    if (allowedRoles && user && !allowedRoles.includes(user.role)) {
+        return <Navigate to="/" replace />;
+    }
+
+    // 3. Всё ок -> показываем страницу
+    return <>{children}</>;
 };
 
 const PublicRoute = ({ children }: { children: React.ReactNode }) => {
@@ -27,14 +40,26 @@ function App() {
                 <Routes>
                     <Route path="/auth" element={<PublicRoute><AuthPage /></PublicRoute>} />
                     
+                    {/* --- ОБЩИЕ РОУТЫ (Доступны всем авторизованным) --- */}
                     <Route path="/" element={<ProtectedRoute><CoursesPage /></ProtectedRoute>} />
                     <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-                    <Route path="/history" element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} /> {/* <--- НОВЫЙ РОУТ */}
+                    <Route path="/history" element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} />
                     <Route path="/course/:courseId" element={<ProtectedRoute><UserPage /></ProtectedRoute>} />
                     <Route path="/course/:courseId/lesson/:videoId" element={<ProtectedRoute><UserPage /></ProtectedRoute>} />
-                    <Route path="/course/:courseId" element={<ProtectedRoute><UserPage /></ProtectedRoute>} />
-                    <Route path="/prepod" element={<ProtectedRoute><PrepodPage /></ProtectedRoute>} />
-                    <Route path="/adminpanel" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
+
+                    {/* --- ПРЕПОДАВАТЕЛЬСКАЯ (Только для teacher и admin) --- */}
+                    <Route path="/prepod" element={
+                        <ProtectedRoute allowedRoles={['teacher', 'admin']}>
+                            <PrepodPage />
+                        </ProtectedRoute>
+                    } />
+                    
+                    {/* --- АДМИН ПАНЕЛЬ (Только для admin) --- */}
+                    <Route path="/adminpanel" element={
+                        <ProtectedRoute allowedRoles={['admin']}>
+                            <AdminPage />
+                        </ProtectedRoute>
+                    } />
 
                     <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
