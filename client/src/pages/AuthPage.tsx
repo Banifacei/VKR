@@ -60,10 +60,19 @@ export const AuthPage = () => {
             if (!res.ok) throw new Error(data.message || 'Ошибка сервера');
 
             if (isLogin) {
+                // Если с бэкенда пришел статус pending (на случай если мы пропустили ошибку 403)
+                if (data.status === 'pending') {
+                    setError('Ваш аккаунт находится на рассмотрении администратора.');
+                    return;
+                }
                 login(data.token, data.user);
                 navigate('/');
             } else {
-                alert('Регистрация успешна! Теперь войдите.');
+                if (data.status === 'pending') {
+                    alert('Заявка отправлена! Ожидайте подтверждения администратором.');
+                } else {
+                    alert('Регистрация успешна! Теперь войдите.');
+                }
                 setIsLogin(true);
             }
         } catch (err: any) {

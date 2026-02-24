@@ -10,6 +10,7 @@ import { slugify } from 'transliteration';
 import fs from 'fs';
 import multer from 'multer';
 import { User } from './src/models/User.js';
+import { SystemSetting } from './src/models/SystemSetting.js';
 import authRoutes from './src/routes/authRoutes.js';
 import userRoutes from './src/routes/userRoutes.js';
 import testRoutes from './src/routes/testRoutes.js';

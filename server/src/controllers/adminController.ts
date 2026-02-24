@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import os from 'os';
 import fs from 'fs/promises';
 import path from 'path';
-
+import { SystemSetting } from '../models/SystemSetting.js';
 // --- НОВОЕ: Трекер реальных сессий ---
 // Храним IP-адреса и время их последнего запроса (в миллисекундах)
 export const activeSessions = new Map<string, number>();
@@ -152,4 +152,33 @@ export const restartServer = async (req: Request, res: Response) => {
     systemLogs.push({ id: Date.now(), time: getCurrentTime(), msg: 'Инициирована перезагрузка сервера...', type: 'error' });
     res.status(200).json({ message: 'Перезагрузка...' });
     setTimeout(() => process.exit(0), 1000);
+};
+
+// --- НАСТРОЙКИ СИСТЕМЫ ---
+export const getSystemSettings = async (req: Request, res: Response) => {
+    try {
+        const setting = await SystemSetting.findOne({ where: { key: 'registration_requires_approval' } });
+        res.json({ registration_requires_approval: setting ? setting.value : false });
+    } catch (e) {
+        res.status(500).json({ message: 'Ошибка получения настроек' });
+    }
+};
+
+export const toggleSystemSetting = async (req: Request, res: Response) => {
+    try {
+        const { key, value } = req.body; // Ожидаем { key: 'registration_requires_approval', value: true }
+        
+        let setting = await SystemSetting.findOne({ where: { key } });
+        if (setting) {
+            setting.value = value;
+            await setting.save();
+        } else {
+            setting = await SystemSetting.create({ key, value });
+        }
+        
+        addSystemLog(`Изменена настройка системы: ${key} = ${value ? 'ВКЛ' : 'ВЫКЛ'}`, 'warning');
+        res.json({ success: true, setting });
+    } catch (e) {
+        res.status(500).json({ message: 'Ошибка сохранения настройки' });
+    }
 };

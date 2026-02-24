@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { Op } from 'sequelize';
 import { User } from '../models/User.js';
+import { SystemSetting } from '../models/SystemSetting.js';
 import { addSystemLog } from './adminController.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'lumeo_super_secret_2024';
@@ -24,6 +25,10 @@ export const register = async (req: Request, res: Response) => {
         }
 
         const hash = await bcrypt.hash(password, 10);
+
+        const setting = await SystemSetting.findOne({ where: { key: 'registration_requires_approval' } });
+        const requiresApproval = setting ? setting.value : false; // По умолчанию пропускаем всех
+        const userStatus = requiresApproval ? 'pending' : 'active';
         
         const user = await User.create({ 
             firstName, 
@@ -31,11 +36,17 @@ export const register = async (req: Request, res: Response) => {
             middleName: middleName || null, 
             email, 
             phone: phone || null,
-            password: hash 
+            password: hash,
+            status: userStatus
         });
 
-        res.status(201).json({ message: 'Регистрация успешна' });
-        addSystemLog(`Новый пользователь зарегистрирован: ${email}`, 'success');
+        if (requiresApproval) {
+            addSystemLog(`Новая заявка на регистрацию: ${email}`, 'warning');
+            res.status(201).json({ message: 'Заявка отправлена на рассмотрение', status: 'pending' });
+        } else {
+            addSystemLog(`Новый пользователь зарегистрирован: ${email}`, 'success');
+            res.status(201).json({ message: 'Регистрация успешна', status: 'active' });
+        }
     } catch (e) {
         console.error(e);
         res.status(500).json({ message: 'Ошибка регистрации', error: e });
@@ -58,7 +69,24 @@ export const login = async (req: Request, res: Response) => {
             return res.status(401).json({ message: 'Неверный логин или пароль' });
         }
 
+        if (user.status === 'pending') {
+            addSystemLog(`Попытка входа неактивированного аккаунта: ${user.email}`, 'warning');
+            return res.status(403).json({ 
+                message: 'Ваш аккаунт находится на рассмотрении администратора.', 
+                status: 'pending' 
+            });
+        }
+
+        if (user.status === 'rejected') {
+            return res.status(403).json({ 
+                message: 'Доступ запрещен. Обратитесь к администратору.', 
+                status: 'rejected' 
+            });
+        }
+
         const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+        user.lastLogin = new Date();
+        await user.save();
         addSystemLog(`Успешный вход: ${user.email} (Роль: ${user.role})`, 'info');
         res.json({
             token,
@@ -70,7 +98,8 @@ export const login = async (req: Request, res: Response) => {
                 email: user.email,
                 phone: user.phone,
                 role: user.role,
-                avatarUrl: user.avatarUrl
+                avatarUrl: user.avatarUrl,
+                status: user.status
             }
         });
     } catch (e) {
@@ -127,7 +156,8 @@ export const updateProfile = async (req: Request, res: Response) => {
                 email: user.email,
                 phone: user.phone,
                 role: user.role,
-                avatarUrl: user.avatarUrl
+                avatarUrl: user.avatarUrl,
+                status: user.status
             } 
         });
     } catch (err) {
@@ -151,7 +181,8 @@ export const getMe = async (req: Request, res: Response) => {
             lastName: user.lastName,
             email: user.email,
             role: user.role,
-            avatarUrl: user.avatarUrl
+            avatarUrl: user.avatarUrl,
+            status: user.status
         });
     } catch (e) {
         res.status(500).json({ message: 'Ошибка сервера' });

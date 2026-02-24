@@ -9,6 +9,7 @@ import { UserVideoProgress } from '../models/UserVideoProgress.js';
 import { CourseTest } from '../models/CourseTest.js';
 import { TestQuestion } from '../models/TestQuestion.js';
 import { UserTestResult } from '../models/UserTestResult.js';
+import { SystemSetting } from '../models/SystemSetting.js';
 dotenv.config();
 
 const sequelize = new Sequelize({
@@ -28,7 +29,8 @@ const sequelize = new Sequelize({
      UserVideoProgress,
      CourseTest,
      TestQuestion,
-     UserTestResult
+     UserTestResult,
+     SystemSetting
     ],
   
   logging: false,

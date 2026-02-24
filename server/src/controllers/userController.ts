@@ -8,6 +8,7 @@ import { Course } from '../models/Course.js';
 import { UserTestResult } from '../models/UserTestResult.js';
 import { CourseTest } from '../models/CourseTest.js';
 import { addSystemLog } from './adminController.js';
+import * as xlsx from 'xlsx';
 export const getAllUsers = async (req: Request, res: Response) => {
     try {
         const users = await User.findAll({
@@ -230,11 +231,248 @@ export const deleteUserByAdmin = async (req: Request, res: Response) => {
             return res.status(404).json({ message: 'Пользователь не найден' });
         }
 
-        await user.destroy(); // Удаляем из БД
-        addSystemLog(`Админ удалил пользователя (ID: ${userIdToDelete})`, 'error');
+        // 🔥 СНАЧАЛА УДАЛЯЕМ ВЕСЬ "МУСОР" ПОЛЬЗОВАТЕЛЯ (ЕГО ОТВЕТЫ, ПРОГРЕСС, ТЕСТЫ)
+        await UserResponse.destroy({ where: { userId: userIdToDelete } });
+        await UserVideoProgress.destroy({ where: { userId: userIdToDelete } });
+        await UserTestResult.destroy({ where: { userId: userIdToDelete } });
+
+        // Теперь база данных разрешит удалить самого пользователя
+        await user.destroy(); 
+        
+        addSystemLog(`Админ удалил пользователя (ID: ${userIdToDelete})`, 'warning');
         res.json({ success: true, message: 'Пользователь удален' });
     } catch (e) {
         console.error(e);
         res.status(500).json({ message: 'Ошибка при удалении пользователя' });
+    }
+};
+// --- ОБРАБОТКА ЗАЯВОК НА РЕГИСТРАЦИЮ ---
+
+export const getPendingUsers = async (req: Request, res: Response) => {
+    try {
+        const users = await User.findAll({ 
+            where: { status: 'pending' },
+            attributes: ['id', 'email', 'firstName', 'lastName', 'createdAt'],
+            order: [['createdAt', 'DESC']]
+        });
+        res.json(users);
+    } catch (e) {
+        res.status(500).json({ message: 'Ошибка получения списка заявок' });
+    }
+};
+
+export const approveUser = async (req: Request, res: Response) => {
+    try {
+        const userId = req.params.id;
+        const user = await User.findByPk(userId);
+        
+        if (!user) return res.status(404).json({ message: 'Пользователь не найден' });
+        
+        user.status = 'active';
+        await user.save();
+        
+        addSystemLog(`Одобрена регистрация пользователя: ${user.email}`, 'success');
+        res.json({ success: true, user });
+    } catch (e) {
+        res.status(500).json({ message: 'Ошибка при одобрении пользователя' });
+    }
+};
+
+export const rejectUser = async (req: Request, res: Response) => {
+    try {
+        const userId = req.params.id;
+        const user = await User.findByPk(userId);
+        
+        if (!user) return res.status(404).json({ message: 'Пользователь не найден' });
+        
+        user.status = 'rejected';
+        await user.save();
+        
+        addSystemLog(`Отклонена заявка пользователя: ${user.email}`, 'error');
+        res.json({ success: true, message: 'Заявка отклонена' });
+    } catch (e) {
+        res.status(500).json({ message: 'Ошибка при отклонении пользователя' });
+    }
+};
+
+// --- МАССОВЫЙ ИМПОРТ ИЗ EXCEL ---
+export const importUsersFromExcel = async (req: Request, res: Response) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ message: 'Файл не загружен' });
+        }
+
+        // Читаем Excel-файл из буфера (в памяти)
+        const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+        
+        // Берем имя первого листа
+        const sheetName = workbook.SheetNames[0];
+        
+        if (!sheetName) {
+            return res.status(400).json({ message: 'Excel-файл пуст или не содержит листов' });
+        }
+
+        // Берем сам лист
+        const sheet = workbook.Sheets[sheetName];
+        
+        // 🛡 ИСПРАВЛЕНИЕ: Проверяем, что лист реально существует (успокаиваем TypeScript)
+        if (!sheet) {
+            return res.status(400).json({ message: 'Не удалось прочитать данные с листа' });
+        }
+
+        // Преобразуем таблицу в массив JSON-объектов
+        const data = xlsx.utils.sheet_to_json(sheet) as any[];
+
+        if (!data || data.length === 0) {
+            return res.status(400).json({ message: 'Файл пуст или имеет неверный формат' });
+        }
+
+        let importedCount = 0;
+        let skippedCount = 0;
+
+        for (const row of data) {
+            // Поддерживаем разные названия колонок (на русском и английском)
+            const firstName = row['Имя'] || row['FirstName'] || 'Студент';
+            const lastName = row['Фамилия'] || row['LastName'] || '';
+            const middleName = row['Отчество'] || row['MiddleName'] || null; // <--- НОВОЕ
+            const email = row['Email'] || row['Почта'];
+            const phone = row['Телефон'] || row['Phone'] || null;            // <--- НОВОЕ
+            const rawPassword = row['Пароль'] || row['Password'];
+            const role = row['Роль'] || row['Role'] || 'student';
+
+            // Если нет обязательных данных — пропускаем строчку
+            if (!email || !rawPassword) {
+                skippedCount++;
+                continue; 
+            }
+
+            // Если юзер с такой почтой уже есть — пропускаем
+            const existingUser = await User.findOne({ where: { email } });
+            if (existingUser) {
+                skippedCount++;
+                continue; 
+            }
+
+            // Хэшируем пароль из эксельки
+            const salt = await bcrypt.genSalt(10);
+            const hashedPassword = await bcrypt.hash(String(rawPassword), salt);
+
+            // Создаем. Так как загружает Админ, статус сразу 'active'
+            await User.create({
+                firstName,
+                lastName,
+                middleName,
+                email,
+                phone,
+                role,
+                password: hashedPassword,
+                status: 'active' 
+            });
+            importedCount++;
+        }
+
+        addSystemLog(`Массовый импорт из Excel: загружено ${importedCount}, пропущено ${skippedCount}`, 'success');
+        
+        res.json({ 
+            success: true, 
+            importedCount, 
+            skippedCount, 
+            message: `Импорт завершен. Добавлено: ${importedCount}, Пропущено: ${skippedCount}` 
+        });
+
+    } catch (e) {
+        console.error('Ошибка Excel-импорта:', e);
+        addSystemLog('Ошибка при массовом импорте пользователей из Excel', 'error');
+        res.status(500).json({ message: 'Ошибка при обработке файла' });
+    }
+};
+
+// --- ВЫГРУЗКА (ЭКСПОРТ) ПОЛЬЗОВАТЕЛЕЙ В EXCEL ---
+export const exportUsersToExcel = async (req: Request, res: Response) => {
+    try {
+        const users = await User.findAll({ order: [['createdAt', 'DESC']] });
+        
+        // Формируем красивые данные для таблицы
+        const data = users.map(u => ({
+            'ID': u.id,
+            'Имя': u.firstName,
+            'Фамилия': u.lastName,
+            'Отчество': u.middleName || '',
+            'Email': u.email,
+            'Телефон': u.phone || '',
+            'Роль': u.role === 'admin' ? 'Администратор' : u.role === 'teacher' ? 'Преподаватель' : 'Студент',
+            'Статус': u.status === 'active' ? 'Активен' : u.status === 'pending' ? 'Ожидает' : 'Заблокирован',
+            'Последний вход': u.lastLogin ? new Date(u.lastLogin).toLocaleString('ru-RU') : 'Никогда',
+            'Дата регистрации': new Date(u.createdAt).toLocaleString('ru-RU')
+        }));
+
+        // Создаем Excel книгу и лист в памяти
+        const worksheet = xlsx.utils.json_to_sheet(data);
+        const workbook = xlsx.utils.book_new();
+        xlsx.utils.book_append_sheet(workbook, worksheet, 'База пользователей');
+
+        // Генерируем буфер
+        const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+        addSystemLog(`Администратор выгрузил базу пользователей (${users.length} шт.)`, 'info');
+
+        // Отправляем файл клиенту
+        res.setHeader('Content-Disposition', 'attachment; filename="Lumeo_Users.xlsx"');
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.send(buffer);
+    } catch (e) {
+        console.error('Ошибка при экспорте:', e);
+        res.status(500).json({ message: 'Ошибка при экспорте базы пользователей' });
+    }
+};
+
+// --- СКАЧИВАНИЕ ШАБЛОНА EXCEL ---
+export const downloadTemplate = async (req: Request, res: Response) => {
+    try {
+        const data = [
+            {
+                'Имя': 'Иван',
+                'Фамилия': 'Иванов',
+                'Отчество': 'Иванович',
+                'Email': 'ivan@edu.ru',
+                'Телефон': '+79991234567',
+                'Пароль': 'password123',
+                'Роль': 'student'
+            },
+            {
+                'Имя': 'Мария',
+                'Фамилия': 'Смирнова',
+                'Отчество': 'Петровна',
+                'Email': 'maria@edu.ru',
+                'Телефон': '',
+                'Пароль': 'qwerty2024',
+                'Роль': 'teacher'
+            }
+        ];
+
+        const worksheet = xlsx.utils.json_to_sheet(data);
+        
+        // Делаем красивые колонки (задаем ширину в символах)
+        worksheet['!cols'] = [
+            { wch: 15 }, // Имя
+            { wch: 15 }, // Фамилия
+            { wch: 15 }, // Отчество
+            { wch: 25 }, // Email
+            { wch: 15 }, // Телефон
+            { wch: 15 }, // Пароль
+            { wch: 10 }  // Роль
+        ];
+
+        const workbook = xlsx.utils.book_new();
+        xlsx.utils.book_append_sheet(workbook, worksheet, 'Шаблон импорта');
+
+        const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+        res.setHeader('Content-Disposition', 'attachment; filename="Lumeo_Template.xlsx"');
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.send(buffer);
+    } catch (e) {
+        console.error('Ошибка при создании шаблона:', e);
+        res.status(500).json({ message: 'Ошибка при создании шаблона' });
     }
 };

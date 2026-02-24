@@ -81,16 +81,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 // Пытаемся получить свежие данные о себе с сервера
                 const { data } = await api.get('/auth/me');
                 
-                // Если успешно — обновляем данные (вдруг роль сменилась или аватарка)
                 setUser(data);
-                // Обновляем и в localStorage на всякий случай
                 localStorage.setItem('lumeo_user', JSON.stringify(data));
-            } catch (error) {
-                console.error("Сессия недействительна или пользователь удален", error);
-                // Если ошибка (401 или 404) — выкидываем пользователя
-                logout();
+            } catch (error: any) {
+                console.error("Ошибка при проверке сессии:", error);
+                
+                // 🔥 ИСПРАВЛЕНИЕ СЕССИИ:
+                // Выкидываем пользователя ТОЛЬКО если сервер явно сказал, что токен протух (401, 403, 404)
+                if (error.response && [401, 403, 404].includes(error.response.status)) {
+                    logout(); 
+                }
+                // Если error.response НЕТ (сервер выключен через ctrl+c),
+                // мы просто ничего не делаем. Токен остается в браузере!
             } finally {
-                // В любом случае загрузка завершена
                 setLoading(false);
             }
         };

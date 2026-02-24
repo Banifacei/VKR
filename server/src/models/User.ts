@@ -30,6 +30,10 @@ export class User extends Model {
     @Column({ type: DataType.STRING, defaultValue: 'student' })
     declare role: string; // 'student' | 'teacher' | 'admin'
 
+    // 🔥 НОВОЕ ПОЛЕ: Статус аккаунта
+    @Column({ type: DataType.STRING, defaultValue: 'active' })
+    declare status: string; // 'pending' | 'active' | 'rejected'
+
     @Column({ type: DataType.DATE })
     declare lastLogin: Date;
 

@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { checkAuth } from '../middleware/authMiddleware.js';
+import { getSystemSettings, toggleSystemSetting } from '../controllers/adminController.js';
 import { 
     getStorageStats, 
     getSystemLogs,
@@ -45,5 +46,7 @@ router.get('/logs', getSystemLogs);
 router.post('/clear-cache', clearAiCache);
 router.post('/backup-db', backupDatabase);
 router.post('/restart', restartServer);
+router.get('/settings', checkAuth, isAdmin, getSystemSettings);
+router.post('/settings/toggle', checkAuth, isAdmin, toggleSystemSetting);
 
 export default router;
