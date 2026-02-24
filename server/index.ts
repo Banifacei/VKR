@@ -14,6 +14,7 @@ import authRoutes from './src/routes/authRoutes.js';
 import userRoutes from './src/routes/userRoutes.js';
 import testRoutes from './src/routes/testRoutes.js';
 import adminRoutes from './src/routes/adminRoutes.js';
+import { trackActivityMiddleware, addSystemLog } from './src/controllers/adminController.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -43,6 +44,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
+app.use(trackActivityMiddleware);
 app.use('/uploads', express.static(uploadDir));
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -58,7 +60,7 @@ app.post('/api/upload', upload.single('video'), (req: Request, res: Response): v
         const protocol = req.protocol;
         const host = req.get('host');
         const fullUrl = `${protocol}://${host}/uploads/${req.file.filename}`;
-        
+        addSystemLog(`Загружено новое видео: ${req.file.originalname}`, 'info');
         res.json({ url: fullUrl });
     } catch (err) {
         console.error("Ошибка при обработке файла:", err);
@@ -91,7 +93,7 @@ app.post('/api/auth/avatar', upload.single('avatar'), async (req: Request, res: 
 
         user.avatarUrl = avatarUrl;
         await user.save();
-
+        addSystemLog(`Пользователь (ID: ${userId}) обновил аватар`, 'info');
         res.json({ avatarUrl });
     } catch (err) {
         console.error("Ошибка при загрузке аватара:", err);
@@ -110,6 +112,7 @@ async function start() {
         const server = app.listen(PORT, () => {
             console.log(`🚀 Сервер запущен на порту ${PORT}`);
             console.log(`📁 Папка для загрузок: ${uploadDir}`);
+            addSystemLog(`Сервер Lumeo успешно стартовал на порту ${PORT}`, 'success');
         });
         server.timeout = 600000;
     } catch (e) {

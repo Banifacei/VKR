@@ -16,7 +16,7 @@ const isAdmin = (req: Request, res: Response, next: NextFunction) => {
     // Получаем пользователя, которого добавил твой checkAuth
     const user = (req as any).user; 
 
-    console.log("🛠 [DEBUG isAdmin] Данные пользователя из токена:", user);
+    //console.log("🛠 [DEBUG isAdmin] Данные пользователя из токена:", user);
 
     // Вариант А: Если checkAuth передает объект с ролью
     if (user && user.role === 'admin') {

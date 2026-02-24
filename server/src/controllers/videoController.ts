@@ -16,6 +16,7 @@ import { Worker } from 'worker_threads';
 import { pathToFileURL } from 'url';
 import { transformSync } from 'esbuild';
 import { CourseTest } from '../models/CourseTest.js';
+import { addSystemLog } from './adminController.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 let semanticExtractor: any = null;
@@ -86,6 +87,7 @@ export const createCourse = async (req: Request, res: Response) => {
     try {
         const { title, description, instructor } = req.body;
         const course = await Course.create({ title, description, instructor });
+        addSystemLog(`Создан новый курс: "${title}"`, 'success');
         res.status(201).json(course);
     } catch (e) {
         res.status(500).json({ message: 'Ошибка создания курса', error: e });
@@ -133,6 +135,7 @@ export const deleteCourse = async (req: Request, res: Response) => {
 
         // Теперь безопасно удаляем сам курс
         await course.destroy();
+        addSystemLog(`Удален курс (ID: ${courseId})`, 'error');
         res.json({ success: true, message: 'Курс удален' });
     } catch (e) {
         console.error(e);
@@ -173,7 +176,7 @@ export const createVideo = async (req: Request, res: Response) => {
         courseId: Number(courseId),
         orderIndex: finalOrderIndex // 👈 Железобетонно сохраняем в базу!
     });
-    
+    addSystemLog(`В курс добавлен урок: "${title}"`, 'success');
     res.status(201).json(video);
   } catch (error) {
     console.error(error);
@@ -213,7 +216,7 @@ export const createEvent = async (req: Request, res: Response) => {
             explanation: explanation || null,
             aiThreshold: aiThreshold || 50
         });
-
+        addSystemLog(`В видео (ID: ${videoId}) добавлен новый интерактивный элемент`, 'info');
         res.status(201).json(event);
     } catch (error) {
         console.error(error);
@@ -347,6 +350,7 @@ export const deleteVideo = async (req: Request, res: Response) => {
         
         // Теперь удаляем само видео
         await video.destroy();
+        addSystemLog(`Удалено видео (ID: ${videoId})`, 'warning');
         res.json({ success: true, message: 'Видео успешно удалено' });
     } catch (error) {
         console.error(error);
@@ -391,6 +395,7 @@ export const resetVideoProgress = async (req: Request, res: Response) => {
         await UserResponse.destroy({
             where: { videoId: Number(videoId), userId: Number(userId) }
         });
+        addSystemLog(`Сброшен прогресс видео (ID: ${videoId}) для пользователя (ID: ${userId})`, 'warning');
         res.json({ success: true, attemptsUsed: progress ? progress.attemptsUsed : 1 });
     } catch (e) {
         res.status(500).json(e);
@@ -489,6 +494,7 @@ export const generateSubtitles = async (req: Request, res: Response) => {
             target: 'es2022', // Используем современный JS
             format: 'cjs',    // Важно: формат модулей
         });
+        addSystemLog(`Запущена AI-генерация субтитров для видео (ID: ${videoId})`, 'info');
         res.status(202).json({ success: true, message: 'Генерация запущена в фоновом режиме!' });
 
         // Запускаем воркер, скармливая ему уже готовый JS код
@@ -514,6 +520,7 @@ export const generateSubtitles = async (req: Request, res: Response) => {
                 currentSubs.push(newSubtitle);
                 
                 video.subtitles = currentSubs;
+                addSystemLog(`AI-субтитры для видео (ID: ${videoId}) успешно сгенерированы!`, 'success');
                 await video.save();
                 
             } else if (msg.status === 'error') {
@@ -579,6 +586,7 @@ export const deleteEvent = async (req: Request, res: Response) => {
         if (!event) return res.status(404).json({ message: 'Событие не найдено' });
         await UserResponse.destroy({ where: { eventId } });
         await event.destroy();
+        addSystemLog(`Удален интерактивный элемент (ID: ${eventId})`, 'warning');
         res.json({ success: true });
     } catch (error) {
         console.error(error);

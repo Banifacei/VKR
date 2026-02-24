@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { Op } from 'sequelize';
 import { User } from '../models/User.js';
+import { addSystemLog } from './adminController.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'lumeo_super_secret_2024';
 
@@ -34,6 +35,7 @@ export const register = async (req: Request, res: Response) => {
         });
 
         res.status(201).json({ message: 'Регистрация успешна' });
+        addSystemLog(`Новый пользователь зарегистрирован: ${email}`, 'success');
     } catch (e) {
         console.error(e);
         res.status(500).json({ message: 'Ошибка регистрации', error: e });
@@ -57,7 +59,7 @@ export const login = async (req: Request, res: Response) => {
         }
 
         const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
-
+        addSystemLog(`Успешный вход: ${user.email} (Роль: ${user.role})`, 'info');
         res.json({
             token,
             user: {
@@ -73,6 +75,7 @@ export const login = async (req: Request, res: Response) => {
         });
     } catch (e) {
         console.error(e);
+        addSystemLog(`Ошибка при попытке авторизации`, 'error');
         res.status(500).json({ message: 'Ошибка входа' });
     }
 };
@@ -113,7 +116,7 @@ export const updateProfile = async (req: Request, res: Response) => {
         }
 
         await user.save();
-        
+        addSystemLog(`Пользователь (ID: ${user.id}) обновил данные профиля`, 'info');
         res.json({ 
             message: 'Данные обновлены', 
             user: { 

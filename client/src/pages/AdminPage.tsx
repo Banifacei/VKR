@@ -3,7 +3,6 @@ import { UserProfile } from '../components/UserProfile';
 import { Link } from 'react-router-dom';
 import './AdminPage.css';
 import { useAuth } from '../context/AuthContext';
-// ВНИМАНИЕ: Добавь createUser и deleteUser в твой userApi.ts
 import { getAllUsers, changeUserRole, updateUser, createUser, deleteUser } from '../api/userApi';
 import type { IAdminUser } from '../api/userApi';
 
@@ -20,7 +19,11 @@ const Icons = {
     Code: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>,
     Database: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>,
     Terminal: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>,
-    Zap: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+    Zap: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>,
+    LogInfo: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00aeef" strokeWidth="3"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>,
+    LogSuccess: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00ff88" strokeWidth="3"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>,
+    LogWarning: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffd700" strokeWidth="3"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>,
+    LogError: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff4d4d" strokeWidth="3"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
 };
 
 interface ISystemLog { id: number; time: string; msg: string; type: 'info' | 'success' | 'error' | 'warning'; }
@@ -28,36 +31,32 @@ interface ISystemLog { id: number; time: string; msg: string; type: 'info' | 'su
 export const AdminPage = () => {
   const { user, logout, updateUser: updateContextUser } = useAuth();
   
-  // Вкладки: 'system' или 'users'
   const [activeTab, setActiveTab] = useState<'system' | 'users'>('system');
-
   const [usersList, setUsersList] = useState<IAdminUser[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Стейты для реальных данных сервера
   const [storageData, setStorageData] = useState({ total: 100, video: 0, db: 0, cache: 0 });
   const [systemLogs, setSystemLogs] = useState<ISystemLog[]>([]);
+  const [serverStats, setServerStats] = useState({ cpu: 0, ram: 0, connections: 0, uptime: '...' });
   const [isActionExecuting, setIsActionExecuting] = useState(false);
+  const [logFilter, setLogFilter] = useState<'all' | 'info' | 'success' | 'warning' | 'error'>('all');
 
-  // --- МОДАЛЬНОЕ ОКНО УПРАВЛЕНИЯ ПОЛЬЗОВАТЕЛЕМ ---
+  // Модальное окно управления пользователем
   const [modalMode, setModalMode] = useState<'add' | 'edit' | null>(null);
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
   const [userForm, setUserForm] = useState({ firstName: '', lastName: '', email: '', role: 'student', password: '' });
   const [isSaving, setIsSaving] = useState(false);
 
-  // ... твои стейты
   
-  // Стейт для реальных данных сервера
-  const [serverStats, setServerStats] = useState({ cpu: 0, ram: 0, connections: 0, uptime: '...' });
-
   const fetchSystemData = async () => {
       try {
           const token = localStorage.getItem('lumeo_token');
           const headers = { 'Authorization': `Bearer ${token}` };
           
-          // Получаем данные диска
           const storageRes = await fetch('http://localhost:5000/api/admin/storage', { headers });
           if (storageRes.ok) setStorageData(await storageRes.json());
           
-          // Получаем логи
           const logsRes = await fetch('http://localhost:5000/api/admin/logs', { headers });
           if (logsRes.ok) setSystemLogs(await logsRes.json());
       } catch (e) { console.error('Ошибка загрузки статических данных системы'); }
@@ -67,20 +66,18 @@ export const AdminPage = () => {
       try {
           const token = localStorage.getItem('lumeo_token');
           const headers = { 'Authorization': `Bearer ${token}` };
-          // Получаем живые данные RAM/CPU
           const serverRes = await fetch('http://localhost:5000/api/admin/server-stats', { headers });
           if (serverRes.ok) setServerStats(await serverRes.json());
       } catch (e) {}
   };
 
+  // Инициализация и радары
   useEffect(() => {
       fetchUsers();
       fetchSystemData();
       fetchLiveServerStats();
       
-      // Логи и диск обновляем раз в 10 секунд
       const staticInterval = setInterval(fetchSystemData, 10000);
-      // А CPU и RAM обновляем каждую секунду (как в настоящем диспетчере задач!)
       const liveInterval = setInterval(fetchLiveServerStats, 1500); 
 
       return () => {
@@ -101,17 +98,6 @@ export const AdminPage = () => {
       } catch (e) { alert(`❌ Ошибка выполнения.`); } 
       finally { setIsActionExecuting(false); }
   };
-
-  useEffect(() => {
-      const interval = setInterval(() => {
-          setServerStats(prev => ({
-              ...prev,
-              cpu: Math.max(5, Math.min(95, prev.cpu + (Math.random() * 10 - 5))),
-              ram: Math.max(20, Math.min(85, prev.ram + (Math.random() * 4 - 2)))
-          }));
-      }, 2000);
-      return () => clearInterval(interval);
-  }, []);
 
   const systemPlugins = [
       { id: 1, name: 'Lumeo Core API', version: 'v2.4.1', status: 'Активен' },
@@ -145,7 +131,7 @@ export const AdminPage = () => {
       catch (e) { alert('Не удалось сменить роль'); setUsersList(oldList); }
   };
 
-  // --- УПРАВЛЕНИЕ ПОЛЬЗОВАТЕЛЯМИ (ДОБАВЛЕНИЕ / РЕДАКТИРОВАНИЕ / УДАЛЕНИЕ) ---
+  // Управление пользователями
   const openAddModal = () => {
       setModalMode('add');
       setUserForm({ firstName: '', lastName: '', email: '', role: 'student', password: '' });
@@ -167,11 +153,11 @@ export const AdminPage = () => {
       try {
           if (modalMode === 'add') {
               if (!userForm.password || !userForm.email) return alert('Email и пароль обязательны!');
-              const newUser = await createUser(userForm); // Вызываем API создания
+              const newUser = await createUser(userForm);
               setUsersList([newUser, ...usersList]);
               alert('Пользователь успешно создан!');
           } else if (modalMode === 'edit' && editingUserId) {
-              await updateUser(editingUserId, userForm); // Вызываем API обновления
+              await updateUser(editingUserId, userForm);
               setUsersList(prev => prev.map(u => u.id === editingUserId ? { ...u, ...userForm } as IAdminUser : u));
               if (user && user.id === editingUserId) {
                   updateContextUser({ firstName: userForm.firstName, lastName: userForm.lastName, email: userForm.email, role: userForm.role });
@@ -188,7 +174,7 @@ export const AdminPage = () => {
       if (!window.confirm(`Вы действительно хотите удалить пользователя ${userName}? Это действие необратимо.`)) return;
       
       try {
-          await deleteUser(userId); // Вызываем API удаления
+          await deleteUser(userId);
           setUsersList(prev => prev.filter(u => u.id !== userId));
       } catch (e) {
           alert('Ошибка при удалении пользователя');
@@ -197,7 +183,7 @@ export const AdminPage = () => {
 
   const storageTotal = storageData.total || 1; 
   const storageUsed = storageData.video + storageData.db + storageData.cache;
-
+  const filteredLogs = systemLogs.filter(log => logFilter === 'all' || log.type === logFilter);
   return (
     <div className="lumeo-layout">
       {/* МОДАЛЬНОЕ ОКНО ДОБАВЛЕНИЯ/РЕДАКТИРОВАНИЯ */}
@@ -284,7 +270,7 @@ export const AdminPage = () => {
                 </button>
             </div>
 
-            {/* МЕТРИКИ СВЕРХУ (Отображаем на обеих вкладках для удобства) */}
+            {/* МЕТРИКИ СВЕРХУ */}
             <div className="metrics-row">
                 <div className="stat-card mini">
                     <div className="stat-icon" style={{color: '#00aeef'}}><Icons.Users /></div>
@@ -319,25 +305,45 @@ export const AdminPage = () => {
             {/* ==================== ВКЛАДКА 1: ОБЗОР СИСТЕМЫ ==================== */}
             {activeTab === 'system' && (
                 <div className="dashboard-columns">
-                    {/* ЛЕВАЯ КОЛОНКА (Логи) */}
                     <div className="dashboard-main">
-                        <div className="admin-section">
-                            <div className="section-header compact">
-                                <h2 style={{display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px'}}><Icons.Terminal /> Системный журнал событий</h2>
-                                <button className="btn-icon" style={{fontSize: '12px', padding: '4px 8px'}} onClick={fetchSystemData}>Обновить</button>
+                        
+                        {/* 🔥 ПРОКАЧАННАЯ ПАНЕЛЬ ЛОГОВ */}
+                        <div className="admin-section log-section">
+                            <div className="section-header compact" style={{flexWrap: 'wrap', gap: '10px'}}>
+                                <h2 style={{display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px'}}><Icons.Terminal /> Журнал событий</h2>
+                                
+                                {/* ПАНЕЛЬ ФИЛЬТРОВ */}
+                                <div className="log-filters">
+                                    <button className={`filter-btn ${logFilter === 'all' ? 'active' : ''}`} onClick={() => setLogFilter('all')}>Все</button>
+                                    <button className={`filter-btn info ${logFilter === 'info' ? 'active' : ''}`} onClick={() => setLogFilter('info')}>Инфо</button>
+                                    <button className={`filter-btn success ${logFilter === 'success' ? 'active' : ''}`} onClick={() => setLogFilter('success')}>Успех</button>
+                                    <button className={`filter-btn warning ${logFilter === 'warning' ? 'active' : ''}`} onClick={() => setLogFilter('warning')}>Внимание</button>
+                                    <button className={`filter-btn error ${logFilter === 'error' ? 'active' : ''}`} onClick={() => setLogFilter('error')}>Ошибки</button>
+                                    <button className="btn-icon" style={{marginLeft: 'auto'}} onClick={fetchSystemData} title="Обновить"><Icons.Refresh /></button>
+                                </div>
                             </div>
+                            
                             <div className="section-body log-container">
-                                {systemLogs.length > 0 ? (
-                                    systemLogs.map(log => (
-                                        <div key={log.id} className="log-item">
+                                {filteredLogs.length > 0 ? (
+                                    filteredLogs.map(log => (
+                                        <div key={log.id} className={`log-item log-type-${log.type}`}>
                                             <div className="log-time">{log.time}</div>
-                                            <div className={`log-dot ${log.type}`}></div>
-                                            <div className="log-message">{log.msg}</div>
+                                            <div className="log-icon-wrapper">
+                                                {log.type === 'info' && <Icons.LogInfo />}
+                                                {log.type === 'success' && <Icons.LogSuccess />}
+                                                {log.type === 'warning' && <Icons.LogWarning />}
+                                                {log.type === 'error' && <Icons.LogError />}
+                                            </div>
+                                            <div className="log-message">
+                                                <span className={`log-badge badge-${log.type}`}>{log.type.toUpperCase()}</span>
+                                                {log.msg}
+                                            </div>
                                         </div>
                                     ))
                                 ) : (
-                                    <div style={{color: '#666', fontSize: '13px', textAlign: 'center', padding: '20px'}}>
-                                        Ожидание данных с сервера... 
+                                    <div className="log-empty-state">
+                                        <Icons.Terminal />
+                                        <span>Нет записей для этого фильтра</span>
                                     </div>
                                 )}
                             </div>

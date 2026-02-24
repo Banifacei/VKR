@@ -6,6 +6,7 @@ import { UserVideoProgress } from '../models/UserVideoProgress.js';
 import { pipeline } from '@xenova/transformers';
 import { Video } from '../models/Video.js';
 import { User } from '../models/User.js';
+import { addSystemLog } from './adminController.js';
 
 export const getCourseTests = async (req: Request, res: Response) => {
     try {
@@ -88,6 +89,7 @@ export const updateCourseTest = async (req: Request, res: Response) => {
         if (hideResults !== undefined) test.hideResults = hideResults; // Сохраняем переключатель результатов
 
         await test.save();
+        addSystemLog(`Обновлены настройки теста (ID: ${testId})`, 'info');
         res.json(test);
     } catch (e) {
         res.status(500).json({ message: 'Ошибка обновления теста' });
@@ -118,7 +120,7 @@ export const createCourseTest = async (req: Request, res: Response) => {
             maxAttempts: maxAttempts || 3,    // Дефолт 3 попытки
             orderIndex: finalOrderIndex       // 👈 Железобетонно сохраняем в базу!
         });
-        
+        addSystemLog(`Создан новый тест: "${title}"`, 'success');
         res.status(201).json(test);
     } catch (e) {
         console.error(e);
@@ -134,6 +136,7 @@ export const deleteCourseTest = async (req: Request, res: Response) => {
         await TestQuestion.destroy({ where: { testId } });
         // Затем удаляем сам тест
         await CourseTest.destroy({ where: { id: testId } });
+        addSystemLog(`Удален тест (ID: ${testId})`, 'warning');
         res.json({ success: true });
     } catch (e) {
         console.error(e);
@@ -189,6 +192,7 @@ export const addTestQuestion = async (req: Request, res: Response) => {
             weight: weight || 1,
             aiThreshold: aiThreshold || 50
         });
+        addSystemLog(`В тест (ID: ${testId}) добавлен новый вопрос`, 'info');
         res.status(201).json(question);
     } catch (e) {
         console.error(e);
@@ -201,6 +205,7 @@ export const deleteTestQuestion = async (req: Request, res: Response) => {
     try {
         const { questionId } = req.params;
         await TestQuestion.destroy({ where: { id: questionId } });
+        addSystemLog(`Из теста удален вопрос (ID: ${questionId})`, 'warning');
         res.json({ success: true });
     } catch (e) {
         console.error(e);
@@ -281,7 +286,7 @@ export const submitTestResult = async (req: Request, res: Response) => {
             answers: JSON.stringify(detailedAnswers) // Теперь тут лежит умный JSON с результатами!
         });
 
-        // Возвращаем фронтенду посчитанный балл и детальный разбор
+        addSystemLog(`Студент (ID: ${userId}) сдал тест (ID: ${testId}) на ${finalScore}%`, 'info');
         res.json({ score: finalScore, detailedAnswers });
     } catch (error) {
         console.error(error);

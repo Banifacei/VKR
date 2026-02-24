@@ -7,7 +7,7 @@ import { Video } from '../models/Video.js';
 import { Course } from '../models/Course.js';
 import { UserTestResult } from '../models/UserTestResult.js';
 import { CourseTest } from '../models/CourseTest.js';
-
+import { addSystemLog } from './adminController.js';
 export const getAllUsers = async (req: Request, res: Response) => {
     try {
         const users = await User.findAll({
@@ -45,7 +45,7 @@ export const updateUserRole = async (req: Request, res: Response) => {
 
         user.role = role;
         await user.save();
-
+        addSystemLog(`Изменена роль пользователя (ID: ${userIdToUpdate}) на "${role}"`, 'warning');
         res.json({ success: true, user });
     } catch (e) {
         console.error(e);
@@ -80,7 +80,7 @@ export const updateUserByAdmin = async (req: Request, res: Response) => {
         }
 
         await user.save();
-
+        addSystemLog(`Админ отредактировал профиль пользователя (ID: ${userIdToUpdate})`, 'info');
         res.json({ success: true, user });
     } catch (e) {
         console.error(e);
@@ -207,7 +207,7 @@ export const createUserByAdmin = async (req: Request, res: Response) => {
             role,
             password: hashedPassword
         });
-
+        addSystemLog(`Админ создал пользователя: ${email}`, 'success');
         res.status(201).json(newUser);
     } catch (e) {
         console.error(e);
@@ -231,7 +231,7 @@ export const deleteUserByAdmin = async (req: Request, res: Response) => {
         }
 
         await user.destroy(); // Удаляем из БД
-
+        addSystemLog(`Админ удалил пользователя (ID: ${userIdToDelete})`, 'error');
         res.json({ success: true, message: 'Пользователь удален' });
     } catch (e) {
         console.error(e);
