@@ -157,10 +157,27 @@ export const restartServer = async (req: Request, res: Response) => {
 };
 
 // --- НАСТРОЙКИ СИСТЕМЫ ---
+// --- НАСТРОЙКИ СИСТЕМЫ ---
 export const getSystemSettings = async (req: Request, res: Response) => {
     try {
-        const setting = await SystemSetting.findOne({ where: { key: 'registration_requires_approval' } });
-        res.json({ registration_requires_approval: setting ? setting.value : false });
+        const settings = await SystemSetting.findAll();
+        const config: Record<string, any> = {};
+        
+        // Превращаем массив из БД в удобный объект для фронтенда
+        settings.forEach(setting => {
+            let val: any = setting.value;
+            // Если в БД лежит строка 'true' или 'false', превращаем в настоящий boolean
+            if (val === 'true') val = true;
+            if (val === 'false') val = false;
+            config[setting.key] = val;
+        });
+
+        // Если настройки модерации еще нет в БД, отдаем false по умолчанию
+        if (!config.hasOwnProperty('registration_requires_approval')) {
+            config.registration_requires_approval = false;
+        }
+
+        res.json(config);
     } catch (e) {
         res.status(500).json({ message: 'Ошибка получения настроек' });
     }
@@ -168,18 +185,21 @@ export const getSystemSettings = async (req: Request, res: Response) => {
 
 export const toggleSystemSetting = async (req: Request, res: Response) => {
     try {
-        const { key, value } = req.body; // Ожидаем { key: 'registration_requires_approval', value: true }
+        const { key, value } = req.body; 
         
         let setting = await SystemSetting.findOne({ where: { key } });
+        // Сохраняем любое значение как строку
+        const stringValue = String(value); 
+
         if (setting) {
-            setting.value = value;
+            setting.value = stringValue;
             await setting.save();
         } else {
-            setting = await SystemSetting.create({ key, value });
+            setting = await SystemSetting.create({ key, value: stringValue });
         }
         
-        addSystemLog(`Изменена настройка системы: ${key} = ${value ? 'ВКЛ' : 'ВЫКЛ'}`, 'warning');
-        res.json({ success: true, setting });
+        addSystemLog(`Изменена настройка системы: ${key}`, 'info');
+        res.json({ message: 'Настройка сохранена', setting });
     } catch (e) {
         res.status(500).json({ message: 'Ошибка сохранения настройки' });
     }
