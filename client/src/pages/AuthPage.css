@@ -211,3 +211,75 @@
     text-transform: uppercase;
     letter-spacing: 1px;
 }
+
+/* --- SSO ИНТЕГРАЦИИ --- */
+.sso-container {
+    margin-top: 25px;
+    width: 100%;
+}
+
+.auth-divider {
+    position: relative;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.auth-divider::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--glass-border);
+    z-index: 1;
+}
+
+.auth-divider span {
+    position: relative;
+    z-index: 2;
+    background: var(--bg-deep); /* Цвет фона под карточкой, чтобы перекрыть линию */
+    padding: 0 15px;
+    color: var(--text-gray);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.sso-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.sso-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 14px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--glass-border);
+    color: #ccc;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+}
+
+.sso-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+}
+
+.sso-btn.saml:hover {
+    border-color: #b5179e; /* Фирменный корпоративный цвет */
+    box-shadow: 0 0 15px rgba(181, 23, 158, 0.2);
+}
+
+.sso-btn.openid:hover {
+    border-color: #00aeef;
+    box-shadow: 0 0 15px rgba(0, 174, 239, 0.2);
+}

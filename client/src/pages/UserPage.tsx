@@ -14,7 +14,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { AddVideoForm } from '../components/AddVideoForm';
 import { ContentEditorModal } from '../components/ContentEditorModal';
 import './UserPage.css';
-
+import api from '../api/axiosInstance';
 // Объединенный тип для плитки
 type DashboardItem = 
     | ({ type: 'video' } & IVideo) 
@@ -106,21 +106,13 @@ export const UserPage = () => {
         setIsCreating(true);
         const nextIndex = items.length > 0 ? Math.max(...items.map((i: any) => i.orderIndex || 0)) + 1 : 0;
         try {
-            const token = localStorage.getItem('lumeo_token');
-            const res = await fetch(`http://localhost:5000/api/tests/courses/${courseId}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                // Добавляем orderIndex, чтобы тест встал в самый конец
-                body: JSON.stringify({ ...newTestData, orderIndex: nextIndex })
-            });
-
-            if (res.ok) {
-                setNewTestData({ title: '', description: '', passingScore: 80, maxAttempts: 3 });
-                setShowAddModal(false);
-                setModalView('select');
-                fetchCourseData();
-            } else alert('Ошибка при создании теста');
-        } catch (e) { console.error(e); } 
+            // 🔥 Чистый axios
+            await api.post(`/tests/courses/${courseId}`, { ...newTestData, orderIndex: nextIndex });
+            setNewTestData({ title: '', description: '', passingScore: 80, maxAttempts: 3 });
+            setShowAddModal(false);
+            setModalView('select');
+            fetchCourseData();
+        } catch (e) { console.error(e); alert('Ошибка при создании теста'); } 
         finally { setIsCreating(false); }
     };
 
@@ -218,18 +210,9 @@ export const UserPage = () => {
 
             // 3. Отправляем ЖЕЛЕЗОБЕТОННЫЙ payload на бэкенд
             try {
-                const token = localStorage.getItem('lumeo_token');
                 const payload = updatedItems.map((i: any) => ({ id: i.id, type: i.type, orderIndex: i.orderIndex }));
-
-                await fetch(`http://localhost:5000/api/videos/course/${courseId}/reorder`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({ items: payload }) // Теперь тут точно есть данные!
-                });
-                
+                // 🔥 Чистый axios
+                await api.post(`/videos/course/${courseId}/reorder`, { items: payload });
                 console.log("✅ Порядок успешно сохранен в БД!");
             } catch (e) {
                 console.error("❌ Ошибка при сохранении сортировки:", e);
@@ -279,26 +262,13 @@ export const UserPage = () => {
     // Универсальное удаление (и для видео, и для тестов)
     const handleDeleteItem = async (item: any) => {
         const isVideo = item.type === 'video';
-        const confirmMsg = `Вы уверены, что хотите навсегда удалить ${isVideo ? 'урок' : 'тест'} "${item.title}"?`;
-        
-        if (!window.confirm(confirmMsg)) return;
+        if (!window.confirm(`Вы уверены, что хотите навсегда удалить ${isVideo ? 'урок' : 'тест'} "${item.title}"?`)) return;
 
         try {
-            const token = localStorage.getItem('lumeo_token');
-            const endpoint = isVideo 
-                ? `http://localhost:5000/api/videos/${item.id}` 
-                : `http://localhost:5000/api/tests/${item.id}`; // 👈 Убедись, что роуты правильные
-
-            const res = await fetch(endpoint, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-
-            if (res.ok) {
-                fetchCourseData(); // Моментально обновляем сетку
-            } else {
-                alert('Ошибка при удалении');
-            }
+            // 🔥 Чистый axios
+            const endpoint = isVideo ? `/videos/${item.id}` : `/tests/${item.id}`;
+            await api.delete(endpoint);
+            fetchCourseData(); 
         } catch (e) {
             console.error(e);
             alert('Сбой сети при удалении');

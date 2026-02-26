@@ -1,12 +1,5 @@
 import api from './axiosInstance';
 
-const API_URL = 'http://localhost:5000/api/users';
-
-const getAuthHeaders = () => {
-    const token = localStorage.getItem('lumeo_token');
-    return token ? { Authorization: `Bearer ${token}` } : {};
-};
-
 // Тип пользователя для админки
 export interface IAdminUser {
     id: number;

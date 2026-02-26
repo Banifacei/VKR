@@ -2,11 +2,13 @@ import { Request, Response, NextFunction } from 'express';
 import os from 'os';
 import fs from 'fs/promises';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { SystemSetting } from '../models/SystemSetting.js';
 // --- НОВОЕ: Трекер реальных сессий ---
 // Храним IP-адреса и время их последнего запроса (в миллисекундах)
 export const activeSessions = new Map<string, number>();
-
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 // Этот Middleware мы подключим ко всему серверу, чтобы он "видел" каждого посетителя
 export const trackActivityMiddleware = (req: Request, res: Response, next: NextFunction) => {
     // Получаем IP (даже если сервер стоит за Nginx/Proxy)
@@ -55,8 +57,8 @@ async function getDirSize(dirPath: string): Promise<number> {
 
 // 1. РЕАЛЬНАЯ СТАТИСТИКА ХРАНИЛИЩА (С учетом размера диска!)
 export const getStorageStats = async (req: Request, res: Response) => {
-    try {
-        const uploadsPath = '/opt/VKR/server/uploads';
+    try {// const uploadsPath = '/opt/VKR/server/uploads';
+        const uploadsPath = path.join(__dirname, '../../uploads');
         
         // 1. Считаем, сколько занято видео
         const videoSizeBytes = await getDirSize(uploadsPath);

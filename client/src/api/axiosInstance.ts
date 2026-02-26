@@ -1,11 +1,12 @@
 import axios from 'axios';
 
-// Создаем экземпляр
+const apiPort = import.meta.env.VITE_API_PORT || '5001';
+const API_URL = `http://${window.location.hostname}:${apiPort}/api`;
+
 const api = axios.create({
-    baseURL: 'http://localhost:5000/api', // Твой базовый URL
+    baseURL: API_URL, // Используем наш новый динамический URL
 });
 
-// Перехватчик запросов (автоматически добавляет токен)
 api.interceptors.request.use((config) => {
     const token = localStorage.getItem('lumeo_token');
     if (token) {
@@ -14,7 +15,6 @@ api.interceptors.request.use((config) => {
     return config;
 });
 
-// Перехватчик ответов (обрабатывает ошибки)
 api.interceptors.response.use(
     (response) => response,
     (error) => {

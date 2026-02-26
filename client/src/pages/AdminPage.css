@@ -960,3 +960,102 @@ label.dont-show-again input[type="checkbox"]:checked + .custom-checkbox::after {
     transform: rotate(45deg);
     margin-bottom: 2px;
 }
+
+/* ==========================================================
+   ИНТЕГРАЦИИ (SSO CARDS)
+   ========================================================== */
+.integrations-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+    padding-top: 10px;
+}
+
+.integration-card {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    transition: all 0.3s ease;
+}
+
+.integration-card:hover {
+    border-color: #444;
+    transform: translateY(-4px);
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.integration-card.active {
+    border-color: rgba(0, 255, 136, 0.3);
+    background: linear-gradient(180deg, rgba(0,255,136,0.03) 0%, rgba(0,0,0,0) 100%);
+}
+
+.int-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+}
+
+.int-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+}
+
+.int-icon.saml { background: linear-gradient(135deg, #b5179e, #7209b7); box-shadow: 0 5px 15px rgba(181, 23, 158, 0.3); }
+.int-icon.ldap { background: linear-gradient(135deg, #3f37c9, #4361ee); box-shadow: 0 5px 15px rgba(67, 97, 238, 0.3); }
+.int-icon.openid { background: linear-gradient(135deg, var(--primary), #4895ef); box-shadow: 0 5px 15px rgba(0, 174, 239, 0.3); }
+
+.int-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--success);
+    background: rgba(0, 255, 136, 0.1);
+    padding: 4px 10px;
+    border-radius: 20px;
+}
+
+.int-status.disabled {
+    color: #666;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.integration-card h3 {
+    margin: 0 0 8px 0;
+    font-size: 18px;
+    color: #fff;
+}
+
+.integration-card p {
+    margin: 0 0 20px 0;
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.5;
+    flex-grow: 1;
+}
+
+.int-meta {
+    font-family: monospace;
+    font-size: 11px;
+    color: #555;
+    background: #0a0a0a;
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    border: 1px solid #222;
+}
+
+.int-actions {
+    margin-top: auto;
+}

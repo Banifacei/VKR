@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { sendAnswer } from '../api/videoApi';
 import './TestCards.css';
-
+import api from '../api/axiosInstance';
 interface TestCardsProps {
     events: any[];
     videoId: number;
@@ -21,26 +21,23 @@ export const TestCards = ({ events, videoId, userId, onAllSolved }: TestCardsPro
     useEffect(() => {
         const fetchProgress = async () => {
             try {
-                const token = localStorage.getItem('lumeo_token');
-                const res = await fetch(`http://localhost:5000/api/videos/progress/${videoId}/${userId}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.sessionResults) {
-                        const historyMap: Record<number, any> = {};
-                        data.sessionResults.forEach((r: any) => {
-                            historyMap[r.eventId] = {
-                                isCorrect: r.isCorrect,
-                                similarity: r.similarity,
-                                answerText: r.answer
-                            };
-                        });
-                        setResults(historyMap);
-                    }
+                // api сам подставит порт из .env и токен
+                const res = await api.get(`/videos/progress/${videoId}/${userId}`);
+                const data = res.data;
+                
+                if (data.sessionResults) {
+                    const historyMap: Record<number, any> = {};
+                    data.sessionResults.forEach((r: any) => {
+                        historyMap[r.eventId] = {
+                            isCorrect: r.isCorrect,
+                            similarity: r.similarity,
+                            answerText: r.answer
+                        };
+                    });
+                    setResults(historyMap);
                 }
-            } catch (e) {
-                console.error("Ошибка загрузки прогресса тестов", e);
+            } catch (error) {
+                console.error('Ошибка загрузки прогресса:', error);
             }
         };
         fetchProgress();

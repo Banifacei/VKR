@@ -16,11 +16,12 @@ import userRoutes from './src/routes/userRoutes.js';
 import testRoutes from './src/routes/testRoutes.js';
 import adminRoutes from './src/routes/adminRoutes.js';
 import { trackActivityMiddleware, addSystemLog } from './src/controllers/adminController.js';
+import { createDefaultAdmin } from './src/models/initAdmin.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
 const uploadDir = path.join(__dirname, 'uploads');
 const avatarDir = path.join(uploadDir, 'avatars');
@@ -108,6 +109,7 @@ async function start() {
         await sequelize.sync({ alter: true });
         // force: true — удаляет таблицы (DROP) и создает их заново (CREATE) что бы бд очистить
         //await sequelize.sync({ force: true });
+        await createDefaultAdmin();
         console.log('✅ База данных подключена');
         
         const server = app.listen(PORT, () => {

@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { UserProfile } from '../components/UserProfile';
 import { useAuth } from '../context/AuthContext';
 import './ProfilePage.css';
-
+import api from '../api/axiosInstance';
 const Icons = {
     Camera: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>,
     User: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
@@ -57,12 +57,12 @@ export const ProfilePage = () => {
         formData.append('userId', String(userData.id));
 
         try {
-            const res = await fetch('http://localhost:5000/api/auth/avatar', { method: 'POST', body: formData });
-            if (res.ok) {
-                const data = await res.json();
-                handleAvatarUpdate(data.avatarUrl);
-            } else { alert('Ошибка загрузки'); }
-        } catch (err) { console.error(err); }
+            // 🔥 FormData работает в axios из коробки
+            const res = await api.post('/auth/avatar', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            handleAvatarUpdate(res.data.avatarUrl);
+        } catch (err) { console.error(err); alert('Ошибка загрузки'); }
     };
 
     const handleSaveProfile = async () => {
@@ -73,34 +73,23 @@ export const ProfilePage = () => {
         
         setIsSaving(true);
         try {
-            const res = await fetch('http://localhost:5000/api/auth/update', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userId: userData.id,
-                    firstName, lastName, middleName, 
-                    email, phone, 
-                    newPassword: newPassword || undefined
-                })
+            // 🔥 Чистый axios
+            const res = await api.put('/auth/update', {
+                userId: userData.id,
+                firstName, lastName, middleName, 
+                email, phone, 
+                newPassword: newPassword || undefined
             });
 
-            const data = await res.json();
-
-            if (res.ok) {
-                const updatedUser = { ...userData, ...data.user };
-                setUserData(updatedUser);
-                localStorage.setItem('lumeo_user', JSON.stringify(updatedUser));
-                updateUser(updatedUser);
-                alert('Профиль успешно обновлен!');
-                setNewPassword('');
-                return true;
-            } else { 
-                alert(data.message || 'Ошибка при сохранении'); 
-                return false;
-            }
-        } catch (e) { 
-            console.error(e); 
-            alert('Ошибка сети');
+            const updatedUser = { ...userData, ...res.data.user };
+            setUserData(updatedUser);
+            localStorage.setItem('lumeo_user', JSON.stringify(updatedUser));
+            updateUser(updatedUser);
+            alert('Профиль успешно обновлен!');
+            setNewPassword('');
+            return true;
+        } catch (e: any) { 
+            alert(e.response?.data?.message || 'Ошибка при сохранении');
             return false;
         } finally { 
             setIsSaving(false); 

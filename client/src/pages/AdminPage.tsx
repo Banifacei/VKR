@@ -5,7 +5,7 @@ import './AdminPage.css';
 import { useAuth } from '../context/AuthContext';
 import { getAllUsers, changeUserRole, updateUser, createUser, deleteUser } from '../api/userApi';
 import type { IAdminUser } from '../api/userApi';
-
+import api from '../api/axiosInstance';
 const Icons = {
     Plus: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>,
     Edit: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>,
@@ -27,7 +27,9 @@ const Icons = {
     Upload: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>,
     Download: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>,
     Bell: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>,
-    Check: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+    Check: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"></polyline></svg>,
+    LinkIcon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>,
+    Globe: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
 };
 
 interface ISystemLog { id: number; time: string; msg: string; type: 'info' | 'success' | 'error' | 'warning'; }
@@ -35,7 +37,7 @@ interface ISystemLog { id: number; time: string; msg: string; type: 'info' | 'su
 export const AdminPage = () => {
   const { user, logout, updateUser: updateContextUser } = useAuth();
   
-  const [activeTab, setActiveTab] = useState<'system' | 'users' | 'requests'>('system');
+  const [activeTab, setActiveTab] = useState<'system' | 'users' | 'requests' | 'integrations'>('system');
   const [usersList, setUsersList] = useState<IAdminUser[]>([]);
   const [pendingUsers, setPendingUsers] = useState<any[]>([]); 
   const [loading, setLoading] = useState(true);
@@ -66,37 +68,28 @@ export const AdminPage = () => {
 
   const fetchSystemData = async () => {
       try {
-          const token = localStorage.getItem('lumeo_token');
-          const headers = { 'Authorization': `Bearer ${token}` };
-          
-          const storageRes = await fetch('http://localhost:5000/api/admin/storage', { headers });
-          if (storageRes.ok) setStorageData(await storageRes.json());
-          
-          const logsRes = await fetch('http://localhost:5000/api/admin/logs', { headers });
-          if (logsRes.ok) setSystemLogs(await logsRes.json());
-
-          const settingsRes = await fetch('http://localhost:5000/api/admin/settings', { headers });
-          if (settingsRes.ok) {
-              const data = await settingsRes.json();
-              setRequiresApproval(data.registration_requires_approval);
-          }
+          const [storageRes, logsRes, settingsRes] = await Promise.all([
+              api.get('/admin/storage'),
+              api.get('/admin/logs'),
+              api.get('/admin/settings')
+          ]);
+          setStorageData(storageRes.data);
+          setSystemLogs(logsRes.data);
+          setRequiresApproval(settingsRes.data.registration_requires_approval);
       } catch (e) { console.error('Ошибка загрузки статических данных системы'); }
   };
 
   const fetchLiveServerStats = async () => {
       try {
-          const token = localStorage.getItem('lumeo_token');
-          const headers = { 'Authorization': `Bearer ${token}` };
-          const serverRes = await fetch('http://localhost:5000/api/admin/server-stats', { headers });
-          if (serverRes.ok) setServerStats(await serverRes.json());
+          const res = await api.get('/admin/server-stats');
+          if (res.data) setServerStats(res.data);
       } catch (e) {}
   };
 
   const fetchPendingUsers = async () => {
       try {
-          const token = localStorage.getItem('lumeo_token');
-          const res = await fetch('http://localhost:5000/api/users/pending', { headers: { 'Authorization': `Bearer ${token}` } });
-          if (res.ok) setPendingUsers(await res.json());
+          const res = await api.get('/users/pending');
+          setPendingUsers(res.data);
       } catch (e) { console.error('Ошибка загрузки заявок'); }
   };
 
@@ -118,70 +111,33 @@ export const AdminPage = () => {
   const handleToggleSetting = async () => {
       const newValue = !requiresApproval;
       setRequiresApproval(newValue);
-      
-      // Если мы выключаем модерацию, находясь на вкладке заявок, перекидываем юзера на Обзор системы
-      if (!newValue && activeTab === 'requests') {
-          setActiveTab('system');
-      }
-
+      if (!newValue && activeTab === 'requests') setActiveTab('system');
       try {
-          const token = localStorage.getItem('lumeo_token');
-          await fetch('http://localhost:5000/api/admin/settings/toggle', {
-              method: 'POST',
-              headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-              body: JSON.stringify({ key: 'registration_requires_approval', value: newValue })
-          });
+          await api.post('/admin/settings/toggle', { key: 'registration_requires_approval', value: newValue });
           fetchSystemData(); 
-      } catch (e) {
-          alert('Ошибка переключения настройки');
-          setRequiresApproval(!newValue); 
-      }
+      } catch (e) { alert('Ошибка переключения настройки'); setRequiresApproval(!newValue); }
   };
 
   const handleRequestAction = async (id: number, action: 'approve' | 'reject') => {
       try {
-          const token = localStorage.getItem('lumeo_token');
-          const res = await fetch(`http://localhost:5000/api/users/${id}/${action}`, {
-              method: 'POST',
-              headers: { 'Authorization': `Bearer ${token}` }
-          });
-          if (res.ok) {
-              setPendingUsers(prev => prev.filter(u => u.id !== id));
-              if (action === 'approve') fetchUsers(); 
-              fetchSystemData(); 
-          }
+          await api.post(`/users/${id}/${action}`);
+          setPendingUsers(prev => prev.filter(u => u.id !== id));
+          if (action === 'approve') fetchUsers(); 
+          fetchSystemData(); 
       } catch (e) { alert('Ошибка при обработке заявки'); }
   };
-
+  
   const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
-
       const formData = new FormData();
       formData.append('file', file);
-
       try {
           setIsActionExecuting(true);
-          const token = localStorage.getItem('lumeo_token');
-          const res = await fetch('http://localhost:5000/api/users/import', {
-              method: 'POST',
-              headers: { 'Authorization': `Bearer ${token}` },
-              body: formData
-          });
-          const data = await res.json();
-          if (res.ok) {
-              alert(data.message);
-              fetchUsers();
-              fetchSystemData();
-          } else {
-              alert(data.message || 'Ошибка импорта');
-          }
-      } catch (err) {
-          alert('Сбой при загрузке файла');
-      } finally {
-          setIsActionExecuting(false);
-          if (fileInputRef.current) fileInputRef.current.value = ''; 
-      }
+          const res = await api.post('/users/import', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+          alert(res.data.message); fetchUsers(); fetchSystemData();
+      } catch (err: any) { alert(err.response?.data?.message || 'Сбой при загрузке файла'); } 
+      finally { setIsActionExecuting(false); if (fileInputRef.current) fileInputRef.current.value = ''; }
   };
 
   // --- ЛОГИКА ШАБЛОНА EXCEL ---
@@ -197,71 +153,34 @@ export const AdminPage = () => {
   };
 
   const downloadExcelTemplate = async () => {
-      if (skipTemplateModal) {
-          localStorage.setItem(`lumeo_skip_template_${user?.id}`, 'true');
-      }
-
+      if (skipTemplateModal) localStorage.setItem(`lumeo_skip_template_${user?.id}`, 'true');
       try {
-          const token = localStorage.getItem('lumeo_token');
-          const res = await fetch('http://localhost:5000/api/users/template', {
-              headers: { 'Authorization': `Bearer ${token}` }
-          });
-          if (!res.ok) throw new Error();
-          
-          const blob = await res.blob();
-          const url = window.URL.createObjectURL(blob);
+          const res = await api.get('/users/template', { responseType: 'blob' });
+          const url = window.URL.createObjectURL(res.data);
           const link = document.createElement('a');
-          
-          link.style.display = 'none';
-          link.href = url;
-          link.download = 'Lumeo_Template.xlsx'; 
-          
-          document.body.appendChild(link);
-          link.click();
-          
-          setTimeout(() => {
-              document.body.removeChild(link);
-              window.URL.revokeObjectURL(url);
-          }, 100);
-
-          // ❌ Мы убрали closeModal() отсюда! Теперь модалка остается открытой как шпаргалка.
-      } catch (e) {
-          alert('Ошибка при скачивании шаблона');
-      }
+          link.style.display = 'none'; link.href = url; link.download = 'Lumeo_Template.xlsx'; 
+          document.body.appendChild(link); link.click();
+          setTimeout(() => { document.body.removeChild(link); window.URL.revokeObjectURL(url); }, 100);
+      } catch (e) { alert('Ошибка при скачивании шаблона'); }
   };
 
   // --- ВЫГРУЗКА БАЗЫ (ЭКСПОРТ) ---
   const handleExportUsers = async () => {
       try {
-          const token = localStorage.getItem('lumeo_token');
-          const res = await fetch('http://localhost:5000/api/users/export', {
-              headers: { 'Authorization': `Bearer ${token}` }
-          });
-          if (!res.ok) throw new Error();
-          
-          const blob = await res.blob();
-          const url = URL.createObjectURL(blob);
+          const res = await api.get('/users/export', { responseType: 'blob' });
+          const url = URL.createObjectURL(res.data);
           const link = document.createElement('a');
-          link.href = url;
-          // Красивое название файла с текущей датой
-          link.setAttribute('download', `Lumeo_Users_${new Date().toISOString().split('T')[0]}.xlsx`);
-          document.body.appendChild(link);
-          link.click();
-          link.remove();
-      } catch (e) {
-          alert('Ошибка при выгрузке базы пользователей');
-      }
+          link.href = url; link.setAttribute('download', `Lumeo_Users_${new Date().toISOString().split('T')[0]}.xlsx`);
+          document.body.appendChild(link); link.click(); link.remove();
+      } catch (e) { alert('Ошибка при выгрузке базы пользователей'); }
   };
 
   const handleQuickAction = async (endpoint: string, actionName: string) => {
       if (!window.confirm(`Вы уверены, что хотите: ${actionName}?`)) return;
       setIsActionExecuting(true);
       try {
-          const token = localStorage.getItem('lumeo_token');
-          const res = await fetch(`http://localhost:5000/api/admin/${endpoint}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
-          if (!res.ok) throw new Error();
-          alert(`✅ Успешно: ${actionName}`);
-          fetchSystemData();
+          await api.post(`/admin/${endpoint}`);
+          alert(`✅ Успешно: ${actionName}`); fetchSystemData();
       } catch (e) { alert(`❌ Ошибка выполнения.`); } 
       finally { setIsActionExecuting(false); }
   };
@@ -430,6 +349,9 @@ export const AdminPage = () => {
                 </button>
                 <button className={`admin-tab ${activeTab === 'users' ? 'active' : ''}`} onClick={() => setActiveTab('users')}>
                     <Icons.Users /> База пользователей
+                </button>
+                <button className={`admin-tab ${activeTab === 'integrations' ? 'active' : ''}`} onClick={() => setActiveTab('integrations')}>
+                    <Icons.LinkIcon /> Интеграции (SSO)
                 </button>
                 {/* Вкладка заявок появляется ТОЛЬКО если модерация включена */}
                 {requiresApproval && (
@@ -731,7 +653,69 @@ export const AdminPage = () => {
                     )}
                 </div>
             )}
+            {/* ==================== ВКЛАДКА 4: ИНТЕГРАЦИИ SSO ==================== */}
+            {activeTab === 'integrations' && (
+                <div className="admin-section">
+                    <div className="section-header">
+                        <h2>Провайдеры аутентификации (Single Sign-On)</h2>
+                        <button className="btn btn-primary" onClick={() => alert('Магазин плагинов недоступен в демо-версии')}><Icons.Plus /> Добавить провайдер</button>
+                    </div>
+                    
+                    <div className="section-body">
+                        <div className="integrations-grid">
+                            
+                            {/* Карточка SAML */}
+                            <div className="integration-card active">
+                                <div className="int-header">
+                                    <div className="int-icon saml"><Icons.Shield /></div>
+                                    <div className="int-status"><span className="pulse-dot"></span> Активен</div>
+                                </div>
+                                <h3>SAML 2.0 (Active Directory)</h3>
+                                <p>Корпоративная аутентификация через Microsoft ADFS или Keycloak.</p>
+                                <div className="int-meta">
+                                    <span>Урл: sso.lumeo.edu/saml</span>
+                                </div>
+                                <div className="int-actions">
+                                    <button className="btn btn-secondary" style={{width: '100%'}} onClick={() => alert('Открытие настроек SAML...')}>Настроить</button>
+                                </div>
+                            </div>
 
+                            {/* Карточка LDAP */}
+                            <div className="integration-card">
+                                <div className="int-header">
+                                    <div className="int-icon ldap"><Icons.Database /></div>
+                                    <div className="int-status disabled">Отключен</div>
+                                </div>
+                                <h3>LDAP / OpenLDAP</h3>
+                                <p>Прямое подключение к серверу каталогов для синхронизации студентов.</p>
+                                <div className="int-meta">
+                                    <span>Сервер: ldap://10.0.0.5:389</span>
+                                </div>
+                                <div className="int-actions">
+                                    <button className="btn btn-primary" style={{width: '100%'}}>Включить</button>
+                                </div>
+                            </div>
+
+                            {/* Карточка OpenID */}
+                            <div className="integration-card">
+                                <div className="int-header">
+                                    <div className="int-icon openid"><Icons.Globe /></div>
+                                    <div className="int-status disabled">Отключен</div>
+                                </div>
+                                <h3>OpenID Connect (OAuth2)</h3>
+                                <p>Вход через внешние сервисы: Яндекс ID, Госуслуги, Google Workspace.</p>
+                                <div className="int-meta">
+                                    <span>Провайдеров: 0</span>
+                                </div>
+                                <div className="int-actions">
+                                    <button className="btn btn-primary" style={{width: '100%'}}>Включить</button>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            )}
         </main>
       </div>
     </div>

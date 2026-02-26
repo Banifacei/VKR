@@ -1,13 +1,6 @@
 import api from './axiosInstance';
 import type { IVideo, IInteractiveEvent, ICourse } from '../types';
 
-const API_URL = 'http://localhost:5000/api/videos';
-const UPLOAD_URL = 'http://localhost:5000/api/upload';
-
-const getAuthHeaders = () => {
-    const token = localStorage.getItem('lumeo_token');
-    return token ? { Authorization: `Bearer ${token}` } : {};
-};
 export const getVideos = async (): Promise<IVideo[]> => {
     try {
         const response = await api.get('/videos');
