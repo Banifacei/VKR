@@ -55,7 +55,11 @@ export const AdminPage = () => {
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
   const [userForm, setUserForm] = useState({ firstName: '', lastName: '', email: '', role: 'student', password: '' });
   const [isSaving, setIsSaving] = useState(false);
-
+  const [systemSettings, setSystemSettings] = useState<any>({}); // 🔥 Все настройки с бэкенда
+  
+  // 🔥 Стэйты для модалки LDAP
+  const [showLdapModal, setShowLdapModal] = useState(false);
+  const [ldapForm, setLdapForm] = useState({ enabled: false, url: '', searchBase: '' });
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // 🔥 ВОССТАНОВЛЕННЫЕ ПЛАГИНЫ
@@ -76,7 +80,33 @@ export const AdminPage = () => {
           setStorageData(storageRes.data);
           setSystemLogs(logsRes.data);
           setRequiresApproval(settingsRes.data.registration_requires_approval);
+          setSystemSettings(settingsRes.data); // 🔥 Сохраняем все настройки в стэйт
       } catch (e) { console.error('Ошибка загрузки статических данных системы'); }
+  };
+
+  const openLdapModal = () => {
+      setLdapForm({
+          enabled: systemSettings.ldap_enabled === true || systemSettings.ldap_enabled === 'true',
+          url: systemSettings.ldap_url || 'ldap://ldap.forumsys.com:389',
+          searchBase: systemSettings.ldap_search_base || 'dc=example,dc=com'
+      });
+      setShowLdapModal(true);
+  };
+
+  const handleSaveLdap = async () => {
+      setIsSaving(true);
+      try {
+          await api.post('/admin/settings/toggle', { key: 'ldap_enabled', value: String(ldapForm.enabled) });
+          await api.post('/admin/settings/toggle', { key: 'ldap_url', value: ldapForm.url });
+          await api.post('/admin/settings/toggle', { key: 'ldap_search_base', value: ldapForm.searchBase });
+          alert('Настройки LDAP успешно сохранены!');
+          setShowLdapModal(false);
+          fetchSystemData(); // Обновляем данные на странице
+      } catch (e) {
+          alert('Ошибка при сохранении настроек LDAP');
+      } finally {
+          setIsSaving(false);
+      }
   };
 
   const fetchLiveServerStats = async () => {
@@ -308,7 +338,45 @@ export const AdminPage = () => {
               </div>
           </div>
       )}
-
+        {/* МОДАЛЬНОЕ ОКНО LDAP */}
+      {showLdapModal && (
+          <div className="modal-overlay">
+              <div className="modal-content">
+                  <div className="modal-header">
+                      <h3>Настройки LDAP / Active Directory</h3>
+                      <button className="btn-icon" onClick={() => setShowLdapModal(false)}><Icons.Close /></button>
+                  </div>
+                  <div className="modal-body">
+                      <div className="form-group" style={{ marginBottom: '20px' }}>
+                          <label className="lumeo-switch" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: '10px' }}>
+                              <input type="checkbox" checked={ldapForm.enabled} onChange={e => setLdapForm({...ldapForm, enabled: e.target.checked})} />
+                              <span className="slider round"></span>
+                          </label>
+                          <strong style={{ color: ldapForm.enabled ? '#00ff88' : '#888', verticalAlign: 'middle' }}>
+                              {ldapForm.enabled ? 'Интеграция ВКЛЮЧЕНА' : 'Интеграция ОТКЛЮЧЕНА'}
+                          </strong>
+                      </div>
+                      <div className="form-group">
+                          <label>URL сервера (LDAP URL)</label>
+                          <input className="modern-input" placeholder="ldap://10.0.0.5:389" value={ldapForm.url} onChange={e => setLdapForm({...ldapForm, url: e.target.value})} />
+                      </div>
+                      <div className="form-group">
+                          <label>База поиска (Search Base)</label>
+                          <input className="modern-input" placeholder="dc=example,dc=com" value={ldapForm.searchBase} onChange={e => setLdapForm({...ldapForm, searchBase: e.target.value})} />
+                      </div>
+                      <p style={{fontSize: '12px', color: '#888', marginTop: '10px'}}>
+                          *Для тестирования по умолчанию подставлен публичный сервер Forumsys.
+                      </p>
+                  </div>
+                  <div className="modal-footer">
+                      <button className="btn btn-secondary" onClick={() => setShowLdapModal(false)}>Отмена</button>
+                      <button className="btn btn-primary" onClick={handleSaveLdap} disabled={isSaving}>
+                          {isSaving ? 'Сохранение...' : 'Сохранить настройки'}
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
       {/* ШАПКА */}
       <header className="lumeo-header">
           <div className="logo-group">
@@ -681,18 +749,26 @@ export const AdminPage = () => {
                             </div>
 
                             {/* Карточка LDAP */}
-                            <div className="integration-card">
+                            <div className={`integration-card ${systemSettings.ldap_enabled === 'true' || systemSettings.ldap_enabled === true ? 'active' : ''}`}>
                                 <div className="int-header">
                                     <div className="int-icon ldap"><Icons.Database /></div>
-                                    <div className="int-status disabled">Отключен</div>
+                                    <div className={`int-status ${systemSettings.ldap_enabled === 'true' || systemSettings.ldap_enabled === true ? '' : 'disabled'}`}>
+                                        {systemSettings.ldap_enabled === 'true' || systemSettings.ldap_enabled === true ? <><span className="pulse-dot"></span> Активен</> : 'Отключен'}
+                                    </div>
                                 </div>
                                 <h3>LDAP / OpenLDAP</h3>
                                 <p>Прямое подключение к серверу каталогов для синхронизации студентов.</p>
                                 <div className="int-meta">
-                                    <span>Сервер: ldap://10.0.0.5:389</span>
+                                    <span>Сервер: {systemSettings.ldap_url || 'Не настроен'}</span>
                                 </div>
                                 <div className="int-actions">
-                                    <button className="btn btn-primary" style={{width: '100%'}}>Включить</button>
+                                    <button 
+                                        className={systemSettings.ldap_enabled === 'true' || systemSettings.ldap_enabled === true ? "btn btn-secondary" : "btn btn-primary"} 
+                                        style={{width: '100%'}} 
+                                        onClick={openLdapModal}
+                                    >
+                                        Настроить
+                                    </button>
                                 </div>
                             </div>
 
