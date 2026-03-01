@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import passport from 'passport';
-import { register, login, updateProfile, getMe, yandexLoginRedirect, yandexCallback, getAuthSettings } from '../controllers/authController.js';
+import { register, login, updateProfile, getMe, yandexLoginRedirect, yandexCallback, getAuthSettings, googleLoginRedirect, googleCallback } from '../controllers/authController.js';
 import { checkAuth } from '../middleware/authMiddleware.js';
 
 const router = Router();
@@ -13,4 +13,6 @@ router.put('/update', updateProfile);
 router.get('/me', checkAuth, getMe);
 router.get('/yandex', yandexLoginRedirect);
 router.get('/yandex/callback', yandexCallback);
+router.get('/google', googleLoginRedirect);
+router.get('/google/callback', googleCallback);
 export default router;

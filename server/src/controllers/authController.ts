@@ -255,12 +255,13 @@ export const getMe = async (req: Request, res: Response) => {
 export const getAuthSettings = async (req: Request, res: Response) => {
     try {
         const yandexSetting = await SystemSetting.findOne({ where: { key: 'yandex_enabled' } });
-        
+        const googleSetting = await SystemSetting.findOne({ where: { key: 'google_enabled' } }); // 🔥 Добавили Google
         // 🔥 Убрали сравнение с логическим true, оставили только строку
         const isYandexEnabled = yandexSetting?.value === 'true';
         
         res.json({
-            yandex: isYandexEnabled,
+            yandex: yandexSetting?.value === 'true',
+            google: googleSetting?.value === 'true', // 🔥 Добавили Google
         });
     } catch (error) {
         console.error("Ошибка при получении настроек авторизации:", error);
@@ -311,8 +312,14 @@ export const yandexCallback = async (req: Request, res: Response) => {
         });
         const profile = await profileRes.json();
 
+        // Ищем или создаем пользователя в Lumeo
         const email = profile.default_email || profile.emails?.[0] || `${profile.login}@yandex.ru`;
         let user = await User.findOne({ where: { email } });
+
+        // Формируем ссылку на аватар из Яндекса
+        const yandexAvatar = (!profile.is_avatar_empty && profile.default_avatar_id) 
+            ? `https://avatars.yandex.net/get-yapic/${profile.default_avatar_id}/islands-200` 
+            : null;
 
         if (!user) {
             const salt = await bcrypt.genSalt(10);
@@ -325,9 +332,14 @@ export const yandexCallback = async (req: Request, res: Response) => {
                 role: 'student',
                 status: 'active',
                 password: randomPassword,
-                avatarUrl: profile.is_avatar_empty ? null : `https://avatars.yandex.net/get-yapic/${profile.default_avatar_id}/islands-200`
+                avatarUrl: yandexAvatar // Присваиваем при создании
             });
             addSystemLog(`Создан профиль через Яндекс (Динамический): ${email}`, 'success');
+        } else {
+            // 🔥 ФИКС: Если юзер уже есть, но аватарки в Lumeo нет — забираем с Яндекса!
+            if (yandexAvatar && !user.avatarUrl) {
+                user.avatarUrl = yandexAvatar;
+            }
         }
 
         user.lastLogin = new Date();
@@ -339,6 +351,93 @@ export const yandexCallback = async (req: Request, res: Response) => {
         res.redirect(`http://localhost:5173/auth?token=${jwtToken}`);
     } catch (error) {
         console.error('Ошибка Yandex OAuth:', error);
+        res.redirect('http://localhost:5173/auth?error=server_error');
+    }
+};
+// ==================== GOOGLE OAUTH ====================
+
+// --- РЕДИРЕКТ НА GOOGLE ---
+export const googleLoginRedirect = async (req: Request, res: Response) => {
+    const clientId = await SystemSetting.findOne({ where: { key: 'google_client_id' } });
+    
+    if (!clientId || !clientId.value) {
+        return res.status(500).send('Авторизация через Google не настроена администратором.');
+    }
+
+    const redirectUri = 'http://localhost:5001/api/auth/google/callback';
+    // scope=email profile - это то, что мы просили в настройках Google
+    const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId.value}&redirect_uri=${redirectUri}&response_type=code&scope=email profile`;
+    
+    res.redirect(url);
+};
+
+// --- КОЛЛБЭК GOOGLE ---
+export const googleCallback = async (req: Request, res: Response) => {
+    try {
+        const code = req.query.code as string;
+        if (!code) return res.redirect('http://localhost:5173/auth?error=google_rejected');
+
+        const clientId = await SystemSetting.findOne({ where: { key: 'google_client_id' } });
+        const clientSecret = await SystemSetting.findOne({ where: { key: 'google_client_secret' } });
+        const redirectUri = 'http://localhost:5001/api/auth/google/callback';
+
+        // 1. Меняем код на токен
+        const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                grant_type: 'authorization_code',
+                code: code,
+                client_id: clientId?.value || '',
+                client_secret: clientSecret?.value || '',
+                redirect_uri: redirectUri // Google строго требует передавать URI и здесь тоже!
+            }).toString()
+        });
+        const tokenData = await tokenRes.json();
+
+        if (!tokenData.access_token) return res.redirect('http://localhost:5173/auth?error=token_failed');
+
+        // 2. Получаем профиль
+        const profileRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+            headers: { Authorization: `Bearer ${tokenData.access_token}` }
+        });
+        const profile = await profileRes.json();
+
+        // 3. Ищем или создаем пользователя
+        const email = profile.email;
+        if (!email) return res.redirect('http://localhost:5173/auth?error=no_email');
+
+        let user = await User.findOne({ where: { email } });
+        const googleAvatar = profile.picture || null;
+
+        if (!user) {
+            const salt = await bcrypt.genSalt(10);
+            const randomPassword = await bcrypt.hash(Math.random().toString(36).slice(-10), salt);
+
+            user = await User.create({
+                email,
+                firstName: profile.given_name || 'Студент',
+                lastName: profile.family_name || '',
+                role: 'student',
+                status: 'active',
+                password: randomPassword,
+                avatarUrl: googleAvatar
+            });
+            addSystemLog(`Создан профиль через Google: ${email}`, 'success');
+        } else {
+            // Обновляем аватарку, если её нет
+            if (googleAvatar && !user.avatarUrl) {
+                user.avatarUrl = googleAvatar;
+            }
+        }
+
+        user.lastLogin = new Date();
+        await user.save();
+        
+        const jwtToken = jwt.sign({ id: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET || 'lumeo_super_secret_2024', { expiresIn: '7d' });
+        res.redirect(`http://localhost:5173/auth?token=${jwtToken}`);
+    } catch (error) {
+        console.error('Ошибка Google OAuth:', error);
         res.redirect('http://localhost:5173/auth?error=server_error');
     }
 };

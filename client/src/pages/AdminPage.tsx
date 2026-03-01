@@ -47,7 +47,8 @@ export const AdminPage = () => {
   const [serverStats, setServerStats] = useState({ cpu: 0, ram: 0, connections: 0, uptime: '...' });
   const [isActionExecuting, setIsActionExecuting] = useState(false);
   const [logFilter, setLogFilter] = useState<'all' | 'info' | 'success' | 'warning' | 'error'>('all');
-  
+  const [showGoogleModal, setShowGoogleModal] = useState(false);
+  const [googleForm, setGoogleForm] = useState({ enabled: false, clientId: '', clientSecret: '' });
   const [requiresApproval, setRequiresApproval] = useState(false);
 
   const [modalMode, setModalMode] = useState<'add' | 'edit' | 'template' | null>(null);
@@ -135,6 +136,30 @@ export const AdminPage = () => {
       }
   };
 
+  const openGoogleModal = () => {
+      setGoogleForm({
+          enabled: systemSettings.google_enabled === 'true' || systemSettings.google_enabled === true,
+          clientId: systemSettings.google_client_id || '',
+          clientSecret: systemSettings.google_client_secret || ''
+      });
+      setShowGoogleModal(true);
+  };
+
+  const handleSaveGoogle = async () => {
+      setIsSaving(true);
+      try {
+          await api.post('/admin/settings/toggle', { key: 'google_enabled', value: String(googleForm.enabled) });
+          await api.post('/admin/settings/toggle', { key: 'google_client_id', value: googleForm.clientId });
+          await api.post('/admin/settings/toggle', { key: 'google_client_secret', value: googleForm.clientSecret });
+          alert('Настройки Google успешно сохранены!');
+          setShowGoogleModal(false);
+          fetchSystemData(); 
+      } catch (e) {
+          alert('Ошибка при сохранении настроек Google');
+      } finally {
+          setIsSaving(false);
+      }
+  };
   const fetchLiveServerStats = async () => {
       try {
           const res = await api.get('/admin/server-stats');
@@ -439,6 +464,43 @@ export const AdminPage = () => {
               </div>
           </div>
       )}
+      {/* МОДАЛЬНОЕ ОКНО GOOGLE */}
+      {showGoogleModal && (
+          <div className="modal-overlay">
+              <div className="modal-content">
+                  <div className="modal-header">
+                      <h3>Настройки OpenID: Google Workspace</h3>
+                      <button className="btn-icon" onClick={() => setShowGoogleModal(false)}><Icons.Close /></button>
+                  </div>
+                  <div className="modal-body">
+                      <div className="form-group" style={{ marginBottom: '20px' }}>
+                          <label className="lumeo-switch" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: '10px' }}>
+                              <input type="checkbox" checked={googleForm.enabled} onChange={e => setGoogleForm({...googleForm, enabled: e.target.checked})} />
+                              <span className="slider round"></span>
+                          </label>
+                          <strong style={{ color: googleForm.enabled ? '#00ff88' : '#888', verticalAlign: 'middle' }}>
+                              {googleForm.enabled ? 'Интеграция ВКЛЮЧЕНА' : 'Интеграция ОТКЛЮЧЕНА'}
+                          </strong>
+                      </div>
+                      <div className="form-group">
+                          <label>Client ID</label>
+                          <input className="modern-input" placeholder="Идентификатор клиента Google" value={googleForm.clientId} onChange={e => setGoogleForm({...googleForm, clientId: e.target.value})} />
+                      </div>
+                      <div className="form-group">
+                          <label>Client Secret</label>
+                          <input className="modern-input" type="password" placeholder="Секрет клиента" value={googleForm.clientSecret} onChange={e => setGoogleForm({...googleForm, clientSecret: e.target.value})} />
+                      </div>
+                  </div>
+                  <div className="modal-footer">
+                      <button className="btn btn-secondary" onClick={() => setShowGoogleModal(false)}>Отмена</button>
+                      <button className="btn btn-primary" onClick={handleSaveGoogle} disabled={isSaving}>
+                          {isSaving ? 'Сохранение...' : 'Сохранить настройки'}
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+      
       {/* ШАПКА */}
       <header className="lumeo-header">
           <div className="logo-group">
@@ -855,6 +917,28 @@ export const AdminPage = () => {
                                 </div>
                             </div>
 
+                            {/* Карточка Google */}
+                            <div className={`integration-card ${systemSettings.google_enabled === 'true' || systemSettings.google_enabled === true ? 'active' : ''}`}>
+                                <div className="int-header">
+                                    <div className="int-icon openid" style={{background: 'rgba(66, 133, 244, 0.2)', color: '#4285F4'}}>
+                                        <Icons.Globe /> 
+                                    </div>
+                                    <div className={`int-status ${systemSettings.google_enabled === 'true' || systemSettings.google_enabled === true ? '' : 'disabled'}`}>
+                                        {systemSettings.google_enabled === 'true' || systemSettings.google_enabled === true ? <><span className="pulse-dot"></span> Активен</> : 'Отключен'}
+                                    </div>
+                                </div>
+                                <h3>Google Workspace</h3>
+                                <p>Вход через аккаунт Google (OpenID Connect).</p>
+                                <div className="int-actions">
+                                    <button 
+                                        className={systemSettings.google_enabled === 'true' || systemSettings.google_enabled === true ? "btn btn-secondary" : "btn btn-primary"} 
+                                        style={{width: '100%'}} 
+                                        onClick={openGoogleModal}
+                                    >
+                                        Настроить
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
