@@ -56,7 +56,8 @@ export const AdminPage = () => {
   const [userForm, setUserForm] = useState({ firstName: '', lastName: '', email: '', role: 'student', password: '' });
   const [isSaving, setIsSaving] = useState(false);
   const [systemSettings, setSystemSettings] = useState<any>({}); // 🔥 Все настройки с бэкенда
-  
+  const [showYandexModal, setShowYandexModal] = useState(false);
+  const [yandexForm, setYandexForm] = useState({ enabled: false, clientId: '', clientSecret: '' });
   // 🔥 Стэйты для модалки LDAP
   const [showLdapModal, setShowLdapModal] = useState(false);
   const [ldapForm, setLdapForm] = useState({ enabled: false, url: '', searchBase: '' });
@@ -104,6 +105,31 @@ export const AdminPage = () => {
           fetchSystemData(); // Обновляем данные на странице
       } catch (e) {
           alert('Ошибка при сохранении настроек LDAP');
+      } finally {
+          setIsSaving(false);
+      }
+  };
+
+  const openYandexModal = () => {
+      setYandexForm({
+          enabled: systemSettings.yandex_enabled === 'true' || systemSettings.yandex_enabled === true,
+          clientId: systemSettings.yandex_client_id || '',
+          clientSecret: systemSettings.yandex_client_secret || ''
+      });
+      setShowYandexModal(true);
+  };
+
+  const handleSaveYandex = async () => {
+      setIsSaving(true);
+      try {
+          await api.post('/admin/settings/toggle', { key: 'yandex_enabled', value: String(yandexForm.enabled) });
+          await api.post('/admin/settings/toggle', { key: 'yandex_client_id', value: yandexForm.clientId });
+          await api.post('/admin/settings/toggle', { key: 'yandex_client_secret', value: yandexForm.clientSecret });
+          alert('Настройки Yandex ID успешно сохранены!');
+          setShowYandexModal(false);
+          fetchSystemData(); 
+      } catch (e) {
+          alert('Ошибка при сохранении настроек Яндекс');
       } finally {
           setIsSaving(false);
       }
@@ -371,6 +397,42 @@ export const AdminPage = () => {
                   <div className="modal-footer">
                       <button className="btn btn-secondary" onClick={() => setShowLdapModal(false)}>Отмена</button>
                       <button className="btn btn-primary" onClick={handleSaveLdap} disabled={isSaving}>
+                          {isSaving ? 'Сохранение...' : 'Сохранить настройки'}
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+      {/* МОДАЛЬНОЕ ОКНО YANDEX */}
+      {showYandexModal && (
+          <div className="modal-overlay">
+              <div className="modal-content">
+                  <div className="modal-header">
+                      <h3>Настройки OpenID: Yandex ID</h3>
+                      <button className="btn-icon" onClick={() => setShowYandexModal(false)}><Icons.Close /></button>
+                  </div>
+                  <div className="modal-body">
+                      <div className="form-group" style={{ marginBottom: '20px' }}>
+                          <label className="lumeo-switch" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: '10px' }}>
+                              <input type="checkbox" checked={yandexForm.enabled} onChange={e => setYandexForm({...yandexForm, enabled: e.target.checked})} />
+                              <span className="slider round"></span>
+                          </label>
+                          <strong style={{ color: yandexForm.enabled ? '#00ff88' : '#888', verticalAlign: 'middle' }}>
+                              {yandexForm.enabled ? 'Интеграция ВКЛЮЧЕНА' : 'Интеграция ОТКЛЮЧЕНА'}
+                          </strong>
+                      </div>
+                      <div className="form-group">
+                          <label>Client ID</label>
+                          <input className="modern-input" placeholder="ID приложения Яндекса" value={yandexForm.clientId} onChange={e => setYandexForm({...yandexForm, clientId: e.target.value})} />
+                      </div>
+                      <div className="form-group">
+                          <label>Client Secret (Пароль)</label>
+                          <input className="modern-input" type="password" placeholder="Секретный ключ" value={yandexForm.clientSecret} onChange={e => setYandexForm({...yandexForm, clientSecret: e.target.value})} />
+                      </div>
+                  </div>
+                  <div className="modal-footer">
+                      <button className="btn btn-secondary" onClick={() => setShowYandexModal(false)}>Отмена</button>
+                      <button className="btn btn-primary" onClick={handleSaveYandex} disabled={isSaving}>
                           {isSaving ? 'Сохранение...' : 'Сохранить настройки'}
                       </button>
                   </div>
@@ -772,19 +834,24 @@ export const AdminPage = () => {
                                 </div>
                             </div>
 
-                            {/* Карточка OpenID */}
-                            <div className="integration-card">
+                            {/* Карточка OpenID (Яндекс) */}
+                            <div className={`integration-card ${systemSettings.yandex_enabled === 'true' || systemSettings.yandex_enabled === true ? 'active' : ''}`}>
                                 <div className="int-header">
                                     <div className="int-icon openid"><Icons.Globe /></div>
-                                    <div className="int-status disabled">Отключен</div>
+                                    <div className={`int-status ${systemSettings.yandex_enabled === 'true' || systemSettings.yandex_enabled === true ? '' : 'disabled'}`}>
+                                        {systemSettings.yandex_enabled === 'true' || systemSettings.yandex_enabled === true ? <><span className="pulse-dot"></span> Активен</> : 'Отключен'}
+                                    </div>
                                 </div>
-                                <h3>OpenID Connect (OAuth2)</h3>
-                                <p>Вход через внешние сервисы: Яндекс ID, Госуслуги, Google Workspace.</p>
-                                <div className="int-meta">
-                                    <span>Провайдеров: 0</span>
-                                </div>
+                                <h3>Yandex ID (OpenID Connect)</h3>
+                                <p>Вход через аккаунт Яндекса (поддерживается автоматическое создание профиля).</p>
                                 <div className="int-actions">
-                                    <button className="btn btn-primary" style={{width: '100%'}}>Включить</button>
+                                    <button 
+                                        className={systemSettings.yandex_enabled === 'true' || systemSettings.yandex_enabled === true ? "btn btn-secondary" : "btn btn-primary"} 
+                                        style={{width: '100%'}} 
+                                        onClick={openYandexModal}
+                                    >
+                                        Настроить
+                                    </button>
                                 </div>
                             </div>
 

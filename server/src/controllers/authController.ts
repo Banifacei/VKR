@@ -6,7 +6,6 @@ import { User } from '../models/User.js';
 import { SystemSetting } from '../models/SystemSetting.js';
 import { addSystemLog } from './adminController.js';
 import LdapAuth from 'ldapauth-fork';
-
 const JWT_SECRET = process.env.JWT_SECRET || 'lumeo_super_secret_2024';
 
 export const register = async (req: Request, res: Response) => {
@@ -249,5 +248,97 @@ export const getMe = async (req: Request, res: Response) => {
         });
     } catch (e) {
         res.status(500).json({ message: 'Ошибка сервера' });
+    }
+};
+
+// --- 1. ОТДАЕМ НАСТРОЙКИ ДЛЯ КНОПКИ НА ФРОНТЕНДЕ ---
+export const getAuthSettings = async (req: Request, res: Response) => {
+    try {
+        const yandexSetting = await SystemSetting.findOne({ where: { key: 'yandex_enabled' } });
+        
+        // 🔥 Убрали сравнение с логическим true, оставили только строку
+        const isYandexEnabled = yandexSetting?.value === 'true';
+        
+        res.json({
+            yandex: isYandexEnabled,
+        });
+    } catch (error) {
+        console.error("Ошибка при получении настроек авторизации:", error);
+        res.status(500).json({ message: 'Ошибка сервера' });
+    }
+};
+
+// --- 2. ДИНАМИЧЕСКИЙ РЕДИРЕКТ НА ЯНДЕКС ---
+export const yandexLoginRedirect = async (req: Request, res: Response) => {
+    const clientId = await SystemSetting.findOne({ where: { key: 'yandex_client_id' } });
+    
+    if (!clientId || !clientId.value) {
+        return res.status(500).send('Авторизация через Яндекс не настроена администратором.');
+    }
+
+    // 🔥 ВОТ ОН, НАШ РОДНОЙ LOCALHOST!
+    const redirectUri = 'http://localhost:5001/api/auth/yandex/callback';
+    const url = `https://oauth.yandex.ru/authorize?response_type=code&client_id=${clientId.value}&redirect_uri=${redirectUri}`;
+    
+    res.redirect(url);
+};
+
+// --- 3. ЧИСТЫЙ КОЛЛБЭК С ЧТЕНИЕМ ИЗ БД ---
+export const yandexCallback = async (req: Request, res: Response) => {
+    try {
+        const code = req.query.code as string;
+        if (!code) return res.redirect('http://localhost:5173/auth?error=yandex_rejected');
+
+        const clientId = await SystemSetting.findOne({ where: { key: 'yandex_client_id' } });
+        const clientSecret = await SystemSetting.findOne({ where: { key: 'yandex_client_secret' } });
+
+        const tokenRes = await fetch('https://oauth.yandex.ru/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                grant_type: 'authorization_code',
+                code: code,
+                client_id: clientId?.value || '',
+                client_secret: clientSecret?.value || ''
+            }).toString()
+        });
+        const tokenData = await tokenRes.json();
+
+        if (!tokenData.access_token) return res.redirect('http://localhost:5173/auth?error=token_failed');
+
+        const profileRes = await fetch('https://login.yandex.ru/info?format=json', {
+            headers: { Authorization: `OAuth ${tokenData.access_token}` }
+        });
+        const profile = await profileRes.json();
+
+        const email = profile.default_email || profile.emails?.[0] || `${profile.login}@yandex.ru`;
+        let user = await User.findOne({ where: { email } });
+
+        if (!user) {
+            const salt = await bcrypt.genSalt(10);
+            const randomPassword = await bcrypt.hash(Math.random().toString(36).slice(-10), salt);
+
+            user = await User.create({
+                email,
+                firstName: profile.first_name || profile.real_name || 'Студент',
+                lastName: profile.last_name || '',
+                role: 'student',
+                status: 'active',
+                password: randomPassword,
+                avatarUrl: profile.is_avatar_empty ? null : `https://avatars.yandex.net/get-yapic/${profile.default_avatar_id}/islands-200`
+            });
+            addSystemLog(`Создан профиль через Яндекс (Динамический): ${email}`, 'success');
+        }
+
+        user.lastLogin = new Date();
+        await user.save();
+        
+        const jwtToken = jwt.sign({ id: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET || 'lumeo_super_secret_2024', { expiresIn: '7d' });
+        
+        // 🔥 И ТУТ ТОЖЕ LOCALHOST!
+        res.redirect(`http://localhost:5173/auth?token=${jwtToken}`);
+    } catch (error) {
+        console.error('Ошибка Yandex OAuth:', error);
+        res.redirect('http://localhost:5173/auth?error=server_error');
     }
 };

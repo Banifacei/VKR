@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import './AuthPage.css';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axiosInstance';
@@ -14,8 +14,17 @@ const Icons = {
 };
 
 export const AuthPage = () => {
+    const [authProviders, setAuthProviders] = useState({ yandex: false });
+
+    // При открытии страницы спрашиваем бэкенд, какие методы входа разрешены
+    useEffect(() => {
+        api.get('/auth/settings')
+            .then(res => setAuthProviders(res.data))
+            .catch(err => console.error("Ошибка загрузки настроек SSO", err));
+    }, []);
     const [isLogin, setIsLogin] = useState(true);
     const { login } = useAuth();
+    const location = useLocation();
     // Поля регистрации
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
@@ -29,6 +38,45 @@ export const AuthPage = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
     const navigate = useNavigate();
+
+    // 🔥 УМНЫЙ ПЕРЕХВАТЧИК ТОКЕНА ЯНДЕКСА
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const urlToken = params.get('token');
+        const urlError = params.get('error');
+
+        if (urlToken) {
+            console.log("✅ Поймали токен от Яндекса!");
+            
+            // 1. Сохраняем токен под ПРАВИЛЬНЫМ ключом для axios
+            localStorage.setItem('lumeo_token', urlToken);
+            
+            // 2. Сразу запрашиваем профиль юзера с этим токеном
+            api.get('/auth/me', {
+                headers: { Authorization: `Bearer ${urlToken}` }
+            })
+            .then(res => {
+                // 3. Используем твою готовую функцию login из AuthContext!
+                // Она сама положит всё в стейт и localStorage
+                login(urlToken, res.data);
+                // 4. Отправляем в личный кабинет
+                navigate('/');
+            })
+            .catch(err => {
+                console.error("Ошибка при загрузке профиля Яндекса", err);
+                setError('Не удалось завершить вход');
+            });
+
+            // Очищаем URL от мусора
+            window.history.replaceState({}, document.title, location.pathname);
+            return;
+        }
+
+        if (urlError) {
+            setError(`Ошибка входа через сторонний сервис: ${urlError}`);
+            window.history.replaceState({}, document.title, location.pathname);
+        }
+    }, [location, login, navigate]);
 
     const handleSubmit = async () => {
         setError('');
@@ -155,6 +203,15 @@ export const AuthPage = () => {
                                 <button className="sso-btn openid" onClick={() => alert('Интеграция с OpenID (Яндекс/VK/Google) в разработке')} type="button">
                                     <Icons.Globe /> OpenID Connect
                                 </button>
+                                {authProviders.yandex && (
+                                    <button
+                                        className="btn btn-secondary" 
+                                        type="button"
+                                        onClick={() => window.location.href = 'http://localhost:5001/api/auth/yandex'}
+                                    >
+                                        <Icons.Globe /> Войти через Яндекс
+                                    </button>
+                                )}
                             </div>
                         </div>
                     )}

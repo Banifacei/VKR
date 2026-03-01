@@ -17,6 +17,7 @@ import testRoutes from './src/routes/testRoutes.js';
 import adminRoutes from './src/routes/adminRoutes.js';
 import { trackActivityMiddleware, addSystemLog } from './src/controllers/adminController.js';
 import { createDefaultAdmin } from './src/models/initAdmin.js';
+import passport from 'passport';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -44,6 +45,7 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({ storage });
+app.use(passport.initialize());
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(trackActivityMiddleware);
