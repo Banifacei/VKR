@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import './ProfilePage.css'; // Общий макет и сайдбар
 import './HistoryPage.css'; // Стили конкретно истории
 import api from '../api/axiosInstance';
+import { useToast } from '../context/ToastContext';
 const Icons = {
     Play: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>,
     Check: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>,
@@ -19,7 +20,8 @@ export const HistoryPage = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { updateUser } = useAuth();
-    
+    const { showToast } = useToast();
+
     const [userData, setUserData] = useState<any>(() => {
         const saved = localStorage.getItem('lumeo_user');
         try { return saved ? JSON.parse(saved) : {}; } catch (e) { return {}; }
@@ -34,7 +36,10 @@ export const HistoryPage = () => {
                 // 🔥 Умный axios сам передаст токен
                 const res = await api.get('/users/stats');
                 setStats(res.data);
-            } catch (e) { console.error("Ошибка загрузки статистики", e); }
+            } catch (e) { 
+                console.error("Ошибка загрузки статистики", e); 
+                showToast('Ошибка при загрузке статистики', 'error');
+            }
         };
         if (userData.role === 'student') fetchStats();
     }, [userData.role]);

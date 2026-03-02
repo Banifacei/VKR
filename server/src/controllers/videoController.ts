@@ -465,10 +465,7 @@ export const generateSubtitles = async (req: Request, res: Response) => {
 
         const fileName = video.url.split('/').pop();
         if (!fileName) return res.status(400).json({ message: 'Некорректный URL' });
-
-        const protocol = req.protocol;
-        const host = req.get('host');
-
+        const BASE_URL = process.env.API_URL || `${req.protocol}://${req.get('host')}`;
         const uploadsDir = path.join(__dirname, '../../uploads'); 
         const videoPath = path.join(uploadsDir, fileName);
         const tempAudioPath = path.join(uploadsDir, `temp-${Date.now()}.wav`);
@@ -506,7 +503,7 @@ export const generateSubtitles = async (req: Request, res: Response) => {
         worker.on('message', async (msg) => {
             if (msg.status === 'done') {
                 console.log(`[AI WORKER] Готово! Субтитры для видео ${videoId} сгенерированы.`);
-                const vttUrl = `${protocol}://${host}/uploads/${vttFileName}`;
+                const vttUrl = `${BASE_URL}/uploads/${vttFileName}`;
                 
                 const newSubtitle = { lang: 'ru-auto', label: 'Авто (AI)', src: vttUrl };
                 

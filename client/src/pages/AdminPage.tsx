@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { getAllUsers, changeUserRole, updateUser, createUser, deleteUser } from '../api/userApi';
 import type { IAdminUser } from '../api/userApi';
 import api from '../api/axiosInstance';
+import { useToast } from '../context/ToastContext';
 const Icons = {
     Plus: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>,
     Edit: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>,
@@ -35,6 +36,7 @@ const Icons = {
 interface ISystemLog { id: number; time: string; msg: string; type: 'info' | 'success' | 'error' | 'warning'; }
 
 export const AdminPage = () => {
+  const { showToast } = useToast();
   const { user, logout, updateUser: updateContextUser } = useAuth();
   const [showSamlModal, setShowSamlModal] = useState(false);
   const [samlForm, setSamlForm] = useState({ enabled: false, entryPoint: '', cert: '' });
@@ -42,7 +44,7 @@ export const AdminPage = () => {
   const [usersList, setUsersList] = useState<IAdminUser[]>([]);
   const [pendingUsers, setPendingUsers] = useState<any[]>([]); 
   const [loading, setLoading] = useState(true);
-
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
   const [storageData, setStorageData] = useState({ total: 100, video: 0, db: 0, cache: 0 });
   const [systemLogs, setSystemLogs] = useState<ISystemLog[]>([]);
   const [serverStats, setServerStats] = useState({ cpu: 0, ram: 0, connections: 0, uptime: '...' });
@@ -57,10 +59,9 @@ export const AdminPage = () => {
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
   const [userForm, setUserForm] = useState({ firstName: '', lastName: '', email: '', role: 'student', password: '' });
   const [isSaving, setIsSaving] = useState(false);
-  const [systemSettings, setSystemSettings] = useState<any>({}); // 🔥 Все настройки с бэкенда
+  const [systemSettings, setSystemSettings] = useState<any>({});
   const [showYandexModal, setShowYandexModal] = useState(false);
   const [yandexForm, setYandexForm] = useState({ enabled: false, clientId: '', clientSecret: '' });
-  // 🔥 Стэйты для модалки LDAP
   const [showLdapModal, setShowLdapModal] = useState(false);
   const [ldapForm, setLdapForm] = useState({ enabled: false, url: '', searchBase: '' });
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -79,10 +80,10 @@ export const AdminPage = () => {
           await api.post('/admin/settings/toggle', { key: 'saml_enabled', value: String(samlForm.enabled) });
           await api.post('/admin/settings/toggle', { key: 'saml_entry_point', value: samlForm.entryPoint });
           await api.post('/admin/settings/toggle', { key: 'saml_cert', value: samlForm.cert });
-          alert('Настройки SAML успешно сохранены!');
+          showToast('Настройки SAML успешно сохранены!', 'success');
           setShowSamlModal(false);
           fetchSystemData(); 
-      } catch (e) { alert('Ошибка при сохранении SAML'); } 
+      } catch (e) { showToast('Ошибка при сохранении SAML', 'error'); } 
       finally { setIsSaving(false); }
   };
   // 🔥 ВОССТАНОВЛЕННЫЕ ПЛАГИНЫ
@@ -103,7 +104,7 @@ export const AdminPage = () => {
           setStorageData(storageRes.data);
           setSystemLogs(logsRes.data);
           setRequiresApproval(settingsRes.data.registration_requires_approval);
-          setSystemSettings(settingsRes.data); // 🔥 Сохраняем все настройки в стэйт
+          setSystemSettings(settingsRes.data);
       } catch (e) { console.error('Ошибка загрузки статических данных системы'); }
   };
 
@@ -122,11 +123,11 @@ export const AdminPage = () => {
           await api.post('/admin/settings/toggle', { key: 'ldap_enabled', value: String(ldapForm.enabled) });
           await api.post('/admin/settings/toggle', { key: 'ldap_url', value: ldapForm.url });
           await api.post('/admin/settings/toggle', { key: 'ldap_search_base', value: ldapForm.searchBase });
-          alert('Настройки LDAP успешно сохранены!');
+          showToast('Настройки LDAP успешно сохранены!', 'success');
           setShowLdapModal(false);
-          fetchSystemData(); // Обновляем данные на странице
+          fetchSystemData();
       } catch (e) {
-          alert('Ошибка при сохранении настроек LDAP');
+          showToast('Ошибка при сохранении настроек LDAP', 'error');
       } finally {
           setIsSaving(false);
       }
@@ -147,11 +148,11 @@ export const AdminPage = () => {
           await api.post('/admin/settings/toggle', { key: 'yandex_enabled', value: String(yandexForm.enabled) });
           await api.post('/admin/settings/toggle', { key: 'yandex_client_id', value: yandexForm.clientId });
           await api.post('/admin/settings/toggle', { key: 'yandex_client_secret', value: yandexForm.clientSecret });
-          alert('Настройки Yandex ID успешно сохранены!');
+          showToast('Настройки Yandex ID успешно сохранены!', 'success');
           setShowYandexModal(false);
           fetchSystemData(); 
       } catch (e) {
-          alert('Ошибка при сохранении настроек Яндекс');
+          showToast('Ошибка при сохранении настроек Яндекс', 'error');
       } finally {
           setIsSaving(false);
       }
@@ -172,11 +173,11 @@ export const AdminPage = () => {
           await api.post('/admin/settings/toggle', { key: 'google_enabled', value: String(googleForm.enabled) });
           await api.post('/admin/settings/toggle', { key: 'google_client_id', value: googleForm.clientId });
           await api.post('/admin/settings/toggle', { key: 'google_client_secret', value: googleForm.clientSecret });
-          alert('Настройки Google успешно сохранены!');
+          showToast('Настройки Google успешно сохранены!', 'success');
           setShowGoogleModal(false);
           fetchSystemData(); 
       } catch (e) {
-          alert('Ошибка при сохранении настроек Google');
+          showToast('Ошибка при сохранении настроек Google', 'error');
       } finally {
           setIsSaving(false);
       }
@@ -216,8 +217,9 @@ export const AdminPage = () => {
       if (!newValue && activeTab === 'requests') setActiveTab('system');
       try {
           await api.post('/admin/settings/toggle', { key: 'registration_requires_approval', value: newValue });
+          showToast('Настройки модерации обновлены', 'info');
           fetchSystemData(); 
-      } catch (e) { alert('Ошибка переключения настройки'); setRequiresApproval(!newValue); }
+      } catch (e) { showToast('Ошибка переключения настройки', 'error'); setRequiresApproval(!newValue); }
   };
 
   const handleRequestAction = async (id: number, action: 'approve' | 'reject') => {
@@ -225,8 +227,9 @@ export const AdminPage = () => {
           await api.post(`/users/${id}/${action}`);
           setPendingUsers(prev => prev.filter(u => u.id !== id));
           if (action === 'approve') fetchUsers(); 
+          showToast(`Заявка успешно ${action === 'approve' ? 'одобрена' : 'отклонена'}`, 'success');
           fetchSystemData(); 
-      } catch (e) { alert('Ошибка при обработке заявки'); }
+      } catch (e) { showToast('Ошибка при обработке заявки', 'error'); }
   };
   
   const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -237,15 +240,13 @@ export const AdminPage = () => {
       try {
           setIsActionExecuting(true);
           const res = await api.post('/users/import', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-          alert(res.data.message); fetchUsers(); fetchSystemData();
-      } catch (err: any) { alert(err.response?.data?.message || 'Сбой при загрузке файла'); } 
+          showToast(res.data.message || 'Импорт завершен', 'success'); 
+          fetchUsers(); fetchSystemData();
+      } catch (err: any) { showToast(err.response?.data?.message || 'Сбой при загрузке файла', 'error'); } 
       finally { setIsActionExecuting(false); if (fileInputRef.current) fileInputRef.current.value = ''; }
   };
 
-  // --- ЛОГИКА ШАБЛОНА EXCEL ---
-  // --- ЛОГИКА ШАБЛОНА EXCEL ---
   const handleTemplateClick = () => {
-      // 🔥 Теперь ключ уникален для каждого пользователя (например: lumeo_skip_template_3)
       const skipModal = localStorage.getItem(`lumeo_skip_template_${user?.id}`);
       if (skipModal === 'true') {
           downloadExcelTemplate(); 
@@ -263,10 +264,9 @@ export const AdminPage = () => {
           link.style.display = 'none'; link.href = url; link.download = 'Lumeo_Template.xlsx'; 
           document.body.appendChild(link); link.click();
           setTimeout(() => { document.body.removeChild(link); window.URL.revokeObjectURL(url); }, 100);
-      } catch (e) { alert('Ошибка при скачивании шаблона'); }
+      } catch (e) { showToast('Ошибка при скачивании шаблона', 'error'); }
   };
 
-  // --- ВЫГРУЗКА БАЗЫ (ЭКСПОРТ) ---
   const handleExportUsers = async () => {
       try {
           const res = await api.get('/users/export', { responseType: 'blob' });
@@ -274,7 +274,8 @@ export const AdminPage = () => {
           const link = document.createElement('a');
           link.href = url; link.setAttribute('download', `Lumeo_Users_${new Date().toISOString().split('T')[0]}.xlsx`);
           document.body.appendChild(link); link.click(); link.remove();
-      } catch (e) { alert('Ошибка при выгрузке базы пользователей'); }
+          showToast('База успешно выгружена', 'success');
+      } catch (e) { showToast('Ошибка при выгрузке базы пользователей', 'error'); }
   };
 
   const handleQuickAction = async (endpoint: string, actionName: string) => {
@@ -282,8 +283,8 @@ export const AdminPage = () => {
       setIsActionExecuting(true);
       try {
           await api.post(`/admin/${endpoint}`);
-          alert(`✅ Успешно: ${actionName}`); fetchSystemData();
-      } catch (e) { alert(`❌ Ошибка выполнения.`); } 
+          showToast(`Успешно: ${actionName}`, 'success'); fetchSystemData();
+      } catch (e) { showToast(`Ошибка выполнения: ${actionName}`, 'error'); } 
       finally { setIsActionExecuting(false); }
   };
 
@@ -301,15 +302,18 @@ export const AdminPage = () => {
       try {
           const data = await getAllUsers();
           setUsersList(data);
-      } catch (e) { alert('Ошибка при загрузке пользователей'); } 
+      } catch (e) { showToast('Ошибка при загрузке пользователей', 'error'); } 
       finally { setLoading(false); }
   };
 
   const handleRoleChange = async (userId: number, newRole: string) => {
       const oldList = [...usersList];
       setUsersList(prev => prev.map(u => u.id === userId ? { ...u, role: newRole as any } : u));
-      try { await changeUserRole(userId, newRole); } 
-      catch (e) { alert('Не удалось сменить роль'); setUsersList(oldList); }
+      try { 
+          await changeUserRole(userId, newRole);
+          showToast('Роль пользователя изменена', 'info');
+      } 
+      catch (e) { showToast('Не удалось сменить роль', 'error'); setUsersList(oldList); }
   };
 
   const openAddModal = () => { setModalMode('add'); setUserForm({ firstName: '', lastName: '', email: '', role: 'student', password: '' }); };
@@ -320,26 +324,36 @@ export const AdminPage = () => {
       setIsSaving(true);
       try {
           if (modalMode === 'add') {
-              if (!userForm.password || !userForm.email) return alert('Email и пароль обязательны!');
+              if (!userForm.password || !userForm.email) {
+                  showToast('Email и пароль обязательны!', 'error');
+                  return;
+              }
               const newUser = await createUser(userForm);
               setUsersList([newUser, ...usersList]);
-              alert('Пользователь успешно создан!');
+              showToast('Пользователь успешно создан!', 'success');
           } else if (modalMode === 'edit' && editingUserId) {
               await updateUser(editingUserId, userForm);
               setUsersList(prev => prev.map(u => u.id === editingUserId ? { ...u, ...userForm } as IAdminUser : u));
               if (user && user.id === editingUserId) updateContextUser({ firstName: userForm.firstName, lastName: userForm.lastName, email: userForm.email, role: userForm.role });
-              alert('Данные обновлены');
+              showToast('Данные пользователя обновлены', 'success');
           }
           closeModal();
-      } catch (e) { alert('Ошибка при сохранении пользователя'); } 
+      } catch (e) { showToast('Ошибка при сохранении пользователя', 'error'); } 
       finally { setIsSaving(false); }
   };
 
   const handleDeleteUser = async (userId: number, userName: string) => {
-      if (user?.id === userId) return alert('Вы не можете удалить самого себя!');
+      if (user?.id === userId) {
+          showToast('Вы не можете удалить самого себя!', 'error');
+          return;
+      }
       if (!window.confirm(`Вы действительно хотите удалить пользователя ${userName}? Это действие необратимо.`)) return;
-      try { await deleteUser(userId); setUsersList(prev => prev.filter(u => u.id !== userId)); } 
-      catch (e) { alert('Ошибка при удалении пользователя'); }
+      try { 
+          await deleteUser(userId); 
+          setUsersList(prev => prev.filter(u => u.id !== userId));
+          showToast(`Пользователь ${userName} удален`, 'info');
+      } 
+      catch (e) { showToast('Ошибка при удалении пользователя', 'error'); }
   };
 
   const storageTotal = storageData.total || 1; 
@@ -546,7 +560,7 @@ export const AdminPage = () => {
                       </div>
                       <p style={{fontSize: '12px', color: '#888', marginTop: '10px'}}>
                           *Укажите Entity ID (Issuer): <strong>lumeo-web</strong><br/>
-                          *Callback URL (ACS): <strong>http://localhost:5001/api/auth/saml/callback</strong>
+                          *Callback URL (ACS): <strong>{apiUrl}/auth/saml/callback</strong>
                       </p>
                   </div>
                   <div className="modal-footer">
@@ -905,7 +919,7 @@ export const AdminPage = () => {
                 <div className="admin-section">
                     <div className="section-header">
                         <h2>Провайдеры аутентификации (Single Sign-On)</h2>
-                        <button className="btn btn-primary" onClick={() => alert('Магазин плагинов недоступен в демо-версии')}><Icons.Plus /> Добавить провайдер</button>
+                        <button className="btn btn-primary" onClick={() => showToast('Магазин плагинов недоступен в демо-версии', 'info')}><Icons.Plus /> Добавить провайдер</button>
                     </div>
                     
                     <div className="section-body">

@@ -23,7 +23,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 5001;
-
+const BASE_URL = process.env.API_URL || `http://localhost:${PORT}`;
 const uploadDir = path.join(__dirname, 'uploads');
 const avatarDir = path.join(uploadDir, 'avatars');
 [uploadDir, avatarDir].forEach(dir => {
@@ -54,6 +54,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/tests', testRoutes);
 app.use('/api/admin', adminRoutes);
+
 app.post('/api/upload', upload.single('video'), (req: Request, res: Response): void => {
     try {
         if (!req.file) {
@@ -61,9 +62,8 @@ app.post('/api/upload', upload.single('video'), (req: Request, res: Response): v
             return;
         }
         
-        const protocol = req.protocol;
-        const host = req.get('host');
-        const fullUrl = `${protocol}://${host}/uploads/${req.file.filename}`;
+        // 🔥 Формируем динамическую ссылку
+        const fullUrl = `${BASE_URL}/uploads/${req.file.filename}`;
         addSystemLog(`Загружено новое видео: ${req.file.originalname}`, 'info');
         res.json({ url: fullUrl });
     } catch (err) {
@@ -91,9 +91,8 @@ app.post('/api/auth/avatar', upload.single('avatar'), async (req: Request, res: 
             return;
         }
 
-        const protocol = req.protocol;
-        const host = req.get('host');
-        const avatarUrl = `${protocol}://${host}/uploads/avatars/${req.file.filename}`;
+        // 🔥 Формируем динамическую ссылку для аватарки
+        const avatarUrl = `${BASE_URL}/uploads/avatars/${req.file.filename}`;
 
         user.avatarUrl = avatarUrl;
         await user.save();

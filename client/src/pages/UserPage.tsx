@@ -15,6 +15,7 @@ import { AddVideoForm } from '../components/AddVideoForm';
 import { ContentEditorModal } from '../components/ContentEditorModal';
 import './UserPage.css';
 import api from '../api/axiosInstance';
+import { useToast } from '../context/ToastContext';
 // Объединенный тип для плитки
 type DashboardItem = 
     | ({ type: 'video' } & IVideo) 
@@ -91,6 +92,7 @@ const SortableCard = ({ item, idx, isEditMode, completedVideoIds, testResults, o
 
 export const UserPage = () => {
     const { courseId } = useParams();
+    const { showToast } = useToast();
     const [activeDragId, setActiveDragId] = useState<string | null>(null); // Кто сейчас летит?
     const [showAddModal, setShowAddModal] = useState(false);
     const [editorItem, setEditorItem] = useState<DashboardItem | null>(null); // 👈 Стейт для редактора контента
@@ -102,7 +104,10 @@ export const UserPage = () => {
     
     // Создание ТЕСТА
     const handleCreateTest = async () => {
-        if (!newTestData.title.trim()) return alert('Введите название теста!');
+        if (!newTestData.title.trim()) {
+            showToast('Введите название теста!', 'error');
+            return;
+        }
         setIsCreating(true);
         const nextIndex = items.length > 0 ? Math.max(...items.map((i: any) => i.orderIndex || 0)) + 1 : 0;
         try {
@@ -112,7 +117,10 @@ export const UserPage = () => {
             setShowAddModal(false);
             setModalView('select');
             fetchCourseData();
-        } catch (e) { console.error(e); alert('Ошибка при создании теста'); } 
+            showToast('Тест успешно создан!', 'success');
+        } catch (e) { console.error(e);
+             showToast('Ошибка при создании теста', 'error');
+            } 
         finally { setIsCreating(false); }
     };
 
@@ -183,6 +191,7 @@ export const UserPage = () => {
         localStorage.setItem('lumeo_user', JSON.stringify(data));
         setUserData(data);
         setShowAuthModal(false);
+        showToast('Вы успешно вошли!', 'success');
     };
     // Настройки сенсоров для Drag&Drop (чтобы клики не путались с перетаскиванием)
     const sensors = useSensors(
@@ -216,6 +225,7 @@ export const UserPage = () => {
                 console.log("✅ Порядок успешно сохранен в БД!");
             } catch (e) {
                 console.error("❌ Ошибка при сохранении сортировки:", e);
+                showToast('Ошибка при сохранении порядка', 'error');
             } finally {
                 isSavingOrderRef.current = false; // 🔓 Снимаем блокировку
             }
@@ -268,10 +278,11 @@ export const UserPage = () => {
             // 🔥 Чистый axios
             const endpoint = isVideo ? `/videos/${item.id}` : `/tests/${item.id}`;
             await api.delete(endpoint);
+            showToast(`${isVideo ? 'Урок' : 'Тест'} успешно удален`, 'info');
             fetchCourseData(); 
         } catch (e) {
             console.error(e);
-            alert('Сбой сети при удалении');
+            showToast('Сбой сети при удалении', 'error');
         }
     };
     // --- ДИНАМИЧЕСКОЕ ОБНОВЛЕНИЕ СЕТКИ И ПРОГРЕССА (Каждые 10 секунд) ---
@@ -364,7 +375,7 @@ export const UserPage = () => {
                                     onToggleTestMode={handleToggleTestMode}
                                     
                                     // 👇 3. ФУНКЦИИ ДЛЯ СЧЕТЧИКА ПОПЫТОК
-                                    onResetTest={() => alert('Прогресс сброшен')}
+                                    onResetTest={() => showToast('Прогресс сброшен', 'info')}
                                     onRefreshEvents={async () => {
                                         if (!courseId || !activeItem) return []; 
                                         try {

@@ -4,6 +4,7 @@ import { UserProfile } from '../components/UserProfile';
 import { useAuth } from '../context/AuthContext';
 import './ProfilePage.css';
 import api from '../api/axiosInstance';
+import { useToast } from '../context/ToastContext';
 const Icons = {
     Camera: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>,
     User: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
@@ -18,7 +19,7 @@ export const ProfilePage = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { updateUser } = useAuth();
-    
+    const { showToast } = useToast();
     const [userData, setUserData] = useState<any>(() => {
         const saved = localStorage.getItem('lumeo_user');
         try { return saved ? JSON.parse(saved) : {}; } catch (e) { return {}; }
@@ -62,12 +63,17 @@ export const ProfilePage = () => {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
             handleAvatarUpdate(res.data.avatarUrl);
-        } catch (err) { console.error(err); alert('Ошибка загрузки'); }
+            showToast('Аватар обновлен!', 'success');
+        } 
+            catch (err) { 
+            console.error(err);
+            showToast('Ошибка при загрузке аватара', 'error');
+         }
     };
 
     const handleSaveProfile = async () => {
         if (!firstName.trim() || !lastName.trim() || !email.trim()) {
-            alert('Имя, Фамилия и Email обязательны!');
+            showToast('Имя, Фамилия и Email обязательны!', 'error');
             return false;
         }
         
@@ -85,11 +91,11 @@ export const ProfilePage = () => {
             setUserData(updatedUser);
             localStorage.setItem('lumeo_user', JSON.stringify(updatedUser));
             updateUser(updatedUser);
-            alert('Профиль успешно обновлен!');
+            showToast('Профиль успешно обновлен!', 'success');
             setNewPassword('');
             return true;
         } catch (e: any) { 
-            alert(e.response?.data?.message || 'Ошибка при сохранении');
+            showToast(e.response?.data?.message || 'Ошибка при сохранении', 'error');
             return false;
         } finally { 
             setIsSaving(false); 

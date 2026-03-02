@@ -3,6 +3,7 @@ import { sendAnswer, resetProgress, savePlaybackProgress, getPlaybackProgress } 
 import './VideoPlayer.css';
 import type { IInteractiveEvent, ISubtitle } from '../types';
 import { TestModeButton } from './TestModeButton'; // <--- ИМПОРТ НОВОЙ КНОПКИ
+import { useToast } from '../context/ToastContext';
 
 const Icons = {
   Play: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="6 3 20 12 6 21 6 3" fill="currentColor" /></svg>,
@@ -52,13 +53,9 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   const [currentSource, setCurrentSource] = useState(safeSource);
   const [sessionResults, setSessionResults] = useState<IAnswerResult[]>([]);
   const [attemptsUsed, setAttemptsUsed] = useState(0);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const { showToast } = useToast();
   const [hasNewAnswers, setHasNewAnswers] = useState(false);
 
-  const showToast = (msg: string) => {
-      setToastMessage(msg);
-      setTimeout(() => setToastMessage(null), 4000);
-  }
   // States
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -1250,11 +1247,6 @@ const renderMainMenu = () => (
           </div>
         </div>
       </div>
-      {toastMessage && (
-          <div className="player-toast">
-              {toastMessage}
-          </div>
-      )}
   </div>
   );
 };

@@ -4,17 +4,17 @@ import { VideoPlayer } from '../components/VideoPlayer';
 import { AddVideoForm } from '../components/AddVideoForm';
 import { DraggableVideoList } from '../components/DraggableVideoList';
 import { 
-    getVideosByCourse, 
-    addEvent, 
-    updateEvent, 
-    deleteEvent, 
-    getVideoStats, 
-    updateVideo, 
-    getCourses, 
+    getVideosByCourse,
+    addEvent,
+    updateEvent,
+    deleteEvent,
+    getVideoStats,
+    updateVideo,
+    getCourses,
     createCourse,
     updateCourseApi,
     deleteCourseApi,
-    generateAutoSubtitles, 
+    generateAutoSubtitles,
     reorderVideos,
     deleteVideoApi
 } from '../api/videoApi';
@@ -23,12 +23,12 @@ import './PrepodPage.css';
 import './UserPage.css'; 
 import { UserProfile } from '../components/UserProfile';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { 
     getCourseTests, createCourseTest, deleteCourseTest, deleteTestQuestion,addTestQuestion,
     type ICourseTest 
 } from '../api/testApi';
 import * as XLSX from 'xlsx';
-// Иконки SVG для интерфейса
 const Icons = {
     Time: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
     Back: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>,
@@ -38,6 +38,7 @@ const Icons = {
     Spinner: () => (<svg className="ai-spinner" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>)
 };
 export const PrepodPage = () => {
+  const { showToast } = useToast();
   // --- СОСТОЯНИЕ: КУРСЫ --- (С сохранением после F5)
   const [courses, setCourses] = useState<ICourse[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState<number | null>(() => {
@@ -60,11 +61,6 @@ export const PrepodPage = () => {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const toastTimerRef = useRef<any>(null);
   const prevVideosRef = useRef<IVideo[]>([]);
-  const showToast = (msg: string) => {
-      setToastMessage(msg);
-      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-      toastTimerRef.current = setTimeout(() => setToastMessage(null), 6000); // Скрываем через 6 сек
-  };
   // Вспомогательный стейт для восстановления видео после F5
   const [savedVideoId, setSavedVideoId] = useState<number | null>(() => {
       const saved = localStorage.getItem('prepod_video_id');
@@ -98,9 +94,7 @@ export const PrepodPage = () => {
               
               // Если субтитры обновились у видео, которое мы ждали
               if (oldVid && newVid && JSON.stringify(oldVid.subtitles) !== JSON.stringify(newVid.subtitles)) {
-                  // 1. Показываем красивое уведомление
-                  showToast(`✨ Субтитры для урока "${newVid.title}" успешно созданы!`);
-                  // 2. Убираем видео из списка генерации (останавливаем лоадер)
+                  showToast(`Субтитры для урока "${newVid.title}" успешно созданы!`, 'success');
                   setGeneratingVideos(prev => prev.filter(id => id !== genId));
               }
           });
@@ -137,9 +131,9 @@ export const PrepodPage = () => {
   // --- ДОБАВЛЕНИЕ И УДАЛЕНИЕ ВОПРОСОВ В ТЕСТ ---
   const handleAddTestQuestion = async () => {
       if (!selectedTest) return;
-      if (!questionText.trim()) return alert('Введите текст вопроса!');
+      if (!questionText.trim()) return showToast('Введите текст вопроса!', 'error');
       if ((eventType === 'single_choice' || eventType === 'multiple_choice') && !options.some(o => o.isCorrect)) {
-          return alert('Выберите хотя бы один правильный ответ!');
+          return showToast('Выберите хотя бы один правильный ответ!', 'error');
       }
 
       setIsAddingEvent(true);
@@ -152,12 +146,12 @@ export const PrepodPage = () => {
               weight: Number(weight),
               aiThreshold
           });
-          showToast('✅ Вопрос добавлен в тест!');
+          showToast('Вопрос добавлен в тест!', 'success');
           setQuestionText(''); setOptions([{ text: '', isCorrect: false }, { text: '', isCorrect: false }]);
           setFreeTextAnswer('');
           loadTests(); // Обновляем список, чтобы вопрос появился
       } catch (e) {
-          showToast('❌ Ошибка при добавлении вопроса');
+          showToast('Ошибка при добавлении вопроса', 'error');
       } finally {
           setIsAddingEvent(false);
       }
@@ -167,8 +161,9 @@ export const PrepodPage = () => {
       if (!window.confirm('Точно удалить этот вопрос?')) return;
       try {
           await deleteTestQuestion(qId);
+          showToast('Вопрос удален', 'info');
           loadTests();
-      } catch (e) { showToast('❌ Ошибка удаления'); }
+      } catch (e) { showToast('Ошибка удаления', 'error'); }
   };
   // Статистика
   const [showStats, setShowStats] = useState(false);
@@ -280,7 +275,7 @@ export const PrepodPage = () => {
 
   const handleCreateCourse = async () => {
       if (!newCourseTitle.trim() || !newCourseInstructor.trim()) {
-          return alert('Заполните название и ФИО преподавателя!');
+          return showToast('Заполните название и ФИО преподавателя!', 'error');
       }
       try {
           await createCourse({
@@ -290,9 +285,9 @@ export const PrepodPage = () => {
           });
           setNewCourseTitle(''); setNewCourseDesc(''); setNewCourseInstructor('');
           loadCourses(); 
-          alert('Курс успешно создан!');
+          showToast('Курс успешно создан!', 'success');
       } catch (e) {
-          alert('Ошибка при создании курса');
+          showToast('Ошибка при создании курса', 'error');
       }
   };
 
@@ -325,21 +320,21 @@ export const PrepodPage = () => {
           setSelectedVideo({ ...selectedVideo, ...updates });
           setVideos(prev => prev.map(v => v.id === selectedVideo.id ? { ...v, ...updates } : v));
       } catch (e) {
-          alert("Ошибка при обновлении настроек");
+          showToast("Ошибка при обновлении настроек", 'error');
       }
   };
 
   const handleAddEvent = async () => {
       if (!selectedVideo) return;
-      if (!questionText.trim()) return alert('Введите текст вопроса или информации!');
+      if (!questionText.trim()) return showToast('Введите текст вопроса или информации!', 'error');
       
       if (eventType === 'single_choice' || eventType === 'multiple_choice') {
-          if (options.some(o => !o.text.trim())) return alert('Заполните все варианты ответов!');
-          if (!options.some(o => o.isCorrect)) return alert('Выберите хотя бы один правильный ответ!');
+          if (options.some(o => !o.text.trim())) return showToast('Заполните все варианты ответов!', 'error');
+          if (!options.some(o => o.isCorrect)) return showToast('Выберите хотя бы один правильный ответ!', 'error');
       }
 
       if (eventType === 'free_text' && !freeTextAnswer.trim()) {
-          return alert('Введите эталонный ответ (ключевые слова) для проверки!');
+          return showToast('Введите эталонный ответ (ключевые слова) для проверки!', 'error');
       }
 
       setIsAddingEvent(true);
@@ -357,10 +352,10 @@ export const PrepodPage = () => {
 
           if (editingEventId) {
               await updateEvent(editingEventId, eventPayload);
-              alert('Метка успешно обновлена!');
+              showToast('Метка успешно обновлена!', 'success');
           } else {
               await addEvent(selectedVideo.id, eventPayload);
-              alert('Метка успешно добавлена на таймлайн!');
+              showToast('Метка успешно добавлена на таймлайн!', 'success');
           }
           
           setQuestionText(''); 
@@ -369,7 +364,7 @@ export const PrepodPage = () => {
           setEditingEventId(null); 
           await loadVideos();
       } catch (e) {
-          alert('Ошибка при добавлении метки');
+          showToast('Ошибка при добавлении метки', 'error');
       } finally {
           setIsAddingEvent(false);
       }
@@ -396,8 +391,9 @@ export const PrepodPage = () => {
           await deleteEvent(eventId);
           if (editingEventId === eventId) setEditingEventId(null);
           await loadVideos();
+          showToast('Метка удалена', 'info');
       } catch (e) {
-          alert('Ошибка при удалении');
+          showToast('Ошибка при удалении', 'error');
       }
   };
 
@@ -408,11 +404,10 @@ export const PrepodPage = () => {
 
       try {
           await generateAutoSubtitles(selectedVideo.id);
-          // Вместо грубого alert показываем наш красивый Toast!
-          showToast("🚀 ИИ начал работу! Вы можете переключиться на другой урок.");
+          showToast("ИИ начал работу! Вы можете переключиться на другой урок.", 'info');
       } catch (e) {
           console.error(e);
-          showToast("❌ Ошибка при старте генерации.");
+          showToast("Ошибка при старте генерации.", 'error');
           setGeneratingVideos(prev => prev.filter(id => id !== selectedVideo.id)); 
       }
   };
@@ -426,14 +421,14 @@ export const PrepodPage = () => {
           setExpandedStudent(null); 
           setShowStats(true);
       } catch (e) {
-          alert('Не удалось загрузить статистику');
+          showToast('Не удалось загрузить статистику', 'error');
       }
   };
 
 
   // --- ВЫГРУЗКА В EXCEL (.xlsx) С НАСТРОЙКОЙ ШИРИНЫ КОЛОНОК ---
   const exportToExcel = () => {
-      if (statsData.length === 0) return alert('Нет данных для выгрузки!');
+      if (statsData.length === 0) return showToast('Нет данных для выгрузки!', 'error');
 
       const courseName = courses.find(c => c.id === selectedCourseId)?.title || 'Неизвестный курс';
       const videoName = selectedVideo?.title || 'Неизвестный урок';
@@ -712,8 +707,8 @@ export const PrepodPage = () => {
                                             await updateCourseApi(selectedCourseId!, editCourseData);
                                             loadCourses();
                                             setShowCourseSettings(false);
-                                            showToast('✅ Курс успешно обновлен!');
-                                        } catch (e) { alert('Ошибка при обновлении'); }
+                                            showToast('Курс успешно обновлен!', 'success');
+                                        } catch (e) { showToast('Ошибка при обновлении', 'error'); }
                                     }}
                                 >
                                     Сохранить изменения
@@ -726,7 +721,7 @@ export const PrepodPage = () => {
                                             setShowCourseSettings(false);
                                             setSelectedCourseId(null);
                                             loadCourses();
-                                        } catch (e) { alert('Ошибка при удалении'); }
+                                        } catch (e) { showToast('Ошибка при удалении', 'error'); }
                                     }
                                 }}>🗑️ Удалить курс</button>
                             </div>
@@ -800,7 +795,7 @@ export const PrepodPage = () => {
                                     try {
                                         const orderedIds = newVideosArray.map(v => v.id);
                                         await reorderVideos(orderedIds); 
-                                    } catch (e) { showToast("❌ Ошибка при сохранении."); loadVideos(); }
+                                    } catch (e) { showToast("Ошибка при сохранении.", "error"); loadVideos(); }
                                 }}
                                 onEdit={async (videoToEdit, e) => {
                                     e.stopPropagation(); 
@@ -808,19 +803,19 @@ export const PrepodPage = () => {
                                     if (!newTitle || newTitle === videoToEdit.title) return;
                                     try {
                                         await updateVideo(videoToEdit.id, { title: newTitle });
-                                        showToast('✅ Название успешно обновлено!');
+                                        showToast('Название успешно обновлено!', 'success');
                                         loadVideos(); 
-                                    } catch (err) { showToast('❌ Ошибка'); }
+                                    } catch (err) { showToast('Ошибка при обновлении названия', 'error'); }
                                 }}
                                 onDelete={async (videoToDelete, e) => {
                                     e.stopPropagation();
                                     if (!window.confirm(`Вы уверены, что хотите удалить урок "${videoToDelete.title}"?`)) return;
                                     try {
                                         await deleteVideoApi(videoToDelete.id);
-                                        showToast('✅ Урок успешно удален!');
+                                        showToast('Урок успешно удален!', 'info');
                                         if (selectedVideo?.id === videoToDelete.id) setSelectedVideo(null);
                                         loadVideos();
-                                    } catch (err) { showToast('❌ Ошибка'); }
+                                    } catch (err) { showToast('Ошибка при удалении', 'error'); }
                                 }}
                             />
                         </>
@@ -831,9 +826,9 @@ export const PrepodPage = () => {
                                 if (!title) return;
                                 try {
                                     await createCourseTest(selectedCourseId!, { title });
-                                    showToast('✅ Тест создан!');
+                                    showToast('Тест создан!', 'success');
                                     loadTests();
-                                } catch (e) { showToast('❌ Ошибка создания теста'); }
+                                } catch (e) { showToast('Ошибка создания теста', 'error'); }
                             }}>
                                 + Создать тест
                             </button>
@@ -859,7 +854,8 @@ export const PrepodPage = () => {
                                                     await deleteCourseTest(test.id);
                                                     if (selectedTest?.id === test.id) setSelectedTest(null);
                                                     loadTests();
-                                                } catch (err) { showToast('❌ Ошибка удаления'); }
+                                                    showToast('Тест удален', 'info');
+                                                } catch (err) { showToast('Ошибка удаления', 'error'); }
                                             }
                                         }}>🗑️</button>
                                     </div>

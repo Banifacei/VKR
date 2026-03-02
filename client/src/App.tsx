@@ -9,6 +9,7 @@ import { CoursesPage } from './pages/CoursesPage';
 import { AuthPage } from './pages/AuthPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { HistoryPage } from './pages/HistoryPage';
+import { ToastProvider } from './context/ToastContext';
 
 // Обновленный ProtectedRoute с поддержкой проверки ролей
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) => {
@@ -35,6 +36,7 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
 
 function App() {
     return (
+    <ToastProvider>
         <AuthProvider>
             <BrowserRouter>
                 <Routes>
@@ -65,6 +67,7 @@ function App() {
                 </Routes>
             </BrowserRouter>
         </AuthProvider>
+    </ToastProvider>
     );
 }
 

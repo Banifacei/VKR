@@ -1,12 +1,15 @@
 // src/components/AuthModal.tsx
 import { useState } from 'react';
 import api from '../api/axiosInstance';
+import { useToast } from '../context/ToastContext';
+
 export const AuthModal = ({ onLoginSuccess }: { onLoginSuccess: (userData: any) => void }) => {
+    const { showToast } = useToast();
     const [isLogin, setIsLogin] = useState(true);
     const [formData, setFormData] = useState({ username: '', email: '', password: '' });
 
     const handleSubmit = async () => {
-        const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
+        const endpoint = isLogin ? '/auth/login' : '/auth/register';
         try {
             // api сам разберется с URL
             const res = await api.post(endpoint, formData);
@@ -16,12 +19,12 @@ export const AuthModal = ({ onLoginSuccess }: { onLoginSuccess: (userData: any) 
                 localStorage.setItem('lumeo_token', data.token);
                 onLoginSuccess(data.user);
             } else {
-                alert('Регистрация успешна! Теперь войдите.');
+                showToast('Регистрация успешна! Теперь войдите.', 'success');
                 setIsLogin(true);
             }
         } catch (err: any) {
             // Обрабатываем ошибку от axios
-            alert(err.response?.data?.message || err.message);
+            showToast(err.response?.data?.message || err.message, 'error');
         }
     };
 

@@ -6,12 +6,13 @@ import './UserPage.css';
 import { UserProfile } from '../components/UserProfile';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axiosInstance';
+import { useToast } from '../context/ToastContext';
 
 export const CoursesPage = () => {
     const [courses, setCourses] = useState<ICourse[]>([]);
     const navigate = useNavigate();
     const { user, logout, updateUser } = useAuth();
-
+    const { showToast } = useToast();
     // Стейты для модалки создания курса
     const [showAddModal, setShowAddModal] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
@@ -64,20 +65,22 @@ export const CoursesPage = () => {
     const handleCreateCourse = async () => {
         // 🔥 Описание теперь необязательное! Проверяем только название.
         if (!newCourseData.title.trim()) {
-            return alert('Заполните название курса!');
+            showToast('Заполните название курса!', 'error');
+            return;
         }
         setIsCreating(true);
         try {
             // 🔥 ИСПРАВЛЕННЫЙ ПУТЬ: стучимся на /videos/courses
             await api.post('/videos/courses', newCourseData);
             setShowAddModal(false);
+            showToast('Курс успешно создан!', 'success');
             
             // Мгновенно обновляем список
             const freshCourses = await getCourses();
             setCourses(freshCourses);
         } catch (e) {
             console.error(e);
-            alert('Ошибка при создании курса. Убедитесь, что сервер работает.');
+            showToast('Ошибка при создании курса. Убедитесь, что сервер работает.', 'error');
         } finally {
             setIsCreating(false);
         }

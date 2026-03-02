@@ -5,6 +5,7 @@ import { addTestQuestion, deleteTestQuestion, getCourseTests, updateCourseTest, 
 import type { IVideo } from '../types';
 import * as XLSX from 'xlsx';
 import api from '../api/axiosInstance';
+import { useToast } from '../context/ToastContext';
 
 // Drag & Drop
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
@@ -102,6 +103,7 @@ const SortableOption = ({ opt, idx, isCorrect, isDuplicate, accentColor, onChang
 };
 
 export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) => {
+    const { showToast } = useToast();
     const isDraggingQuestionRef = useRef(false);
     const isVideo = item.type === 'video';
     const accentColor = isVideo ? '#00aeef' : '#ffd700';
@@ -148,7 +150,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                 setSelectedTest({...selectedTest, ...payload});
             }
             onSuccess();
-        } catch (e) { alert('❌ Ошибка при сохранении настроек'); } 
+        } catch (e) { showToast('Настройки сохранены', 'success'); } 
         finally { setIsSavingSettings(false); }
     };
 
@@ -200,7 +202,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
             setStatsData(Array.isArray(data) ? data : []); 
             setExpandedStudent(null); 
             setShowStats(true);
-        } catch (e) { alert('Не удалось загрузить статистику'); }
+        } catch (e) { showToast('Не удалось загрузить статистику', 'error');}
     };
     // --- ДИНАМИЧЕСКИЙ РАДАР ДЛЯ СТАТИСТИКИ ---
     useEffect(() => {
@@ -228,7 +230,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
     }, [showStats, selectedVideo]);
 
     const exportToExcel = () => {
-        if (statsData.length === 0) return alert('Нет данных для выгрузки!');
+        if (statsData.length === 0) return showToast('Нет данных для выгрузки!', 'error');
         
         const wb = XLSX.utils.book_new();
         const currentTitle = isVideo ? selectedVideo?.title : selectedTest?.title;
@@ -427,7 +429,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
 
                             // Если мы ждали ИИ и текст обновился
                             if (generatingVideosRef.current.includes(updated.id) && prevSubsStr !== newSubsStr) {
-                                alert("✨ Нейросеть успешно завершила генерацию субтитров!");
+                                showToast("✨ Нейросеть успешно завершила генерацию субтитров!", 'info');
                                 setGeneratingVideos((g: number[]) => g.filter((id: number) => id !== updated.id));
                             }
 
@@ -486,11 +488,11 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
         if (isVideo && !selectedVideo) return;
         if (!isVideo && !selectedTest) return;
 
-        if (!questionText.trim()) return alert('Введите текст вопроса!');
+        if (!questionText.trim()) return showToast('Введите текст вопроса!', 'error');
         
         // ПРОВЕРКА НА ДУБЛИКАТЫ
         if (eventType === 'single_choice' || eventType === 'multiple_choice') {
-            if (!options.some(o => !!o.text.trim()) || !options.some(o => o.isCorrect)) return alert('Заполните варианты и укажите верный!');
+            if (!options.some(o => !!o.text.trim()) || !options.some(o => o.isCorrect)) return showToast('Заполните варианты и укажите верный!', 'error');
             
             const texts = options.map(o => o.text.trim().toLowerCase());
             const duplicates: number[] = [];
@@ -505,11 +507,11 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
             if (duplicates.length > 0) {
                 setDuplicateIndices(duplicates);
                 const humanIndices = Array.from(new Set(duplicates)).map(idx => idx + 1).join(' и ');
-                return alert(`⚠️ Ошибка: Варианты ответов (${humanIndices}) абсолютно одинаковые! Пожалуйста, измените текст.`);
+                return showToast(`Варианты ответов (${humanIndices}) абсолютно одинаковые!`, 'error');
             }
         }
         
-        if (eventType === 'free_text' && !freeTextAnswer.trim()) return alert('Введите эталонный ответ!');
+        if (eventType === 'free_text' && !freeTextAnswer.trim()) return showToast('Введите эталонный ответ!', 'error');
 
         setIsAddingEvent(true);
         try {
@@ -540,7 +542,8 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
             }
             
             resetForm();
-        } catch (e) { alert('❌ Ошибка при сохранении'); } 
+            showToast('Успешно сохранено!', 'success');
+        } catch (e) { showToast('Ошибка при сохранении', 'error'); } 
         finally { setIsAddingEvent(false); }
     };
 
@@ -572,7 +575,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                 await deleteTestQuestion(id);
                 await reloadCurrentTest();
             }
-        } catch (e) { alert('❌ Ошибка при удалении'); }
+        } catch (e) { showToast('Ошибка при удалении', 'error'); }
     };
 
     const handleGenerateSubs = async () => {
@@ -580,9 +583,9 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
         setGeneratingVideos((prev: number[]) => [...prev, selectedVideo.id]); 
         try {
             await generateAutoSubtitles(selectedVideo.id);
-            alert("⏳ Нейросеть начала обработку. Субтитры появятся на таймлайне через пару минут.");
+            showToast("ИИ начал обработку. Субтитры появятся через пару минут.", 'info');
         } catch (e) {
-            alert("❌ Ошибка при старте генерации.");
+            showToast("Ошибка при старте генерации.", "error");
             setGeneratingVideos((prev: number[]) => prev.filter((id: number) => id !== selectedVideo.id)); 
         }
     };
@@ -605,7 +608,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                     orderedIds: newQuestions.map((q: any) => q.id) 
                 });
                 onSuccess();
-            } catch (e) { console.error('Ошибка сохранения порядка вопросов'); }
+            } catch (e) { console.error(e); showToast('Ошибка сохранения порядка', 'error'); }
             finally {
             // 👇 РАЗБЛОКИРУЕМ РАДАР ТОЛЬКО ТУТ
             isDraggingQuestionRef.current = false; 

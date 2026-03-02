@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { uploadVideoFile, createVideo } from '../api/videoApi';
-import './AddVideoForm.css'; // Импортируем стили
+import { useToast } from '../context/ToastContext'; // 🔥 ИМПОРТ
+import './AddVideoForm.css';
 
 interface AddVideoFormProps {
   onVideoAdded: () => void;
@@ -8,7 +9,7 @@ interface AddVideoFormProps {
 }
 
 export const AddVideoForm = ({ onVideoAdded, courseId }: AddVideoFormProps) => {
-  // States
+  const { showToast } = useToast(); // 🔥 ХУК
   const [newTitle, setNewTitle] = useState('');
   const [newUrl, setNewUrl] = useState('');
   const [selectedVideoFile, setSelectedVideoFile] = useState<File | null>(null);
@@ -16,104 +17,68 @@ export const AddVideoForm = ({ onVideoAdded, courseId }: AddVideoFormProps) => {
   const [uploading, setUploading] = useState(false);
 
   const handleSaveVideo = async () => {
-    if (!courseId) {
-        return alert("Ошибка: Курс не выбран!");
-    }
-
-    if (!newTitle.trim()) return alert("Введите название урока!");
+    if (!courseId) return showToast("Ошибка: Курс не выбран!", "error");
+    if (!newTitle.trim()) return showToast("Введите название урока!", "error");
     if (!newUrl.trim() && !selectedVideoFile) {
-      return alert("Добавьте ссылку или выберите видео-файл!");
+      return showToast("Добавьте ссылку или выберите видео-файл!", "error");
     }
 
     setUploading(true);
     try {
-      // 1. Загружаем видео (если файл)
       let finalUrl = newUrl;
       if (selectedVideoFile) {
         const { url } = await uploadVideoFile(selectedVideoFile);
         finalUrl = url;
       }
 
-      // 2. Загружаем субтитры (если файл)
       let subtitlesData = [];
       if (selectedSubFile) {
           const { url: subUrl } = await uploadVideoFile(selectedSubFile);
-          subtitlesData.push({
-              lang: 'ru',
-              label: 'Русский',
-              src: subUrl
-          });
+          subtitlesData.push({ lang: 'ru', label: 'Русский', src: subUrl });
       }
 
-      // 3. Создаем запись в БД
-      await createVideo({ 
-          title: newTitle, 
-          url: finalUrl, 
-          subtitles: subtitlesData,
-          events: [],
-          courseId: courseId 
+      await createVideo({
+        title: newTitle,
+        url: finalUrl,
+        courseId,
+        subtitles: subtitlesData.length > 0 ? subtitlesData : undefined
       });
-      
-      alert("Урок успешно опубликован!");
-      
-      // Сброс формы
+
       setNewTitle('');
       setNewUrl('');
       setSelectedVideoFile(null);
       setSelectedSubFile(null);
-      
-      // Очистка инпутов
-      const videoInput = document.getElementById('video-input') as HTMLInputElement;
-      if (videoInput) videoInput.value = '';
-      
-      const subInput = document.getElementById('sub-input') as HTMLInputElement;
-      if (subInput) subInput.value = '';
-      
+      showToast("Урок успешно опубликован!", "success"); // 🔥 ТОСТ
       onVideoAdded();
     } catch (e) {
       console.error(e);
-      alert("Ошибка при сохранении");
+      showToast("Ошибка при сохранении урока", "error"); // 🔥 ТОСТ
     } finally {
       setUploading(false);
     }
   };
 
   return (
-    <div className="upload-section">
-      <h4 className="section-title">
-          <span>+</span> Создать новый урок
-      </h4>
-      
-      <input 
-        className="admin-input"
-        placeholder="Название урока" 
-        value={newTitle}
-        onChange={(e) => setNewTitle(e.target.value)}
-      />
+    <div className="add-video-form">
+      <div className="form-group">
+        <label className="form-label">Название урока</label>
+        <input 
+          type="text" className="modern-input" placeholder="Напр. Введение в Docker"
+          value={newTitle} onChange={e => setNewTitle(e.target.value)} 
+        />
+      </div>
 
-      <div className="upload-options">
-        {/* БЛОК ВИДЕО */}
+      <div className="upload-grid">
         <div className="option-group">
-          <p className="option-label">Видео (Ссылка или Файл)</p>
-          <input 
-            className="admin-input"
-            placeholder="https://rutube.ru//..." 
-            value={newUrl}
-            onChange={(e) => setNewUrl(e.target.value)}
-            disabled={!!selectedVideoFile}
-          />
+          <p className="option-label">Видео-файл (.mp4, .webm)</p>
           <div className="file-input-wrapper">
              <input 
-              id="video-input"
-              type="file" 
-              accept="video/*"
-              disabled={!!newUrl.trim()}
+              id="video-input" type="file" accept="video/mp4,video/webm"
               onChange={(e) => setSelectedVideoFile(e.target.files?.[0] || null)}
             />
             {selectedVideoFile && (
                 <button 
-                    className="clear-btn" 
-                    title="Удалить файл"
+                    className="clear-btn" title="Удалить файл"
                     onClick={() => {
                         setSelectedVideoFile(null);
                         const el = document.getElementById('video-input') as HTMLInputElement;
@@ -126,20 +91,16 @@ export const AddVideoForm = ({ onVideoAdded, courseId }: AddVideoFormProps) => {
 
         <div className="divider"></div>
 
-        {/* БЛОК СУБТИТРОВ */}
         <div className="option-group">
           <p className="option-label">Субтитры (.vtt)</p>
           <div className="file-input-wrapper">
              <input 
-              id="sub-input"
-              type="file" 
-              accept=".vtt"
+              id="sub-input" type="file" accept=".vtt"
               onChange={(e) => setSelectedSubFile(e.target.files?.[0] || null)}
             />
             {selectedSubFile && (
                 <button 
-                    className="clear-btn" 
-                    title="Удалить файл"
+                    className="clear-btn" title="Удалить файл"
                     onClick={() => {
                         setSelectedSubFile(null);
                         const el = document.getElementById('sub-input') as HTMLInputElement;

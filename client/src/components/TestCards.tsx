@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { sendAnswer } from '../api/videoApi';
 import './TestCards.css';
 import api from '../api/axiosInstance';
+import { useToast } from '../context/ToastContext';
 interface TestCardsProps {
     events: any[];
     videoId: number;
@@ -10,6 +11,7 @@ interface TestCardsProps {
 }
 
 export const TestCards = ({ events, videoId, userId, onAllSolved }: TestCardsProps) => {
+    const { showToast } = useToast();
     // Оставляем только вопросы
     const questions = events.filter(ev => ev.type !== 'info').sort((a, b) => a.time - b.time);
 
@@ -77,7 +79,7 @@ export const TestCards = ({ events, videoId, userId, onAllSolved }: TestCardsPro
             answerStr = answerStr.join(', ');
         }
         
-        if (!answerStr.trim()) return alert("Введите или выберите ответ!");
+        if (!answerStr.trim()) return showToast("Введите или выберите ответ!", "error");
 
         setLoadingId(q.id);
 
@@ -97,7 +99,7 @@ export const TestCards = ({ events, videoId, userId, onAllSolved }: TestCardsPro
 
         } catch (error) {
             console.error('Ошибка проверки ответа:', error);
-            alert('Не удалось отправить ответ. Попробуйте еще раз.');
+            showToast('Не удалось отправить ответ. Попробуйте еще раз.', 'error');
         } finally {
             setLoadingId(null);
         }
