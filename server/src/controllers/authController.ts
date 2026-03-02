@@ -6,8 +6,11 @@ import { User } from '../models/User.js';
 import { SystemSetting } from '../models/SystemSetting.js';
 import { addSystemLog } from './adminController.js';
 import LdapAuth from 'ldapauth-fork';
+import passport from 'passport';
+import { Strategy as SamlStrategy } from 'passport-saml';
 const JWT_SECRET = process.env.JWT_SECRET || 'lumeo_super_secret_2024';
-
+const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
+const API_URL = process.env.API_URL || 'http://localhost:5001';
 export const register = async (req: Request, res: Response) => {
     try {
         const { firstName, lastName, middleName, email, phone, password } = req.body;
@@ -255,13 +258,15 @@ export const getMe = async (req: Request, res: Response) => {
 export const getAuthSettings = async (req: Request, res: Response) => {
     try {
         const yandexSetting = await SystemSetting.findOne({ where: { key: 'yandex_enabled' } });
-        const googleSetting = await SystemSetting.findOne({ where: { key: 'google_enabled' } }); // 🔥 Добавили Google
+        const googleSetting = await SystemSetting.findOne({ where: { key: 'google_enabled' } });
+        const samlSetting = await SystemSetting.findOne({ where: { key: 'saml_enabled' } });
         // 🔥 Убрали сравнение с логическим true, оставили только строку
         const isYandexEnabled = yandexSetting?.value === 'true';
         
         res.json({
             yandex: yandexSetting?.value === 'true',
-            google: googleSetting?.value === 'true', // 🔥 Добавили Google
+            google: googleSetting?.value === 'true', 
+            saml: samlSetting?.value === 'true',
         });
     } catch (error) {
         console.error("Ошибка при получении настроек авторизации:", error);
@@ -278,7 +283,7 @@ export const yandexLoginRedirect = async (req: Request, res: Response) => {
     }
 
     // 🔥 ВОТ ОН, НАШ РОДНОЙ LOCALHOST!
-    const redirectUri = 'http://localhost:5001/api/auth/yandex/callback';
+    const redirectUri = `${API_URL}/api/auth/yandex/callback`;
     const url = `https://oauth.yandex.ru/authorize?response_type=code&client_id=${clientId.value}&redirect_uri=${redirectUri}`;
     
     res.redirect(url);
@@ -288,7 +293,7 @@ export const yandexLoginRedirect = async (req: Request, res: Response) => {
 export const yandexCallback = async (req: Request, res: Response) => {
     try {
         const code = req.query.code as string;
-        if (!code) return res.redirect('http://localhost:5173/auth?error=yandex_rejected');
+        if (!code) return res.redirect(`${CLIENT_URL}/auth?error=yandex_rejected`);
 
         const clientId = await SystemSetting.findOne({ where: { key: 'yandex_client_id' } });
         const clientSecret = await SystemSetting.findOne({ where: { key: 'yandex_client_secret' } });
@@ -305,7 +310,7 @@ export const yandexCallback = async (req: Request, res: Response) => {
         });
         const tokenData = await tokenRes.json();
 
-        if (!tokenData.access_token) return res.redirect('http://localhost:5173/auth?error=token_failed');
+        if (!tokenData.access_token) return res.redirect(`${API_URL}/auth?error=token_failed`);
 
         const profileRes = await fetch('https://login.yandex.ru/info?format=json', {
             headers: { Authorization: `OAuth ${tokenData.access_token}` }
@@ -348,10 +353,11 @@ export const yandexCallback = async (req: Request, res: Response) => {
         const jwtToken = jwt.sign({ id: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET || 'lumeo_super_secret_2024', { expiresIn: '7d' });
         
         // 🔥 И ТУТ ТОЖЕ LOCALHOST!
-        res.redirect(`http://localhost:5173/auth?token=${jwtToken}`);
+        res.redirect(`${CLIENT_URL}/auth?token=${jwtToken}`);
     } catch (error) {
         console.error('Ошибка Yandex OAuth:', error);
-        res.redirect('http://localhost:5173/auth?error=server_error');
+        // 🔥 МЕНЯЕМ НА CLIENT_URL
+        res.redirect(`${CLIENT_URL}/auth?error=server_error`);
     }
 };
 // ==================== GOOGLE OAUTH ====================
@@ -364,10 +370,8 @@ export const googleLoginRedirect = async (req: Request, res: Response) => {
         return res.status(500).send('Авторизация через Google не настроена администратором.');
     }
 
-    const redirectUri = 'http://localhost:5001/api/auth/google/callback';
-    // scope=email profile - это то, что мы просили в настройках Google
+    const redirectUri = `${API_URL}/api/auth/google/callback`;
     const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId.value}&redirect_uri=${redirectUri}&response_type=code&scope=email profile`;
-    
     res.redirect(url);
 };
 
@@ -375,11 +379,11 @@ export const googleLoginRedirect = async (req: Request, res: Response) => {
 export const googleCallback = async (req: Request, res: Response) => {
     try {
         const code = req.query.code as string;
-        if (!code) return res.redirect('http://localhost:5173/auth?error=google_rejected');
+        if (!code) return res.redirect(`${CLIENT_URL}/auth?error=google_rejected`);
 
         const clientId = await SystemSetting.findOne({ where: { key: 'google_client_id' } });
         const clientSecret = await SystemSetting.findOne({ where: { key: 'google_client_secret' } });
-        const redirectUri = 'http://localhost:5001/api/auth/google/callback';
+        const redirectUri = `${API_URL}/api/auth/google/callback`;
 
         // 1. Меняем код на токен
         const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
@@ -395,7 +399,7 @@ export const googleCallback = async (req: Request, res: Response) => {
         });
         const tokenData = await tokenRes.json();
 
-        if (!tokenData.access_token) return res.redirect('http://localhost:5173/auth?error=token_failed');
+        if (!tokenData.access_token) return res.redirect(`${CLIENT_URL}/auth?error=token_failed`);
 
         // 2. Получаем профиль
         const profileRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
@@ -405,7 +409,7 @@ export const googleCallback = async (req: Request, res: Response) => {
 
         // 3. Ищем или создаем пользователя
         const email = profile.email;
-        if (!email) return res.redirect('http://localhost:5173/auth?error=no_email');
+        if (!email) return res.redirect(`${CLIENT_URL}/auth?error=no_email`);
 
         let user = await User.findOne({ where: { email } });
         const googleAvatar = profile.picture || null;
@@ -435,9 +439,94 @@ export const googleCallback = async (req: Request, res: Response) => {
         await user.save();
         
         const jwtToken = jwt.sign({ id: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET || 'lumeo_super_secret_2024', { expiresIn: '7d' });
-        res.redirect(`http://localhost:5173/auth?token=${jwtToken}`);
+        
+        // 🔥 МЕНЯЕМ API_URL НА CLIENT_URL
+        res.redirect(`${CLIENT_URL}/auth?token=${jwtToken}`);
     } catch (error) {
         console.error('Ошибка Google OAuth:', error);
-        res.redirect('http://localhost:5173/auth?error=server_error');
+        res.redirect(`${CLIENT_URL}/auth?error=server_error`);
+    }
+};
+
+// ==================== SAML 2.0 (ENTERPRISE) ====================
+
+// --- РЕДИРЕКТ НА КОРПОРАТИВНЫЙ ПОРТАЛ (IDP) ---
+export const samlLoginRedirect = async (req: Request, res: Response, next: any) => {
+    try {
+        const entryPoint = await SystemSetting.findOne({ where: { key: 'saml_entry_point' } });
+        const cert = await SystemSetting.findOne({ where: { key: 'saml_cert' } });
+
+        if (!entryPoint?.value || !cert?.value) {
+            return res.status(500).send('SAML не настроен администратором.');
+        }
+
+        // Генерируем стратегию "на лету", чтобы читать свежие настройки из БД
+        const strategy = new SamlStrategy({
+            path: '/api/auth/saml/callback',
+            entryPoint: entryPoint.value,
+            issuer: 'lumeo-web', // Имя нашего приложения для корпоративного сервера
+            cert: cert.value
+        }, (profile: any, done: any) => done(null, profile));
+
+        passport.authenticate(strategy, { session: false })(req, res, next);
+    } catch (error) {
+        res.status(500).send('Ошибка инициализации SAML');
+    }
+};
+
+// --- КОЛЛБЭК SAML (ПРИЕМ XML-ОТВЕТА) ---
+export const samlCallback = async (req: Request, res: Response, next: any) => {
+    try {
+        const entryPoint = await SystemSetting.findOne({ where: { key: 'saml_entry_point' } });
+        const cert = await SystemSetting.findOne({ where: { key: 'saml_cert' } });
+
+        const strategy = new SamlStrategy({
+            path: '/api/auth/saml/callback',
+            entryPoint: entryPoint?.value || '',
+            issuer: 'lumeo-web',
+            cert: cert?.value || ''
+        }, async (profile: any, done: any) => {
+            try {
+                // Корпоративные серверы могут отдавать email в разных полях
+                const email = profile.email || profile.nameID || profile.nameIDFormat || 'saml-user@corporate.local';
+                let user = await User.findOne({ where: { email } });
+
+                if (!user) {
+                    const salt = await bcrypt.genSalt(10);
+                    const randomPassword = await bcrypt.hash(Math.random().toString(36).slice(-10), salt);
+
+                    user = await User.create({
+                        email,
+                        firstName: profile.firstName || profile.givenName || 'Сотрудник',
+                        lastName: profile.lastName || profile.sn || '',
+                        role: 'student',
+                        status: 'active',
+                        password: randomPassword
+                    });
+                    addSystemLog(`Создан корпоративный профиль (SAML): ${email}`, 'success');
+                }
+
+                user.lastLogin = new Date();
+                await user.save();
+                return done(null, user);
+            } catch (err) {
+                return done(err);
+            }
+        });
+
+        // Запускаем проверку XML-подписи
+        passport.authenticate(strategy, { session: false }, (err: any, user: any) => {
+            if (err || !user) {
+                console.error("Ошибка SAML валидации:", err);
+                return res.redirect(`${CLIENT_URL}/auth?error=saml_rejected`);
+            }
+            
+            const jwtToken = jwt.sign({ id: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET || 'lumeo_super_secret_2024', { expiresIn: '7d' });
+            res.redirect(`${CLIENT_URL}/auth?token=${jwtToken}`);
+        })(req, res, next);
+
+    } catch (error) {
+        console.error('Ошибка обработки SAML callback:', error);
+        res.redirect(`${CLIENT_URL}/auth?error=server_error`);
     }
 };

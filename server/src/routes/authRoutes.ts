@@ -1,6 +1,6 @@
-import { Router } from 'express';
+import express, { Router } from 'express';
 import passport from 'passport';
-import { register, login, updateProfile, getMe, yandexLoginRedirect, yandexCallback, getAuthSettings, googleLoginRedirect, googleCallback } from '../controllers/authController.js';
+import { register, login, updateProfile, getMe, yandexLoginRedirect, yandexCallback, getAuthSettings, googleLoginRedirect, googleCallback, samlLoginRedirect, samlCallback } from '../controllers/authController.js';
 import { checkAuth } from '../middleware/authMiddleware.js';
 
 const router = Router();
@@ -15,4 +15,7 @@ router.get('/yandex', yandexLoginRedirect);
 router.get('/yandex/callback', yandexCallback);
 router.get('/google', googleLoginRedirect);
 router.get('/google/callback', googleCallback);
+router.get('/saml', samlLoginRedirect);
+// ВАЖНО: Тут POST и встроенный парсер express.urlencoded
+router.post('/saml/callback', express.urlencoded({ extended: true }), samlCallback);
 export default router;

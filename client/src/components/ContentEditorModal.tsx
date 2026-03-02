@@ -4,6 +4,7 @@ import { addEvent, updateEvent, deleteEvent, generateAutoSubtitles, updateVideo,
 import { addTestQuestion, deleteTestQuestion, getCourseTests, updateCourseTest, getTestStats, type ICourseTest } from '../api/testApi';
 import type { IVideo } from '../types';
 import * as XLSX from 'xlsx';
+import api from '../api/axiosInstance';
 
 // Drag & Drop
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
@@ -142,11 +143,8 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                 await updateVideo(selectedVideo.id, payload);
                 setSelectedVideo({...selectedVideo, ...payload});
             } else if (selectedTest) {
-                await fetch(`http://localhost:5000/api/tests/${selectedTest.id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify(payload)
-                });
+                // 🔥 Используем api (порт и токен подставятся сами)
+                await api.put(`/tests/${selectedTest.id}`, payload);
                 setSelectedTest({...selectedTest, ...payload});
             }
             onSuccess();
@@ -602,11 +600,9 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
             setSelectedTest({ ...selectedTest, questions: newQuestions });
 
             try {
-                const token = localStorage.getItem('lumeo_token');
-                await fetch(`http://localhost:5000/api/tests/${selectedTest.id}/questions/reorder`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ orderedIds: newQuestions.map((q: any) => q.id) })
+                // 🔥 Тоже используем api (код стал в 3 раза короче)
+                await api.post(`/tests/${selectedTest.id}/questions/reorder`, { 
+                    orderedIds: newQuestions.map((q: any) => q.id) 
                 });
                 onSuccess();
             } catch (e) { console.error('Ошибка сохранения порядка вопросов'); }

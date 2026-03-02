@@ -36,7 +36,8 @@ interface ISystemLog { id: number; time: string; msg: string; type: 'info' | 'su
 
 export const AdminPage = () => {
   const { user, logout, updateUser: updateContextUser } = useAuth();
-  
+  const [showSamlModal, setShowSamlModal] = useState(false);
+  const [samlForm, setSamlForm] = useState({ enabled: false, entryPoint: '', cert: '' });
   const [activeTab, setActiveTab] = useState<'system' | 'users' | 'requests' | 'integrations'>('system');
   const [usersList, setUsersList] = useState<IAdminUser[]>([]);
   const [pendingUsers, setPendingUsers] = useState<any[]>([]); 
@@ -63,7 +64,27 @@ export const AdminPage = () => {
   const [showLdapModal, setShowLdapModal] = useState(false);
   const [ldapForm, setLdapForm] = useState({ enabled: false, url: '', searchBase: '' });
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+  const openSamlModal = () => {
+      setSamlForm({
+          enabled: systemSettings.saml_enabled === 'true' || systemSettings.saml_enabled === true,
+          entryPoint: systemSettings.saml_entry_point || '',
+          cert: systemSettings.saml_cert || ''
+      });
+      setShowSamlModal(true);
+  };
+
+  const handleSaveSaml = async () => {
+      setIsSaving(true);
+      try {
+          await api.post('/admin/settings/toggle', { key: 'saml_enabled', value: String(samlForm.enabled) });
+          await api.post('/admin/settings/toggle', { key: 'saml_entry_point', value: samlForm.entryPoint });
+          await api.post('/admin/settings/toggle', { key: 'saml_cert', value: samlForm.cert });
+          alert('Настройки SAML успешно сохранены!');
+          setShowSamlModal(false);
+          fetchSystemData(); 
+      } catch (e) { alert('Ошибка при сохранении SAML'); } 
+      finally { setIsSaving(false); }
+  };
   // 🔥 ВОССТАНОВЛЕННЫЕ ПЛАГИНЫ
   const systemPlugins = [
       { id: 1, name: 'Lumeo Core API', version: 'v2.4.1', status: 'Активен' },
@@ -500,7 +521,41 @@ export const AdminPage = () => {
               </div>
           </div>
       )}
-      
+      {showSamlModal && (
+          <div className="modal-overlay">
+              <div className="modal-content" style={{ width: '500px' }}>
+                  <div className="modal-header">
+                      <h3>Корпоративный вход (SAML 2.0)</h3>
+                      <button className="btn-icon" onClick={() => setShowSamlModal(false)}><Icons.Close /></button>
+                  </div>
+                  <div className="modal-body">
+                      <div className="form-group" style={{ marginBottom: '20px' }}>
+                          <label className="lumeo-switch" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: '10px' }}>
+                              <input type="checkbox" checked={samlForm.enabled} onChange={e => setSamlForm({...samlForm, enabled: e.target.checked})} />
+                              <span className="slider round"></span>
+                          </label>
+                          <strong style={{ color: samlForm.enabled ? '#00ff88' : '#888', verticalAlign: 'middle' }}>{samlForm.enabled ? 'Интеграция ВКЛЮЧЕНА' : 'Интеграция ОТКЛЮЧЕНА'}</strong>
+                      </div>
+                      <div className="form-group">
+                          <label>SSO URL (Entry Point)</label>
+                          <input className="modern-input" placeholder="https://idp.example.com/saml2/idp/sso" value={samlForm.entryPoint} onChange={e => setSamlForm({...samlForm, entryPoint: e.target.value})} />
+                      </div>
+                      <div className="form-group">
+                          <label>Публичный сертификат (Public X.509 Cert)</label>
+                          <textarea className="modern-input" style={{ minHeight: '120px', fontFamily: 'monospace', fontSize: '12px' }} placeholder="MIIC4jCCAcqgAwIBAgIQ..." value={samlForm.cert} onChange={e => setSamlForm({...samlForm, cert: e.target.value})} />
+                      </div>
+                      <p style={{fontSize: '12px', color: '#888', marginTop: '10px'}}>
+                          *Укажите Entity ID (Issuer): <strong>lumeo-web</strong><br/>
+                          *Callback URL (ACS): <strong>http://localhost:5001/api/auth/saml/callback</strong>
+                      </p>
+                  </div>
+                  <div className="modal-footer">
+                      <button className="btn btn-secondary" onClick={() => setShowSamlModal(false)}>Отмена</button>
+                      <button className="btn btn-primary" onClick={handleSaveSaml} disabled={isSaving}>{isSaving ? 'Сохранение...' : 'Сохранить'}</button>
+                  </div>
+              </div>
+          </div>
+      )}
       {/* ШАПКА */}
       <header className="lumeo-header">
           <div className="logo-group">
@@ -868,7 +923,13 @@ export const AdminPage = () => {
                                     <span>Урл: sso.lumeo.edu/saml</span>
                                 </div>
                                 <div className="int-actions">
-                                    <button className="btn btn-secondary" style={{width: '100%'}} onClick={() => alert('Открытие настроек SAML...')}>Настроить</button>
+                                    <button 
+                                        className={systemSettings.saml_enabled === 'true' || systemSettings.saml_enabled === true ? "btn btn-secondary" : "btn btn-primary"} 
+                                        style={{width: '100%'}} 
+                                        onClick={openSamlModal}
+                                    >
+                                        Настроить
+                                    </button>
                                 </div>
                             </div>
 
