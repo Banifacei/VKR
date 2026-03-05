@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { AddVideoForm } from '../components/AddVideoForm';
 import { DraggableVideoList } from '../components/DraggableVideoList';
+import api from '../api/axiosInstance';
 import { 
     getVideosByCourse,
     addEvent,
@@ -58,8 +59,6 @@ export const PrepodPage = () => {
   // --- СОСТОЯНИЕ: ВИДЕО И РЕДАКТОР ---
   const [videos, setVideos] = useState<IVideo[]>([]);
   const [selectedVideo, setSelectedVideo] = useState<IVideo | null>(null);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const toastTimerRef = useRef<any>(null);
   const prevVideosRef = useRef<IVideo[]>([]);
   // Вспомогательный стейт для восстановления видео после F5
   const [savedVideoId, setSavedVideoId] = useState<number | null>(() => {
@@ -172,6 +171,46 @@ export const PrepodPage = () => {
   // Настройки курса
   const [showCourseSettings, setShowCourseSettings] = useState(false);
   const [editCourseData, setEditCourseData] = useState({ title: '', description: '', instructor: '' });
+  // --- СТЕЙТЫ ДЛЯ КОМАНДЫ КУРСА ---
+  const [settingsTab, setSettingsTab] = useState<'info' | 'team'>('info');
+  const [collaborators, setCollaborators] = useState<any[]>([]);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [isInviting, setIsInviting] = useState(false);
+
+  const fetchCollaborators = async (courseId: number) => {
+      try {
+          const res = await api.get(`/videos/courses/${courseId}/collaborators`);
+          setCollaborators(res.data);
+      } catch (e) {
+          console.error('Ошибка загрузки команды');
+      }
+  };
+
+  const handleInvite = async () => {
+      if (!inviteEmail.trim()) return showToast('Введите email', 'error');
+      setIsInviting(true);
+      try {
+          await api.post(`/videos/courses/${selectedCourseId}/collaborators`, { email: inviteEmail.trim() });
+          showToast('Пользователь добавлен в команду!', 'success');
+          setInviteEmail('');
+          fetchCollaborators(selectedCourseId!);
+      } catch (e: any) {
+          showToast(e.response?.data?.message || 'Ошибка приглашения', 'error');
+      } finally {
+          setIsInviting(false);
+      }
+  };
+
+  const handleRemoveCollaborator = async (userId: number) => {
+      if (!window.confirm('Удалить пользователя из команды курса?')) return;
+      try {
+          await api.delete(`/videos/courses/${selectedCourseId}/collaborators/${userId}`);
+          showToast('Пользователь удален', 'info');
+          fetchCollaborators(selectedCourseId!);
+      } catch (e) {
+          showToast('Ошибка удаления', 'error');
+      }
+  };
   // --- СОХРАНЕНИЕ В LOCAL STORAGE ---
   useEffect(() => {
       if (selectedCourseId) localStorage.setItem('prepod_course_id', selectedCourseId.toString());
@@ -664,6 +703,7 @@ export const PrepodPage = () => {
         {/* MODAL COURSE SETTINGS */}
         {showCourseSettings && (() => {
             const currentCourse = courses.find(c => c.id === selectedCourseId);
+            const isOwner = currentCourse?.ownerId === user?.id || user?.role === 'admin';
             const isChanged = currentCourse && (
                 currentCourse.title !== editCourseData.title ||
                 (currentCourse.description || '') !== editCourseData.description ||
@@ -671,60 +711,119 @@ export const PrepodPage = () => {
             );
             return (
                 <div className="stats-modal-overlay">
-                    <div className="stats-modal-content" style={{ maxWidth: '500px' }}>
-                        <div className="stats-modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="stats-modal-content" style={{ maxWidth: '500px', padding: 0, overflow: 'hidden' }}>
+                        
+                        <div style={{ padding: '20px 25px', background: '#111', borderBottom: '1px solid #333', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <h3 style={{margin: 0}}>Настройки курса</h3>
                             <button className="close-btn" onClick={() => setShowCourseSettings(false)}>✕</button>
                         </div>
-                        <div className="stats-modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                            <div>
-                                <label style={{ fontSize: '12px', color: '#888', marginBottom: '5px', display: 'block' }}>Название курса</label>
-                                <input className="modern-input" value={editCourseData.title} onChange={e => setEditCourseData({...editCourseData, title: e.target.value})} />
-                            </div>
-                            <div>
-                                <label style={{ fontSize: '12px', color: '#888', marginBottom: '5px', display: 'block' }}>ФИО Преподавателя</label>
-                                <input className="modern-input" value={editCourseData.instructor} onChange={e => setEditCourseData({...editCourseData, instructor: e.target.value})} />
-                            </div>
-                            <div>
-                                <label style={{ fontSize: '12px', color: '#888', marginBottom: '5px', display: 'block' }}>Описание</label>
-                                <textarea className="modern-input" style={{ minHeight: '80px', resize: 'vertical' }} value={editCourseData.description} onChange={e => setEditCourseData({...editCourseData, description: e.target.value})} />
-                            </div>
-                            
-                            <div style={{ borderTop: '1px solid #333', margin: '10px 0' }}></div>
 
-                            <div style={{ display: 'flex', gap: '10px' }}>
-                                <button 
-                                    className="btn btn-primary" 
-                                    style={{ 
-                                        flex: 1, 
-                                        opacity: isChanged ? 1 : 0.5, 
-                                        cursor: isChanged ? 'pointer' : 'not-allowed',
-                                        transition: 'all 0.3s ease'
-                                    }} 
-                                    disabled={!isChanged}
-                                    onClick={async () => {
-                                        try {
-                                            await updateCourseApi(selectedCourseId!, editCourseData);
-                                            loadCourses();
-                                            setShowCourseSettings(false);
-                                            showToast('Курс успешно обновлен!', 'success');
-                                        } catch (e) { showToast('Ошибка при обновлении', 'error'); }
-                                    }}
-                                >
-                                    Сохранить изменения
-                                </button>
-                                
-                                <button className="btn btn-ghost" style={{ background: 'rgba(255, 77, 77, 0.1)', color: '#ff4d4d' }} onClick={async () => {
-                                    if (window.confirm(`⚠️ Вы уверены, что хотите удалить курс "${currentCourse?.title}"?\nВсе уроки, тесты и результаты студентов будут стерты навсегда!`)) {
-                                        try {
-                                            await deleteCourseApi(selectedCourseId!);
-                                            setShowCourseSettings(false);
-                                            setSelectedCourseId(null);
-                                            loadCourses();
-                                        } catch (e) { showToast('Ошибка при удалении', 'error'); }
-                                    }
-                                }}>🗑️ Удалить курс</button>
-                            </div>
+                        {/* ВКЛАДКИ */}
+                        <div style={{ display: 'flex', borderBottom: '1px solid #333', background: '#0a0a0a' }}>
+                            <button 
+                                onClick={() => setSettingsTab('info')}
+                                style={{ flex: 1, padding: '15px', background: 'none', border: 'none', borderBottom: settingsTab === 'info' ? '2px solid #00aeef' : '2px solid transparent', color: settingsTab === 'info' ? '#00aeef' : '#888', fontWeight: 'bold', cursor: 'pointer' }}
+                            >
+                                Основное
+                            </button>
+                            <button 
+                                onClick={() => { setSettingsTab('team'); fetchCollaborators(selectedCourseId!); }}
+                                style={{ flex: 1, padding: '15px', background: 'none', border: 'none', borderBottom: settingsTab === 'team' ? '2px solid #00aeef' : '2px solid transparent', color: settingsTab === 'team' ? '#00aeef' : '#888', fontWeight: 'bold', cursor: 'pointer' }}
+                            >
+                                Команда
+                            </button>
+                        </div>
+
+                        <div className="stats-modal-body" style={{ padding: '25px' }}>
+                            {settingsTab === 'info' ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                    <div>
+                                        <label style={{ fontSize: '12px', color: '#888', marginBottom: '5px', display: 'block' }}>Название курса</label>
+                                        <input className="modern-input" value={editCourseData.title} onChange={e => setEditCourseData({...editCourseData, title: e.target.value})} />
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: '12px', color: '#888', marginBottom: '5px', display: 'block' }}>ФИО Преподавателя (для витрины)</label>
+                                        <input className="modern-input" value={editCourseData.instructor} onChange={e => setEditCourseData({...editCourseData, instructor: e.target.value})} />
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: '12px', color: '#888', marginBottom: '5px', display: 'block' }}>Описание</label>
+                                        <textarea className="modern-input" style={{ minHeight: '80px', resize: 'vertical' }} value={editCourseData.description} onChange={e => setEditCourseData({...editCourseData, description: e.target.value})} />
+                                    </div>
+                                    
+                                    <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                                        <button 
+                                            className="btn btn-primary" 
+                                            style={{ flex: 1, opacity: isChanged ? 1 : 0.5, cursor: isChanged ? 'pointer' : 'not-allowed' }} 
+                                            disabled={!isChanged}
+                                            onClick={async () => {
+                                                try {
+                                                    await updateCourseApi(selectedCourseId!, editCourseData);
+                                                    loadCourses();
+                                                    setShowCourseSettings(false);
+                                                    showToast('Курс успешно обновлен!', 'success');
+                                                } catch (e) { showToast('Ошибка при обновлении', 'error'); }
+                                            }}
+                                        >
+                                            Сохранить
+                                        </button>
+                                        
+                                        {isOwner && (
+                                            <button className="btn btn-ghost" style={{ background: 'rgba(255, 77, 77, 0.1)', color: '#ff4d4d' }} onClick={async () => {
+                                                if (window.confirm(`⚠️ УДАЛЕНИЕ КУРСА!\nВы уверены, что хотите навсегда удалить "${currentCourse?.title}"?\nВсе видео, субтитры и тесты будут стерты с жесткого диска!`)) {
+                                                    try {
+                                                        await deleteCourseApi(selectedCourseId!);
+                                                        setShowCourseSettings(false);
+                                                        setSelectedCourseId(null);
+                                                        loadCourses();
+                                                    } catch (e) { showToast('Ошибка при удалении', 'error'); }
+                                                }
+                                            }}>🗑️ Удалить курс</button>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                    {isOwner && (
+                                        <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+                                            <input 
+                                                className="modern-input" 
+                                                style={{ marginBottom: 0 }} 
+                                                placeholder="Email пользователя..." 
+                                                value={inviteEmail} 
+                                                onChange={e => setInviteEmail(e.target.value)}
+                                                onKeyDown={e => e.key === 'Enter' && handleInvite()}
+                                            />
+                                            <button className="btn btn-primary" onClick={handleInvite} disabled={isInviting}>
+                                                {isInviting ? '...' : 'Добавить'}
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    <div style={{ background: '#1a1a1a', borderRadius: '12px', border: '1px solid #333', overflow: 'hidden' }}>
+                                        {collaborators.length === 0 ? (
+                                            <div style={{ padding: '20px', textAlign: 'center', color: '#666', fontSize: '13px' }}>В команде пока никого нет.<br/>Здесь появятся ваши соавторы.</div>
+                                        ) : (
+                                            collaborators.map(col => (
+                                                <div key={col.userId} style={{ padding: '12px 15px', borderBottom: '1px solid #333', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                        <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', color: '#fff', overflow: 'hidden' }}>
+                                                            {col.user?.avatarUrl ? <img src={col.user.avatarUrl} style={{width:'100%', height:'100%', objectFit:'cover'}} alt="a"/> : col.user?.firstName?.[0] || '?'}
+                                                        </div>
+                                                        <div>
+                                                            <div style={{ color: '#fff', fontSize: '14px', fontWeight: 'bold' }}>{col.user?.firstName} {col.user?.lastName}</div>
+                                                            <div style={{ color: '#888', fontSize: '12px' }}>{col.user?.email}</div>
+                                                        </div>
+                                                    </div>
+                                                    {isOwner && (
+                                                        <button className="btn-icon" style={{ color: '#ff4d4d' }} onClick={() => handleRemoveCollaborator(col.userId)}>✕</button>
+                                                    )}
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                    <p style={{ fontSize: '12px', color: '#666', margin: 0 }}>*Соавторы могут добавлять, удалять и редактировать уроки и тесты в этом курсе, а также смотреть статистику студентов.</p>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -750,6 +849,7 @@ export const PrepodPage = () => {
                             const c = courses.find(crs => crs.id === selectedCourseId);
                             if (c) {
                                 setEditCourseData({ title: c.title, description: c.description || '', instructor: c.instructor || '' });
+                                setSettingsTab('info');
                                 setShowCourseSettings(true);
                             }
                         }}
@@ -1061,12 +1161,6 @@ export const PrepodPage = () => {
                 )}
             </main>
         </div>
-        {/* ВСПЛЫВАЮЩЕЕ УВЕДОМЛЕНИЕ ДЛЯ СЦЕНАРИЯ 2 */}
-        {toastMessage && (
-            <div className="ai-toast">
-                {toastMessage.includes('✨') ? '🎉' : '🤖'} {toastMessage}
-            </div>
-        )}
     </div>
   );
 };

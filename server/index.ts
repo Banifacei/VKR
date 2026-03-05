@@ -17,6 +17,7 @@ import testRoutes from './src/routes/testRoutes.js';
 import adminRoutes from './src/routes/adminRoutes.js';
 import { trackActivityMiddleware, addSystemLog } from './src/controllers/adminController.js';
 import { createDefaultAdmin } from './src/models/initAdmin.js';
+import { cleanupOrphanFiles } from './src/utils/cleanup.js';
 import passport from 'passport';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -112,7 +113,7 @@ async function start() {
         //await sequelize.sync({ force: true });
         await createDefaultAdmin();
         console.log('✅ База данных подключена');
-        
+        await cleanupOrphanFiles(uploadDir, avatarDir);
         const server = app.listen(PORT, () => {
             console.log(`🚀 Сервер запущен на порту ${PORT}`);
             console.log(`📁 Папка для загрузок: ${uploadDir}`);

@@ -17,6 +17,9 @@ import { pathToFileURL } from 'url';
 import { transformSync } from 'esbuild';
 import { CourseTest } from '../models/CourseTest.js';
 import { addSystemLog } from './adminController.js';
+import fsPromises from 'fs/promises';
+import { TestQuestion } from '../models/TestQuestion.js';
+import { UserTestResult } from '../models/UserTestResult.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 let semanticExtractor: any = null;
@@ -85,11 +88,23 @@ const extractAudio = (videoPath: string, audioPath: string): Promise<void> => {
 };
 export const createCourse = async (req: Request, res: Response) => {
     try {
-        const { title, description, instructor } = req.body;
-        const course = await Course.create({ title, description, instructor });
+        const { title, description, instructor, coverImage } = req.body;
+        
+        // 🔥 ДОСТАЕМ ID ТЕКУЩЕГО ПОЛЬЗОВАТЕЛЯ ИЗ ТОКЕНА
+        const ownerId = (req as any).user?.id; 
+
+        const course = await Course.create({ 
+            title, 
+            description, 
+            instructor, 
+            coverImage,
+            ownerId // 🔥 ТЕПЕРЬ СОЗДАТЕЛЬ НАВСЕГДА ПРИВЯЗАН К КУРСУ
+        });
+        
         addSystemLog(`Создан новый курс: "${title}"`, 'success');
         res.status(201).json(course);
     } catch (e) {
+        console.error('Ошибка создания курса:', e);
         res.status(500).json({ message: 'Ошибка создания курса', error: e });
     }
 };
@@ -115,17 +130,47 @@ export const updateCourse = async (req: Request, res: Response) => {
 };
 
 // --- УДАЛЕНИЕ КУРСА ---
+// --- УДАЛЕНИЕ КУРСА СО ВСЕМИ ФАЙЛАМИ ---
 export const deleteCourse = async (req: Request, res: Response) => {
     try {
+        const courseRole = (req as any).courseRole;
+        if (courseRole === 'editor') {
+            return res.status(403).json({ message: 'У вас нет прав на удаление всего курса. Это может сделать только Владелец.' });
+        }
+
         const { courseId } = req.params;
         const course = await Course.findByPk(courseId);
         if (!course) return res.status(404).json({ message: 'Курс не найден' });
 
-        // Чтобы база не выдала ошибку "Foreign Key Constraint", сначала находим все видео курса
         const videos = await Video.findAll({ where: { courseId } });
         const videoIds = videos.map((v: any) => v.id);
+        const uploadsDir = path.join(__dirname, '../../uploads');
 
-        // Если в курсе есть видео, сносим весь их "мусор" (ответы, метки, прогресс)
+        // 🔥 1. ФИЗИЧЕСКОЕ УДАЛЕНИЕ ФАЙЛОВ С ДИСКА
+        for (const video of videos) {
+            // Удаляем видеофайл
+            if (video.url) {
+                const fileName = video.url.split('/').pop();
+                if (fileName) {
+                    const filePath = path.join(uploadsDir, fileName);
+                    try { await fsPromises.unlink(filePath); } catch (e) { /* Файл уже удален или не найден */ }
+                }
+            }
+            // Удаляем файлы субтитров (.vtt)
+            if (video.subtitles && Array.isArray(video.subtitles)) {
+                for (const sub of video.subtitles) {
+                    if (sub.src) {
+                        const subName = sub.src.split('/').pop();
+                        if (subName) {
+                            const subPath = path.join(uploadsDir, subName);
+                            try { await fsPromises.unlink(subPath); } catch (e) {}
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. КАСКАДНОЕ УДАЛЕНИЕ ДАННЫХ ИЗ БД (ВИДЕО)
         if (videoIds.length > 0) {
             await UserResponse.destroy({ where: { videoId: videoIds } });
             await UserVideoProgress.destroy({ where: { videoId: videoIds } });
@@ -133,10 +178,19 @@ export const deleteCourse = async (req: Request, res: Response) => {
             await Video.destroy({ where: { courseId } });
         }
 
-        // Теперь безопасно удаляем сам курс
+        // 3. КАСКАДНОЕ УДАЛЕНИЕ ТЕСТОВ (Они могут мешать удалению курса)
+        const tests = await CourseTest.findAll({ where: { courseId } });
+        const testIds = tests.map((t: any) => t.id);
+        if (testIds.length > 0) {
+            await TestQuestion.destroy({ where: { testId: testIds } });
+            await UserTestResult.destroy({ where: { testId: testIds } });
+            await CourseTest.destroy({ where: { courseId } });
+        }
+
+        // 4. УДАЛЕНИЕ САМОГО КУРСА
         await course.destroy();
-        addSystemLog(`Удален курс (ID: ${courseId})`, 'error');
-        res.json({ success: true, message: 'Курс удален' });
+        addSystemLog(`Полностью удален курс (ID: ${courseId}) и все связанные файлы`, 'error');
+        res.json({ success: true, message: 'Курс и файлы удалены' });
     } catch (e) {
         console.error(e);
         res.status(500).json({ message: 'Ошибка удаления курса' });
@@ -336,22 +390,45 @@ export const updateVideoSettings = async (req: Request, res: Response) => {
     }
 };
 
-// --- УДАЛЕНИЕ ВИДЕО ---
+// --- УДАЛЕНИЕ ОТДЕЛЬНОГО ВИДЕО СО ВСЕМИ ФАЙЛАМИ ---
 export const deleteVideo = async (req: Request, res: Response) => {
     try {
         const { videoId } = req.params;
         const video = await Video.findByPk(videoId);
         if (!video) return res.status(404).json({ message: 'Видео не найдено' });
 
-        // Сначала удаляем все связанные данные, чтобы база не ругалась
+        const uploadsDir = path.join(__dirname, '../../uploads');
+
+        // 🔥 1. Удаляем основной видеофайл
+        if (video.url) {
+            const fileName = video.url.split('/').pop();
+            if (fileName) {
+                const filePath = path.join(uploadsDir, fileName);
+                try { await fsPromises.unlink(filePath); } catch (e) {}
+            }
+        }
+
+        // 🔥 2. Удаляем субтитры
+        if (video.subtitles && Array.isArray(video.subtitles)) {
+            for (const sub of video.subtitles) {
+                if (sub.src) {
+                    const subName = sub.src.split('/').pop();
+                    if (subName) {
+                        const subPath = path.join(uploadsDir, subName);
+                        try { await fsPromises.unlink(subPath); } catch (e) {}
+                    }
+                }
+            }
+        }
+
+        // 3. Удаляем связи из БД
         await UserResponse.destroy({ where: { videoId } });
         await UserVideoProgress.destroy({ where: { videoId } });
         await InteractiveEvent.destroy({ where: { videoId } });
         
-        // Теперь удаляем само видео
         await video.destroy();
-        addSystemLog(`Удалено видео (ID: ${videoId})`, 'warning');
-        res.json({ success: true, message: 'Видео успешно удалено' });
+        addSystemLog(`Удалено видео (ID: ${videoId}) и его файлы`, 'warning');
+        res.json({ success: true, message: 'Видео и файлы успешно удалены' });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Ошибка при удалении видео' });
@@ -652,5 +729,66 @@ export const updateCourseContentOrder = async (req: Request, res: Response) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Ошибка при сохранении порядка контента' });
+    }
+};
+
+import { CourseCollaborator } from '../models/CourseCollaborator.js'; // 🔥 Не забудь импорт в начале файла!
+
+// --- ПОЛУЧИТЬ КОМАНДУ КУРСА ---
+export const getCourseCollaborators = async (req: Request, res: Response) => {
+    try {
+        const { courseId } = req.params;
+        const collaborators = await CourseCollaborator.findAll({
+            where: { courseId },
+            include: [{ model: User, attributes: ['id', 'firstName', 'lastName', 'email', 'avatarUrl', 'role'] }]
+        });
+        res.json(collaborators);
+    } catch (e) {
+        res.status(500).json({ message: 'Ошибка получения команды курса' });
+    }
+};
+
+// --- ПРИГЛАСИТЬ В КОМАНДУ ---
+export const addCourseCollaborator = async (req: Request, res: Response) => {
+    try {
+        const { courseId } = req.params;
+        const { email } = req.body; // Ищем по email
+
+        const userToAdd = await User.findOne({ where: { email } });
+        if (!userToAdd) {
+            return res.status(404).json({ message: 'Пользователь с таким Email не найден в системе' });
+        }
+
+        const course = await Course.findByPk(courseId);
+        if (course?.ownerId === userToAdd.id) {
+            return res.status(400).json({ message: 'Этот пользователь уже является владельцем курса' });
+        }
+
+        const [collaborator, created] = await CourseCollaborator.findOrCreate({
+            where: { courseId, userId: userToAdd.id },
+            defaults: { role: 'editor' }
+        });
+
+        if (!created) {
+            return res.status(400).json({ message: 'Пользователь уже в команде курса' });
+        }
+
+        addSystemLog(`Пользователь ${email} добавлен в команду курса (ID: ${courseId})`, 'info');
+        res.status(201).json(collaborator);
+    } catch (e) {
+        res.status(500).json({ message: 'Ошибка добавления соавтора' });
+    }
+};
+
+// --- УДАЛИТЬ ИЗ КОМАНДЫ ---
+export const removeCourseCollaborator = async (req: Request, res: Response) => {
+    try {
+        const { courseId, userId } = req.params;
+        await CourseCollaborator.destroy({
+            where: { courseId, userId }
+        });
+        res.json({ success: true, message: 'Пользователь исключен из команды' });
+    } catch (e) {
+        res.status(500).json({ message: 'Ошибка при удалении соавтора' });
     }
 };

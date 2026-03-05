@@ -18,8 +18,13 @@ import {
     updateCourse, 
     deleteCourse,
     getUserVideoAnswers,
-    updateCourseContentOrder
+    updateCourseContentOrder,
+    getCourseCollaborators,
+    addCourseCollaborator,
+    removeCourseCollaborator,
+
 } from '../controllers/videoController.js';
+import { checkCourseAccess } from '../middleware/courseAuthMiddleware.js';
 import { checkAuth } from '../middleware/authMiddleware.js';
 import { updateEvent, deleteEvent } from '../controllers/videoController.js';
 console.log("!!! ЗАГРУЖАЮТСЯ НОВЫЕ РОУТЫ С AI !!!");
@@ -36,11 +41,14 @@ router.put('/reorder', reorderVideos);
 router.post('/:videoId/autocaptions', generateSubtitles);
 router.post('/', createVideo);
 router.get('/courses', getAllCourses);
-router.post('/courses', createCourse);
+router.post('/courses', checkAuth, createCourse);
 router.put('/courses/:courseId', checkAuth, updateCourse);
 router.delete('/courses/:courseId', checkAuth, deleteCourse);
 router.get('/courses/:courseId/videos', getVideosByCourse);
 router.post('/course/:courseId/reorder', checkAuth, updateCourseContentOrder);
+router.get('/courses/:courseId/collaborators', checkAuth, checkCourseAccess, getCourseCollaborators);
+router.post('/courses/:courseId/collaborators', checkAuth, checkCourseAccess, addCourseCollaborator);
+router.delete('/courses/:courseId/collaborators/:userId', checkAuth, checkCourseAccess, removeCourseCollaborator);
 // --- РОУТЫ ДЛЯ ТЕСТОВ (UserResponse) ---
 // saveProgress — это сохранение ответов на вопросы внутри видео
 router.post('/progress', checkAuth, saveProgress); 

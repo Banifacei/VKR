@@ -45,5 +45,6 @@ export interface ICourse {
     title: string;
     description: string;
     instructor: string;
+    ownerId?: number;
     videos?: IVideo[];
 }

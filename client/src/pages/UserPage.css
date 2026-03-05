@@ -507,3 +507,71 @@
     opacity: 0 !important;
     visibility: hidden !important;
 }
+
+/* --- АНИМАЦИИ ОВЕРЛЕЯ РЕДАКТИРОВАНИЯ --- */
+.edit-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+/* Показываем оверлей при наведении (только если не тащим карточку) */
+.content-card:not(.is-dragging):hover .edit-overlay {
+    opacity: 1;
+    visibility: visible;
+    backdrop-filter: blur(4px);
+}
+
+/* Прячем кнопки чуть ниже и делаем прозрачными */
+.edit-overlay button {
+    transform: translateY(15px);
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    opacity: 0;
+}
+
+/* При наведении на карточку возвращаем кнопки на место */
+.content-card:not(.is-dragging):hover .edit-overlay button {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+/* Каскадная задержка вылета кнопок */
+.edit-overlay button:nth-child(1) { transition-delay: 0.05s; }
+.edit-overlay button:nth-child(2) { transition-delay: 0.1s; }
+
+/* Стили самих кнопок */
+.edit-btn {
+    border: none;
+    padding: 12px 20px;
+    border-radius: 10px;
+    cursor: pointer;
+    width: 80%;
+    font-weight: bold;
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+}
+.edit-btn.primary {
+    background: #00aeef;
+    color: #fff;
+}
+.edit-btn.danger {
+    background: rgba(255, 77, 77, 0.2);
+    color: #ff4d4d;
+    border: 1px solid rgba(255,77,77,0.3);
+}
+
+/* Ховер-эффект на саму кнопку внутри оверлея */
+.edit-btn:hover {
+    filter: brightness(1.2);
+    transform: scale(1.05) !important;
+}

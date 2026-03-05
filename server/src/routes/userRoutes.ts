@@ -12,13 +12,17 @@ import {
     rejectUser,
     importUsersFromExcel,
     exportUsersToExcel,
-    downloadTemplate
+    downloadTemplate,
+    searchUsers,
+    getAvailableUsers
 } from '../controllers/userController.js';
 import {checkAuth, isAdmin} from '../middleware/authMiddleware.js';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
 router.get('/stats', checkAuth, getUserStats);
+router.get('/search', checkAuth, searchUsers);
+router.get('/available', checkAuth, getAvailableUsers);
 router.get('/', checkAuth, isAdmin, getAllUsers);
 router.post('/', checkAuth, isAdmin, createUserByAdmin);
 router.put('/:id/role', checkAuth, isAdmin, updateUserRole);

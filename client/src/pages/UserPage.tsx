@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { getVideosByCourse, getCourses } from '../api/videoApi';
+import { useParams, Link, useSearchParams, useNavigate } from 'react-router-dom';
+import { getVideosByCourse, getCourses, updateCourseApi, deleteCourseApi } from '../api/videoApi';
 import { getCourseTests, getUserCourseProgress, type ICourseTest } from '../api/testApi';
 import type { IVideo, ICourse } from '../types';
 import { VideoPlayer } from '../components/VideoPlayer';
@@ -14,90 +14,214 @@ import { CSS } from '@dnd-kit/utilities';
 import { AddVideoForm } from '../components/AddVideoForm';
 import { ContentEditorModal } from '../components/ContentEditorModal';
 import './UserPage.css';
+import './CoursesPage.css';
 import api from '../api/axiosInstance';
 import { useToast } from '../context/ToastContext';
-// Объединенный тип для плитки
+
+// 🔥 КАСТОМНЫЕ ПРЕМИУМ-ИКОНКИ
+const Icons = {
+    Video: () => <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>,
+    Test: () => <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>,
+    Check: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00ff88" strokeWidth="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
+    Fail: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff4d4d" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>,
+    Empty: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#444" strokeWidth="2"><circle cx="12" cy="12" r="10"/></svg>,
+    Edit: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
+    Trash: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+};
+
 type DashboardItem = 
     | ({ type: 'video' } & IVideo) 
     | ({ type: 'test' } & ICourseTest);
 
+// 🔥 ПОЛНОСТЬЮ ОБНОВЛЕННАЯ КАРТОЧКА
 const SortableCard = ({ item, idx, isEditMode, completedVideoIds, testResults, onClick, onEdit, onDelete }: any) => {
     const id = `${item.type}-${item.id}`;
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled: !isEditMode });
 
     const style = {
-        // 1. Используем Translate вместо Transform (убирает дерганье размеров в сетках)
         transform: CSS.Translate.toString(transform), 
-        
-        // 2. ЖЕЛЕЗОБЕТОННО отключаем CSS-анимации во время самого перетаскивания (это уберет лаги)
         transition: transition || 'none', 
-        
         position: 'relative' as const,
-        
-        // 3. Задираем z-index повыше, чтобы летящая карточка точно не цеплялась за соседей
         zIndex: isDragging ? 9999 : (transform ? 1 : 0),
-        
         cursor: isEditMode ? (isDragging ? 'grabbing' : 'grab') : 'pointer',
-        
-        // 4. Добавим немного визуальной магии для летящей карточки
         opacity: isDragging ? 0.8 : 1, 
-        boxShadow: isDragging ? '0px 15px 30px rgba(0,0,0,0.6)' : 'none',
-        scale: isDragging ? '1.02' : '1', // Чуть-чуть увеличиваем, чтобы визуально "оторвать" от стола
+        boxShadow: isDragging ? '0 20px 40px rgba(0,0,0,0.8)' : 'none',
+        scale: isDragging ? '1.05' : '1',
+        borderRadius: '16px',
+        overflow: 'hidden',
+        background: '#111',
+        border: '1px solid rgba(255,255,255,0.05)',
+        display: 'flex',
+        flexDirection: 'column' as const
     };
+
+    const isVideo = item.type === 'video';
+    const isCompleted = isVideo ? completedVideoIds.includes(item.id) : (testResults[item.id]?.passed || false);
 
     return (
         <div ref={setNodeRef} style={style} {...(isEditMode ? attributes : {})} {...(isEditMode ? listeners : {})} 
-             className={`content-card ${isDragging ? 'is-dragging' : ''}`} 
-             onClick={!isEditMode ? () => onClick(item) : undefined}>
+             onClick={!isEditMode ? () => onClick(item) : undefined}
+             // 🔥 1. ВЕРНУЛИ КЛАССЫ ДЛЯ АНИМАЦИЙ
+             className={`content-card ${isDragging ? 'is-dragging' : ''}`}
+        >
             
-            {/* 🛠 ОВЕРЛЕЙ РЕДАКТОРА (Показывается только в Режиме Редактирования) */}
+            {/* 🔥 2. ОВЕРЛЕЙ РЕДАКТОРА (Теперь управляется через CSS) */}
             {isEditMode && (
-                <div className="edit-overlay" style={{
-                    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-                    background: 'rgba(0,0,0,0.8)', zIndex: 10, borderRadius: 'inherit',
-                    display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '10px',
-                    animation: 'fadeIn 0.2s ease'
-                }}>
-                    <button onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onEdit(item); }} style={{background: '#00aeef', color: '#fff', border: 'none', padding: '10px 15px', borderRadius: '8px', cursor: 'pointer', width: '70%', fontWeight: 'bold'}}>📝 Контент</button>
-                    <button onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onDelete(item); }} style={{background: '#ff4d4d', color: '#fff', border: 'none', padding: '10px 15px', borderRadius: '8px', cursor: 'pointer', width: '70%', fontWeight: 'bold'}}>🗑️ Удалить</button>
+                <div className="edit-overlay">
+                    <button 
+                        className="edit-btn primary"
+                        onPointerDown={(e) => e.stopPropagation()} 
+                        onClick={(e) => { e.stopPropagation(); onEdit(item); }} 
+                    >
+                        <Icons.Edit /> Контент
+                    </button>
+                    <button 
+                        className="edit-btn danger"
+                        onPointerDown={(e) => e.stopPropagation()} 
+                        onClick={(e) => { e.stopPropagation(); onDelete(item); }} 
+                    >
+                        <Icons.Trash /> Удалить
+                    </button>
                 </div>
             )}
 
-            {/* Стандартное содержимое карточки */}
-            <div className="card-thumbnail">
-                <div className="card-type-icon" style={{ background: item.type === 'video' ? 'rgba(0,0,0,0.6)' : 'rgba(255, 215, 0, 0.8)', color: item.type === 'video' ? '#fff' : '#000' }}>
-                    {item.type === 'video' ? 'ВИДЕО' : 'ТЕСТ'}
+            {/* ЯРКАЯ ОБЛОЖКА */}
+            <div style={{ 
+                height: '140px', 
+                background: isVideo ? 'linear-gradient(135deg, #00aeef 0%, #0056b3 100%)' : 'linear-gradient(135deg, #F09819 0%, #EDDE5D 100%)',
+                display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative'
+            }}>
+                <div style={{ 
+                    position: 'absolute', top: '12px', left: '12px', 
+                    background: 'rgba(0,0,0,0.5)', padding: '4px 10px', borderRadius: '8px', 
+                    fontSize: '11px', fontWeight: 'bold', color: '#fff', backdropFilter: 'blur(4px)' 
+                }}>
+                    {isVideo ? 'ВИДЕО-УРОК' : 'ТЕСТИРОВАНИЕ'}
                 </div>
-                <span style={{ fontSize: '50px' }}>{item.type === 'video' ? '📺' : '📝'}</span>
+                {isVideo ? <Icons.Video /> : <Icons.Test />}
             </div>
-            <div className="card-body">
-                <h3 className="card-title">{idx + 1}. {item.title}</h3>
-                <div className="card-meta">
-                    {item.type === 'video' ? <span>▶ Урок</span> : <span>{item.questions?.length || 0} вопросов</span>}
-                    {/* Логика галочек */}
-                    {item.type === 'video' ? (
-                        completedVideoIds.includes(item.id) ? <span style={{ color: '#4dff88', fontWeight: 'bold', fontSize: '14px' }}>✅</span> : <span style={{ color: '#444' }}>◯</span>
-                    ) : (
-                        testResults[item.id] ? (
-                            <span style={{ color: testResults[item.id].passed ? '#4dff88' : '#ff4d4d', fontWeight: 'bold', fontSize: '14px' }}>
-                                {testResults[item.id].passed ? `✅ Сдан на ${testResults[item.id].score}%` : `❌ Не сдан (${testResults[item.id].score}%)`}
-                            </span>
-                        ) : <span style={{ color: '#444' }}>◯</span>
-                    )}
+
+            {/* ИНФОРМАЦИЯ */}
+            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                <h3 style={{ margin: '0 0 15px 0', fontSize: '16px', color: '#fff', lineHeight: '1.4' }}>
+                    <span style={{ color: '#888', marginRight: '8px' }}>{idx + 1}.</span>
+                    {item.title}
+                </h3>
+                
+                <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '15px' }}>
+                    <span style={{ fontSize: '13px', color: '#666' }}>
+                        {isVideo ? 'Учебный материал' : `${item.questions?.length || 0} вопросов`}
+                    </span>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        {isVideo ? (
+                            isCompleted ? <><Icons.Check /> <span style={{fontSize: '13px', color: '#00ff88'}}>Пройдено</span></> : <Icons.Empty />
+                        ) : (
+                            testResults[item.id] ? (
+                                testResults[item.id].passed ? (
+                                    <><Icons.Check /> <span style={{fontSize: '13px', color: '#00ff88'}}>{testResults[item.id].score}%</span></>
+                                ) : (
+                                    <><Icons.Fail /> <span style={{fontSize: '13px', color: '#ff4d4d'}}>{testResults[item.id].score}%</span></>
+                                )
+                            ) : <Icons.Empty />
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
     );
 };
 
+
 export const UserPage = () => {
     const { courseId } = useParams();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const navigate = useNavigate();
     const { showToast } = useToast();
     const [activeDragId, setActiveDragId] = useState<string | null>(null); // Кто сейчас летит?
     const [showAddModal, setShowAddModal] = useState(false);
     const [editorItem, setEditorItem] = useState<DashboardItem | null>(null); // 👈 Стейт для редактора контента
     const [modalView, setModalView] = useState<'select' | 'create_test' | 'create_video'>('select');
+    const [editCourseData, setEditCourseData] = useState({ title: '', description: '', instructor: '' });
+    const [settingsTab, setSettingsTab] = useState<'info' | 'team'>('info');
+    const [collaborators, setCollaborators] = useState<any[]>([]);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState<any[]>([]);
+    const [isSearching, setIsSearching] = useState(false);
+    const [showDropdown, setShowDropdown] = useState(false);
+    const [inviteEmail, setInviteEmail] = useState('');
+    const [isInviting, setIsInviting] = useState(false);
+    const [showCourseSettings, setShowCourseSettings] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
+    const [canEdit, setCanEdit] = useState(false);
+    const fetchCollaborators = async (id: number) => {
+        try {
+            const res = await api.get(`/videos/courses/${id}/collaborators`);
+            setCollaborators(res.data);
+        } catch (e) { console.error('Ошибка загрузки команды'); }
+    };
+    const loadAllUsers = async () => {
+        setIsSearching(true);
+        try {
+            const res = await api.get('/users/available');
+            setSearchResults(res.data);
+        } catch(e) { }
+        finally { setIsSearching(false); }
+    };
+    // 🔥 ХУК ПОИСКА: Делает запрос, когда юзер печатает (с задержкой 300мс)
+    useEffect(() => {
+        const timer = setTimeout(async () => {
+            if (searchQuery.trim().length >= 2) {
+                // Ищем по тексту
+                setIsSearching(true);
+                try {
+                    const res = await api.get(`/users/search?q=${searchQuery}`);
+                    setSearchResults(res.data);
+                } catch(e) { }
+                finally { setIsSearching(false); }
+            } else if (searchQuery.trim().length === 0 && showDropdown) {
+                // Если стерли текст до нуля — снова показываем всех!
+                loadAllUsers();
+            }
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [searchQuery, showDropdown]);
+
+    // 🔥 ФУНКЦИЯ ДОБАВЛЕНИЯ ПО КЛИКУ ИЗ СПИСКА
+    const handleInviteUser = async (userEmail: string) => {
+        if (!courseId) return;
+        try {
+            await api.post(`/videos/courses/${courseId}/collaborators`, { email: userEmail });
+            showToast('Пользователь добавлен в команду!', 'success');
+            setSearchQuery(''); // Сбрасываем строку
+            setShowDropdown(false); // Закрываем выпадашку
+            fetchCollaborators(Number(courseId)); // Обновляем список
+        } catch (e: any) {
+            showToast(e.response?.data?.message || 'Ошибка приглашения', 'error');
+        }
+    };
+    const handleInvite = async () => {
+        if (!inviteEmail.trim() || !courseId) return showToast('Введите email', 'error');
+        setIsInviting(true);
+        try {
+            await api.post(`/videos/courses/${courseId}/collaborators`, { email: inviteEmail.trim() });
+            showToast('Пользователь добавлен в команду!', 'success');
+            setInviteEmail('');
+            fetchCollaborators(Number(courseId));
+        } catch (e: any) {
+            showToast(e.response?.data?.message || 'Ошибка приглашения', 'error');
+        } finally { setIsInviting(false); }
+    };
+
+    const handleRemoveCollaborator = async (userId: number) => {
+        if (!courseId || !window.confirm('Удалить пользователя из команды?')) return;
+        try {
+            await api.delete(`/videos/courses/${courseId}/collaborators/${userId}`);
+            showToast('Пользователь удален', 'info');
+            fetchCollaborators(Number(courseId));
+        } catch (e) { showToast('Ошибка удаления', 'error'); }
+    };
+
     // Данные для нового теста
     const [newTestData, setNewTestData] = useState({ title: '', description: '', passingScore: 80, maxAttempts: 3 });
     const isSavingOrderRef = useRef(false);
@@ -240,6 +364,25 @@ export const UserPage = () => {
             const foundCourse = allCourses.find(c => c.id === Number(courseId));
             setCourse(foundCourse || null);
 
+            // 🔥 ПРОВЕРКА ПРАВ (ФРОНТЕНД-ИЗОЛЯЦИЯ)
+            let hasRights = false;
+            if (userData?.role === 'admin') hasRights = true;
+            if (foundCourse?.ownerId === userData?.id) hasRights = true;
+
+            // Тихо пытаемся загрузить команду курса. 
+            // Если бэкенд отдаст 403 (Forbidden) — мы не соавторы, ошибка просто проигнорируется.
+            try {
+                const collabRes = await api.get(`/videos/courses/${courseId}/collaborators`);
+                setCollaborators(collabRes.data);
+                // Если наш ID есть в списке соавторов
+                if (collabRes.data.some((c: any) => c.userId === userData?.id)) {
+                    hasRights = true;
+                }
+            } catch (e) { /* Ничего не делаем, доступ запрещен */ }
+
+            setCanEdit(hasRights); // Включаем или выключаем права редактирования
+
+            // Дальше грузим видео и тесты
             const videos = await getVideosByCourse(Number(courseId));
             const tests = await getCourseTests(Number(courseId));
 
@@ -249,6 +392,7 @@ export const UserPage = () => {
             ].sort((a: any, b: any) => (a.orderIndex || 0) - (b.orderIndex || 0));
             setItems(combinedItems); 
 
+            // Грузим прогресс
             const progressData = await getUserCourseProgress(Number(courseId));
             setCompletedVideoIds(progressData.completedVideoIds || []);
             
@@ -258,17 +402,32 @@ export const UserPage = () => {
             });
             setTestResults(resultsMap);
 
-        } catch (err) {
-            console.error("Не удалось загрузить данные", err);
+        } catch (err: any) {
+            console.error("❌ Ошибка при загрузке данных:", err);
+            showToast('Ошибка связи с сервером', 'error');
         } finally {
             setLoading(false);
         }
     };
 
-    // 👇 2. Оставили useEffect чистым
     useEffect(() => {
         fetchCourseData();
     }, [courseId]);
+
+    // 🔥 МАГИЯ: Ловим параметр из URL и сразу открываем видео!
+    useEffect(() => {
+        const lessonId = searchParams.get('lessonId');
+        // Если в URL есть lessonId, контент загрузился и ничего еще не открыто
+        if (lessonId && items.length > 0 && !activeItem) {
+            const targetItem = items.find(i => i.type === 'video' && i.id === Number(lessonId));
+            if (targetItem) {
+                setActiveItem(targetItem); // Открываем плеер
+                // Очищаем ссылку от параметра, чтобы при нажатии "Назад" урок не открылся заново
+                searchParams.delete('lessonId');
+                setSearchParams(searchParams, { replace: true });
+            }
+        }
+    }, [items, searchParams, setSearchParams, activeItem]);
     // Универсальное удаление (и для видео, и для тестов)
     const handleDeleteItem = async (item: any) => {
         const isVideo = item.type === 'video';
@@ -455,115 +614,128 @@ export const UserPage = () => {
 
             <div className="dashboard-container">
                 <div className="course-header-big">
-                    <button className="btn btn-ghost" onClick={() => window.location.href='/courses'} style={{marginBottom: '10px', paddingLeft: 0, color: '#666'}}>
+                    <button className="btn btn-ghost" onClick={() => navigate('/courses')} style={{marginBottom: '10px', paddingLeft: 0, color: '#666'}}>
                         ← Все курсы
                     </button>
-                    <h1 className="course-title-large">{course?.title || 'Загрузка...'}</h1>
-                    <div className="course-progress-section">
-                        {userData && ['teacher', 'admin'].includes(userData.role) && (
-                            <div style={{ 
-                                marginTop: '25px', 
-                                display: 'flex', 
-                                gap: '5px', 
-                                background: '#111', 
-                                padding: '6px', 
-                                borderRadius: '12px', 
-                                width: 'fit-content',
-                                border: '1px solid #333'
-                            }}>
-                                <button 
-                                    onClick={() => setIsEditMode(false)}
-                                    style={{ 
-                                        background: !isEditMode ? '#2a2a2a' : 'transparent', 
-                                        color: !isEditMode ? '#fff' : '#888',
-                                        border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', transition: '0.2s'
-                                    }}
-                                >
-                                    👁️ Глазами студента
-                                </button>
-                                <button 
-                                    onClick={() => setIsEditMode(true)}
-                                    style={{ 
-                                        background: isEditMode ? '#00aeef' : 'transparent', 
-                                        color: isEditMode ? '#fff' : '#888',
-                                        border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', transition: '0.2s'
-                                    }}
-                                >
-                                    ✏️ Редактирование
-                                </button>
+
+                    {/* 🔥 1. ПРОВЕРКА ДЛЯ ШАПКИ */}
+                    {loading ? (
+                        <div style={{ animation: 'fadeIn 0.3s ease', marginTop: '10px' }}>
+                            <div className="skeleton" style={{ width: '40%', minWidth: '300px', height: '40px', borderRadius: '8px', marginBottom: '25px' }}></div>
+                            <div style={{ display: 'flex', gap: '15px', marginBottom: '20px' }}>
+                                <div className="skeleton" style={{ width: '120px', height: '24px', borderRadius: '12px' }}></div>
+                                <div className="skeleton" style={{ width: '80px', height: '24px', borderRadius: '12px' }}></div>
+                                <div className="skeleton" style={{ width: '80px', height: '24px', borderRadius: '12px' }}></div>
                             </div>
-                        )}
-                    <div style={{ marginTop: '20px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '14px', color: '#888' }}>
-                            <span>Прогресс курса</span>
-                            <span style={{ color: progressPercent === 100 ? '#4dff88' : '#00aeef', fontWeight: 'bold' }}>{progressPercent}%</span>
+                            <div className="skeleton" style={{ width: '60%', height: '14px', borderRadius: '4px', marginBottom: '8px' }}></div>
+                            <div className="skeleton" style={{ width: '40%', height: '14px', borderRadius: '4px' }}></div>
                         </div>
-                        <div style={{ background: '#222', borderRadius: '10px', height: '8px', overflow: 'hidden' }}>
-                            <div style={{ 
-                                width: `${progressPercent}%`, 
-                                background: progressPercent === 100 ? '#4dff88' : '#00aeef', 
-                                height: '100%', 
-                                transition: 'width 0.8s ease' 
-                            }} />
-                        </div>
-                    </div>
-                        <span>👨‍🏫 {course?.instructor}</span>
-                        <span>•</span>
-                        <span>{items.filter(i => i.type === 'video').length} уроков</span>
-                        <span>•</span>
-                        <span>{items.filter(i => i.type === 'test').length} тестов</span>
-                    </div>
-                    <p style={{ color: '#ccc', marginTop: '15px', maxWidth: '800px', lineHeight: '1.5' }}>
-                        {course?.description}
-                    </p>
-                </div>
-
-                {loading ? (
-                    <div className="loader" style={{padding: '50px'}}>Загрузка материалов...</div>
-                ) : (
-                    <DndContext 
-                    sensors={sensors} 
-                    collisionDetection={closestCenter} 
-                    onDragStart={(e) => setActiveDragId(String(e.active.id))} // 👈 Фиксируем старт
-                    onDragEnd={handleDragEnd}
-                    onDragCancel={() => setActiveDragId(null)} // 👈 Если отменили (Esc)
-                >
-                    <SortableContext items={items.map(i => `${i.type}-${i.id}`)} strategy={rectSortingStrategy}>
-                        {/* 👇 Вешаем класс is-global-dragging, если что-то тащим */}
-                        <div className={`content-grid ${activeDragId ? 'is-global-dragging' : ''}`}>
-                            {items.map((item, idx) => (
-                                    <SortableCard 
-                                        key={`${item.type}-${item.id}`}
-                                        item={item}
-                                        idx={idx}
-                                        isEditMode={isEditMode}
-                                        completedVideoIds={completedVideoIds}
-                                        testResults={testResults}
-                                        onClick={(clickedItem: any) => setActiveItem(clickedItem)}
-                                        onEdit={(i: any) => setEditorItem(i)}
-                                        onDelete={(i: any) => handleDeleteItem(i)}
-                                    />
-                                ))}
-
-                                {/* 🌟 ПЛИТКА "ДОБАВИТЬ" (Только в режиме редактирования) */}
-                                {isEditMode && (
-                                    <div 
-                                        className="content-card" 
-                                        onClick={() => setShowAddModal(true)}
-                                        style={{ 
-                                            display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', 
-                                            border: '2px dashed #444', background: 'rgba(255,255,255,0.02)', cursor: 'pointer', minHeight: '200px' 
-                                        }}
-                                    >
-                                        <div style={{ fontSize: '50px', color: '#666', marginBottom: '10px' }}>+</div>
-                                        <div style={{ color: '#888', fontWeight: 'bold' }}>Добавить материал</div>
+                    ) : (
+                        <>
+                            <h1 className="course-title-large">{course?.title}</h1>
+                            <div className="course-progress-section">
+                                {canEdit && (
+                                    <div style={{ marginTop: '25px', display: 'flex', gap: '5px', background: '#111', padding: '6px', borderRadius: '12px', width: 'fit-content', border: '1px solid #333' }}>
+                                        <button 
+                                            onClick={() => setIsEditMode(false)}
+                                            style={{ background: !isEditMode ? '#2a2a2a' : 'transparent', color: !isEditMode ? '#fff' : '#888', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', transition: '0.2s' }}
+                                        >
+                                            👁️ Глазами студента
+                                        </button>
+                                        <button 
+                                            onClick={() => setIsEditMode(true)} 
+                                            style={{ background: isEditMode ? '#00aeef' : 'transparent', color: isEditMode ? '#fff' : '#888', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', transition: '0.2s' }}
+                                        >
+                                            ✏️ Редактирование
+                                        </button>
+                                        {isEditMode && (
+                                            <button onClick={() => {
+                                                if (course) {
+                                                    setEditCourseData({ title: course.title, description: course.description || '', instructor: course.instructor || '' });
+                                                    setSettingsTab('info');
+                                                    setShowCourseSettings(true);
+                                                }
+                                            }} style={{ background: 'rgba(255,255,255,0.05)', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+                                                ⚙️ Настройки
+                                            </button>
+                                        )}
                                     </div>
                                 )}
+                                <div style={{ marginTop: '20px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '14px', color: '#888' }}>
+                                        <span>Прогресс курса</span>
+                                        <span style={{ color: progressPercent === 100 ? '#4dff88' : '#00aeef', fontWeight: 'bold' }}>{progressPercent}%</span>
+                                    </div>
+                                    <div style={{ background: '#222', borderRadius: '10px', height: '8px', overflow: 'hidden' }}>
+                                        <div style={{ width: `${progressPercent}%`, background: progressPercent === 100 ? '#4dff88' : '#00aeef', height: '100%', transition: 'width 0.8s ease' }} />
+                                    </div>
+                                </div>
+                                <span>👨‍🏫 {course?.instructor}</span>
+                                <span>•</span>
+                                <span>{items.filter(i => i.type === 'video').length} уроков</span>
+                                <span>•</span>
+                                <span>{items.filter(i => i.type === 'test').length} тестов</span>
                             </div>
-                        </SortableContext>
-                    </DndContext>
+                            <p style={{ color: '#ccc', marginTop: '15px', maxWidth: '800px', lineHeight: '1.5' }}>
+                                {course?.description}
+                            </p>
+                        </>
+                    )}
+                </div>
+
+                {/* 🔥 2. ПРОВЕРКА ДЛЯ КАРТОЧЕК */}
+                {loading ? (
+                    <div className="content-grid" style={{ animation: 'fadeIn 0.3s ease' }}>
+                        {[1, 2, 3].map(i => (
+                            <div key={i} className="content-card" style={{ borderColor: 'rgba(255,255,255,0.05)', cursor: 'default' }}>
+                                <div className="skeleton" style={{ height: '140px', width: '100%', borderRadius: '12px 12px 0 0' }}></div>
+                                <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '15px', flex: 1 }}>
+                                    <div className="skeleton" style={{ height: '18px', width: '80%', borderRadius: '4px' }}></div>
+                                    <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between' }}>
+                                        <div className="skeleton" style={{ height: '14px', width: '40%', borderRadius: '4px' }}></div>
+                                        <div className="skeleton" style={{ height: '14px', width: '20%', borderRadius: '4px' }}></div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <>
+                        <DndContext 
+                            sensors={sensors} 
+                            collisionDetection={closestCenter} 
+                            onDragStart={(e) => setActiveDragId(String(e.active.id))}
+                            onDragEnd={handleDragEnd}
+                            onDragCancel={() => setActiveDragId(null)}
+                        >
+                            <SortableContext items={items.map(i => `${i.type}-${i.id}`)} strategy={rectSortingStrategy}>
+                                <div className={`content-grid ${activeDragId ? 'is-global-dragging' : ''}`}>
+                                    {items.map((item, idx) => (
+                                        <SortableCard 
+                                            key={`${item.type}-${item.id}`}
+                                            item={item}
+                                            idx={idx}
+                                            isEditMode={isEditMode}
+                                            completedVideoIds={completedVideoIds}
+                                            testResults={testResults}
+                                            onClick={(clickedItem: any) => setActiveItem(clickedItem)}
+                                            onEdit={(i: any) => setEditorItem(i)}
+                                            onDelete={(i: any) => handleDeleteItem(i)}
+                                        />
+                                    ))}
+
+                                    {isEditMode && (
+                                        <div className="content-card" onClick={() => setShowAddModal(true)} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', border: '2px dashed #444', background: 'rgba(255,255,255,0.02)', cursor: 'pointer', minHeight: '200px' }}>
+                                            <div style={{ fontSize: '50px', color: '#666', marginBottom: '10px' }}>+</div>
+                                            <div style={{ color: '#888', fontWeight: 'bold' }}>Добавить материал</div>
+                                        </div>
+                                    )}
+                                </div>
+                            </SortableContext>
+                        </DndContext>
+                        {items.length === 0 && <div style={{ textAlign: 'center', padding: '50px', color: '#666' }}>В этом курсе пока нет материалов.</div>}
+                    </>
                 )}
-                {!loading && items.length === 0 && <div style={{ textAlign: 'center', padding: '50px', color: '#666' }}>В этом курсе пока нет материалов.</div>}
             </div>
             {/* 🌟 ДИНАМИЧЕСКАЯ МОДАЛКА ДОБАВЛЕНИЯ */}
             {showAddModal && (
@@ -674,6 +846,137 @@ export const UserPage = () => {
                     }} 
                 />
             )}
+            {/* 🔥 МОДАЛКА НАСТРОЕК И КОМАНДЫ */}
+            {showCourseSettings && course && (() => {
+                const isOwner = course.ownerId === userData?.id || userData?.role === 'admin';
+                const isChanged = course.title !== editCourseData.title || (course.description || '') !== editCourseData.description || (course.instructor || '') !== editCourseData.instructor;
+                
+                return (
+                    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(5px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }}>
+                        
+                        <div style={{ background: '#111', borderRadius: '24px', border: '1px solid #333', width: '100%', maxWidth: '700px',height: '600px', margin: '0 20px', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.5)', animation: 'fadeIn 0.2s ease', display: 'flex', flexDirection: 'column'}}>
+                            
+                            <div style={{ padding: '20px 25px', background: '#1a1a1a', borderBottom: '1px solid #333', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <h3 style={{margin: 0, color: '#fff'}}>Настройки курса</h3>
+                                <button style={{background:'none', border:'none', color:'#888', cursor:'pointer', fontSize:'20px'}} onClick={() => setShowCourseSettings(false)}>✕</button>
+                            </div>
+
+                            <div style={{ display: 'flex', borderBottom: '1px solid #333', background: '#0a0a0a' }}>
+                                <button onClick={() => setSettingsTab('info')} style={{ flex: 1, padding: '15px', background: 'none', border: 'none', borderBottom: settingsTab === 'info' ? '2px solid #00aeef' : '2px solid transparent', color: settingsTab === 'info' ? '#00aeef' : '#888', fontWeight: 'bold', cursor: 'pointer' }}>Основное</button>
+                                <button onClick={() => { setSettingsTab('team'); fetchCollaborators(course.id); }} style={{ flex: 1, padding: '15px', background: 'none', border: 'none', borderBottom: settingsTab === 'team' ? '2px solid #00aeef' : '2px solid transparent', color: settingsTab === 'team' ? '#00aeef' : '#888', fontWeight: 'bold', cursor: 'pointer' }}>Команда</button>
+                            </div>
+
+                            <div style={{ padding: '25px' }}>
+                                {settingsTab === 'info' ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                        <div><label style={{ fontSize: '12px', color: '#888' }}>Название курса</label><input className="modern-input" value={editCourseData.title} onChange={e => setEditCourseData({...editCourseData, title: e.target.value})} /></div>
+                                        <div><label style={{ fontSize: '12px', color: '#888' }}>ФИО Преподавателя</label><input className="modern-input" value={editCourseData.instructor} onChange={e => setEditCourseData({...editCourseData, instructor: e.target.value})} /></div>
+                                        <div><label style={{ fontSize: '12px', color: '#888' }}>Описание</label><textarea className="modern-input" style={{ minHeight: '150px' }} value={editCourseData.description} onChange={e => setEditCourseData({...editCourseData, description: e.target.value})} /></div>
+                                        
+                                        <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                                            <button className="btn btn-primary" style={{ flex: 1, opacity: isChanged ? 1 : 0.5 }} disabled={!isChanged} onClick={async () => {
+                                                try {
+                                                    await updateCourseApi(course.id, editCourseData);
+                                                    fetchCourseData(); setShowCourseSettings(false); showToast('Курс обновлен!', 'success');
+                                                } catch (e) { showToast('Ошибка', 'error'); }
+                                            }}>Сохранить</button>
+                                            
+                                            {isOwner && (
+                                                <button className="btn btn-ghost" style={{ background: 'rgba(255, 77, 77, 0.1)', color: '#ff4d4d' }} onClick={async () => {
+                                                    if (window.confirm('⚠️ Вы уверены, что хотите навсегда удалить этот курс?')) {
+                                                        try { await deleteCourseApi(course.id); window.location.href = '/courses'; } catch (e) { showToast('Ошибка', 'error'); }
+                                                    }
+                                                }}>🗑️ Удалить</button>
+                                            )}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                        {isOwner ? (
+                                            <div style={{ position: 'relative', marginBottom: '15px' }}>
+                                                {/* Поле поиска */}
+                                                <div style={{ display: 'flex', alignItems: 'center', background: '#1a1a1a', borderRadius: '12px', padding: '0 15px', border: '1px solid #333', transition: 'border-color 0.2s', position: 'relative', zIndex: 101 }}>
+                                                    <span style={{color: '#888'}}>🔍</span>
+                                                    <input 
+                                                        className="modern-input" 
+                                                        style={{ marginBottom: 0, border: 'none', background: 'transparent', boxShadow: 'none', flex: 1, padding: '15px 10px' }} 
+                                                        placeholder="Поиск или выбор из списка..." 
+                                                        value={searchQuery} 
+                                                        onChange={e => setSearchQuery(e.target.value)} 
+                                                        onFocus={() => { 
+                                                            setShowDropdown(true);
+                                                            // 🔥 МАГИЯ: Если строка пустая при клике — грузим всех!
+                                                            if (!searchQuery.trim()) {
+                                                                loadAllUsers();
+                                                            }
+                                                        }}
+                                                    />
+                                                    {isSearching && <span className="loader-dots" style={{color: '#00aeef', paddingRight: '10px'}}>...</span>}
+                                                </div>
+
+                                                {/* ВЫПАДАЮЩИЙ СПИСОК (SPOTLIGHT) */}
+                                                {showDropdown && searchResults.length > 0 && (
+                                                    <div style={{
+                                                        position: 'absolute', top: '55px', left: 0, right: 0,
+                                                        background: '#161616', border: '1px solid #333', borderRadius: '12px',
+                                                        boxShadow: '0 10px 40px rgba(0,0,0,0.8)', zIndex: 102, overflowY: 'auto', 
+                                                        maxHeight: '260px',
+                                                        animation: 'fadeIn 0.2s ease'
+                                                    }}>
+                                                        {searchResults.map(userItem => {
+                                                            // Прячем тех, кто уже в команде
+                                                            if (collaborators.some(c => c.userId === userItem.id)) return null;
+                                                            
+                                                            return (
+                                                                <div key={userItem.id} 
+                                                                    onClick={() => handleInviteUser(userItem.email)}
+                                                                    style={{
+                                                                        padding: '12px 15px', display: 'flex', alignItems: 'center', gap: '12px',
+                                                                        cursor: 'pointer', borderBottom: '1px solid #222', transition: 'background 0.2s'
+                                                                    }}
+                                                                    onMouseEnter={e => e.currentTarget.style.background = '#222'}
+                                                                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                                                >
+                                                                    <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                                                                        {userItem.avatarUrl ? <img src={userItem.avatarUrl} style={{width:'100%', height:'100%', objectFit:'cover'}} alt=""/> : <span style={{color:'#fff', fontSize:'14px'}}>{userItem.firstName?.[0] || '?'}</span>}
+                                                                    </div>
+                                                                    <div style={{ flex: 1 }}>
+                                                                        <div style={{ color: '#fff', fontSize: '14px', fontWeight: 'bold' }}>{userItem.firstName} {userItem.lastName}</div>
+                                                                        <div style={{ color: '#888', fontSize: '12px' }}>{userItem.email}</div>
+                                                                    </div>
+                                                                    <div style={{ fontSize: '11px', color: '#00aeef', background: 'rgba(0,174,239,0.1)', padding: '4px 8px', borderRadius: '6px' }}>
+                                                                        {userItem.role === 'teacher' ? 'Преподаватель' : 'Студент'}
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+                                                {/* Оверлей для закрытия выпадашки при клике мимо */}
+                                                {showDropdown && <div style={{position:'fixed', top:0, left:0, right:0, bottom:0, zIndex: 99}} onClick={() => setShowDropdown(false)} />}
+                                            </div>
+                                        ) : (
+                                            <div style={{color: '#ff9900', fontSize: '13px', background: 'rgba(255,153,0,0.1)', padding: '10px', borderRadius: '8px'}}>Только Владелец курса может управлять командой.</div>
+                                        )}
+
+                                        <div style={{ background: '#1a1a1a', borderRadius: '12px', border: '1px solid #333' }}>
+                                            {collaborators.length === 0 ? <div style={{ padding: '20px', textAlign: 'center', color: '#666', fontSize: '13px' }}>Никого нет</div> : collaborators.map(col => (
+                                                <div key={col.userId} style={{ padding: '12px 15px', borderBottom: '1px solid #333', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <div>
+                                                        <div style={{ color: '#fff', fontSize: '14px', fontWeight: 'bold' }}>{col.user?.firstName} {col.user?.lastName}</div>
+                                                        <div style={{ color: '#888', fontSize: '12px' }}>{col.user?.email}</div>
+                                                    </div>
+                                                    {isOwner && <button className="btn-icon" style={{ color: '#ff4d4d' }} onClick={() => handleRemoveCollaborator(col.userId)}>✕</button>}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
         </div>
     );
 };

@@ -8,6 +8,7 @@ import { Course } from '../models/Course.js';
 import { UserTestResult } from '../models/UserTestResult.js';
 import { CourseTest } from '../models/CourseTest.js';
 import { addSystemLog } from './adminController.js';
+import { Op } from 'sequelize';
 import * as xlsx from 'xlsx';
 export const getAllUsers = async (req: Request, res: Response) => {
     try {
@@ -474,5 +475,51 @@ export const downloadTemplate = async (req: Request, res: Response) => {
     } catch (e) {
         console.error('Ошибка при создании шаблона:', e);
         res.status(500).json({ message: 'Ошибка при создании шаблона' });
+    }
+};
+
+export const searchUsers = async (req: Request, res: Response) => {
+    try {
+        const { q } = req.query;
+        if (!q || typeof q !== 'string' || q.length < 2) {
+            return res.json([]); // Ищем только если ввели минимум 2 буквы
+        }
+
+        const users = await User.findAll({
+            where: {
+                [Op.or]: [
+                    { email: { [Op.iLike]: `%${q}%` } },
+                    { firstName: { [Op.iLike]: `%${q}%` } },
+                    { lastName: { [Op.iLike]: `%${q}%` } }
+                ]
+            },
+            // Отдаем только публичную инфу, без паролей!
+            attributes: ['id', 'email', 'firstName', 'lastName', 'avatarUrl', 'role'],
+            limit: 5 // Отдаем топ-5 совпадений, чтобы не перегружать интерфейс
+        });
+
+        res.json(users);
+    } catch (error) {
+        console.error('Ошибка поиска пользователей:', error);
+        res.status(500).json({ message: 'Ошибка при поиске' });
+    }
+};
+
+// --- ПОЛУЧИТЬ ВСЕХ ДОСТУПНЫХ ПОЛЬЗОВАТЕЛЕЙ (ДЛЯ СПИСКА СОАВТОРОВ) ---
+export const getAvailableUsers = async (req: Request, res: Response) => {
+    try {
+        const users = await User.findAll({
+            where: {
+                role: { [Op.ne]: 'admin' } // Исключаем админов из выдачи
+            },
+            // Отдаем только безопасные данные
+            attributes: ['id', 'email', 'firstName', 'lastName', 'avatarUrl', 'role'],
+            order: [['firstName', 'ASC']],
+            limit: 100 // Ограничение на случай, если в вузе будут тысячи студентов
+        });
+        res.json(users);
+    } catch (error) {
+        console.error('Ошибка получения списка:', error);
+        res.status(500).json({ message: 'Ошибка загрузки пользователей' });
     }
 };

@@ -210,7 +210,7 @@ export const HistoryPage = () => {
                                         </h3>
                                         <div className="history-list">
                                             {stats.unfinished.map((item: any) => (
-                                                <div key={`unfin-${item.videoId}`} className="history-item unfinished-item" onClick={() => navigate(`/course/${item.courseId}/lesson/${item.videoId}`)}>
+                                                <div key={`unfin-${item.videoId}`} className="history-item unfinished-item" onClick={() => navigate(`/course/${item.courseId}?lessonId=${item.videoId}`)}>
                                                     <div className="history-video-thumb">
                                                         <Icons.Play />
                                                         <div className="history-progress-bar partial" style={{ width: '60%', background: '#ffd700' }}></div>
@@ -233,7 +233,7 @@ export const HistoryPage = () => {
                                     {stats.history?.length > 0 ? (
                                         <div className="history-list">
                                             {stats.history.map((item: any) => (
-                                                <div key={`hist-${item.videoId}`} className="history-item" onClick={() => navigate(`/course/${item.courseId}/lesson/${item.videoId}`)}>
+                                                <div key={`hist-${item.videoId}`} className="history-item" onClick={() => navigate(`/course/${item.courseId}?lessonId=${item.videoId}`)}>
                                                     <div className="history-video-thumb">
                                                         <Icons.Play />
                                                         <div className="history-progress-bar full"></div>

@@ -10,6 +10,7 @@ import { CourseTest } from '../models/CourseTest.js';
 import { TestQuestion } from '../models/TestQuestion.js';
 import { UserTestResult } from '../models/UserTestResult.js';
 import { SystemSetting } from '../models/SystemSetting.js';
+import { CourseCollaborator } from '../models/CourseCollaborator.js';
 dotenv.config();
 
 const sequelize = new Sequelize({
@@ -30,7 +31,8 @@ const sequelize = new Sequelize({
      CourseTest,
      TestQuestion,
      UserTestResult,
-     SystemSetting
+     SystemSetting,
+     CourseCollaborator
     ],
   
   logging: false,

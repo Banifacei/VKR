@@ -5,7 +5,7 @@
   "description": "InterX Backend",
   "main": "index.ts",
   "scripts": {
-    "dev": "tsx watch index.ts",
+    "dev": "tsx watch --ignore \"uploads/**\" index.ts",
     "build": "tsc",
     "start": "node dist/index.js"
   },
