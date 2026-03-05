@@ -2,6 +2,7 @@ import { Table, Column, Model, DataType, HasMany, ForeignKey, BelongsTo } from '
 import { Video } from './Video.js';
 import { CourseTest } from './CourseTest.js';
 import { User } from './User.js';
+import { CourseEnrollment } from './CourseEnrollment.js';
 
 @Table({ tableName: 'courses' })
 export class Course extends Model {
@@ -29,4 +30,10 @@ export class Course extends Model {
 
   @HasMany(() => CourseTest)
   declare tests: CourseTest[];
+
+  @Column({ type: DataType.STRING, defaultValue: 'open' })
+  declare enrollmentType: string;
+
+  @HasMany(() => CourseEnrollment)
+  declare enrollments: CourseEnrollment[];
 }

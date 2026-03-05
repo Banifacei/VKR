@@ -17,8 +17,9 @@ import './UserPage.css';
 import './CoursesPage.css';
 import api from '../api/axiosInstance';
 import { useToast } from '../context/ToastContext';
+import { checkEnrollment, enrollInCourse, getCourseEnrollments, updateEnrollmentStatus} from '../api/videoApi';
 
-// 🔥 КАСТОМНЫЕ ПРЕМИУМ-ИКОНКИ
+
 const Icons = {
     Video: () => <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>,
     Test: () => <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>,
@@ -138,29 +139,58 @@ export const UserPage = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
     const { showToast } = useToast();
-    const [activeDragId, setActiveDragId] = useState<string | null>(null); // Кто сейчас летит?
+    const [activeDragId, setActiveDragId] = useState<string | null>(null);
     const [showAddModal, setShowAddModal] = useState(false);
-    const [editorItem, setEditorItem] = useState<DashboardItem | null>(null); // 👈 Стейт для редактора контента
+    const [editorItem, setEditorItem] = useState<DashboardItem | null>(null);
     const [modalView, setModalView] = useState<'select' | 'create_test' | 'create_video'>('select');
-    const [editCourseData, setEditCourseData] = useState({ title: '', description: '', instructor: '' });
-    const [settingsTab, setSettingsTab] = useState<'info' | 'team'>('info');
+    const [editCourseData, setEditCourseData] = useState<{
+        title: string;
+        description: string;
+        instructor: string;
+        enrollmentType: 'open' | 'request' | 'closed';
+    }>({ title: '', description: '', instructor: '', enrollmentType: 'open' });
+    const [enrollmentsList, setEnrollmentsList] = useState<any[]>([]);
+    const pendingCount = enrollmentsList.filter(req => req.status === 'pending').length;
+    const [settingsTab, setSettingsTab] = useState<'info' | 'team' | 'enrollments'>('info');
     const [collaborators, setCollaborators] = useState<any[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<any[]>([]);
     const [isSearching, setIsSearching] = useState(false);
     const [showDropdown, setShowDropdown] = useState(false);
-    const [inviteEmail, setInviteEmail] = useState('');
-    const [isInviting, setIsInviting] = useState(false);
     const [showCourseSettings, setShowCourseSettings] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
     const [canEdit, setCanEdit] = useState(false);
     const [transferUserId, setTransferUserId] = useState<number | null>(null);
     const [isTransferring, setIsTransferring] = useState(false);
+    const [enrollStatus, setEnrollStatus] = useState<string | null | 'loading'>('loading');
+    const [isEnrolling, setIsEnrolling] = useState(false);
+    const prevStatusRef = useRef(enrollStatus);
+    useEffect(() => {
+        prevStatusRef.current = enrollStatus;
+    }, [enrollStatus]);
     const fetchCollaborators = async (id: number) => {
         try {
             const res = await api.get(`/videos/courses/${id}/collaborators`);
             setCollaborators(res.data);
         } catch (e) { console.error('Ошибка загрузки команды'); }
+    };
+    // 🔥 ЗАГРУЗИТЬ СПИСОК ЗАЯВОК
+    const fetchEnrollmentsList = async (id: number) => {
+        try {
+            const res = await getCourseEnrollments(id);
+            setEnrollmentsList(res);
+        } catch (e) { console.error('Ошибка загрузки заявок', e); }
+    };
+
+    // 🔥 ОДОБРИТЬ ИЛИ ОТКЛОНИТЬ ЗАЯВКУ
+    const handleEnrollmentAction = async (enrollmentId: number, status: 'approved' | 'rejected') => {
+        try {
+            await updateEnrollmentStatus(enrollmentId, status);
+            showToast(`Заявка ${status === 'approved' ? 'одобрена' : 'отклонена'}`, 'success');
+            fetchEnrollmentsList(Number(courseId)); // Обновляем список, чтобы кнопка перекрасилась
+        } catch (e) {
+            showToast('Ошибка при обновлении статуса', 'error');
+        }
     };
     const loadAllUsers = async () => {
         setIsSearching(true);
@@ -170,7 +200,7 @@ export const UserPage = () => {
         } catch(e) { }
         finally { setIsSearching(false); }
     };
-    // 🔥 ХУК ПОИСКА: Делает запрос, когда юзер печатает (с задержкой 300мс)
+
     useEffect(() => {
         const timer = setTimeout(async () => {
             if (searchQuery.trim().length >= 2) {
@@ -189,7 +219,6 @@ export const UserPage = () => {
         return () => clearTimeout(timer);
     }, [searchQuery, showDropdown]);
 
-    // 🔥 ФУНКЦИЯ ДОБАВЛЕНИЯ ПО КЛИКУ ИЗ СПИСКА
     const handleInviteUser = async (userEmail: string) => {
         if (!courseId) return;
         try {
@@ -202,19 +231,7 @@ export const UserPage = () => {
             showToast(e.response?.data?.message || 'Ошибка приглашения', 'error');
         }
     };
-    const handleInvite = async () => {
-        if (!inviteEmail.trim() || !courseId) return showToast('Введите email', 'error');
-        setIsInviting(true);
-        try {
-            await api.post(`/videos/courses/${courseId}/collaborators`, { email: inviteEmail.trim() });
-            showToast('Пользователь добавлен в команду!', 'success');
-            setInviteEmail('');
-            fetchCollaborators(Number(courseId));
-        } catch (e: any) {
-            showToast(e.response?.data?.message || 'Ошибка приглашения', 'error');
-        } finally { setIsInviting(false); }
-    };
-
+    
     const handleRemoveCollaborator = async (userId: number) => {
         if (!courseId || !window.confirm('Удалить пользователя из команды?')) return;
         try {
@@ -378,10 +395,12 @@ export const UserPage = () => {
     const fetchCourseData = async () => {
         if (!courseId) return;
         try {
+            const status = await checkEnrollment(Number(courseId));
+            setEnrollStatus(status);
             const allCourses = await getCourses();
             const foundCourse = allCourses.find(c => c.id === Number(courseId));
             setCourse(foundCourse || null);
-
+            
             // 🔥 ПРОВЕРКА ПРАВ (ФРОНТЕНД-ИЗОЛЯЦИЯ)
             let hasRights = false;
             if (userData?.role === 'admin') hasRights = true;
@@ -399,7 +418,9 @@ export const UserPage = () => {
             } catch (e) { /* Ничего не делаем, доступ запрещен */ }
 
             setCanEdit(hasRights); // Включаем или выключаем права редактирования
-
+            if (hasRights) {
+                fetchEnrollmentsList(Number(courseId));
+            }
             // Дальше грузим видео и тесты
             const videos = await getVideosByCourse(Number(courseId));
             const tests = await getCourseTests(Number(courseId));
@@ -472,36 +493,52 @@ export const UserPage = () => {
             if (activeDragId || isSavingOrderRef.current) return;
 
             try {
-                // 1. Тихо скачиваем свежий контент
-                const videos = await getVideosByCourse(Number(courseId));
-                const tests = await getCourseTests(Number(courseId));
-
-                const combinedItems: DashboardItem[] = [
-                    ...videos.map(v => ({ ...v, type: 'video' as const })),
-                    ...tests.map(t => ({ ...t, type: 'test' as const }))
-                ].sort((a: any, b: any) => (a.orderIndex || 0) - (b.orderIndex || 0));
-
-                // Сравниваем легкий "слепок" массива (тип, ID, порядок, название)
-                setItems(prevItems => {
-                    const prevHash = JSON.stringify(prevItems.map(i => `${i.type}-${i.id}-${i.title}-${(i as any).orderIndex}`));
-                    const newHash = JSON.stringify(combinedItems.map(i => `${i.type}-${i.id}-${i.title}-${(i as any).orderIndex}`));
-                    
-                    if (prevHash !== newHash) {
-                        console.log("🔄 [Фон] Кто-то изменил порядок или добавил урок! Обновляем сетку...");
-                        return combinedItems;
-                    }
-                    return prevItems;
-                });
-
-                // 2. Заодно тихо обновляем прогресс-бар и оценки (вдруг студент сдал тест с телефона)
-                const progressData = await getUserCourseProgress(Number(courseId));
-                setCompletedVideoIds(progressData.completedVideoIds || []);
+                // 1. Узнаем наш текущий статус
+                const status = await checkEnrollment(Number(courseId));
                 
-                const resultsMap: Record<number, {score: number, passed: boolean}> = {};
-                (progressData.testResults || []).forEach((tr: any) => {
-                    resultsMap[tr.testId] = { score: tr.score, passed: tr.passed };
-                });
-                setTestResults(resultsMap);
+                // 🔥 МАГИЯ: Ловим момент, когда препод нажал кнопку!
+                if (prevStatusRef.current === 'pending' && status === 'approved') {
+                    showToast('Ваша заявка одобрена! Добро пожаловать на курс 🎉', 'success');
+                    fetchCourseData(); // Мгновенно подтягиваем все уроки
+                } else if (prevStatusRef.current === 'pending' && status === 'rejected') {
+                    showToast('Преподаватель отклонил вашу заявку ❌', 'error');
+                }
+                
+                setEnrollStatus(status);
+
+                // 2. Если препод — качаем новые заявки в фоне (для бейджика)
+                if (canEdit) {
+                    const enrolls = await getCourseEnrollments(Number(courseId));
+                    setEnrollmentsList(enrolls);
+                }
+
+                // 3. Если мы зачислены ИЛИ мы препод — тихо обновляем сами уроки и прогресс
+                // (Если студент еще сидит на лендинге - не качаем контент, чтобы не было ошибок доступа)
+                if (status === 'approved' || canEdit) {
+                    const videos = await getVideosByCourse(Number(courseId));
+                    const tests = await getCourseTests(Number(courseId));
+
+                    const combinedItems: DashboardItem[] = [
+                        ...videos.map(v => ({ ...v, type: 'video' as const })),
+                        ...tests.map(t => ({ ...t, type: 'test' as const }))
+                    ].sort((a: any, b: any) => (a.orderIndex || 0) - (b.orderIndex || 0));
+
+                    setItems(prevItems => {
+                        const prevHash = JSON.stringify(prevItems.map(i => `${i.type}-${i.id}-${i.title}-${(i as any).orderIndex}`));
+                        const newHash = JSON.stringify(combinedItems.map(i => `${i.type}-${i.id}-${i.title}-${(i as any).orderIndex}`));
+                        if (prevHash !== newHash) return combinedItems;
+                        return prevItems;
+                    });
+
+                    const progressData = await getUserCourseProgress(Number(courseId));
+                    setCompletedVideoIds(progressData.completedVideoIds || []);
+                    
+                    const resultsMap: Record<number, {score: number, passed: boolean}> = {};
+                    (progressData.testResults || []).forEach((tr: any) => {
+                        resultsMap[tr.testId] = { score: tr.score, passed: tr.passed };
+                    });
+                    setTestResults(resultsMap);
+                }
 
             } catch (e) {
                 // Игнорируем сетевые ошибки в фоне
@@ -509,8 +546,26 @@ export const UserPage = () => {
         }, 10000); // 10 секунд
 
         return () => clearInterval(interval);
-    }, [courseId, activeDragId]); // 👈 Обязательно передаем activeDragId в зависимости!
+    }, [courseId, activeDragId, canEdit]); // 👈 Обязательно передаем activeDragId в зависимости!
     // --- РАСЧЕТ ПРОГРЕССА КУРСА ---
+    // 🔥 ФУНКЦИЯ ДЛЯ КНОПКИ "ЗАПИСАТЬСЯ"
+    const handleEnroll = async () => {
+        if (!courseId) return;
+        setIsEnrolling(true);
+        try {
+            const res = await enrollInCourse(Number(courseId));
+            setEnrollStatus(res.status); 
+            if (res.status === 'approved') {
+                showToast('Вы успешно записаны на курс!', 'success');
+            } else {
+                showToast('Заявка отправлена преподавателю!', 'info');
+            }
+        } catch (e: any) {
+            showToast(e.response?.data?.message || 'Ошибка записи', 'error');
+        } finally {
+            setIsEnrolling(false);
+        }
+    };
     const totalItems = items.length;
     const completedItemsCount = items.filter(item => {
         if (item.type === 'video') return completedVideoIds.includes(item.id);
@@ -629,7 +684,54 @@ export const UserPage = () => {
                     />
                 )}
             </header>
+            {/* 🔥 ЕСЛИ СТАТУС ГРУЗИТСЯ */}
+            {enrollStatus === 'loading' ? (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1, color: '#888', height: 'calc(100vh - 60px)' }}>
+                    <span className="loader-dots">Загрузка курса...</span>
+                </div>
+            ) : enrollStatus !== 'approved' && !canEdit ? (
+                /* 🔥 ЛЕНДИНГ ДЛЯ НЕЗАЧИСЛЕННЫХ ГОСТЕЙ (canEdit пускает владельцев и админов) */
+                <main className="main-content" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 'calc(100vh - 60px)' }}>
+                    <div style={{ maxWidth: '600px', width: '100%', textAlign: 'center', background: '#111', padding: '50px', borderRadius: '24px', border: '1px solid #333', boxShadow: '0 20px 50px rgba(0,0,0,0.5)', animation: 'fadeIn 0.4s ease' }}>
+                        
+                        <div style={{ width: '80px', height: '80px', background: 'linear-gradient(135deg, #00aeef, #0077a3)', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', boxShadow: '0 10px 20px rgba(0, 174, 239, 0.3)' }}>
+                            <Icons.Test /> {/* Используем твою иконку из словаря */}
+                        </div>
+                        
+                        <h1 style={{ fontSize: '32px', marginBottom: '15px', color: '#fff' }}>{course?.title || 'Загрузка...'}</h1>
+                        <p style={{ color: '#888', fontSize: '16px', lineHeight: '1.6', marginBottom: '30px' }}>
+                            {course?.description || 'Описание курса скоро появится. Здесь вы узнаете много нового и интересного.'}
+                        </p>
+                        
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '15px', marginBottom: '40px', color: '#aaa', fontSize: '14px' }}>
+                            <span>👨‍🏫 Преподаватель: <strong style={{color: '#fff'}}>{course?.instructor}</strong></span>
+                        </div>
 
+                        {enrollStatus === 'pending' ? (
+                            <button className="btn btn-secondary" disabled style={{ width: '100%', padding: '16px', fontSize: '16px', borderRadius: '12px', background: 'rgba(255, 215, 0, 0.1)', color: '#ffd700', border: '1px solid rgba(255, 215, 0, 0.3)' }}>
+                                ⏳ Ваша заявка на рассмотрении...
+                            </button>
+                        ) : enrollStatus === 'rejected' ? (
+                            <button className="btn btn-secondary" disabled style={{ width: '100%', padding: '16px', fontSize: '16px', borderRadius: '12px', background: 'rgba(255, 77, 77, 0.1)', color: '#ff4d4d', border: '1px solid rgba(255, 77, 77, 0.3)' }}>
+                                ❌ В доступе отказано
+                            </button>
+                        ) : course?.enrollmentType === 'closed' ? (
+                            <button className="btn btn-secondary" disabled style={{ width: '100%', padding: '16px', fontSize: '16px', borderRadius: '12px' }}>
+                                🔒 Запись на курс закрыта
+                            </button>
+                        ) : (
+                            <button 
+                                className="btn btn-primary" 
+                                onClick={handleEnroll}
+                                disabled={isEnrolling}
+                                style={{ width: '100%', padding: '16px', fontSize: '16px', borderRadius: '12px', background: 'linear-gradient(135deg, #00aeef 0%, #0077a3 100%)', boxShadow: '0 10px 20px rgba(0, 174, 239, 0.3)', fontWeight: 'bold' }}
+                            >
+                                {isEnrolling ? 'Запись...' : (course?.enrollmentType === 'open' ? '🚀 Записаться бесплатно' : '📝 Подать заявку на участие')}
+                            </button>
+                        )}
+                    </div>
+                </main>
+            ) : (
             <div className="dashboard-container">
                 <div className="course-header-big">
                     <button className="btn btn-ghost" onClick={() => navigate('/courses')} style={{marginBottom: '10px', paddingLeft: 0, color: '#666'}}>
@@ -665,16 +767,31 @@ export const UserPage = () => {
                                             style={{ background: isEditMode ? '#00aeef' : 'transparent', color: isEditMode ? '#fff' : '#888', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', transition: '0.2s' }}
                                         >
                                             ✏️ Редактирование
+                                            {pendingCount > 0 && (
+                                                    <span style={{ background: '#ff4d4d', color: '#fff', fontSize: '11px', padding: '2px 6px', borderRadius: '10px', lineHeight: 1 }}>
+                                                        {pendingCount}
+                                                    </span>
+                                            )}
                                         </button>
                                         {isEditMode && (
                                             <button onClick={() => {
                                                 if (course) {
-                                                    setEditCourseData({ title: course.title, description: course.description || '', instructor: course.instructor || '' });
+                                                    setEditCourseData({ 
+                                                        title: course.title, 
+                                                        description: course.description || '', 
+                                                        instructor: course.instructor || '',
+                                                        enrollmentType: (course.enrollmentType as 'open' | 'request' | 'closed') || 'open' // <--- Добавили это
+                                                    });
                                                     setSettingsTab('info');
                                                     setShowCourseSettings(true);
                                                 }
                                             }} style={{ background: 'rgba(255,255,255,0.05)', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
                                                 ⚙️ Настройки
+                                                {pendingCount > 0 && (
+                                                    <span style={{ background: '#ff4d4d', color: '#fff', fontSize: '11px', padding: '2px 6px', borderRadius: '10px', lineHeight: 1 }}>
+                                                        {pendingCount}
+                                                    </span>
+                                                )}
                                             </button>
                                         )}
                                     </div>
@@ -755,6 +872,7 @@ export const UserPage = () => {
                     </>
                 )}
             </div>
+            )}
             {/* 🌟 ДИНАМИЧЕСКАЯ МОДАЛКА ДОБАВЛЕНИЯ */}
             {showAddModal && (
                 <div style={{
@@ -867,7 +985,10 @@ export const UserPage = () => {
             {/* 🔥 МОДАЛКА НАСТРОЕК И КОМАНДЫ */}
             {showCourseSettings && course && (() => {
                 const isOwner = course.ownerId === userData?.id || userData?.role === 'admin';
-                const isChanged = course.title !== editCourseData.title || (course.description || '') !== editCourseData.description || (course.instructor || '') !== editCourseData.instructor;
+                const isChanged = course.title !== editCourseData.title || 
+                  (course.description || '') !== editCourseData.description || 
+                  (course.instructor || '') !== editCourseData.instructor ||
+                  (course.enrollmentType || 'open') !== editCourseData.enrollmentType;
                 
                 return (
                     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(5px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }}>
@@ -881,144 +1002,213 @@ export const UserPage = () => {
 
                             <div style={{ display: 'flex', borderBottom: '1px solid #333', background: '#0a0a0a' }}>
                                 <button onClick={() => setSettingsTab('info')} style={{ flex: 1, padding: '15px', background: 'none', border: 'none', borderBottom: settingsTab === 'info' ? '2px solid #00aeef' : '2px solid transparent', color: settingsTab === 'info' ? '#00aeef' : '#888', fontWeight: 'bold', cursor: 'pointer' }}>Основное</button>
+                                <button onClick={() => { setSettingsTab('enrollments'); fetchEnrollmentsList(course.id); }} style={{ flex: 1, padding: '15px', background: 'none', border: 'none', borderBottom: settingsTab === 'enrollments' ? '2px solid #00aeef' : '2px solid transparent', color: settingsTab === 'enrollments' ? '#00aeef' : '#888', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                    Заявки
+                                    {pendingCount > 0 && (
+                                        <span style={{ background: '#ff4d4d', color: '#fff', fontSize: '11px', padding: '2px 6px', borderRadius: '10px', lineHeight: 1 }}>
+                                            {pendingCount}
+                                        </span>
+                                    )}
+                                </button>
                                 <button onClick={() => { setSettingsTab('team'); fetchCollaborators(course.id); }} style={{ flex: 1, padding: '15px', background: 'none', border: 'none', borderBottom: settingsTab === 'team' ? '2px solid #00aeef' : '2px solid transparent', color: settingsTab === 'team' ? '#00aeef' : '#888', fontWeight: 'bold', cursor: 'pointer' }}>Команда</button>
                             </div>
 
-                            <div style={{ padding: '25px' }}>
-                                {settingsTab === 'info' ? (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                        <div><label style={{ fontSize: '12px', color: '#888' }}>Название курса</label><input className="modern-input" value={editCourseData.title} onChange={e => setEditCourseData({...editCourseData, title: e.target.value})} /></div>
-                                        <div><label style={{ fontSize: '12px', color: '#888' }}>ФИО Преподавателя</label><input className="modern-input" value={editCourseData.instructor} onChange={e => setEditCourseData({...editCourseData, instructor: e.target.value})} /></div>
-                                        <div><label style={{ fontSize: '12px', color: '#888' }}>Описание</label><textarea className="modern-input" style={{ minHeight: '150px' }} value={editCourseData.description} onChange={e => setEditCourseData({...editCourseData, description: e.target.value})} /></div>
-                                        
-                                        <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                                            <button className="btn btn-primary" style={{ flex: 1, opacity: isChanged ? 1 : 0.5 }} disabled={!isChanged} onClick={async () => {
-                                                try {
-                                                    await updateCourseApi(course.id, editCourseData);
-                                                    fetchCourseData(); setShowCourseSettings(false); showToast('Курс обновлен!', 'success');
-                                                } catch (e) { showToast('Ошибка', 'error'); }
-                                            }}>Сохранить</button>
-                                            
-                                            {isOwner && (
-                                                <button className="btn btn-ghost" style={{ background: 'rgba(255, 77, 77, 0.1)', color: '#ff4d4d' }} onClick={async () => {
-                                                    if (window.confirm('⚠️ Вы уверены, что хотите навсегда удалить этот курс?')) {
-                                                        try { await deleteCourseApi(course.id); window.location.href = '/courses'; } catch (e) { showToast('Ошибка', 'error'); }
-                                                    }
-                                                }}>🗑️ Удалить</button>
+                        <div style={{ padding: '25px' }}>
+                                            {/* --- ВКЛАДКА 1: ОСНОВНОЕ --- */}
+                                            {settingsTab === 'info' && (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                                    <div><label style={{ fontSize: '12px', color: '#888' }}>Название курса</label><input className="modern-input" value={editCourseData.title} onChange={e => setEditCourseData({...editCourseData, title: e.target.value})} /></div>
+                                                    <div><label style={{ fontSize: '12px', color: '#888' }}>ФИО Преподавателя</label><input className="modern-input" value={editCourseData.instructor} onChange={e => setEditCourseData({...editCourseData, instructor: e.target.value})} /></div>
+                                                    <div><label style={{ fontSize: '12px', color: '#888' }}>Описание</label><textarea className="modern-input" style={{ minHeight: '150px' }} value={editCourseData.description} onChange={e => setEditCourseData({...editCourseData, description: e.target.value})} /></div>
+                                                    
+                                                    <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                                                        <button className="btn btn-primary" style={{ flex: 1, opacity: isChanged ? 1 : 0.5 }} disabled={!isChanged} onClick={async () => {
+                                                            try {
+                                                                await updateCourseApi(course.id, editCourseData);
+                                                                fetchCourseData(); setShowCourseSettings(false); showToast('Курс обновлен!', 'success');
+                                                            } catch (e) { showToast('Ошибка', 'error'); }
+                                                        }}>Сохранить</button>
+                                                        
+                                                        {isOwner && (
+                                                            <button className="btn btn-ghost" style={{ background: 'rgba(255, 77, 77, 0.1)', color: '#ff4d4d' }} onClick={async () => {
+                                                                if (window.confirm('⚠️ Вы уверены, что хотите навсегда удалить этот курс?')) {
+                                                                    try { await deleteCourseApi(course.id); window.location.href = '/courses'; } catch (e) { showToast('Ошибка', 'error'); }
+                                                                }
+                                                            }}>🗑️ Удалить</button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* --- ВКЛАДКА 2: КОМАНДА --- */}
+                                            {settingsTab === 'team' && (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                                    {isOwner ? (
+                                                        <div style={{ position: 'relative', marginBottom: '15px' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', background: '#1a1a1a', borderRadius: '12px', padding: '0 15px', border: '1px solid #333', transition: 'border-color 0.2s', position: 'relative', zIndex: 101 }}>
+                                                                <span style={{color: '#888'}}>🔍</span>
+                                                                <input 
+                                                                    className="modern-input" 
+                                                                    style={{ marginBottom: 0, border: 'none', background: 'transparent', boxShadow: 'none', flex: 1, padding: '15px 10px' }} 
+                                                                    placeholder="Поиск или выбор из списка..." 
+                                                                    value={searchQuery} 
+                                                                    onChange={e => setSearchQuery(e.target.value)} 
+                                                                    onFocus={() => { 
+                                                                        setShowDropdown(true);
+                                                                        if (!searchQuery.trim()) {
+                                                                            loadAllUsers();
+                                                                        }
+                                                                    }}
+                                                                />
+                                                                {isSearching && <span className="loader-dots" style={{color: '#00aeef', paddingRight: '10px'}}>...</span>}
+                                                            </div>
+
+                                                            {showDropdown && searchResults.length > 0 && (
+                                                                <div style={{
+                                                                    position: 'absolute', top: '55px', left: 0, right: 0,
+                                                                    background: '#161616', border: '1px solid #333', borderRadius: '12px',
+                                                                    boxShadow: '0 10px 40px rgba(0,0,0,0.8)', zIndex: 102, overflowY: 'auto', 
+                                                                    maxHeight: '260px',
+                                                                    animation: 'fadeIn 0.2s ease'
+                                                                }}>
+                                                                    {searchResults.map(userItem => {
+                                                                        if (collaborators.some(c => c.userId === userItem.id)) return null;
+                                                                        return (
+                                                                            <div key={userItem.id} 
+                                                                                onClick={() => handleInviteUser(userItem.email)}
+                                                                                style={{
+                                                                                    padding: '12px 15px', display: 'flex', alignItems: 'center', gap: '12px',
+                                                                                    cursor: 'pointer', borderBottom: '1px solid #222', transition: 'background 0.2s'
+                                                                                }}
+                                                                                onMouseEnter={e => e.currentTarget.style.background = '#222'}
+                                                                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                                                            >
+                                                                                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                                                                                    {userItem.avatarUrl ? <img src={userItem.avatarUrl} style={{width:'100%', height:'100%', objectFit:'cover'}} alt=""/> : <span style={{color:'#fff', fontSize:'14px'}}>{userItem.firstName?.[0] || '?'}</span>}
+                                                                                </div>
+                                                                                <div style={{ flex: 1 }}>
+                                                                                    <div style={{ color: '#fff', fontSize: '14px', fontWeight: 'bold' }}>{userItem.firstName} {userItem.lastName}</div>
+                                                                                    <div style={{ color: '#888', fontSize: '12px' }}>{userItem.email}</div>
+                                                                                </div>
+                                                                                <div style={{ fontSize: '11px', color: '#00aeef', background: 'rgba(0,174,239,0.1)', padding: '4px 8px', borderRadius: '6px' }}>
+                                                                                    {userItem.role === 'teacher' ? 'Преподаватель' : 'Студент'}
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            )}
+                                                            {showDropdown && <div style={{position:'fixed', top:0, left:0, right:0, bottom:0, zIndex: 99}} onClick={() => setShowDropdown(false)} />}
+                                                        </div>
+                                                    ) : (
+                                                        <div style={{color: '#ff9900', fontSize: '13px', background: 'rgba(255,153,0,0.1)', padding: '10px', borderRadius: '8px'}}>Только Владелец курса может управлять командой.</div>
+                                                    )}
+
+                                                    <div style={{ background: '#1a1a1a', borderRadius: '12px', border: '1px solid #333' }}>
+                                                        {collaborators.length === 0 ? <div style={{ padding: '20px', textAlign: 'center', color: '#666', fontSize: '13px' }}>Никого нет</div> : collaborators.map(col => (
+                                                            <div key={col.userId} style={{ padding: '12px 15px', borderBottom: '1px solid #333', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                <div>
+                                                                    <div style={{ color: '#fff', fontSize: '14px', fontWeight: 'bold' }}>{col.user?.firstName} {col.user?.lastName}</div>
+                                                                    <div style={{ color: '#888', fontSize: '12px' }}>{col.user?.email}</div>
+                                                                </div>
+                                                                {isOwner && (
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                                        <button 
+                                                                            onClick={() => setTransferUserId(col.userId)}
+                                                                            style={{ 
+                                                                                background: 'rgba(255, 215, 0, 0.1)', border: '1px solid rgba(255, 215, 0, 0.3)', color: '#ffd700', padding: '4px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold', transition: '0.2s'
+                                                                            }}
+                                                                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 215, 0, 0.2)'}
+                                                                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(255, 215, 0, 0.1)'}
+                                                                            title="Передать права владельца курса"
+                                                                        >
+                                                                            👑 Сделать владельцем
+                                                                        </button>
+                                                                        <button className="btn-icon" style={{ color: '#ff4d4d', padding: '4px 8px' }} onClick={() => handleRemoveCollaborator(col.userId)}>✕</button>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* --- ВКЛАДКА 3: ЗАЯВКИ --- */}
+                                            {settingsTab === 'enrollments' && (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', maxHeight: '420px', overflowY: 'auto' }}>
+                                                    
+                                                    <div style={{ background: '#1a1a1a', padding: '15px', borderRadius: '12px', border: '1px solid #333' }}>
+                                                        <label style={{ fontSize: '12px', color: '#888', marginBottom: '8px', display: 'block' }}>Режим доступа к курсу</label>
+                                                        <select 
+                                                            className="modern-input" 
+                                                            value={editCourseData.enrollmentType} 
+                                                            onChange={async (e) => {
+                                                                const newType = e.target.value as 'open' | 'request' | 'closed';
+                                                                setEditCourseData({...editCourseData, enrollmentType: newType});
+                                                                try {
+                                                                    await updateCourseApi(course.id, { enrollmentType: newType });
+                                                                    fetchCourseData(); 
+                                                                    showToast('Режим доступа успешно изменен!', 'success');
+                                                                } catch (error) {
+                                                                    showToast('Ошибка при сохранении режима', 'error');
+                                                                }
+                                                            }}
+                                                            style={{ cursor: 'pointer', appearance: 'auto', marginBottom: 0 }}
+                                                        >
+                                                            <option value="open">🟢 Открытый (Свободный вход)</option>
+                                                            <option value="request">🟡 По заявкам (Ручная модерация)</option>
+                                                            <option value="closed">🔴 Закрытый (Запись остановлена)</option>
+                                                        </select>
+                                                    </div>
+
+                                                    {enrollmentsList.length === 0 ? (
+                                                        <div style={{ padding: '30px', textAlign: 'center', color: '#666' }}>
+                                                            <div style={{ fontSize: '40px', marginBottom: '10px' }}>📭</div>
+                                                            Пока нет ни одной заявки
+                                                        </div>
+                                                    ) : (
+                                                        enrollmentsList.map(req => (
+                                                            <div key={req.id} style={{ background: '#1a1a1a', borderRadius: '12px', border: '1px solid #333', padding: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                                                                        {req.user?.avatarUrl ? <img src={req.user.avatarUrl} style={{width:'100%', height:'100%', objectFit:'cover'}} alt=""/> : <span style={{color:'#fff', fontWeight: 'bold'}}>{req.user?.firstName?.[0] || '?'}</span>}
+                                                                    </div>
+                                                                    <div>
+                                                                        <div style={{ color: '#fff', fontSize: '15px', fontWeight: 'bold' }}>{req.user?.firstName} {req.user?.lastName}</div>
+                                                                        <div style={{ color: '#888', fontSize: '12px' }}>{req.user?.email}</div>
+                                                                        <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
+                                                                            Заявка от: {new Date(req.createdAt).toLocaleDateString()}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div>
+                                                                    {req.status === 'pending' ? (
+                                                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                                                            <button className="btn-icon" style={{ background: 'rgba(0, 255, 136, 0.1)', color: '#00ff88', padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(0, 255, 136, 0.3)', cursor: 'pointer', fontWeight: 'bold', transition: '0.2s' }} onMouseEnter={e=>e.currentTarget.style.background='rgba(0,255,136,0.2)'} onMouseLeave={e=>e.currentTarget.style.background='rgba(0,255,136,0.1)'} onClick={() => handleEnrollmentAction(req.id, 'approved')}>
+                                                                                ✅ Принять
+                                                                            </button>
+                                                                            <button className="btn-icon" style={{ background: 'rgba(255, 77, 77, 0.1)', color: '#ff4d4d', padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(255, 77, 77, 0.3)', cursor: 'pointer', fontWeight: 'bold', transition: '0.2s' }} onMouseEnter={e=>e.currentTarget.style.background='rgba(255,77,77,0.2)'} onMouseLeave={e=>e.currentTarget.style.background='rgba(255,77,77,0.1)'} onClick={() => handleEnrollmentAction(req.id, 'rejected')}>
+                                                                                ❌ Отклонить
+                                                                            </button>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <span style={{ fontSize: '13px', fontWeight: 'bold', padding: '6px 12px', borderRadius: '8px', background: req.status === 'approved' ? 'rgba(0, 255, 136, 0.1)' : 'rgba(255, 77, 77, 0.1)', color: req.status === 'approved' ? '#00ff88' : '#ff4d4d', border: `1px solid ${req.status === 'approved' ? 'rgba(0, 255, 136, 0.3)' : 'rgba(255, 77, 77, 0.3)'}` }}>
+                                                                            {req.status === 'approved' ? 'Одобрено' : 'Отклонено'}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        ))
+                                                    )}
+                                                </div>
                                             )}
                                         </div>
                                     </div>
-                                ) : (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                        {isOwner ? (
-                                            <div style={{ position: 'relative', marginBottom: '15px' }}>
-                                                {/* Поле поиска */}
-                                                <div style={{ display: 'flex', alignItems: 'center', background: '#1a1a1a', borderRadius: '12px', padding: '0 15px', border: '1px solid #333', transition: 'border-color 0.2s', position: 'relative', zIndex: 101 }}>
-                                                    <span style={{color: '#888'}}>🔍</span>
-                                                    <input 
-                                                        className="modern-input" 
-                                                        style={{ marginBottom: 0, border: 'none', background: 'transparent', boxShadow: 'none', flex: 1, padding: '15px 10px' }} 
-                                                        placeholder="Поиск или выбор из списка..." 
-                                                        value={searchQuery} 
-                                                        onChange={e => setSearchQuery(e.target.value)} 
-                                                        onFocus={() => { 
-                                                            setShowDropdown(true);
-                                                            // 🔥 МАГИЯ: Если строка пустая при клике — грузим всех!
-                                                            if (!searchQuery.trim()) {
-                                                                loadAllUsers();
-                                                            }
-                                                        }}
-                                                    />
-                                                    {isSearching && <span className="loader-dots" style={{color: '#00aeef', paddingRight: '10px'}}>...</span>}
-                                                </div>
-
-                                                {/* ВЫПАДАЮЩИЙ СПИСОК (SPOTLIGHT) */}
-                                                {showDropdown && searchResults.length > 0 && (
-                                                    <div style={{
-                                                        position: 'absolute', top: '55px', left: 0, right: 0,
-                                                        background: '#161616', border: '1px solid #333', borderRadius: '12px',
-                                                        boxShadow: '0 10px 40px rgba(0,0,0,0.8)', zIndex: 102, overflowY: 'auto', 
-                                                        maxHeight: '260px',
-                                                        animation: 'fadeIn 0.2s ease'
-                                                    }}>
-                                                        {searchResults.map(userItem => {
-                                                            // Прячем тех, кто уже в команде
-                                                            if (collaborators.some(c => c.userId === userItem.id)) return null;
-                                                            
-                                                            return (
-                                                                <div key={userItem.id} 
-                                                                    onClick={() => handleInviteUser(userItem.email)}
-                                                                    style={{
-                                                                        padding: '12px 15px', display: 'flex', alignItems: 'center', gap: '12px',
-                                                                        cursor: 'pointer', borderBottom: '1px solid #222', transition: 'background 0.2s'
-                                                                    }}
-                                                                    onMouseEnter={e => e.currentTarget.style.background = '#222'}
-                                                                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                                                                >
-                                                                    <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                                                                        {userItem.avatarUrl ? <img src={userItem.avatarUrl} style={{width:'100%', height:'100%', objectFit:'cover'}} alt=""/> : <span style={{color:'#fff', fontSize:'14px'}}>{userItem.firstName?.[0] || '?'}</span>}
-                                                                    </div>
-                                                                    <div style={{ flex: 1 }}>
-                                                                        <div style={{ color: '#fff', fontSize: '14px', fontWeight: 'bold' }}>{userItem.firstName} {userItem.lastName}</div>
-                                                                        <div style={{ color: '#888', fontSize: '12px' }}>{userItem.email}</div>
-                                                                    </div>
-                                                                    <div style={{ fontSize: '11px', color: '#00aeef', background: 'rgba(0,174,239,0.1)', padding: '4px 8px', borderRadius: '6px' }}>
-                                                                        {userItem.role === 'teacher' ? 'Преподаватель' : 'Студент'}
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                )}
-                                                {/* Оверлей для закрытия выпадашки при клике мимо */}
-                                                {showDropdown && <div style={{position:'fixed', top:0, left:0, right:0, bottom:0, zIndex: 99}} onClick={() => setShowDropdown(false)} />}
-                                            </div>
-                                        ) : (
-                                            <div style={{color: '#ff9900', fontSize: '13px', background: 'rgba(255,153,0,0.1)', padding: '10px', borderRadius: '8px'}}>Только Владелец курса может управлять командой.</div>
-                                        )}
-
-                                        <div style={{ background: '#1a1a1a', borderRadius: '12px', border: '1px solid #333' }}>
-                                            {collaborators.length === 0 ? <div style={{ padding: '20px', textAlign: 'center', color: '#666', fontSize: '13px' }}>Никого нет</div> : collaborators.map(col => (
-                                                <div key={col.userId} style={{ padding: '12px 15px', borderBottom: '1px solid #333', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <div>
-                                                        <div style={{ color: '#fff', fontSize: '14px', fontWeight: 'bold' }}>{col.user?.firstName} {col.user?.lastName}</div>
-                                                        <div style={{ color: '#888', fontSize: '12px' }}>{col.user?.email}</div>
-                                                    </div>
-                                                    {isOwner && (
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                            <button 
-                                                                onClick={() => setTransferUserId(col.userId)}
-                                                                style={{ 
-                                                                    background: 'rgba(255, 215, 0, 0.1)', 
-                                                                    border: '1px solid rgba(255, 215, 0, 0.3)', 
-                                                                    color: '#ffd700', 
-                                                                    padding: '4px 10px', 
-                                                                    borderRadius: '6px', 
-                                                                    cursor: 'pointer', 
-                                                                    fontSize: '11px', 
-                                                                    fontWeight: 'bold',
-                                                                    transition: '0.2s'
-                                                                }}
-                                                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 215, 0, 0.2)'}
-                                                                onMouseLeave={e => e.currentTarget.style.background = 'rgba(255, 215, 0, 0.1)'}
-                                                                title="Передать права владельца курса"
-                                                            >
-                                                                👑 Сделать владельцем
-                                                            </button>
-                                                            <button className="btn-icon" style={{ color: '#ff4d4d', padding: '4px 8px' }} onClick={() => handleRemoveCollaborator(col.userId)}>✕</button>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                );
-            })()}
-            {/* 🔥 КРАСИВАЯ МОДАЛКА ПОДТВЕРЖДЕНИЯ ПЕРЕДАЧИ ПРАВ */}
+                                </div>
+                            );
+                        })()}
+                        {/* 🔥 КРАСИВАЯ МОДАЛКА ПОДТВЕРЖДЕНИЯ ПЕРЕДАЧИ ПРАВ */}
             {transferUserId && (
                 <div style={{
                     position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 

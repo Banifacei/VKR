@@ -22,7 +22,11 @@ import {
     getCourseCollaborators,
     addCourseCollaborator,
     removeCourseCollaborator,
-    transferCourseOwnership
+    transferCourseOwnership,
+    applyForCourse,
+    checkEnrollmentStatus,
+    getCourseEnrollments,
+    updateEnrollmentStatus
 
 } from '../controllers/videoController.js';
 import { checkCourseAccess } from '../middleware/courseAuthMiddleware.js';
@@ -48,7 +52,11 @@ router.delete('/courses/:courseId', checkAuth, deleteCourse);
 router.get('/courses/:courseId/videos', getVideosByCourse);
 router.put('/courses/:courseId/transfer', checkAuth, transferCourseOwnership);
 router.post('/course/:courseId/reorder', checkAuth, updateCourseContentOrder);
+router.post('/courses/:courseId/enroll', checkAuth, applyForCourse);
+router.get('/courses/:courseId/enrollment-status', checkAuth, checkEnrollmentStatus);
 router.get('/courses/:courseId/collaborators', checkAuth, checkCourseAccess, getCourseCollaborators);
+router.get('/courses/:courseId/enrollments', checkAuth, checkCourseAccess, getCourseEnrollments);
+router.put('/courses/enrollments/:enrollmentId', checkAuth, updateEnrollmentStatus);
 router.post('/courses/:courseId/collaborators', checkAuth, checkCourseAccess, addCourseCollaborator);
 router.delete('/courses/:courseId/collaborators/:userId', checkAuth, checkCourseAccess, removeCourseCollaborator);
 // --- РОУТЫ ДЛЯ ТЕСТОВ (UserResponse) ---

@@ -1,6 +1,7 @@
 import { Table, Column, Model, DataType, HasMany } from 'sequelize-typescript';
 import { UserResponse } from './UserResponse.js';
 import { UserVideoProgress } from './UserVideoProgress.js';
+import { CourseEnrollment } from './CourseEnrollment.js';
 
 @Table({ tableName: 'users' })
 export class User extends Model {
@@ -44,4 +45,7 @@ export class User extends Model {
 
     @HasMany(() => UserVideoProgress)
     declare progress: UserVideoProgress[];
+
+    @HasMany(() => CourseEnrollment)
+    declare enrollments: CourseEnrollment[];
 }

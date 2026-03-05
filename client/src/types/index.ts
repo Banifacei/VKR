@@ -47,4 +47,5 @@ export interface ICourse {
     instructor: string;
     ownerId?: number;
     videos?: IVideo[];
+    enrollmentType?: 'open' | 'request' | 'closed';
 }

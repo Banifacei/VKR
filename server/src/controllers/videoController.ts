@@ -20,6 +20,7 @@ import { addSystemLog } from './adminController.js';
 import fsPromises from 'fs/promises';
 import { TestQuestion } from '../models/TestQuestion.js';
 import { UserTestResult } from '../models/UserTestResult.js';
+import { CourseEnrollment } from '../models/CourseEnrollment.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 let semanticExtractor: any = null;
@@ -113,14 +114,14 @@ export const createCourse = async (req: Request, res: Response) => {
 export const updateCourse = async (req: Request, res: Response) => {
     try {
         const { courseId } = req.params;
-        const { title, description, instructor } = req.body;
+        const { title, description, instructor, enrollmentType } = req.body;
         const course = await Course.findByPk(courseId);
         if (!course) return res.status(404).json({ message: 'Курс не найден' });
 
         if (title) course.title = title;
         if (description !== undefined) course.description = description;
         if (instructor) course.instructor = instructor;
-
+        if (enrollmentType !== undefined) course.enrollmentType = enrollmentType;
         await course.save();
         res.json({ success: true, course });
     } catch (e) {
@@ -834,5 +835,101 @@ export const transferCourseOwnership = async (req: Request, res: Response) => {
     } catch (e) {
         console.error('Ошибка передачи прав:', e);
         res.status(500).json({ message: 'Ошибка при передаче прав' });
+    }
+};
+
+// ==========================================
+// СИСТЕМА ЗАЧИСЛЕНИЙ (ENROLLMENTS)
+// ==========================================
+
+// 1. Студент: Подать заявку на курс
+export const applyForCourse = async (req: Request, res: Response) => {
+    try {
+        const { courseId } = req.params;
+        const userId = (req as any).user.id;
+
+        const course = await Course.findByPk(courseId);
+        if (!course) return res.status(404).json({ message: 'Курс не найден' });
+
+        // Проверяем, нет ли уже заявки
+        const existing = await CourseEnrollment.findOne({ where: { courseId, userId } });
+        if (existing) {
+            return res.status(400).json({ message: 'Заявка уже существует', status: existing.status });
+        }
+
+        // Если курс открытый — зачисляем сразу, иначе — в ожидание
+        const status = course.enrollmentType === 'open' ? 'approved' : 'pending';
+
+        const enrollment = await CourseEnrollment.create({ courseId, userId, status });
+        
+        addSystemLog(`Студент (ID: ${userId}) подал заявку на курс (ID: ${courseId}). Статус: ${status}`, 'info');
+        res.json({ success: true, status: enrollment.status });
+
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ message: 'Ошибка при подаче заявки' });
+    }
+};
+
+// 2. Студент/Фронт: Проверить статус зачисления на конкретный курс (чтобы знать, показывать ли Лендинг)
+export const checkEnrollmentStatus = async (req: Request, res: Response) => {
+    try {
+        const { courseId } = req.params;
+        const userId = (req as any).user.id;
+
+        // Если это владелец курса или админ — пускаем всегда (имитируем 'approved')
+        const course = await Course.findByPk(courseId);
+        if (!course) return res.status(404).json({ message: 'Курс не найден' });
+        
+        if (course.ownerId === userId || (req as any).user.role === 'admin') {
+            return res.json({ status: 'approved', isOwnerOrAdmin: true });
+        }
+
+        const enrollment = await CourseEnrollment.findOne({ where: { courseId, userId } });
+        
+        // Если заявки нет — возвращаем null (покажем Лендинг)
+        if (!enrollment) return res.json({ status: null });
+
+        res.json({ status: enrollment.status });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ message: 'Ошибка проверки статуса' });
+    }
+};
+
+// 3. Преподаватель: Получить список всех заявок на курс
+export const getCourseEnrollments = async (req: Request, res: Response) => {
+    try {
+        const { courseId } = req.params;
+
+        const enrollments = await CourseEnrollment.findAll({
+            where: { courseId },
+            include: [{ model: User, attributes: ['id', 'firstName', 'lastName', 'email', 'avatarUrl'] }],
+            order: [['createdAt', 'DESC']]
+        });
+
+        res.json(enrollments);
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ message: 'Ошибка получения заявок' });
+    }
+};
+
+// 4. Преподаватель: Одобрить или отклонить заявку
+export const updateEnrollmentStatus = async (req: Request, res: Response) => {
+    try {
+        const { enrollmentId } = req.params;
+        const { status } = req.body; // 'approved' или 'rejected'
+
+        const enrollment = await CourseEnrollment.findByPk(enrollmentId);
+        if (!enrollment) return res.status(404).json({ message: 'Заявка не найдена' });
+
+        enrollment.status = status;
+        await enrollment.save();
+
+        res.json({ success: true, message: `Заявка ${status === 'approved' ? 'одобрена' : 'отклонена'}`, enrollment });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ message: 'Ошибка обновления статуса' });
     }
 };

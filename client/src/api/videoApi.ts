@@ -91,3 +91,23 @@ export const deleteCourseApi = async (courseId: number) => {
     const response = await api.delete(`/videos/courses/${courseId}`);
     return response.data;
 };
+
+export const checkEnrollment = async (courseId: number) => {
+    const res = await api.get(`/videos/courses/${courseId}/enrollment-status`);
+    return res.data.status;
+};
+
+export const enrollInCourse = async (courseId: number) => {
+    const res = await api.post(`/videos/courses/${courseId}/enroll`);
+    return res.data;
+};
+
+export const getCourseEnrollments = async (courseId: number) => {
+    const res = await api.get(`/videos/courses/${courseId}/enrollments`);
+    return res.data;
+};
+
+export const updateEnrollmentStatus = async (enrollmentId: number, status: 'approved' | 'rejected') => {
+    const res = await api.put(`/videos/courses/enrollments/${enrollmentId}`, { status });
+    return res.data;
+};
