@@ -129,7 +129,6 @@ export const updateCourse = async (req: Request, res: Response) => {
     }
 };
 
-// --- УДАЛЕНИЕ КУРСА ---
 // --- УДАЛЕНИЕ КУРСА СО ВСЕМИ ФАЙЛАМИ ---
 export const deleteCourse = async (req: Request, res: Response) => {
     try {
@@ -790,5 +789,50 @@ export const removeCourseCollaborator = async (req: Request, res: Response) => {
         res.json({ success: true, message: 'Пользователь исключен из команды' });
     } catch (e) {
         res.status(500).json({ message: 'Ошибка при удалении соавтора' });
+    }
+};
+
+// --- ПЕРЕДАЧА ПРАВ НА КУРС (СМЕНА ВЛАДЕЛЬЦА) ---
+export const transferCourseOwnership = async (req: Request, res: Response) => {
+    try {
+        const { courseId } = req.params;
+        const { newOwnerId } = req.body;
+        const currentUserId = (req as any).user?.id;
+
+        const course = await Course.findByPk(courseId);
+        if (!course) return res.status(404).json({ message: 'Курс не найден' });
+
+        // 1. Проверяем права (только владелец или админ)
+        if (course.ownerId !== currentUserId && (req as any).user?.role !== 'admin') {
+            return res.status(403).json({ message: 'Только владелец может передать права на курс' });
+        }
+
+        // 2. Ищем нового владельца в БД, чтобы взять его Имя и Фамилию
+        const newOwner = await User.findByPk(newOwnerId);
+        if (!newOwner) return res.status(404).json({ message: 'Новый владелец не найден' });
+
+        // 3. Делаем старого владельца соавтором (чтобы не потерял доступ)
+        if (course.ownerId) {
+            await CourseCollaborator.findOrCreate({
+                where: { courseId, userId: course.ownerId },
+                defaults: { role: 'editor' }
+            });
+        }
+
+        // 4. Удаляем нового владельца из соавторов (он теперь главный)
+        await CourseCollaborator.destroy({
+            where: { courseId, userId: newOwnerId }
+        });
+
+        // 5. 🔥 ОБНОВЛЯЕМ ВЛАДЕЛЬЦА И ФИО ПРЕПОДАВАТЕЛЯ
+        course.ownerId = newOwnerId;
+        course.instructor = `${newOwner.firstName} ${newOwner.lastName}`; 
+        await course.save();
+
+        addSystemLog(`Права на курс (ID: ${courseId}) переданы пользователю ${newOwner.email}`, 'warning');
+        res.json({ success: true, message: 'Права успешно переданы', course });
+    } catch (e) {
+        console.error('Ошибка передачи прав:', e);
+        res.status(500).json({ message: 'Ошибка при передаче прав' });
     }
 };

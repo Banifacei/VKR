@@ -22,6 +22,7 @@ import {
     getCourseCollaborators,
     addCourseCollaborator,
     removeCourseCollaborator,
+    transferCourseOwnership
 
 } from '../controllers/videoController.js';
 import { checkCourseAccess } from '../middleware/courseAuthMiddleware.js';
@@ -45,6 +46,7 @@ router.post('/courses', checkAuth, createCourse);
 router.put('/courses/:courseId', checkAuth, updateCourse);
 router.delete('/courses/:courseId', checkAuth, deleteCourse);
 router.get('/courses/:courseId/videos', getVideosByCourse);
+router.put('/courses/:courseId/transfer', checkAuth, transferCourseOwnership);
 router.post('/course/:courseId/reorder', checkAuth, updateCourseContentOrder);
 router.get('/courses/:courseId/collaborators', checkAuth, checkCourseAccess, getCourseCollaborators);
 router.post('/courses/:courseId/collaborators', checkAuth, checkCourseAccess, addCourseCollaborator);

@@ -154,6 +154,8 @@ export const UserPage = () => {
     const [showCourseSettings, setShowCourseSettings] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
     const [canEdit, setCanEdit] = useState(false);
+    const [transferUserId, setTransferUserId] = useState<number | null>(null);
+    const [isTransferring, setIsTransferring] = useState(false);
     const fetchCollaborators = async (id: number) => {
         try {
             const res = await api.get(`/videos/courses/${id}/collaborators`);
@@ -221,7 +223,23 @@ export const UserPage = () => {
             fetchCollaborators(Number(courseId));
         } catch (e) { showToast('Ошибка удаления', 'error'); }
     };
-
+    // 🔥 ФУНКЦИЯ ПЕРЕДАЧИ ПРАВ (Вызывается из красивой модалки)
+    const handleTransferOwnership = async () => {
+        if (!courseId || !transferUserId) return;
+        
+        setIsTransferring(true);
+        try {
+            await api.put(`/videos/courses/${courseId}/transfer`, { newOwnerId: transferUserId });
+            showToast('Права успешно переданы!', 'success');
+            setShowCourseSettings(false); // Закрываем окно настроек
+            setTransferUserId(null); // Закрываем окно подтверждения
+            fetchCourseData(); // Обновляем курс
+        } catch (e: any) {
+            showToast(e.response?.data?.message || 'Ошибка передачи прав', 'error');
+        } finally {
+            setIsTransferring(false);
+        }
+    };
     // Данные для нового теста
     const [newTestData, setNewTestData] = useState({ title: '', description: '', passingScore: 80, maxAttempts: 3 });
     const isSavingOrderRef = useRef(false);
@@ -966,7 +984,30 @@ export const UserPage = () => {
                                                         <div style={{ color: '#fff', fontSize: '14px', fontWeight: 'bold' }}>{col.user?.firstName} {col.user?.lastName}</div>
                                                         <div style={{ color: '#888', fontSize: '12px' }}>{col.user?.email}</div>
                                                     </div>
-                                                    {isOwner && <button className="btn-icon" style={{ color: '#ff4d4d' }} onClick={() => handleRemoveCollaborator(col.userId)}>✕</button>}
+                                                    {isOwner && (
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                            <button 
+                                                                onClick={() => setTransferUserId(col.userId)}
+                                                                style={{ 
+                                                                    background: 'rgba(255, 215, 0, 0.1)', 
+                                                                    border: '1px solid rgba(255, 215, 0, 0.3)', 
+                                                                    color: '#ffd700', 
+                                                                    padding: '4px 10px', 
+                                                                    borderRadius: '6px', 
+                                                                    cursor: 'pointer', 
+                                                                    fontSize: '11px', 
+                                                                    fontWeight: 'bold',
+                                                                    transition: '0.2s'
+                                                                }}
+                                                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 215, 0, 0.2)'}
+                                                                onMouseLeave={e => e.currentTarget.style.background = 'rgba(255, 215, 0, 0.1)'}
+                                                                title="Передать права владельца курса"
+                                                            >
+                                                                👑 Сделать владельцем
+                                                            </button>
+                                                            <button className="btn-icon" style={{ color: '#ff4d4d', padding: '4px 8px' }} onClick={() => handleRemoveCollaborator(col.userId)}>✕</button>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             ))}
                                         </div>
@@ -977,6 +1018,47 @@ export const UserPage = () => {
                     </div>
                 );
             })()}
+            {/* 🔥 КРАСИВАЯ МОДАЛКА ПОДТВЕРЖДЕНИЯ ПЕРЕДАЧИ ПРАВ */}
+            {transferUserId && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
+                    background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
+                    display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10000
+                }} onClick={() => setTransferUserId(null)}>
+                    
+                    <div 
+                        style={{ background: '#111', padding: '30px', borderRadius: '20px', border: '1px solid #ff4d4d', width: '450px', animation: 'fadeIn 0.2s ease', textAlign: 'center', boxShadow: '0 20px 50px rgba(255, 77, 77, 0.15)' }}
+                        onClick={(e) => e.stopPropagation()} 
+                    >
+                        <div style={{ fontSize: '48px', marginBottom: '15px' }}>⚠️</div>
+                        <h2 style={{color: '#fff', marginBottom: '15px', marginTop: 0}}>Передача прав</h2>
+                        
+                        <p style={{color: '#aaa', fontSize: '14px', lineHeight: '1.6', marginBottom: '25px'}}>
+                            Вы уверены, что хотите передать права Владельца этому пользователю? <br/><br/>
+                            <span style={{color: '#ff4d4d', fontWeight: 'bold'}}>Вы станете обычным соавтором</span>, а ФИО преподавателя на обложке курса изменится. Отменить это действие самостоятельно будет невозможно.
+                        </p>
+
+                        <div style={{ display: 'flex', gap: '15px' }}>
+                            <button 
+                                className="btn btn-ghost" style={{ flex: 1, color: '#888' }} 
+                                onClick={() => setTransferUserId(null)}
+                                disabled={isTransferring}
+                            >
+                                Отмена
+                            </button>
+                            <button 
+                                style={{ flex: 1, background: 'rgba(255, 77, 77, 0.2)', border: '1px solid rgba(255, 77, 77, 0.4)', color: '#ff4d4d', padding: '10px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', transition: '0.2s' }}
+                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 77, 77, 0.3)'}
+                                onMouseLeave={e => e.currentTarget.style.background = 'rgba(255, 77, 77, 0.2)'}
+                                onClick={handleTransferOwnership}
+                                disabled={isTransferring}
+                            >
+                                {isTransferring ? 'Передаем...' : 'Да, передать права'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
