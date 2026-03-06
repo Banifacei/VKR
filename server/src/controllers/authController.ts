@@ -412,7 +412,13 @@ export const googleCallback = async (req: Request, res: Response) => {
         if (!email) return res.redirect(`${CLIENT_URL}/auth?error=no_email`);
 
         let user = await User.findOne({ where: { email } });
-        const googleAvatar = profile.picture || null;
+        let googleAvatar = profile.picture || null;
+
+        // 🔥 ФИКС: Если ссылка от Google пришла, гарантируем нормальный размер
+        if (googleAvatar && googleAvatar.includes('googleusercontent.com')) {
+            // Убираем старые параметры размера (если есть) и ставим s200-c
+            googleAvatar = googleAvatar.split('=')[0] + '=s200-c';
+        }
 
         if (!user) {
             const salt = await bcrypt.genSalt(10);
@@ -430,7 +436,7 @@ export const googleCallback = async (req: Request, res: Response) => {
             addSystemLog(`Создан профиль через Google: ${email}`, 'success');
         } else {
             // Обновляем аватарку, если её нет
-            if (googleAvatar && !user.avatarUrl) {
+            if (googleAvatar && (!user.avatarUrl || user.avatarUrl.endsWith('/0') || user.avatarUrl.includes('googleusercontent.com'))) {
                 user.avatarUrl = googleAvatar;
             }
         }

@@ -38,13 +38,22 @@ export const UserProfile = ({ user, onUpdate, onLogout }: UserProfileProps) => {
         <div className="user-profile-container" ref={dropdownRef}>
             {/* Главная кнопка профиля */}
             <button className="user-profile-btn" onClick={() => setIsOpen(!isOpen)}>
-                <div className="user-avatar">
-                    {user.avatarUrl ? (
-                        <img src={user.avatarUrl} alt="avatar" className="avatar-img" />
-                    ) : (
-                        initial
-                    )}
-                </div>
+                            <div className="user-avatar">
+                {user.avatarUrl ? (
+                    <img 
+                        src={user.avatarUrl} 
+                        alt="avatar" 
+                        className="avatar-img" 
+                        // 🔥 ФИКС: Если картинка не прогрузилась (403/404), показываем инициал
+                        onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                            (e.target as HTMLImageElement).parentElement!.innerText = initial;
+                        }}
+                    />
+                ) : (
+                    initial
+                )}
+            </div>
                 <span className="user-name">{fullNameDisplay}</span>
                 <svg width="10" height="6" viewBox="0 0 10 6" fill="none" style={{opacity: 0.5, transform: isOpen ? 'rotate(180deg)' : 'none', transition: '0.2s'}}>
                     <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>

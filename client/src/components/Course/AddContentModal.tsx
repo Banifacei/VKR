@@ -1,0 +1,140 @@
+import { useState } from 'react';
+import api from '../../api/axiosInstance';
+import { useToast } from '../../context/ToastContext';
+import { AddVideoForm } from '../AddVideoForm';
+
+interface AddContentModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    courseId: number;
+    nextOrderIndex: number;
+    onSuccess: () => void;
+}
+
+export const AddContentModal = ({ isOpen, onClose, courseId, nextOrderIndex, onSuccess }: AddContentModalProps) => {
+    const { showToast } = useToast();
+    const [modalView, setModalView] = useState<'select' | 'create_test' | 'create_video'>('select');
+    const [newTestData, setNewTestData] = useState({ title: '', description: '', passingScore: 80, maxAttempts: 3 });
+    const [isCreating, setIsCreating] = useState(false);
+
+    if (!isOpen) return null;
+
+    const handleClose = () => {
+        setModalView('select');
+        setNewTestData({ title: '', description: '', passingScore: 80, maxAttempts: 3 });
+        onClose();
+    };
+
+    const handleCreateTest = async () => {
+        if (!newTestData.title.trim()) {
+            return showToast('Введите название теста!', 'error');
+        }
+        setIsCreating(true);
+        try {
+            await api.post(`/tests/courses/${courseId}`, { ...newTestData, orderIndex: nextOrderIndex });
+            showToast('Тест успешно создан!', 'success');
+            onSuccess();
+            handleClose();
+        } catch (e) {
+            console.error(e);
+            showToast('Ошибка при создании теста', 'error');
+        } finally {
+            setIsCreating(false);
+        }
+    };
+
+    return (
+        <div style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
+            background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(5px)',
+            display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999
+        }} onClick={handleClose}>
+            
+            <div 
+                style={{ background: '#111', padding: '30px', borderRadius: '16px', border: '1px solid #333', width: '400px', animation: 'fadeIn 0.2s ease' }}
+                onClick={(e) => e.stopPropagation()} 
+            >
+                {/* ЭКРАН 1: ВЫБОР */}
+                {modalView === 'select' && (
+                    <>
+                        <h2 style={{color: '#fff', marginBottom: '25px', marginTop: 0, textAlign: 'center'}}>Что добавим в курс?</h2>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                            <button 
+                                onClick={() => setModalView('create_video')} 
+                                style={{ background: '#2a2a2a', border: '1px solid #444', color: '#fff', padding: '15px', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '15px', transition: '0.2s' }}
+                            >
+                                <span style={{fontSize: '24px'}}>📺</span> 
+                                <div style={{textAlign: 'left'}}>
+                                    <div style={{fontWeight: 'bold'}}>Видео-урок</div>
+                                    <div style={{fontSize: '12px', color: '#888'}}>Добавить обучающее видео</div>
+                                </div>
+                            </button>
+
+                            <button 
+                                onClick={() => setModalView('create_test')} 
+                                style={{ background: 'rgba(255, 215, 0, 0.1)', border: '1px solid rgba(255, 215, 0, 0.3)', color: '#fff', padding: '15px', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '15px', transition: '0.2s' }}
+                            >
+                                <span style={{fontSize: '24px'}}>📝</span> 
+                                <div style={{textAlign: 'left'}}>
+                                    <div style={{fontWeight: 'bold', color: '#ffd700'}}>Тест</div>
+                                    <div style={{fontSize: '12px', color: '#888'}}>Проверка знаний</div>
+                                </div>
+                            </button>
+                        </div>
+                    </>
+                )}
+
+                {/* ЭКРАН 2: ФОРМА СОЗДАНИЯ ТЕСТА */}
+                {modalView === 'create_test' && (
+                    <>
+                        <h2 style={{color: '#fff', marginBottom: '20px', marginTop: 0}}>📝 Новый тест</h2>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                            <input 
+                                type="text" placeholder="Название теста" className="modern-input"
+                                value={newTestData.title} onChange={e => setNewTestData({...newTestData, title: e.target.value})}
+                            />
+                            <textarea 
+                                placeholder="Краткое описание" className="modern-textarea" style={{ minHeight: '80px' }}
+                                value={newTestData.description} onChange={e => setNewTestData({...newTestData, description: e.target.value})}
+                            />
+                            <div style={{ display: 'flex', gap: '10px' }}>
+                                <div style={{ flex: 1 }}>
+                                    <label style={{ fontSize: '12px', color: '#888' }}>Проходной балл (%)</label>
+                                    <input type="number" className="modern-input" min="1" max="100" value={newTestData.passingScore} onChange={e => setNewTestData({...newTestData, passingScore: Number(e.target.value)})} />
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <label style={{ fontSize: '12px', color: '#888' }}>Попытки (0 = ∞)</label>
+                                    <input type="number" className="modern-input" min="0" value={newTestData.maxAttempts} onChange={e => setNewTestData({...newTestData, maxAttempts: Number(e.target.value)})} />
+                                </div>
+                            </div>
+                            <button className="primary-btn" onClick={handleCreateTest} disabled={isCreating}>
+                                {isCreating ? 'Создаем...' : 'Сохранить тест'}
+                            </button>
+                        </div>
+                    </>
+                )}
+
+                {/* ЭКРАН 3: ФОРМА СОЗДАНИЯ ВИДЕО */}
+                {modalView === 'create_video' && (
+                    <>
+                        <h2 style={{color: '#fff', marginBottom: '20px', marginTop: 0}}>📺 Новый урок</h2>
+                        <AddVideoForm 
+                            courseId={courseId} 
+                            onVideoAdded={() => {
+                                onSuccess();
+                                handleClose();
+                            }} 
+                        />
+                    </>
+                )}
+
+                <button 
+                    className="btn btn-ghost" style={{ marginTop: '20px', color: '#666', width: '100%' }} 
+                    onClick={handleClose}
+                >
+                    Отмена
+                </button>
+            </div>
+        </div>
+    );
+};
