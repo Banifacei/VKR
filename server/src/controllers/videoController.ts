@@ -21,6 +21,7 @@ import fsPromises from 'fs/promises';
 import { TestQuestion } from '../models/TestQuestion.js';
 import { UserTestResult } from '../models/UserTestResult.js';
 import { CourseEnrollment } from '../models/CourseEnrollment.js';
+import { CourseCollaborator } from '../models/CourseCollaborator.js'; // 🔥 Не забудь импорт в начале файла!
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 let semanticExtractor: any = null;
@@ -742,7 +743,6 @@ export const updateCourseContentOrder = async (req: Request, res: Response) => {
     }
 };
 
-import { CourseCollaborator } from '../models/CourseCollaborator.js'; // 🔥 Не забудь импорт в начале файла!
 
 // --- ПОЛУЧИТЬ КОМАНДУ КУРСА ---
 export const getCourseCollaborators = async (req: Request, res: Response) => {
@@ -882,18 +882,20 @@ export const applyForCourse = async (req: Request, res: Response) => {
     try {
         const { courseId } = req.params;
         const userId = (req as any).user.id;
-        const userRole = (req as any).user.role;
+        
+        // 🔥 ФИКС: Берем свежую роль
+        const dbUser = await User.findByPk(userId, { attributes: ['role'] });
+        const realRole = dbUser ? dbUser.role : (req as any).user.role;
+
         const course = await Course.findByPk(courseId);
         if (!course) return res.status(404).json({ message: 'Курс не найден' });
 
         const existing = await CourseEnrollment.findOne({ where: { courseId, userId } });
         
-        // 🔥 Читаем значение напрямую из ядра Sequelize
         const isFreeForTeachers = course.getDataValue('allowTeachersFreeAccess') === true;
 
         if (existing) {
-            // Если препод висел в pending, а автор включил тумблер — пускаем!
-            if (existing.status === 'pending' && userRole === 'teacher' && isFreeForTeachers) {
+            if (existing.status === 'pending' && realRole === 'teacher' && isFreeForTeachers) {
                 existing.status = 'approved';
                 await existing.save();
                 return res.json({ success: true, status: 'approved' });
@@ -906,8 +908,7 @@ export const applyForCourse = async (req: Request, res: Response) => {
         if (course.enrollmentType === 'open') {
             status = 'approved';
         } else if (course.enrollmentType === 'request') {
-            // Если тумблер включен - пускаем сразу!
-            if (userRole === 'teacher' && isFreeForTeachers) {
+            if (realRole === 'teacher' && isFreeForTeachers) {
                 status = 'approved';
             }
         }
@@ -928,20 +929,22 @@ export const checkEnrollmentStatus = async (req: Request, res: Response) => {
     try {
         const { courseId } = req.params;
         const userId = (req as any).user.id;
-        const userRole = (req as any).user.role; // 🔥 Достаем роль юзера
+        
+        // 🔥 ФИКС: Не верим токену! Берем свежую роль прямо из БД
+        const dbUser = await User.findByPk(userId, { attributes: ['role'] });
+        const realRole = dbUser ? dbUser.role : (req as any).user.role;
 
         const course = await Course.findByPk(courseId);
         if (!course) return res.status(404).json({ message: 'Курс не найден' });
         
         // 1. Владельца и админа пускаем всегда
-        if (course.ownerId === userId || userRole === 'admin') {
+        if (course.ownerId === userId || realRole === 'admin') {
             return res.json({ status: 'approved', isOwnerOrAdmin: true });
         }
 
-        // 🔥 2. VIP-ПРОХОД ДЛЯ ПРЕПОДАВАТЕЛЕЙ 🔥
-        // Если тумблер включен, пускаем препода сразу, минуя лендинг!
+        // 2. VIP-ПРОХОД ДЛЯ ПРЕПОДАВАТЕЛЕЙ
         const isFreeForTeachers = course.getDataValue('allowTeachersFreeAccess') === true;
-        if (userRole === 'teacher' && isFreeForTeachers) {
+        if (realRole === 'teacher' && isFreeForTeachers) {
             return res.json({ status: 'approved', isAutoGranted: true });
         }
 
@@ -980,10 +983,34 @@ export const updateEnrollmentStatus = async (req: Request, res: Response) => {
     try {
         const { enrollmentId } = req.params;
         const { status } = req.body; // 'approved' или 'rejected'
+        const userId = (req as any).user.id;
+        const userRole = (req as any).user.role;
 
         const enrollment = await CourseEnrollment.findByPk(enrollmentId);
         if (!enrollment) return res.status(404).json({ message: 'Заявка не найдена' });
 
+        // 🔥 СЕКЬЮРИТИ-ЧЕК: Находим курс, к которому относится заявка
+        const course = await Course.findByPk(enrollment.courseId);
+        if (!course) return res.status(404).json({ message: 'Курс не найден' });
+
+        // 🔥 Проверяем права: пускаем админа или владельца курса
+        let hasAccess = userRole === 'admin' || course.ownerId === userId;
+
+        // Если не владелец, проверяем, вдруг он соавтор
+        if (!hasAccess) {
+            const isCollab = await CourseCollaborator.findOne({ 
+                where: { courseId: course.id, userId } 
+            });
+            if (isCollab) hasAccess = true;
+        }
+
+        // Если прав нет — бьем по рукам
+        if (!hasAccess) {
+            addSystemLog(`Попытка взлома! Юзер ID:${userId} пытался одобрить чужую заявку ID:${enrollmentId}`, 'error');
+            return res.status(403).json({ message: 'У вас нет прав управлять заявками этого курса' });
+        }
+
+        // Если всё ок — сохраняем статус
         enrollment.status = status;
         await enrollment.save();
 
