@@ -4,19 +4,7 @@ import './VideoPlayer.css';
 import type { IInteractiveEvent, ISubtitle } from '../types';
 import { TestModeButton } from './TestModeButton'; // <--- ИМПОРТ НОВОЙ КНОПКИ
 import { useToast } from '../context/ToastContext';
-
-const Icons = {
-  Play: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="6 3 20 12 6 21 6 3" fill="currentColor" /></svg>,
-  Pause: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="6" y="4" width="4" height="16" fill="currentColor" /><rect x="14" y="4" width="4" height="16" fill="currentColor" /></svg>,
-  VolumeHigh: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><path d="M15.54 8.46a5 5 0 0 1 0 7.07" /><path d="M19.07 4.93a10 10 0 0 1 0 14.14" /></svg>,
-  VolumeMuted: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><line x1="23" y1="9" x2="17" y2="15" /><line x1="17" y1="9" x2="23" y2="15" /></svg>,
-  Settings: () => <svg className="icon-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>,
-  Pip: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4" /><rect x="13" y="11" width="7" height="5" /></svg>,
-  Fullscreen: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" /></svg>,
-  Refresh: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>,
-  Captions: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 6h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z" /><line x1="8" y1="15" x2="8" y2="15" /><line x1="16" y1="15" x2="16" y2="15" /></svg>,
-  Chapters: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></svg>
-};
+import { VideoPlayeIcons } from './Icons';
 
 const playbackRates = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 
@@ -995,7 +983,7 @@ const renderMainMenu = () => (
                                     : 'Вы уже успешно прошли тестирование к этому уроку.'}
                             </p>
                             <button className="primary-btn" onClick={replayVideo} style={{ padding: '10px 20px' }}>
-                                <Icons.Refresh /> Смотреть лекцию заново
+                                <VideoPlayeIcons.Refresh /> Смотреть лекцию заново
                             </button>
                         </div>
                     ) : !hideResults ? (
@@ -1010,7 +998,7 @@ const renderMainMenu = () => (
                                 </div>
                                 <div className="score-actions">
                                     <button className="primary-btn" onClick={replayVideo} style={{ padding: '10px 16px', fontSize: '13px' }}>
-                                        <Icons.Refresh /> Смотреть лекцию заново
+                                        <VideoPlayeIcons.Refresh /> Смотреть лекцию заново
                                     </button>
                                 </div>
                             </div>
@@ -1035,7 +1023,7 @@ const renderMainMenu = () => (
                     ) : (
                         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
                             <p style={{marginTop: '20px', color: '#aaa'}}>Ваши ответы успешно сохранены и отправлены преподавателю.</p>
-                            <button className="primary-btn" onClick={replayVideo} style={{marginTop: '20px'}}><Icons.Refresh /> Смотреть заново</button>
+                            <button className="primary-btn" onClick={replayVideo} style={{marginTop: '20px'}}><VideoPlayeIcons.Refresh /> Смотреть заново</button>
                         </div>
                     )}
                 </div>
@@ -1089,7 +1077,7 @@ const renderMainMenu = () => (
       )}
       </video>
       
-      {!isPlaying && showControls && !activeEvent && !showEndScreen && (<div className="center-play-overlay-static" onClick={togglePlay}><Icons.Play /></div>)}
+      {!isPlaying && showControls && !activeEvent && !showEndScreen && (<div className="center-play-overlay-static" onClick={togglePlay}><VideoPlayeIcons.Play /></div>)}
 
       <div className={`yt-controls ${showControls && !activeEvent ? 'show' : ''}`} style={{ zIndex: 100 }}>
         
@@ -1143,12 +1131,12 @@ const renderMainMenu = () => (
         <div className="yt-controls-row">
           <div className="yt-left">
             <button className="yt-btn" onClick={togglePlay}>
-                {isPlaying ? <Icons.Pause /> : <Icons.Play />}
+                {isPlaying ? <VideoPlayeIcons.Pause /> : <VideoPlayeIcons.Play />}
             </button>
             
             <div className="volume-control-group">
                 <button className="yt-btn" onClick={() => setIsMuted(!isMuted)}>
-                    {isMuted || volume === 0 ? <Icons.VolumeMuted /> : <Icons.VolumeHigh />}
+                    {isMuted || volume === 0 ? <VideoPlayeIcons.VolumeMuted /> : <VideoPlayeIcons.VolumeHigh />}
                 </button>
                 <div className="volume-slider-container">
                     <input 
@@ -1176,7 +1164,7 @@ const renderMainMenu = () => (
                     onClick={toggleSubtitles}
                     title="Субтитры (c)"
                 >
-                    <Icons.Captions />
+                    <VideoPlayeIcons.Captions />
                 </button>
             )}
             
@@ -1185,7 +1173,7 @@ const renderMainMenu = () => (
                 onClick={() => videoRef.current?.requestPictureInPicture()}
                 title="Картинка в картинке"
             >
-                <Icons.Pip />
+                <VideoPlayeIcons.Pip />
             </button>
             
             <div className="settings-wrapper" ref={settingsRef}>
@@ -1194,7 +1182,7 @@ const renderMainMenu = () => (
                 onClick={() => { setShowSettings(!showSettings); setCurrentMenu('main'); }}
                 title="Настройки"
               >
-                <Icons.Settings />
+                <VideoPlayeIcons.Settings />
               </button>
               
               {showSettings && (
@@ -1242,7 +1230,7 @@ const renderMainMenu = () => (
               )}
           </div>
             <button className="yt-btn" onClick={toggleFullscreen} title="Полный экран (f)">
-                <Icons.Fullscreen />
+                <VideoPlayeIcons.Fullscreen />
             </button>
           </div>
         </div>

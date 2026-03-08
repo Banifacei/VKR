@@ -1,14 +1,15 @@
 import type { ICourse } from '../../types';
-import { Icons } from './Icons';
+import { Icons } from '../Icons';
 
 interface CourseLandingProps {
     course: ICourse | null;
     enrollStatus: string | null | 'loading';
     isEnrolling: boolean;
     onEnroll: () => void;
+    userData: any; 
 }
 
-export const CourseLanding = ({ course, enrollStatus, isEnrolling, onEnroll }: CourseLandingProps) => {
+export const CourseLanding = ({ course, enrollStatus, isEnrolling, onEnroll, userData }: CourseLandingProps) => {
     return (
         <main className="main-content" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 'calc(100vh - 60px)' }}>
             <div style={{ maxWidth: '600px', width: '100%', textAlign: 'center', background: '#111', padding: '50px', borderRadius: '24px', border: '1px solid #333', boxShadow: '0 20px 50px rgba(0,0,0,0.5)', animation: 'fadeIn 0.4s ease' }}>

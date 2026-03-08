@@ -114,7 +114,7 @@ export const createCourse = async (req: Request, res: Response) => {
 export const updateCourse = async (req: Request, res: Response) => {
     try {
         const { courseId } = req.params;
-        const { title, description, instructor, enrollmentType } = req.body;
+        const { title, description, instructor, enrollmentType, allowTeachersFreeAccess } = req.body;
         const course = await Course.findByPk(courseId);
         if (!course) return res.status(404).json({ message: 'Курс не найден' });
 
@@ -122,6 +122,12 @@ export const updateCourse = async (req: Request, res: Response) => {
         if (description !== undefined) course.description = description;
         if (instructor) course.instructor = instructor;
         if (enrollmentType !== undefined) course.enrollmentType = enrollmentType;
+        
+        // 🔥 ПРОБИВАЕМ БАГ ТАЙПСКРИПТА: Пишем напрямую в DataValues
+        if (allowTeachersFreeAccess !== undefined) {
+            course.setDataValue('allowTeachersFreeAccess', allowTeachersFreeAccess); 
+        }
+
         await course.save();
         res.json({ success: true, course });
     } catch (e) {
@@ -199,7 +205,11 @@ export const deleteCourse = async (req: Request, res: Response) => {
 
 export const getAllCourses = async (req: Request, res: Response) => {
     try {
-        const courses = await Course.findAll({ include: [Video] });
+        const courses = await Course.findAll({ 
+            include: [Video],
+            // 🔥 Жесткая привязка порядка, чтобы не дергались
+            order: [['createdAt', 'ASC']] 
+        });
         res.json(courses);
     } catch (e) {
         res.status(500).json(e);
@@ -738,12 +748,37 @@ import { CourseCollaborator } from '../models/CourseCollaborator.js'; // 🔥 Н
 export const getCourseCollaborators = async (req: Request, res: Response) => {
     try {
         const { courseId } = req.params;
+        const userId = (req as any).user.id;
+        const role = (req as any).user.role;
+
+        const course = await Course.findByPk(courseId);
+        if (!course) return res.status(404).json({ message: 'Курс не найден' });
+
+        // 1. Проверяем базовые права (Админ или Владелец)
+        let hasAccess = role === 'admin' || course.ownerId === Number(userId);
+
+        // 2. Если не админ/владелец, проверяем, есть ли юзер в списке соавторов
+        if (!hasAccess) {
+            const isCollab = await CourseCollaborator.findOne({ 
+                where: { courseId, userId } 
+            });
+            if (isCollab) hasAccess = true;
+        }
+
+        // 3. 🔥 ВЕЖЛИВЫЙ ОТКАЗ: Если прав нет, просто отдаем пустой список (вместо 403 Forbidden)
+        if (!hasAccess) {
+            return res.status(200).json([]);
+        }
+
+        // 4. Если права есть — отдаем реальную команду
         const collaborators = await CourseCollaborator.findAll({
             where: { courseId },
             include: [{ model: User, attributes: ['id', 'firstName', 'lastName', 'email', 'avatarUrl', 'role'] }]
         });
+        
         res.json(collaborators);
     } catch (e) {
+        console.error('Ошибка получения команды курса:', e);
         res.status(500).json({ message: 'Ошибка получения команды курса' });
     }
 };
@@ -847,22 +882,39 @@ export const applyForCourse = async (req: Request, res: Response) => {
     try {
         const { courseId } = req.params;
         const userId = (req as any).user.id;
-
+        const userRole = (req as any).user.role;
         const course = await Course.findByPk(courseId);
         if (!course) return res.status(404).json({ message: 'Курс не найден' });
 
-        // Проверяем, нет ли уже заявки
         const existing = await CourseEnrollment.findOne({ where: { courseId, userId } });
+        
+        // 🔥 Читаем значение напрямую из ядра Sequelize
+        const isFreeForTeachers = course.getDataValue('allowTeachersFreeAccess') === true;
+
         if (existing) {
+            // Если препод висел в pending, а автор включил тумблер — пускаем!
+            if (existing.status === 'pending' && userRole === 'teacher' && isFreeForTeachers) {
+                existing.status = 'approved';
+                await existing.save();
+                return res.json({ success: true, status: 'approved' });
+            }
             return res.status(400).json({ message: 'Заявка уже существует', status: existing.status });
         }
-
-        // Если курс открытый — зачисляем сразу, иначе — в ожидание
-        const status = course.enrollmentType === 'open' ? 'approved' : 'pending';
+        
+        let status = 'pending';
+        
+        if (course.enrollmentType === 'open') {
+            status = 'approved';
+        } else if (course.enrollmentType === 'request') {
+            // Если тумблер включен - пускаем сразу!
+            if (userRole === 'teacher' && isFreeForTeachers) {
+                status = 'approved';
+            }
+        }
 
         const enrollment = await CourseEnrollment.create({ courseId, userId, status });
         
-        addSystemLog(`Студент (ID: ${userId}) подал заявку на курс (ID: ${courseId}). Статус: ${status}`, 'info');
+        addSystemLog(`Пользователь (ID: ${userId}) подал заявку на курс (ID: ${courseId}). Статус: ${status}`, 'info');
         res.json({ success: true, status: enrollment.status });
 
     } catch (e) {
@@ -871,23 +923,31 @@ export const applyForCourse = async (req: Request, res: Response) => {
     }
 };
 
-// 2. Студент/Фронт: Проверить статус зачисления на конкретный курс (чтобы знать, показывать ли Лендинг)
+// 2. Студент/Фронт: Проверить статус зачисления на конкретный курс
 export const checkEnrollmentStatus = async (req: Request, res: Response) => {
     try {
         const { courseId } = req.params;
         const userId = (req as any).user.id;
+        const userRole = (req as any).user.role; // 🔥 Достаем роль юзера
 
-        // Если это владелец курса или админ — пускаем всегда (имитируем 'approved')
         const course = await Course.findByPk(courseId);
         if (!course) return res.status(404).json({ message: 'Курс не найден' });
         
-        if (course.ownerId === userId || (req as any).user.role === 'admin') {
+        // 1. Владельца и админа пускаем всегда
+        if (course.ownerId === userId || userRole === 'admin') {
             return res.json({ status: 'approved', isOwnerOrAdmin: true });
         }
 
+        // 🔥 2. VIP-ПРОХОД ДЛЯ ПРЕПОДАВАТЕЛЕЙ 🔥
+        // Если тумблер включен, пускаем препода сразу, минуя лендинг!
+        const isFreeForTeachers = course.getDataValue('allowTeachersFreeAccess') === true;
+        if (userRole === 'teacher' && isFreeForTeachers) {
+            return res.json({ status: 'approved', isAutoGranted: true });
+        }
+
+        // 3. Для обычных студентов ищем реальную заявку в БД
         const enrollment = await CourseEnrollment.findOne({ where: { courseId, userId } });
         
-        // Если заявки нет — возвращаем null (покажем Лендинг)
         if (!enrollment) return res.json({ status: null });
 
         res.json({ status: enrollment.status });

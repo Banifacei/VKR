@@ -36,4 +36,7 @@ export class Course extends Model {
 
   @HasMany(() => CourseEnrollment)
   declare enrollments: CourseEnrollment[];
+
+  @Column({ type: DataType.BOOLEAN, defaultValue: false })
+  declare allowTeachersFreeAccess: boolean;
 }

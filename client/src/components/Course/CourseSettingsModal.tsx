@@ -25,7 +25,7 @@ export const CourseSettingsModal = ({
     const navigate = useNavigate();
     // Стейты самой модалки
     const [settingsTab, setSettingsTab] = useState<'info' | 'team' | 'enrollments'>('info');
-    const [editCourseData, setEditCourseData] = useState({ title: '', description: '', instructor: '', enrollmentType: 'open' });
+    const [editCourseData, setEditCourseData] = useState({ title: '', description: '', instructor: '', enrollmentType: 'open', allowTeachersFreeAccess: false });
     
     // Стейты команды
     const [collaborators, setCollaborators] = useState<any[]>([]);
@@ -37,26 +37,29 @@ export const CourseSettingsModal = ({
     // Стейты передачи прав
     const [transferUserId, setTransferUserId] = useState<number | null>(null);
     const [isTransferring, setIsTransferring] = useState(false);
-
     const isOwner = course.ownerId === userData?.id || userData?.role === 'admin';
     const isChanged = course.title !== editCourseData.title || 
                       (course.description || '') !== editCourseData.description || 
                       (course.instructor || '') !== editCourseData.instructor ||
                       (course.enrollmentType || 'open') !== editCourseData.enrollmentType;
 
-    // Инициализация при открытии
     useEffect(() => {
-        if (isOpen) {
+        if (course) {
             setEditCourseData({
                 title: course.title,
                 description: course.description || '',
                 instructor: course.instructor || '',
-                enrollmentType: (course.enrollmentType as any) || 'open'
+                enrollmentType: (course.enrollmentType as any) || 'open',
+                allowTeachersFreeAccess: course.allowTeachersFreeAccess || false
             });
-            setSettingsTab('info');
         }
-    }, [isOpen, course]);
+    }, [course]); // Реагируем только на обновление курса
 
+    // 🔥 Создаем кастомную функцию закрытия, чтобы сбрасывать вкладку
+    const handleCloseModal = () => {
+        setSettingsTab('info');
+        onClose();
+    };
     // --- ЛОГИКА КОМАНДЫ ---
     const fetchCollaborators = async () => {
         try {
@@ -137,8 +140,7 @@ export const CourseSettingsModal = ({
                 
                 <div style={{ padding: '20px 25px', background: '#1a1a1a', borderBottom: '1px solid #333', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <h3 style={{margin: 0, color: '#fff'}}>Настройки курса</h3>
-                    <button style={{background:'none', border:'none', color:'#888', cursor:'pointer', fontSize:'20px'}} onClick={onClose}>✕</button>
-                </div>
+                    <button style={{background:'none', border:'none', color:'#888', cursor:'pointer', fontSize:'20px'}} onClick={handleCloseModal}>✕</button>                </div>
 
                 <div style={{ display: 'flex', borderBottom: '1px solid #333', background: '#0a0a0a' }}>
                     <button onClick={() => setSettingsTab('info')} style={{ flex: 1, padding: '15px', background: 'none', border: 'none', borderBottom: settingsTab === 'info' ? '2px solid #00aeef' : '2px solid transparent', color: settingsTab === 'info' ? '#00aeef' : '#888', fontWeight: 'bold', cursor: 'pointer' }}>Основное</button>
@@ -292,7 +294,33 @@ export const CourseSettingsModal = ({
                                     <option value="closed">🔴 Закрытый (Запись остановлена)</option>
                                 </select>
                             </div>
-
+                            
+                            <div style={{ background: '#1a1a1a', padding: '15px', borderRadius: '12px', border: '1px solid #333', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <div>
+                                    <div style={{ color: '#fff', fontSize: '14px', fontWeight: 'bold' }}>Свободный доступ для коллег</div>
+                                    <div style={{ color: '#888', fontSize: '12px', marginTop: '4px' }}>Автоматически одобрять заявки от других преподавателей</div>
+                                </div>
+                                
+                                <label className="lumeo-toggle">
+                                    <input 
+                                        type="checkbox" 
+                                        // Не забудь добавить allowTeachersFreeAccess в стейт editCourseData при инициализации!
+                                        checked={editCourseData.allowTeachersFreeAccess || false} 
+                                        onChange={async (e) => {
+                                            const isChecked = e.target.checked;
+                                            setEditCourseData({...editCourseData, allowTeachersFreeAccess: isChecked});
+                                            try {
+                                                await updateCourseApi(course.id, { allowTeachersFreeAccess: isChecked });
+                                                onCourseUpdated();
+                                                showToast(isChecked ? 'Доступ для коллег открыт' : 'Доступ для коллег закрыт', 'success');
+                                            } catch (error) {
+                                                showToast('Ошибка при сохранении', 'error');
+                                            }
+                                        }}
+                                    />
+                                    <span className="slider"></span>
+                                </label>
+                            </div>
                             {enrollmentsList.length === 0 ? (
                                 <div style={{ padding: '30px', textAlign: 'center', color: '#666' }}>
                                     <div style={{ fontSize: '40px', marginBottom: '10px' }}>📭</div>

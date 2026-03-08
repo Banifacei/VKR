@@ -184,7 +184,7 @@ export const UserPage = () => {
             let hasRights = false;
             if (userData?.role === 'admin') hasRights = true;
             if (foundCourse?.ownerId === userData?.id) hasRights = true;
-
+            const isActingAsStudent = userData?.role === 'student' || ['approved', 'pending', 'rejected'].includes(status);
             // 👇 ВОТ ЭТОГО У ТЕБЯ НЕТ В КОДЕ ВЫШЕ:
             try {
                 const collabRes = await api.get(`/videos/courses/${courseId}/collaborators`);
@@ -196,6 +196,8 @@ export const UserPage = () => {
             if (hasRights) {
                 fetchEnrollmentsList(Number(courseId));
             }
+
+            setCanEdit(hasRights);
             // Дальше грузим видео и тесты
             const videos = await getVideosByCourse(Number(courseId));
             const tests = await getCourseTests(Number(courseId));
@@ -471,6 +473,7 @@ export const UserPage = () => {
                     enrollStatus={enrollStatus}
                     isEnrolling={isEnrolling}
                     onEnroll={handleEnroll}
+                    userData={userData}
                 />
             ) : (
             <div className="dashboard-container">
@@ -508,11 +511,6 @@ export const UserPage = () => {
                                             style={{ background: isEditMode ? '#00aeef' : 'transparent', color: isEditMode ? '#fff' : '#888', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', transition: '0.2s' }}
                                         >
                                             ✏️ Редактирование
-                                            {pendingCount > 0 && (
-                                                    <span style={{ background: '#ff4d4d', color: '#fff', fontSize: '11px', padding: '2px 6px', borderRadius: '10px', lineHeight: 1 }}>
-                                                        {pendingCount}
-                                                    </span>
-                                            )}
                                         </button>
                                         <button onClick={() => setShowCourseSettings(true)} style={{ background: 'rgba(255,255,255,0.05)', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                             ⚙️ Настройки

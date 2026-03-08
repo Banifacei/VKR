@@ -9,13 +9,9 @@ import { UserProfile } from '../components/UserProfile';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axiosInstance';
 import { useToast } from '../context/ToastContext';
-
+import { CorsesIcons } from '../components/Icons';
 // 🔥 КАСТОМНЫЕ ИКОНКИ (БЕЗ ЭМОДЗИ)
-const Icons = {
-    Teacher: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
-    Video: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg>,
-    Plus: () => <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
-};
+
 
 // 🔥 ГЕНЕРАТОР СОЧНЫХ ГРАДИЕНТОВ ПО ID КУРСА
 const getGradient = (id: number) => {
@@ -158,7 +154,7 @@ export const CoursesPage = () => {
                             onClick={openAddModal}
                             style={{ border: '2px dashed #333', background: 'transparent', justifyContent: 'center', alignItems: 'center', minHeight: '300px' }}
                         >
-                            <div style={{ color: '#00aeef', marginBottom: '15px' }}><Icons.Plus /></div>
+                            <div style={{ color: '#00aeef', marginBottom: '15px' }}><CorsesIcons.Plus /></div>
                             <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '18px' }}>Создать новый курс</div>
                             <div style={{ color: '#666', fontSize: '13px', marginTop: '8px' }}>Нажмите, чтобы добавить программу</div>
                         </div>
@@ -201,8 +197,8 @@ export const CoursesPage = () => {
                                     <p className="course-desc">{course.description || 'Описание отсутствует. Нажмите, чтобы узнать подробности о курсе внутри.'}</p>
                                     
                                     <div className="course-tags">
-                                        <div className="course-tag"><Icons.Teacher /> {course.instructor}</div>
-                                        <div className="course-tag"><Icons.Video /> {course.videos?.length || 0} уроков</div>
+                                        <div className="course-tag"><CorsesIcons.Teacher /> {course.instructor}</div>
+                                        <div className="course-tag"><CorsesIcons.Video /> {course.videos?.length || 0} уроков</div>
                                     </div>
 
                                     {/* Прогресс-бар для студентов */}

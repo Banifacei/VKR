@@ -54,7 +54,7 @@ router.put('/courses/:courseId/transfer', checkAuth, transferCourseOwnership);
 router.post('/course/:courseId/reorder', checkAuth, updateCourseContentOrder);
 router.post('/courses/:courseId/enroll', checkAuth, applyForCourse);
 router.get('/courses/:courseId/enrollment-status', checkAuth, checkEnrollmentStatus);
-router.get('/courses/:courseId/collaborators', checkAuth, checkCourseAccess, getCourseCollaborators);
+router.get('/courses/:courseId/collaborators', checkAuth, getCourseCollaborators);
 router.get('/courses/:courseId/enrollments', checkAuth, checkCourseAccess, getCourseEnrollments);
 router.put('/courses/enrollments/:enrollmentId', checkAuth, updateEnrollmentStatus);
 router.post('/courses/:courseId/collaborators', checkAuth, checkCourseAccess, addCourseCollaborator);
