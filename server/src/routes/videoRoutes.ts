@@ -26,7 +26,11 @@ import {
     applyForCourse,
     checkEnrollmentStatus,
     getCourseEnrollments,
-    updateEnrollmentStatus
+    updateEnrollmentStatus,
+    getCourseAnalytics,
+    getStudentCourseDetails,
+    getCourseItemAnalytics,
+    generateDemoData
 
 } from '../controllers/videoController.js';
 import { checkCourseAccess } from '../middleware/courseAuthMiddleware.js';
@@ -56,6 +60,10 @@ router.post('/courses/:courseId/enroll', checkAuth, applyForCourse);
 router.get('/courses/:courseId/enrollment-status', checkAuth, checkEnrollmentStatus);
 router.get('/courses/:courseId/collaborators', checkAuth, getCourseCollaborators);
 router.get('/courses/:courseId/enrollments', checkAuth, checkCourseAccess, getCourseEnrollments);
+router.get('/courses/:courseId/analytics', checkAuth, checkCourseAccess, getCourseAnalytics);
+router.get('/courses/:courseId/analytics/student/:studentId', checkAuth, checkCourseAccess, getStudentCourseDetails);
+router.get('/courses/:courseId/analytics/item/:itemType/:itemId', checkAuth, checkCourseAccess, getCourseItemAnalytics);
+router.post('/courses/:courseId/generate-demo', checkAuth, generateDemoData);
 router.put('/courses/enrollments/:enrollmentId', checkAuth, updateEnrollmentStatus);
 router.post('/courses/:courseId/collaborators', checkAuth, checkCourseAccess, addCourseCollaborator);
 router.delete('/courses/:courseId/collaborators/:userId', checkAuth, checkCourseAccess, removeCourseCollaborator);

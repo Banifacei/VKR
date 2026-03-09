@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './UserProfile.css';
-
 interface UserProfileProps {
     user: {
         id: number;
@@ -81,6 +80,26 @@ export const UserProfile = ({ user, onUpdate, onLogout }: UserProfileProps) => {
                             }}
                         >
                             📊 Моя статистика
+                        </button>
+                    )}
+                    {user.role === 'teacher' && (
+                        <button className="dropdown-item"
+                        onClick={() => { 
+                            setIsOpen(false); 
+                            navigate('/analytics'); 
+                        }}>
+                            📈 Центр аналитики
+                        </button>
+                    )}
+                    {user.role === 'admin' && (
+                        <button 
+                            className="dropdown-item" 
+                            onClick={() => { 
+                                setIsOpen(false);
+                                navigate('/adminpanel');
+                            }}
+                        >
+                            Админ.панель
                         </button>
                     )}
                     <button className="dropdown-item danger" onClick={onLogout}>

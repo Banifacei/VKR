@@ -22,6 +22,7 @@ import { TestQuestion } from '../models/TestQuestion.js';
 import { UserTestResult } from '../models/UserTestResult.js';
 import { CourseEnrollment } from '../models/CourseEnrollment.js';
 import { CourseCollaborator } from '../models/CourseCollaborator.js'; // 🔥 Не забудь импорт в начале файла!
+import bcrypt from 'bcrypt';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 let semanticExtractor: any = null;
@@ -1018,5 +1019,324 @@ export const updateEnrollmentStatus = async (req: Request, res: Response) => {
     } catch (e) {
         console.error(e);
         res.status(500).json({ message: 'Ошибка обновления статуса' });
+    }
+};
+
+export const getCourseAnalytics = async (req: Request, res: Response) => {
+    try {
+        const { courseId } = req.params;
+
+        const course = await Course.findByPk(courseId, {
+            include: [
+                { model: Video, attributes: ['id', 'title', 'orderIndex'] },
+                { model: CourseTest, attributes: ['id', 'title', 'orderIndex', 'passingScore'] }
+            ]
+        });
+
+        if (!course) return res.status(404).json({ message: 'Курс не найден' });
+
+        const enrollments = await CourseEnrollment.findAll({
+            where: { courseId, status: 'approved' },
+            include: [{ model: User, attributes: ['id', 'firstName', 'lastName', 'email', 'avatarUrl', 'lastLogin'] }]
+        });
+
+        const students = enrollments.map(e => e.user);
+        const studentIds = students.map(s => s.id);
+        const totalStudents = students.length;
+
+        if (totalStudents === 0) {
+            return res.json({ totalStudents: 0, globalAvgProgress: 0, globalAvgScore: 0, funnel: [], studentsProgress: [] });
+        }
+
+        // 🔥 ВОРОНКА: Видео (Двойная метрика)
+        const videoStats = await Promise.all(course.videos.map(async (video) => {
+            const startedCount = await UserVideoProgress.count({
+                where: { videoId: video.id, userId: studentIds } // Запись есть = начал
+            });
+            const viewsCount = await UserVideoProgress.count({
+                where: { videoId: video.id, isWatched: true, userId: studentIds } // isWatched = досмотрел
+            });
+            return {
+                id: `video-${video.id}`,
+                realId: video.id,
+                title: video.title,
+                type: 'video',
+                orderIndex: video.orderIndex,
+                startedRate: Math.round((startedCount / totalStudents) * 100),
+                completionRate: Math.round((viewsCount / totalStudents) * 100)
+            };
+        }));
+
+        // 🔥 ВОРОНКА: Тесты (Двойная метрика)
+        const testStats = await Promise.all(course.tests.map(async (test) => {
+            const results = await UserTestResult.findAll({ where: { testId: test.id, userId: studentIds } });
+            
+            // Уникальные студенты, которые хотя бы попытались
+            const startedSet = new Set(results.map(r => r.userId)); 
+            const passedCount = results.filter(r => r.score >= test.passingScore).length;
+            
+            return {
+                id: `test-${test.id}`,
+                realId: test.id,
+                title: test.title,
+                type: 'test',
+                orderIndex: test.orderIndex,
+                startedRate: Math.round((startedSet.size / totalStudents) * 100),
+                completionRate: Math.round((passedCount / totalStudents) * 100),
+            };
+        }));
+
+        const funnel = [...videoStats, ...testStats].sort((a, b) => a.orderIndex - b.orderIndex);
+
+        // УСПЕВАЕМОСТЬ СТУДЕНТОВ
+        const studentsProgress = await Promise.all(students.map(async (student) => {
+            const watchedVideos = await UserVideoProgress.count({
+                where: { userId: student.id, isWatched: true, videoId: course.videos.map(v => v.id) }
+            });
+
+            const testResults = await UserTestResult.findAll({
+                where: { userId: student.id, testId: course.tests.map(t => t.id) }
+            });
+            const passedTests = testResults.filter(r => {
+                const test = course.tests.find(t => t.id === r.testId);
+                return test ? r.score >= test.passingScore : false;
+            }).length;
+
+            const totalItems = course.videos.length + course.tests.length;
+            const progressPercent = totalItems > 0 ? Math.round(((watchedVideos + passedTests) / totalItems) * 100) : 0;
+            const avgScore = testResults.length > 0 ? Math.round(testResults.reduce((acc, r) => acc + r.score, 0) / testResults.length) : 0;
+
+            return {
+                id: student.id,
+                name: `${student.lastName} ${student.firstName}`.trim(),
+                email: student.email,
+                lastLogin: student.lastLogin,
+                progressPercent,
+                avgScore
+            };
+        }));
+
+        const globalAvgProgress = Math.round(studentsProgress.reduce((acc, s) => acc + s.progressPercent, 0) / totalStudents);
+        const globalAvgScore = Math.round(studentsProgress.reduce((acc, s) => acc + s.avgScore, 0) / totalStudents);
+
+        res.json({ totalStudents, globalAvgProgress, globalAvgScore, funnel, studentsProgress: studentsProgress.sort((a, b) => b.progressPercent - a.progressPercent) });
+
+    } catch (e) {
+        console.error('Ошибка генерации аналитики:', e);
+        res.status(500).json({ message: 'Ошибка при сборе аналитики курса' });
+    }
+};
+
+// 🔥 Глубокая аналитика конкретного студента на курсе (Таймлайн активности)
+export const getStudentCourseDetails = async (req: Request, res: Response) => {
+    try {
+        const { courseId, studentId } = req.params;
+
+        const student = await User.findByPk(studentId, { attributes: ['id', 'firstName', 'lastName', 'email', 'avatarUrl', 'lastLogin'] });
+        if (!student) return res.status(404).json({ message: 'Студент не найден' });
+
+        const course = await Course.findByPk(courseId, {
+            include: [{ model: Video }, { model: CourseTest }]
+        });
+        
+        const videoIds = course?.videos.map(v => v.id) || [];
+        const testIds = course?.tests.map(t => t.id) || [];
+
+        // Получаем, как он смотрел видео
+        const videoProgress = await UserVideoProgress.findAll({
+            where: { userId: studentId, videoId: videoIds },
+            include: [{ model: Video, attributes: ['id', 'title'] }]
+        });
+
+        // Получаем результаты больших тестов (ТЕПЕРЬ ВМЕСТЕ С ВОПРОСАМИ!)
+        const testResults = await UserTestResult.findAll({
+            where: { userId: studentId, testId: testIds },
+            include: [{ 
+                model: CourseTest, 
+                attributes: ['id', 'title', 'passingScore'],
+                include: [{ model: TestQuestion }] // Подтягиваем сами вопросы!
+            }]
+        });
+
+        // Получаем ответы на ИИ-вопросы внутри видео (с процентом сходства)
+        const interactiveAnswers = await UserResponse.findAll({
+            where: { userId: studentId, videoId: videoIds },
+            include: [
+                { model: InteractiveEvent, attributes: ['question', 'type', 'correctAnswer', 'aiThreshold'] },
+                { model: Video, attributes: ['title'] }
+            ],
+            order: [['createdAt', 'DESC']]
+        });
+
+        res.json({ student, videoProgress, testResults, interactiveAnswers });
+    } catch (e) {
+        console.error('Ошибка детализации студента:', e);
+        res.status(500).json({ message: 'Ошибка при получении деталей студента' });
+    }
+};
+
+// 🔥 Глубокая аналитика конкретного элемента курса (Теста или Видео)
+// 🔥 Глубокая аналитика конкретного элемента курса (Теста или Видео)
+export const getCourseItemAnalytics = async (req: Request, res: Response) => {
+    try {
+        const { courseId, itemId, itemType } = req.params;
+        const enrollments = await CourseEnrollment.findAll({ where: { courseId, status: 'approved' } });
+        const studentIds = enrollments.map(e => e.userId);
+
+        if (itemType === 'test') {
+            const test = await CourseTest.findByPk(itemId, {
+                include: [{ model: TestQuestion, order: [['orderIndex', 'ASC']] }]
+            });
+            if (!test) return res.status(404).json({ message: 'Тест не найден' });
+
+            const results = await UserTestResult.findAll({
+                where: { testId: itemId, userId: studentIds },
+                include: [{ model: User, attributes: ['firstName', 'lastName', 'email', 'id'] }]
+            });
+            
+            // Аналитика вопросов: ищем "Красную зону"
+            const questionAnalytics = test.questions.map(q => {
+                const attemptsForThisQuestion = results.length; // Все попытки сдать тест
+                const correctAttempts = results.filter(r => {
+                    // ИСПРАВЛЕНИЕ 1: r.answers вместо r.savedAnswers
+                    const answers = r.answers || {}; 
+                    return String(answers[q.id]) === String(q.correctAnswer);
+                }).length;
+                
+                return {
+                    // ИСПРАВЛЕНИЕ 2: q.text вместо q.question
+                    id: q.id, question: q.text, 
+                    correctRate: attemptsForThisQuestion > 0 ? Math.round((correctAttempts / attemptsForThisQuestion) * 100) : 0
+                };
+            }).sort((a,b) => a.correctRate - b.correctRate); // Worst first
+
+            res.json({ item: test, type: 'test', results, questionAnalytics, totalStudents: studentIds.length });
+
+        } else if (itemType === 'video') {
+            const video = await Video.findByPk(itemId);
+            if (!video) return res.status(404).json({ message: 'Видео не найдено' });
+
+            const responses = await UserResponse.findAll({
+                where: { videoId: itemId, userId: studentIds },
+                include: [
+                    { model: InteractiveEvent, attributes: ['question', 'type', 'correctAnswer', 'aiThreshold'] },
+                    { model: User, attributes: ['firstName', 'lastName', 'email', 'id'] }
+                ],
+                order: [['createdAt', 'DESC']]
+            });
+            
+            res.json({ item: video, type: 'video', responses, totalStudents: studentIds.length });
+        } else {
+            res.status(400).json({ message: 'Неверный тип элемента' });
+        }
+    } catch (e) {
+        console.error('Item analytic error:', e);
+        res.status(500).json({ message: 'Внутренняя ошибка сервера' });
+    }
+};
+
+// 🔥 СЕКРЕТНЫЙ РОУТ ДЛЯ ЗАЩИТЫ ДИПЛОМА: Генерация демо-данных
+// 🔥 СЕКРЕТНЫЙ РОУТ ДЛЯ ЗАЩИТЫ ДИПЛОМА: Генерация демо-данных
+export const generateDemoData = async (req: Request, res: Response) => {
+    try {
+        const { courseId } = req.params;
+        const course = await Course.findByPk(courseId, { include: [Video, CourseTest] });
+        if (!course) return res.status(404).json({ message: 'Курс не найден' });
+
+        const firstNames = ['Александр', 'Максим', 'Иван', 'Артем', 'Дмитрий', 'Анна', 'Мария', 'Елена', 'Дарья', 'Алиса'];
+        const lastNames = ['Иванов', 'Смирнов', 'Кузнецов', 'Попов', 'Васильев', 'Петров', 'Соколов', 'Михайлов', 'Новиков', 'Федоров'];
+        
+        const hashedPassword = await bcrypt.hash('demo123', 10);
+        let dropoffGlobal = 1.0; 
+
+        // Достаем все интерактивные вопросы курса заранее
+        const allVideoIds = course.videos.map(v => v.id);
+        const allEvents = await InteractiveEvent.findAll({ where: { videoId: allVideoIds } });
+
+        for (let i = 0; i < 15; i++) {
+            const fName = firstNames[Math.floor(Math.random() * firstNames.length)];
+            const lName = lastNames[Math.floor(Math.random() * lastNames.length)];
+            
+            // Надежная генерация уникального email
+            const uniqueString = Math.random().toString(36).substring(2, 8);
+            const user = await User.create({
+                email: `demo_${Date.now()}_${uniqueString}@student.ru`,
+                password: hashedPassword,
+                firstName: fName,
+                lastName: lName,
+                role: 'student',
+                status: 'active',
+                lastLogin: new Date(Date.now() - Math.floor(Math.random() * 10000000000))
+            });
+
+            await CourseEnrollment.create({ courseId, userId: user.id, status: 'approved' });
+
+            // Просмотры видео и ответы на ВСЕ типы вопросов
+            for (const video of course.videos) {
+                if (Math.random() <= dropoffGlobal) {
+                    await UserVideoProgress.create({
+                        userId: user.id, videoId: video.id, isWatched: true, lastTime: 120
+                    });
+
+                    // Фильтруем только вопросы (убираем просто текст и главы)
+                    const videoEvents = allEvents.filter(e => e.videoId === video.id && e.type !== 'info' && e.type !== 'chapter');
+                    
+                    for (const event of videoEvents) {
+                        let isCorrect = false;
+                        let answerText = '';
+                        let similarity = null;
+
+                        if (event.type === 'free_text') {
+                            similarity = Math.floor(Math.random() * 60) + 40; // 40-100%
+                            isCorrect = similarity >= event.aiThreshold;
+                            answerText = `Это автоматически сгенерированный ответ студента ${fName}.`;
+                        } else {
+                            // Для обычных тестов (один/множественный выбор) - 70% шанс успеха
+                            isCorrect = Math.random() > 0.3; 
+                            answerText = isCorrect ? (event.correctAnswer || 'Правильный ответ') : 'Выбран ошибочный вариант';
+                        }
+
+                        await UserResponse.create({
+                            userId: user.id, videoId: video.id, eventId: event.id,
+                            answer: answerText,
+                            isCorrect,
+                            similarity
+                        });
+                    }
+                }
+            }
+
+           // Прохождение тестов с ГЕНЕРАЦИЕЙ ОТВЕТОВ
+            for (const test of course.tests) {
+                if (Math.random() <= dropoffGlobal) {
+                    // Подтягиваем вопросы этого теста
+                    const testQuestions = await TestQuestion.findAll({ where: { testId: test.id } });
+                    const fakeAnswers: any = {};
+                    let correctCount = 0;
+
+                    for (const q of testQuestions) {
+                        const isCorrect = Math.random() > 0.3; // 70% шанс ответить правильно
+                        if (isCorrect) {
+                            fakeAnswers[q.id] = q.correctAnswer || 'Правильный ответ';
+                            correctCount++;
+                        } else {
+                            fakeAnswers[q.id] = 'Выбран неверный вариант';
+                        }
+                    }
+
+                    // Считаем реальный балл на основе ответов
+                    const score = testQuestions.length > 0 ? Math.round((correctCount / testQuestions.length) * 100) : (Math.floor(Math.random() * 50) + 50);
+
+                    await UserTestResult.create({
+                        userId: user.id, testId: test.id, score, answers: fakeAnswers
+                    });
+                }
+            }
+        }
+        res.json({ message: 'Демо-студенты успешно сгенерированы! Перезагрузите страницу.' });
+    } catch (e: any) {
+        console.error('Ошибка генерации демо-данных:', e);
+        // Теперь если сервер упадет, он отправит точную причину на фронт
+        res.status(500).json({ message: 'Ошибка генерации', error: e.message }); 
     }
 };

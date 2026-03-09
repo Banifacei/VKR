@@ -10,7 +10,7 @@ import { AuthPage } from './pages/AuthPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { HistoryPage } from './pages/HistoryPage';
 import { ToastProvider } from './context/ToastContext';
-
+import { AnalyticsPage } from './pages/AnalyticsPage';
 // Обновленный ProtectedRoute с поддержкой проверки ролей
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) => {
     const { isAuthenticated, user } = useAuth(); // Достаем user из AuthContext
@@ -53,6 +53,11 @@ function App() {
                     <Route path="/prepod" element={
                         <ProtectedRoute allowedRoles={['teacher', 'admin']}>
                             <PrepodPage />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="/analytics" element={
+                        <ProtectedRoute allowedRoles={['teacher', 'admin']}>
+                            <AnalyticsPage />
                         </ProtectedRoute>
                     } />
                     

@@ -111,3 +111,8 @@ export const updateEnrollmentStatus = async (enrollmentId: number, status: 'appr
     const res = await api.put(`/videos/courses/enrollments/${enrollmentId}`, { status });
     return res.data;
 };
+
+export const getCourseAnalytics = async (courseId: number) => {
+    const res = await api.get(`/videos/courses/${courseId}/analytics`);
+    return res.data;
+};
