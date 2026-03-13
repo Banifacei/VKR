@@ -1,29 +1,65 @@
+/* =============================================================================
+   LUMEO DESIGN SYSTEM — index.css
+   Глобальные токены, базовые стили, переиспользуемые компоненты
+   ============================================================================= */
+
+/* ──────────────────────────────────────────────────────
+   1. DESIGN TOKENS (CSS Variables)
+   ────────────────────────────────────────────────────── */
 :root {
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  /* Типографика */
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+    Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  
-  /* Принудительная темная тема для Lumeo */
-  color-scheme: dark;
-  color: #e0e0e0;
-  background-color: #0f0f0f;
-
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* Цветовая схема */
+  color-scheme: dark;
+  color: #e0e0e0;
+  background-color: #0f0f0f;
+
+  /* ── Акценты ── */
+  --primary:        #00aeef;
+  --primary-hover:  #0093ca;
+  --danger:         #ff4d4d;
+  --success:        #00ff88;
+  --warning:        #ffd700;
+  --ai-gradient:    linear-gradient(135deg, #7b2cbf 0%, #b5179e 100%);
+
+  /* ── Фоны ── */
+  --bg-deep:   #050505;
+  --bg-main:   #0f0f0f;
+  --bg-panel:  #121212;
+  --bg-card:   #0f0f0f;
+  --bg-input:  #0a0a0a;
+  --glass-bg:  rgba(20, 20, 20, 0.6);
+
+  /* ── Границы ── */
+  --border-color:  #2a2a2a;
+  --glass-border:  rgba(255, 255, 255, 0.08);
+
+  /* ── Текст ── */
+  --text-main:  #ffffff;
+  --text-muted: #888888;
 }
 
-/* Сброс отступов и установка полноэкранного режима */
+/* ──────────────────────────────────────────────────────
+   2. СБРОС И БАЗА
+   ────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
 body {
   margin: 0;
   padding: 0;
   min-width: 320px;
   min-height: 100vh;
-  background-color: #0f0f0f;
+  background-color: var(--bg-main);
 }
 
-/* Корневой элемент React должен занимать всю ширину */
 #root {
   width: 100%;
   min-height: 100vh;
@@ -34,33 +70,550 @@ body {
   flex-direction: column;
 }
 
-/* Глобальный сброс для box-model */
-*, *::before, *::after {
+a {
+  font-weight: 500;
+  color: var(--primary);
+  text-decoration: inherit;
+}
+a:hover { color: var(--primary-hover); }
+
+button {
+  font-family: inherit;
+  font-size: 100%;
+  line-height: 1.15;
+  margin: 0;
+  cursor: pointer;
+  background-color: transparent;
+  border: none;
+}
+button:focus,
+button:focus-visible { outline: 4px auto -webkit-focus-ring-color; }
+
+/* ──────────────────────────────────────────────────────
+   3. АНИМАЦИИ
+   ────────────────────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes slideInUp {
+  from { transform: translateY(100px); opacity: 0; }
+  to   { transform: translateY(0);     opacity: 1; }
+}
+
+@keyframes float {
+  0%   { transform: translate(0, 0) scale(1); }
+  33%  { transform: translate(30px, -30px) scale(1.1); }
+  66%  { transform: translate(-20px, 20px) scale(0.9); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+
+@keyframes spin {
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position:  400px 0; }
+}
+
+@keyframes skeletonLoading {
+  0%   { background-position:  200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes dropdownFadeIn {
+  from { opacity: 0; transform: scale(0.95) translateY(-10px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0); }
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+@keyframes pulse-green {
+  0%, 100% { box-shadow: 0 0 0 0   rgba(0, 255, 136, 0.4); }
+  50%       { box-shadow: 0 0 0 6px rgba(0, 255, 136, 0);   }
+}
+
+@keyframes ai-pulse {
+  0%   { background-position: 0%   50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0%   50%; }
+}
+
+@keyframes shake {
+  10%, 90% { transform: translate3d(-1px, 0, 0); }
+  20%, 80%  { transform: translate3d( 2px, 0, 0); }
+  30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+  40%, 60%      { transform: translate3d( 4px, 0, 0); }
+}
+
+/* ──────────────────────────────────────────────────────
+   4. ЛОГОТИП
+   ────────────────────────────────────────────────────── */
+.logo {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  color: #fff;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+}
+.logo .dot { color: var(--primary); }
+
+.logo-link {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  color: #fff !important;
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+.logo-link:hover { opacity: 0.8; color: #fff; }
+
+/* ──────────────────────────────────────────────────────
+   5. КНОПКИ
+   ────────────────────────────────────────────────────── */
+.btn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   box-sizing: border-box;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
+.btn-primary {
+  background: var(--primary);
+  color: #fff;
 }
-a:hover {
-  color: #535bf2;
+.btn-primary:hover {
+  background: var(--primary-hover);
+  box-shadow: 0 4px 15px rgba(0, 174, 239, 0.3);
+}
+.btn-primary:disabled {
+  background: #333;
+  color: #666;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
-/* --- ЧИСТЫЙ СБРОС ДЛЯ КНОПОК --- */
-/* Мы убрали отсюда padding и border, чтобы они не мешали нашим классам .btn */
-button {
-  font-family: inherit;
-  font-size: 100%; /* Наследуем размер шрифта */
-  line-height: 1.15; /* Нормализуем высоту строки */
-  margin: 0;
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.04);
+  color: #ccc;
+  border-color: #333;
+}
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: #555;
+  color: #fff;
+}
+
+.btn-ghost {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: #ddd;
+}
+.btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: #555;
+}
+
+.btn-icon {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
   cursor: pointer;
-  background-color: transparent; /* По умолчанию прозрачная */
-  border: none; /* Убираем рамку по умолчанию */
+  padding: 6px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+.btn-icon:hover { background: #222; color: #fff; }
+.btn-icon.delete-icon:hover {
+  background: rgba(255, 77, 77, 0.15);
+  color: var(--danger);
 }
 
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+/* Полноширинная основная кнопка (формы, загрузка) */
+.primary-button {
+  width: 100%;
+  padding: 14px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 15px rgba(0, 174, 239, 0.2);
+}
+.primary-button:hover {
+  background: var(--primary-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 174, 239, 0.3);
+}
+.primary-button:active  { transform: translateY(0); }
+.primary-button:disabled {
+  background: #333;
+  color: #666;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Кнопка очистки поля (крестик) */
+.clear-btn {
+  background: transparent;
+  border: none;
+  color: var(--danger);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+.clear-btn:hover { background: rgba(255, 77, 77, 0.1); }
+
+/* ──────────────────────────────────────────────────────
+   6. ПОЛЯ ВВОДА
+   Все три класса — один стиль. Каждый используется в
+   своём компоненте; унификация происходит здесь.
+   ────────────────────────────────────────────────────── */
+.modern-input,
+.admin-input,
+.cyber-input {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid #333;
+  color: #fff;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+.modern-input:focus,
+.admin-input:focus,
+.cyber-input:focus {
+  border-color: var(--primary);
+  background: #111;
+  box-shadow: 0 0 0 3px rgba(0, 174, 239, 0.12);
+}
+.modern-input::placeholder,
+.admin-input::placeholder,
+.cyber-input::placeholder { color: #444; }
+
+.modern-input:disabled,
+.admin-input:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Select — кастомная стрелка */
+select.modern-input,
+select.admin-input,
+select.cyber-input {
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+  padding-right: 40px;
+  cursor: pointer;
+}
+
+/* ──────────────────────────────────────────────────────
+   7. МОДАЛЬНЫЕ ОКНА
+   ────────────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(8px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.modal-content {
+  background: rgba(15, 15, 15, 0.97);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  width: 480px;
+  padding: 30px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(255,255,255,0.04);
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.5px;
+}
+.modal-header .btn-icon {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+}
+.modal-header .btn-icon:hover {
+  background: rgba(255, 77, 77, 0.2);
+  color: var(--danger);
+  transform: rotate(90deg);
+}
+
+.modal-body .form-group { margin-bottom: 20px; }
+.modal-body label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.modal-footer {
+  margin-top: 10px;
+  padding-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* ──────────────────────────────────────────────────────
+   8. ВЫПАДАЮЩЕЕ МЕНЮ
+   ────────────────────────────────────────────────────── */
+.profile-dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  background: #0f0f0f;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  width: 200px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+  overflow: hidden;
+  animation: dropdownFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 101;
+}
+
+.dropdown-header {
+  padding: 10px 15px;
+  font-size: 11px;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-family: inherit;
+  font-weight: 500;
+  color: #ccc;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+}
+.dropdown-item:hover              { background: rgba(255,255,255,0.04); color: #fff; }
+.dropdown-item.logout,
+.dropdown-item.danger             { color: var(--danger); }
+.dropdown-item.logout:hover,
+.dropdown-item.danger:hover       { background: rgba(255,77,77,0.08); color: var(--danger); }
+.dropdown-item.nominal            { color: #888; cursor: default; }
+.dropdown-item.nominal:hover      { background: transparent; color: #888; }
+
+.dropdown-divider {
+  height: 1px;
+  background: var(--border-color);
+  margin: 4px 0;
+}
+
+/* ──────────────────────────────────────────────────────
+   9. ТУМБЛЕР (Toggle Switch)
+   .lumeo-switch (AdminPage) и .lumeo-toggle (UserPage)
+   — один компонент, два имени.
+   ────────────────────────────────────────────────────── */
+.lumeo-switch,
+.lumeo-toggle {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+}
+.lumeo-switch input,
+.lumeo-toggle input { opacity: 0; width: 0; height: 0; }
+
+.lumeo-switch .slider,
+.lumeo-toggle .slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: #333;
+  transition: 0.3s;
+  border-radius: 24px;
+}
+.lumeo-switch .slider:before,
+.lumeo-toggle .slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.3s;
+  border-radius: 50%;
+}
+.lumeo-switch input:checked + .slider,
+.lumeo-toggle input:checked + .slider {
+  background-color: var(--primary);
+  box-shadow: 0 0 10px rgba(0, 174, 239, 0.3);
+}
+.lumeo-switch input:checked + .slider:before,
+.lumeo-toggle input:checked + .slider:before { transform: translateX(20px); }
+
+/* ──────────────────────────────────────────────────────
+   10. ПРОГРЕСС-БАРЫ
+   ────────────────────────────────────────────────────── */
+.progress-bar-bg {
+  flex: 1;
+  height: 6px;
+  background: #1a1a1a;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.progress-bar-mini {
+  height: 4px;
+  background: #333;
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+.progress-bar-fill,
+.progress-fill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: inherit;
+  transition: width 0.3s ease;
+}
+
+/* ──────────────────────────────────────────────────────
+   11. СКЕЛЕТОН-ЗАГРУЗКА
+   ────────────────────────────────────────────────────── */
+.skeleton,
+.skeleton-box {
+  background: #1a1a1a;
+  background-image: linear-gradient(
+    90deg,
+    rgba(255,255,255,0.03) 25%,
+    rgba(255,255,255,0.08) 37%,
+    rgba(255,255,255,0.03) 63%
+  );
+  background-size: 400px 100%;
+  animation: shimmer 1.5s infinite linear;
+  border-radius: 8px;
+}
+
+/* ──────────────────────────────────────────────────────
+   12. КАСТОМНЫЙ СКРОЛЛБАР
+   ────────────────────────────────────────────────────── */
+.modern-scroll::-webkit-scrollbar              { width: 6px; }
+.modern-scroll::-webkit-scrollbar-track        { background: rgba(0,0,0,0.1); border-radius: 4px; }
+.modern-scroll::-webkit-scrollbar-thumb        { background: rgba(255,255,255,0.1); border-radius: 4px; }
+.modern-scroll::-webkit-scrollbar-thumb:hover  { background: rgba(255,255,255,0.2); }
+
+/* ──────────────────────────────────────────────────────
+   13. УТИЛИТЫ
+   ────────────────────────────────────────────────────── */
+.fade-in { animation: fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+
+/* Разделители */
+.divider,
+.sidebar-divider,
+.form-divider { height: 1px; background: var(--border-color); margin: 25px 0; }
+.form-divider  { margin: 10px 0 30px 0; }
+
+/* Пустое состояние */
+.empty-state {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+  padding: 40px 20px;
+  text-align: center;
+  gap: 12px;
+}
+
+/* Цвета статуса */
+.text-success { color: #4dff88; }
+.text-error   { color: var(--danger); }
+
+/* Бейдж роли */
+.role-tag {
+  display: inline-block;
+  padding: 6px 14px;
+  background: rgba(0, 174, 239, 0.15);
+  color: var(--primary);
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  border: 1px solid rgba(0, 174, 239, 0.3);
+}
+.role-tag.admin {
+  background: rgba(255, 77, 77, 0.2);
+  color: var(--danger);
+  border-color: rgba(255, 77, 77, 0.3);
+}
+.role-tag.teacher {
+  background: rgba(255, 215, 0, 0.15);
+  color: var(--warning);
+  border-color: rgba(255, 215, 0, 0.3);
 }

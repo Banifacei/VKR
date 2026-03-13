@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { UserProfile } from '../components/UserProfile';
 import { useAuth } from '../context/AuthContext';

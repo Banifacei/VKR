@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 export const StudentDetailView = ({ data }: { data: any }) => {
     // Внутренний стейт для погружения в конкретный материал

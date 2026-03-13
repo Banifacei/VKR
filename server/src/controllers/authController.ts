@@ -8,6 +8,9 @@ import { addSystemLog } from './adminController.js';
 import LdapAuth from 'ldapauth-fork';
 import passport from 'passport';
 import { Strategy as SamlStrategy } from 'passport-saml';
+if (!process.env.JWT_SECRET) {
+    console.warn('⚠️  WARNING: JWT_SECRET не задан в .env — используется небезопасный дефолт.');
+}
 const JWT_SECRET = process.env.JWT_SECRET || 'lumeo_super_secret_2024';
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 const API_URL = process.env.API_URL || 'http://localhost:5001';
@@ -58,8 +61,6 @@ export const register = async (req: Request, res: Response) => {
 
 export const login = async (req: Request, res: Response) => {
     try {
-        console.log('=== ВХОДЯЩИЕ ДАННЫЕ ===');
-        console.log(req.body);
         // 🔥 ФИКС 1: Фронтенд может присылать логин под разными ключами
         const authId = req.body.identifier || req.body.email || req.body.username || req.body.login;
         const password = req.body.password;
@@ -350,9 +351,8 @@ export const yandexCallback = async (req: Request, res: Response) => {
         user.lastLogin = new Date();
         await user.save();
         
-        const jwtToken = jwt.sign({ id: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET || 'lumeo_super_secret_2024', { expiresIn: '7d' });
-        
-        // 🔥 И ТУТ ТОЖЕ LOCALHOST!
+        const jwtToken = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
+
         res.redirect(`${CLIENT_URL}/auth?token=${jwtToken}`);
     } catch (error) {
         console.error('Ошибка Yandex OAuth:', error);
@@ -444,9 +444,8 @@ export const googleCallback = async (req: Request, res: Response) => {
         user.lastLogin = new Date();
         await user.save();
         
-        const jwtToken = jwt.sign({ id: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET || 'lumeo_super_secret_2024', { expiresIn: '7d' });
-        
-        // 🔥 МЕНЯЕМ API_URL НА CLIENT_URL
+        const jwtToken = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
+
         res.redirect(`${CLIENT_URL}/auth?token=${jwtToken}`);
     } catch (error) {
         console.error('Ошибка Google OAuth:', error);

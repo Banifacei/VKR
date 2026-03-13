@@ -1,7 +1,6 @@
 import axios from 'axios';
 
-const apiPort = import.meta.env.VITE_API_PORT || '5001';
-const API_URL = `http://${window.location.hostname}:${apiPort}/api`;
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 const api = axios.create({
     baseURL: API_URL, // Используем наш новый динамический URL

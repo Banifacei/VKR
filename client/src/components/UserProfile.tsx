@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './UserProfile.css';
 interface UserProfileProps {
@@ -14,7 +14,7 @@ interface UserProfileProps {
     onLogout: () => void;
 }
 
-export const UserProfile = ({ user, onUpdate, onLogout }: UserProfileProps) => {
+export const UserProfile = ({ user, onLogout }: UserProfileProps) => {
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();

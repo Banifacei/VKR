@@ -1,21 +1,13 @@
-/* --- Переменные --- */
-:root {
-    --primary: #00aeef;
-    --primary-hover: #0093ca;
-    --bg-deep: #050505;
-    --glass-bg: rgba(20, 20, 20, 0.6);
-    --glass-border: rgba(255, 255, 255, 0.08);
-    --text-white: #ffffff;
-    --text-gray: #888888;
-}
+/* ==========================================================
+   AuthPage.css — страница авторизации
+   CSS Variables и анимации float/shake — в index.css
+   ========================================================== */
 
-/* --- Контейнер на весь экран --- */
+/* Полноэкранный контейнер */
 .auth-page {
-    position: fixed; /* Фиксируем поверх всего */
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -25,14 +17,12 @@
     font-family: 'Inter', sans-serif;
 }
 
-/* --- Живой фон (Сферы) --- */
+/* Живой фон (блобы) */
 .auth-background {
     position: absolute;
-    width: 100%;
-    height: 100%;
+    width: 100%; height: 100%;
     z-index: 1;
 }
-
 .blob {
     position: absolute;
     border-radius: 50%;
@@ -40,119 +30,62 @@
     opacity: 0.5;
     animation: float 10s infinite ease-in-out;
 }
-
 .blob-1 {
-    width: 500px;
-    height: 500px;
+    width: 500px; height: 500px;
     background: radial-gradient(circle, var(--primary) 0%, transparent 70%);
-    top: -150px;
-    left: -150px;
+    top: -150px; left: -150px;
 }
-
 .blob-2 {
-    width: 400px;
-    height: 400px;
+    width: 400px; height: 400px;
     background: radial-gradient(circle, #7928ca 0%, transparent 70%);
-    bottom: -100px;
-    right: -100px;
+    bottom: -100px; right: -100px;
     animation-delay: -5s;
 }
 
-@keyframes float {
-    0% { transform: translate(0, 0) scale(1); }
-    33% { transform: translate(30px, -30px) scale(1.1); }
-    66% { transform: translate(-20px, 20px) scale(0.9); }
-    100% { transform: translate(0, 0) scale(1); }
-}
-
-/* --- Стеклянная карточка --- */
+/* Стеклянная карточка */
 .auth-card {
     position: relative;
     z-index: 10;
     width: 420px;
     padding: 50px 40px;
     background: var(--glass-bg);
-    backdrop-filter: blur(24px); /* Размытие фона */
+    backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
     border: 1px solid var(--glass-border);
     border-radius: 24px;
-    box-shadow: 0 40px 80px rgba(0, 0, 0, 0.7);
+    box-shadow: 0 40px 80px rgba(0,0,0,0.7);
     display: flex;
     flex-direction: column;
     align-items: center;
     transition: transform 0.3s, opacity 0.3s;
 }
+.auth-card.fade-out { opacity: 0; transform: scale(0.95); }
+.auth-card.shake    { animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both; border-color: rgba(255,77,77,0.5); }
 
-/* Анимация исчезновения при входе */
-.auth-card.fade-out {
-    opacity: 0;
-    transform: scale(0.95);
-}
+/* Хедер */
+.auth-header          { text-align: center; margin-bottom: 40px; }
+.logo.large           { font-size: 32px; font-weight: 800; color: #fff; margin-bottom: 16px; letter-spacing: -1px; }
+.auth-header h1       { font-size: 24px; font-weight: 700; color: var(--text-main); margin: 0 0 8px 0; }
+.auth-header p        { font-size: 14px; color: var(--text-muted); margin: 0; line-height: 1.5; }
 
-/* Анимация ошибки (тряска) */
-.auth-card.shake {
-    animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
-    border-color: rgba(255, 77, 77, 0.5);
-}
-
-@keyframes shake {
-    10%, 90% { transform: translate3d(-1px, 0, 0); }
-    20%, 80% { transform: translate3d(2px, 0, 0); }
-    30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
-    40%, 60% { transform: translate3d(4px, 0, 0); }
-}
-
-/* --- Хедер --- */
-.auth-header {
-    text-align: center;
-    margin-bottom: 40px;
-}
-
-.logo.large {
-    font-size: 32px;
-    font-weight: 800;
-    color: #fff;
-    margin-bottom: 16px;
-    letter-spacing: -1px;
-}
-.logo .dot { color: var(--primary); }
-
-.auth-header h1 {
-    font-size: 24px;
-    font-weight: 700;
-    color: var(--text-white);
-    margin: 0 0 8px 0;
-}
-
-.auth-header p {
-    font-size: 14px;
-    color: var(--text-gray);
-    margin: 0;
-    line-height: 1.5;
-}
-
-/* --- Форма --- */
+/* Форма */
 .auth-form { width: 100%; }
 
-.input-container {
-    position: relative;
-    margin-bottom: 24px;
-}
+.input-container { position: relative; margin-bottom: 24px; }
 
 .input-icon {
     position: absolute;
-    left: 16px;
-    top: 50%;
+    left: 16px; top: 50%;
     transform: translateY(-50%);
-    color: var(--text-gray);
+    color: var(--text-muted);
     transition: color 0.3s;
     pointer-events: none;
 }
 
 .auth-input {
     width: 100%;
-    padding: 16px 16px 16px 48px; /* Место под иконку */
-    background: rgba(0, 0, 0, 0.3);
+    padding: 16px 16px 16px 48px;
+    background: rgba(0,0,0,0.3);
     border: 1px solid var(--glass-border);
     border-radius: 12px;
     color: #fff;
@@ -161,125 +94,53 @@
     transition: all 0.3s;
     box-sizing: border-box;
 }
-
-.auth-input:focus {
-    background: rgba(0, 0, 0, 0.5);
-    border-color: var(--primary);
-    box-shadow: 0 0 0 4px rgba(0, 174, 239, 0.15);
-}
-
+.auth-input:focus               { background: rgba(0,0,0,0.5); border-color: var(--primary); box-shadow: 0 0 0 4px rgba(0,174,239,0.15); }
 .auth-input:focus + .input-icon { color: var(--primary); }
 
-/* Кнопка */
+/* Кнопка отправки */
 .auth-submit-btn {
-    width: 100%;
-    padding: 16px;
-    background: var(--primary);
-    color: white;
-    font-weight: 700;
-    font-size: 14px;
-    border: none;
-    border-radius: 12px;
-    cursor: pointer;
-    transition: all 0.3s;
-    text-transform: uppercase;
-    letter-spacing: 1px;
+    width: 100%; padding: 16px;
+    background: var(--primary); color: white;
+    font-weight: 700; font-size: 14px;
+    border: none; border-radius: 12px;
+    cursor: pointer; transition: all 0.3s;
+    text-transform: uppercase; letter-spacing: 1px;
     box-sizing: border-box;
 }
-
-.auth-submit-btn:hover {
-    background: var(--primary-hover);
-    transform: translateY(-2px);
-    box-shadow: 0 10px 20px rgba(0, 174, 239, 0.25);
-}
-
-.auth-submit-btn:active { transform: translateY(0); }
-
-.auth-submit-btn:disabled {
-    background: #222;
-    color: #555;
-    cursor: not-allowed;
-    box-shadow: none;
-    transform: none;
-}
+.auth-submit-btn:hover    { background: var(--primary-hover); transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,174,239,0.25); }
+.auth-submit-btn:active   { transform: translateY(0); }
+.auth-submit-btn:disabled { background: #222; color: #555; cursor: not-allowed; box-shadow: none; transform: none; }
 
 /* Футер */
-.auth-footer {
-    margin-top: 30px;
-    font-size: 11px;
-    color: #444;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
+.auth-footer { margin-top: 30px; font-size: 11px; color: #444; text-transform: uppercase; letter-spacing: 1px; }
 
-/* --- SSO ИНТЕГРАЦИИ --- */
-.sso-container {
-    margin-top: 25px;
-    width: 100%;
-}
+/* SSO интеграции */
+.sso-container { margin-top: 25px; width: 100%; }
 
-.auth-divider {
-    position: relative;
-    text-align: center;
-    margin-bottom: 20px;
-}
-
+.auth-divider { position: relative; text-align: center; margin-bottom: 20px; }
 .auth-divider::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background: var(--glass-border);
-    z-index: 1;
+    content: ''; position: absolute; top: 50%; left: 0; right: 0;
+    height: 1px; background: var(--glass-border); z-index: 1;
 }
-
 .auth-divider span {
-    position: relative;
-    z-index: 2;
-    background: var(--bg-deep); /* Цвет фона под карточкой, чтобы перекрыть линию */
+    position: relative; z-index: 2;
+    background: var(--bg-deep);
     padding: 0 15px;
-    color: var(--text-gray);
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
+    color: var(--text-muted);
+    font-size: 12px; text-transform: uppercase; letter-spacing: 1px;
 }
 
-.sso-buttons {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
+.sso-buttons { display: flex; flex-direction: column; gap: 12px; }
 
 .sso-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    padding: 14px;
-    border-radius: 12px;
-    background: rgba(255, 255, 255, 0.03);
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    padding: 14px; border-radius: 12px;
+    background: rgba(255,255,255,0.03);
     border: 1px solid var(--glass-border);
-    color: #ccc;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
+    color: #ccc; font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: all 0.2s;
     font-family: inherit;
 }
-
-.sso-btn:hover {
-    background: rgba(255, 255, 255, 0.08);
-    color: #fff;
-}
-
-.sso-btn.saml:hover {
-    border-color: #b5179e; /* Фирменный корпоративный цвет */
-    box-shadow: 0 0 15px rgba(181, 23, 158, 0.2);
-}
-
-.sso-btn.openid:hover {
-    border-color: #00aeef;
-    box-shadow: 0 0 15px rgba(0, 174, 239, 0.2);
-}
+.sso-btn:hover             { background: rgba(255,255,255,0.08); color: #fff; }
+.sso-btn.saml:hover        { border-color: #b5179e; box-shadow: 0 0 15px rgba(181,23,158,0.2); }
+.sso-btn.openid:hover      { border-color: var(--primary); box-shadow: 0 0 15px rgba(0,174,239,0.2); }

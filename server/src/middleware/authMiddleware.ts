@@ -3,6 +3,9 @@ import { Request, Response, NextFunction } from 'express';
 import { User } from '../models/User.js';
 import jwt from 'jsonwebtoken';
 
+if (!process.env.JWT_SECRET) {
+    console.warn('⚠️  WARNING: JWT_SECRET не задан в .env — используется небезопасный дефолт. Никогда не деплойте без этой переменной.');
+}
 const JWT_SECRET = process.env.JWT_SECRET || 'lumeo_super_secret_2024';
 
 export const isAdmin = async (req: Request, res: Response, next: NextFunction) => {

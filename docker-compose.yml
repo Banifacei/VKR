@@ -1,0 +1,60 @@
+services:
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:15
+    container_name: lumeo-postgres
+    env_file: .env
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Backend (Node.js + Express)
+  # ---------------------------------------------------------------------------
+  server:
+    build:
+      context: ./server
+    container_name: lumeo-server
+    env_file: .env
+    environment:
+      # Переопределяем хост БД на имя docker-сервиса
+      DB_HOST: postgres
+    volumes:
+      # Загруженные файлы (видео, аватары) сохраняются между перезапусками
+      - uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Frontend (React + nginx)
+  # Собирает клиент и раздаёт статику + проксирует /api/ и /uploads/ на сервер
+  # ---------------------------------------------------------------------------
+  client:
+    build:
+      context: ./client
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api}
+    container_name: lumeo-client
+    ports:
+      - "80:80"
+    depends_on:
+      - server
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  uploads:

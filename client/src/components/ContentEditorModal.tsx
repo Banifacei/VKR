@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { VideoPlayer } from './VideoPlayer';
 import { addEvent, updateEvent, deleteEvent, generateAutoSubtitles, updateVideo, getVideosByCourse, getVideoStats } from '../api/videoApi';
-import { addTestQuestion, deleteTestQuestion, getCourseTests, updateCourseTest, getTestStats, type ICourseTest } from '../api/testApi';
+import { addTestQuestion, deleteTestQuestion, getCourseTests, getTestStats, type ICourseTest } from '../api/testApi';
 import type { IVideo } from '../types';
 import * as XLSX from 'xlsx';
 import api from '../api/axiosInstance';
@@ -124,7 +124,6 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
     const handleSaveSettings = async () => {
         setIsSavingSettings(true);
         try {
-            const token = localStorage.getItem('lumeo_token');
             const payload = {
                 ...settingsData,
                 maxAttempts: Number(settingsData.maxAttempts) || 0,

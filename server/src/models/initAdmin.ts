@@ -8,22 +8,24 @@ export const createDefaultAdmin = async () => {
 
         if (!adminExists) {
             console.log('⚠️ Администратор не найден. Создаю дефолтного root-пользователя...');
-            
-            const hashedPassword = await bcrypt.hash('admin', 10); // Пароль по умолчанию
+
+            const adminPassword = process.env.ADMIN_PASSWORD || 'admin';
+            if (!process.env.ADMIN_PASSWORD) {
+                console.warn('⚠️  WARNING: ADMIN_PASSWORD не задан в .env — используется пароль "admin". Смените пароль сразу после первого входа!');
+            }
+            const hashedPassword = await bcrypt.hash(adminPassword, 10);
 
             await User.create({
                 firstName: 'Root',
                 lastName: 'Admin',
-                email: 'admin@lumeo.local', // Логин по умолчанию
+                email: 'admin@lumeo.local',
                 phone: '+70000000000',
                 password: hashedPassword,
                 role: 'admin',
                 status: 'active'
             });
 
-            console.log('✅ Дефолтный администратор успешно создан!');
-            console.log('👉 Логин (Email): admin@lumeo.local');
-            console.log('👉 Пароль: admin');
+            console.log('✅ Дефолтный администратор создан. Логин: admin@lumeo.local');
         }
     } catch (error) {
         console.error('❌ Ошибка при создании дефолтного администратора:', error);

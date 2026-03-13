@@ -184,7 +184,6 @@ export const UserPage = () => {
             let hasRights = false;
             if (userData?.role === 'admin') hasRights = true;
             if (foundCourse?.ownerId === userData?.id) hasRights = true;
-            const isActingAsStudent = userData?.role === 'student' || ['approved', 'pending', 'rejected'].includes(status);
             // 👇 ВОТ ЭТОГО У ТЕБЯ НЕТ В КОДЕ ВЫШЕ:
             try {
                 const collabRes = await api.get(`/videos/courses/${courseId}/collaborators`);

@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 export const ItemDetailView = ({ data }: { data: any }) => {
     // Внутренний стейт для "глубокого" погружения в конкретного студента
     const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
 
     if (!data || !data.item) return null;
-    const { item, type, questionAnalytics, results, responses, totalStudents } = data;
+    const { item, type, questionAnalytics, results, responses } = data;
 
     // --- УРОВЕНЬ 2: ДЕТАЛИЗАЦИЯ ПО КОНКРЕТНОМУ СТУДЕНТУ ---
     if (selectedStudentId) {
