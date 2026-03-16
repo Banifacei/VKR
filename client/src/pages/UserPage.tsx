@@ -14,6 +14,7 @@ import { ContentEditorModal } from '../components/ContentEditorModal';
 import './UserPage.css';
 import './CoursesPage.css';
 import api from '../api/axiosInstance';
+import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../context/ToastContext';
 import { checkEnrollment, enrollInCourse, getCourseEnrollments, updateEnrollmentStatus} from '../api/videoApi';
 import { CourseLanding } from '../components/Course/CourseLanding';
@@ -30,6 +31,7 @@ export const UserPage = () => {
     const { courseId } = useParams();
     const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
+    const { globalTheme } = useTheme();
     const { showToast } = useToast();
     const [activeDragId, setActiveDragId] = useState<string | null>(null);
     const [showAddModal, setShowAddModal] = useState(false);
@@ -450,7 +452,10 @@ export const UserPage = () => {
 
             <header className="lumeo-header">
                 <div className="logo">
-                    <Link to="/courses" className="logo-link">Lumeo<span className="dot">.</span></Link>
+                    <Link to="/courses" className="logo-link">
+                        {globalTheme.platform_logo && <img src={globalTheme.platform_logo} alt="logo" style={{ height: 28, marginRight: 8, verticalAlign: 'middle' }} />}
+                        {globalTheme.platform_name}<span className="dot">.</span>
+                    </Link>
                 </div>
                 {userData && (
                     <UserProfile 

@@ -1,7 +1,9 @@
 import { useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { UserProfile } from '../components/UserProfile';
+import { AppearanceTab } from '../components/Profile/AppearanceTab';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import './ProfilePage.css';
 import api from '../api/axiosInstance';
 import { useToast } from '../context/ToastContext';
@@ -11,12 +13,14 @@ export const ProfilePage = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { updateUser } = useAuth();
+    const { globalTheme } = useTheme();
     const { showToast } = useToast();
     const [userData, setUserData] = useState<any>(() => {
         const saved = localStorage.getItem('lumeo_user');
         try { return saved ? JSON.parse(saved) : {}; } catch (e) { return {}; }
     });
 
+    const [activeSection, setActiveSection] = useState<'account' | 'appearance'>('account');
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [firstName, setFirstName] = useState(userData.firstName || '');
     const [lastName, setLastName] = useState(userData.lastName || '');
@@ -99,7 +103,10 @@ export const ProfilePage = () => {
             <input type="file" ref={fileInputRef} style={{display: 'none'}} accept="image/*" onChange={handleFileChange} />
             
             <header className="lumeo-header">
-                <div className="logo" onClick={() => navigate('/')} style={{cursor: 'pointer'}}>Lumeo<span className="dot">.</span></div>
+                <div className="logo" onClick={() => navigate('/')} style={{cursor: 'pointer'}}>
+                    {globalTheme.platform_logo && <img src={globalTheme.platform_logo} alt="logo" style={{ height: 28, marginRight: 8, verticalAlign: 'middle' }} />}
+                    {globalTheme.platform_name}<span className="dot">.</span>
+                </div>
                 <div style={{display: 'flex', alignItems: 'center', gap: '20px'}}>
                     {/* 3. Кнопка "Назад" с navigate(-1) */}
                     <button 
@@ -147,10 +154,12 @@ export const ProfilePage = () => {
                         <div className="sidebar-divider"></div>
 
                         <div className="profile-nav-menu">
-                            <button className={`profile-nav-btn ${location.pathname === '/profile' ? 'active' : ''}`} onClick={() => navigate('/profile', { replace: true })}>
+                            <button className={`profile-nav-btn ${activeSection === 'account' ? 'active' : ''}`} onClick={() => setActiveSection('account')}>
                                 <Icons.SettingsIcon /> Настройки аккаунта
                             </button>
-                            
+                            <button className={`profile-nav-btn ${activeSection === 'appearance' ? 'active' : ''}`} onClick={() => setActiveSection('appearance')}>
+                                <Icons.Palette /> Внешний вид
+                            </button>
                             {userData.role === 'student' && (
                                 <button className={`profile-nav-btn ${location.pathname === '/history' ? 'active' : ''}`} onClick={() => navigate('/history', { replace: true })}>
                                     <Icons.StatsIcon /> Статистика и история
@@ -159,9 +168,10 @@ export const ProfilePage = () => {
                         </div>
                     </aside>
 
-                    {/* ГЛАВНАЯ ЗОНА - ТОЛЬКО НАСТРОЙКИ */}
+                    {/* ГЛАВНАЯ ЗОНА */}
                     <main className="profile-main-area">
-                        <div className="profile-glass-card fade-in">
+                        {activeSection === 'appearance' && <AppearanceTab />}
+                        {activeSection === 'account' && <div className="profile-glass-card fade-in">
                             <div className="form-header">
                                 <h1>Личные данные</h1>
                                 <p>Управляйте своими личными данными и доступом</p>
@@ -216,7 +226,7 @@ export const ProfilePage = () => {
                                     {isSaving ? <span className="loader-dots">...</span> : 'Сохранить изменения'}
                                 </button>
                             </div>
-                        </div>
+                        </div>}
                     </main>
 
                 </div>

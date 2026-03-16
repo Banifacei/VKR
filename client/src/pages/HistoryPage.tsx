@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { UserProfile } from '../components/UserProfile';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import './ProfilePage.css'; // Общий макет и сайдбар
 import './HistoryPage.css'; // Стили конкретно истории
 import api from '../api/axiosInstance';
@@ -12,6 +13,7 @@ export const HistoryPage = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { updateUser } = useAuth();
+    const { globalTheme } = useTheme();
     const { showToast } = useToast();
 
     const [userData, setUserData] = useState<any>(() => {
@@ -52,7 +54,10 @@ export const HistoryPage = () => {
     return (
         <div className="lumeo-layout">
             <header className="lumeo-header">
-                <div className="logo" onClick={() => navigate('/')} style={{cursor: 'pointer'}}>Lumeo<span className="dot">.</span></div>
+                <div className="logo" onClick={() => navigate('/')} style={{cursor: 'pointer'}}>
+                    {globalTheme.platform_logo && <img src={globalTheme.platform_logo} alt="logo" style={{ height: 28, marginRight: 8, verticalAlign: 'middle' }} />}
+                    {globalTheme.platform_name}<span className="dot">.</span>
+                </div>
                 <div style={{display: 'flex', alignItems: 'center', gap: '20px'}}>
                     <button onClick={() => navigate(-1)} className="nav-link" style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'inherit', fontSize: 'inherit', fontFamily: 'inherit', padding: 0 }}>
                         ← Назад

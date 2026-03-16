@@ -7,6 +7,7 @@ import './UserPage.css';
 import './CoursesPage.css'; // 🔥 Подключаем наши новые стили!
 import { UserProfile } from '../components/UserProfile';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import api from '../api/axiosInstance';
 import { useToast } from '../context/ToastContext';
 import { CorsesIcons } from '../components/Icons';
@@ -32,6 +33,7 @@ export const CoursesPage = () => {
     const [progressMap, setProgressMap] = useState<Record<number, number>>({}); // Стейт для прогресс-баров
     const navigate = useNavigate();
     const { user, logout, updateUser } = useAuth();
+    const { globalTheme } = useTheme();
     const { showToast } = useToast();
 
     const [showAddModal, setShowAddModal] = useState(false);
@@ -131,7 +133,10 @@ export const CoursesPage = () => {
     return (
         <div className="lumeo-layout">
             <header className="lumeo-header">
-                <div className="logo">Lumeo<span className="dot">.</span></div>
+                <div className="logo">
+                    {globalTheme.platform_logo && <img src={globalTheme.platform_logo} alt="logo" style={{ height: 28, marginRight: 8, verticalAlign: 'middle' }} />}
+                    {globalTheme.platform_name}<span className="dot">.</span>
+                </div>
                 {user && (
                     <UserProfile 
                         user={user} 

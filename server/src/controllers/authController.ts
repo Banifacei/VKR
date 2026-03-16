@@ -248,7 +248,8 @@ export const getMe = async (req: Request, res: Response) => {
             email: user.email,
             role: user.role,
             avatarUrl: user.avatarUrl,
-            status: user.status
+            status: user.status,
+            themeConfig: user.themeConfig || {},
         });
     } catch (e) {
         res.status(500).json({ message: 'Ошибка сервера' });

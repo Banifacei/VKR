@@ -1,6 +1,7 @@
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 
 import { UserPage } from './pages/UserPage';
 import { PrepodPage } from './pages/PrepodPage';
@@ -37,6 +38,7 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
 function App() {
     return (
     <ToastProvider>
+        <ThemeProvider>
         <AuthProvider>
             <BrowserRouter>
                 <Routes>
@@ -72,6 +74,7 @@ function App() {
                 </Routes>
             </BrowserRouter>
         </AuthProvider>
+        </ThemeProvider>
     </ToastProvider>
     );
 }

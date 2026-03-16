@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../context/ToastContext';
 import api from '../api/axiosInstance';
 import { ExportModal } from '../components/Analytics/ExportModal';
@@ -11,6 +12,7 @@ import './CoursesPage.css';
 
 export const AnalyticsPage = () => {
     const { user } = useAuth();
+    const { globalTheme } = useTheme();
     const navigate = useNavigate();
     const { showToast } = useToast();
     
@@ -73,7 +75,8 @@ export const AnalyticsPage = () => {
             <header className="lumeo-header">
                 <div className="logo">
                     <span className="logo-link" onClick={() => navigate('/')} style={{cursor: 'pointer'}}>
-                        Lumeo<span className="dot">.</span> <span style={{fontSize: '14px', color: '#888', fontWeight: 'normal'}}>Аналитика Intelligence</span>
+                        {globalTheme.platform_logo && <img src={globalTheme.platform_logo} alt="logo" style={{ height: 28, marginRight: 8, verticalAlign: 'middle' }} />}
+                        {globalTheme.platform_name}<span className="dot">.</span> <span style={{fontSize: '14px', color: '#888', fontWeight: 'normal'}}>Аналитика Intelligence</span>
                     </span>
                 </div>
                 <div className="user-profile">

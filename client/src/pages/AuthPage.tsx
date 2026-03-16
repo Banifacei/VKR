@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './AuthPage.css';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import api from '../api/axiosInstance';
 import { useToast } from '../context/ToastContext';
 import { Icons } from '../components/Icons';
 
 export const AuthPage = () => {
+    const { globalTheme } = useTheme();
     const { showToast } = useToast();
     const [authProviders, setAuthProviders] = useState({ yandex: false, google: false, saml: false });
 
@@ -131,8 +133,13 @@ export const AuthPage = () => {
             
             <div className="auth-card">
                 <div className="auth-header">
-                    <div className="logo large">Lumeo<span className="dot">.</span></div>
-                    <h1>{isLogin ? 'Вход в Lumeo' : 'Создание аккаунта'}</h1>
+                    <div className="logo large">
+                        {globalTheme.platform_logo && (
+                            <img src={globalTheme.platform_logo} alt="logo" style={{ height: 40, marginBottom: 8, display: 'block', margin: '0 auto 8px' }} />
+                        )}
+                        {globalTheme.platform_name}<span className="dot">.</span>
+                    </div>
+                    <h1>{isLogin ? `Вход в ${globalTheme.platform_name}` : 'Создание аккаунта'}</h1>
                 </div>
 
                 <div className="auth-form">

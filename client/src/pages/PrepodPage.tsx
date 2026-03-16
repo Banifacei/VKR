@@ -24,6 +24,7 @@ import './PrepodPage.css';
 import './UserPage.css'; 
 import { UserProfile } from '../components/UserProfile';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../context/ToastContext';
 import { 
     getCourseTests, createCourseTest, deleteCourseTest, deleteTestQuestion,addTestQuestion,
@@ -33,6 +34,7 @@ import * as XLSX from 'xlsx';
 import { Icons } from '../components/Icons';
 export const PrepodPage = () => {
   const { showToast } = useToast();
+  const { globalTheme } = useTheme();
   // --- СОСТОЯНИЕ: КУРСЫ --- (С сохранением после F5)
   const [courses, setCourses] = useState<ICourse[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState<number | null>(() => {
@@ -563,7 +565,10 @@ export const PrepodPage = () => {
     return (
         <div className="prepod-layout">
             <header className="lumeo-header">
-                <div className="logo">Lumeo<span className="dot">.</span></div>
+                <div className="logo">
+                    {globalTheme.platform_logo && <img src={globalTheme.platform_logo} alt="logo" style={{ height: 28, marginRight: 8, verticalAlign: 'middle' }} />}
+                    {globalTheme.platform_name}<span className="dot">.</span>
+                </div>
                 <div style={{display: 'flex', alignItems: 'center', gap: '20px'}}>
                 <span style={{fontSize: '14px', color: '#888', fontWeight: 600, marginRight: '10px'}}>Панель преподавателя</span>
             </div>

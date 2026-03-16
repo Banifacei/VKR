@@ -38,6 +38,9 @@ export class User extends Model {
     @Column({ type: DataType.DATE })
     declare lastLogin: Date;
 
+    @Column({ type: DataType.JSONB, defaultValue: {} })
+    declare themeConfig: object; // { scheme, bgPattern, density }
+
     // --- СВЯЗИ ---
 
     @HasMany(() => UserResponse)

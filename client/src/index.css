@@ -45,6 +45,9 @@
   /* ── Текст ── */
   --text-main:  #ffffff;
   --text-muted: #888888;
+
+  /* ── Паттерны фона ── */
+  --bg-pattern-color: rgba(255, 255, 255, 0.12);
 }
 
 /* ──────────────────────────────────────────────────────
@@ -617,3 +620,360 @@ select.cyber-input {
   color: var(--warning);
   border-color: rgba(255, 215, 0, 0.3);
 }
+
+/* ──────────────────────────────────────────────────────
+   14. СВЕТЛАЯ ТЕМА
+   ────────────────────────────────────────────────────── */
+html.theme-light {
+  --bg-deep:        #f0f2f5;
+  --bg-main:        #f0f2f5;
+  --bg-panel:       #ffffff;
+  --bg-card:        #ffffff;
+  --bg-input:       #f7f8fa;
+  --glass-bg:       rgba(255, 255, 255, 0.85);
+  --border-color:   #dde1e8;
+  --glass-border:   rgba(0, 0, 0, 0.08);
+  --text-main:      #111827;
+  --text-muted:     #6b7280;
+  --bg-pattern-color: rgba(0, 0, 0, 0.1);
+  color-scheme: light;
+  color: #111827;
+  background-color: #f0f2f5;
+}
+
+/* Корректировки для светлой темы */
+html.theme-light body                           { background-color: #f0f2f5; }
+html.theme-light .admin-section,
+html.theme-light .profile-glass-card,
+html.theme-light .profile-sidebar,
+html.theme-light .runner-card,
+html.theme-light .test-card,
+html.theme-light .test-cards-container         { background: #fff; border-color: var(--border-color); }
+html.theme-light .lumeo-header                 { background: rgba(255,255,255,0.9); border-color: var(--border-color); }
+html.theme-light .modal-content                { background: #fff; }
+html.theme-light .profile-dropdown            { background: #fff; }
+html.theme-light .data-table th               { background: rgba(0,0,0,0.03); }
+html.theme-light .data-table tr:hover td      { background: rgba(0,0,0,0.02); }
+html.theme-light .content-card                { background: #fff; }
+html.theme-light .playlist-sidebar,
+html.theme-light .editor-sidebar              { background: #f7f8fa; }
+html.theme-light input,
+html.theme-light textarea,
+html.theme-light select                       { color: #111827; }
+html.theme-light .modern-input,
+html.theme-light .admin-input,
+html.theme-light .cyber-input                 { background: #f7f8fa; color: #111827; border-color: #dde1e8; }
+html.theme-light .modern-input::placeholder,
+html.theme-light .admin-input::placeholder    { color: #9ca3af; }
+html.theme-light .btn-secondary               { background: #f3f4f6; color: #374151; border-color: #d1d5db; }
+html.theme-light .btn-ghost                   { color: #374151; border-color: #d1d5db; }
+html.theme-light .btn-icon                    { color: #6b7280; }
+html.theme-light .btn-icon:hover              { background: #f3f4f6; color: #111827; }
+html.theme-light .log-message,
+html.theme-light .enhanced-msg                { color: #374151; }
+html.theme-light .stat-widget                 { background: #fff; border-color: #e5e7eb; }
+/* Прогресс-бары */
+html.theme-light .progress-bar-bg             { background: #e5e7eb; }
+html.theme-light .progress-bar-mini           { background: #e5e7eb; }
+/* Скелетон */
+html.theme-light .skeleton,
+html.theme-light .skeleton-box {
+  background: #e5e7eb;
+  background-image: linear-gradient(
+    90deg,
+    rgba(0,0,0,0.03) 25%,
+    rgba(0,0,0,0.07) 37%,
+    rgba(0,0,0,0.03) 63%
+  );
+  background-size: 400px 100%;
+}
+/* Dropdown items */
+html.theme-light .dropdown-item               { color: #374151; }
+html.theme-light .dropdown-item:hover         { background: rgba(0,0,0,0.04); color: #111827; }
+html.theme-light .dropdown-header             { color: #9ca3af; border-color: var(--border-color); }
+html.theme-light .dropdown-divider            { background: #e5e7eb; }
+/* Модалки */
+html.theme-light .modal-header h3             { color: #111827; }
+html.theme-light .modal-header               { border-color: #e5e7eb; }
+html.theme-light .modal-footer               { border-color: #e5e7eb; }
+html.theme-light .modal-overlay              { background: rgba(0, 0, 0, 0.4); }
+/* Кнопки - иконки ховер */
+html.theme-light .btn-icon:hover             { background: #f3f4f6; color: #111827; }
+html.theme-light .btn-icon.delete-icon:hover { background: rgba(255,77,77,0.1); }
+/* Пустое состояние */
+html.theme-light .empty-state               { color: #9ca3af; }
+/* Скроллбар */
+html.theme-light .modern-scroll::-webkit-scrollbar-track       { background: rgba(0,0,0,0.04); }
+html.theme-light .modern-scroll::-webkit-scrollbar-thumb       { background: rgba(0,0,0,0.15); }
+html.theme-light .modern-scroll::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.25); }
+/* Разделители */
+html.theme-light .divider,
+html.theme-light .sidebar-divider,
+html.theme-light .form-divider               { background: #e5e7eb; }
+/* Бейдж роли */
+html.theme-light .role-tag                   { border-color: rgba(0,174,239,0.4); }
+/* Частицы на светлой — чуть заметнее */
+html.theme-light[data-bg="particles"] body::before { opacity: 0.25; }
+
+/* ──────────────────────────────────────────────────────
+   15. ПАТТЕРНЫ ФОНА
+   Управляется единственным атрибутом data-bg на <html>.
+   Вычисляется в ThemeContext (user перекрывает global).
+   ────────────────────────────────────────────────────── */
+
+/* --- Сетка --- */
+html[data-bg="grid"] body {
+  background-image:
+    linear-gradient(var(--bg-pattern-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--bg-pattern-color) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* --- Точки --- */
+html[data-bg="dots"] body {
+  background-image: radial-gradient(circle, var(--bg-pattern-color) 1.5px, transparent 1.5px);
+  background-size: 24px 24px;
+}
+
+/* --- Без паттерна --- */
+html[data-bg="none"] body {
+  background-image: none;
+}
+
+/* --- Частицы (CSS-only, анимированные) --- */
+html[data-bg="particles"] body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(1px 1px at 10% 20%, var(--primary) 0%, transparent 100%),
+    radial-gradient(1px 1px at 30% 60%, var(--primary) 0%, transparent 100%),
+    radial-gradient(1px 1px at 50% 40%, var(--primary) 0%, transparent 100%),
+    radial-gradient(1px 1px at 70% 80%, var(--primary) 0%, transparent 100%),
+    radial-gradient(1px 1px at 90% 15%, var(--primary) 0%, transparent 100%),
+    radial-gradient(1px 1px at 20% 85%, var(--primary) 0%, transparent 100%),
+    radial-gradient(1px 1px at 60% 10%, var(--primary) 0%, transparent 100%),
+    radial-gradient(1px 1px at 80% 50%, var(--primary) 0%, transparent 100%);
+  background-size: 100vw 100vh;
+  animation: particlesFloat 20s linear infinite alternate;
+  opacity: 0.5;
+}
+
+@keyframes particlesFloat {
+  0%   { background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0; }
+  100% { background-position: 30px -20px, -20px 30px, 20px 20px, -30px -10px,
+                               10px 30px, -10px -30px, 25px 10px, -25px 20px; }
+}
+
+/* ──────────────────────────────────────────────────────
+   16. КОМПАКТНЫЙ РЕЖИМ
+   ────────────────────────────────────────────────────── */
+html[data-density="compact"] .admin-section,
+html[data-density="compact"] .profile-glass-card  { border-radius: 10px; }
+html[data-density="compact"] .section-body        { padding: 12px; }
+html[data-density="compact"] .section-header      { padding: 12px 16px; }
+html[data-density="compact"] .data-table th,
+html[data-density="compact"] .data-table td       { padding: 10px 16px; }
+html[data-density="compact"] .stat-widget         { padding: 12px; gap: 10px; }
+html[data-density="compact"] .courses-grid,
+html[data-density="compact"] .course-showcase-grid { gap: 14px; }
+html[data-density="compact"] .content-grid        { gap: 14px; }
+html[data-density="compact"] .profile-nav-btn     { padding: 10px 16px; font-size: 14px; }
+html[data-density="compact"] .btn                 { padding: 6px 12px; font-size: 12px; }
+
+/* ──────────────────────────────────────────────────────
+   17. POWERED BY LUMEO (нельзя убрать 😄)
+   ────────────────────────────────────────────────────── */
+.lumeo-powered {
+  position: fixed;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: var(--text-muted);
+  opacity: 0.4;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  pointer-events: none;
+  z-index: 9998;
+  white-space: nowrap;
+  transition: opacity 0.2s;
+}
+
+/* ─── Appearance Tab (user profile) ─────────────────────────────────────────── */
+
+.appearance-options-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 12px;
+}
+
+.appearance-option-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 12px;
+  background: var(--bg-input);
+  border: 2px solid var(--border-color);
+  border-radius: 12px;
+  cursor: pointer;
+  color: var(--text-main);
+  transition: border-color 0.15s, background 0.15s;
+  font-family: inherit;
+  text-align: center;
+}
+
+.appearance-option-card:hover {
+  border-color: var(--primary);
+  background: rgba(var(--primary-rgb, 0,174,239), 0.06);
+}
+
+.appearance-option-card.active {
+  border-color: var(--primary);
+  background: rgba(var(--primary-rgb, 0,174,239), 0.12);
+}
+
+.appearance-option-icon {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.appearance-option-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.particles-warning {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 14px 16px;
+  background: rgba(255, 215, 0, 0.08);
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--text-main);
+}
+
+/* ─── Branding Tab (admin) ───────────────────────────────────────────────────── */
+
+.branding-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.branding-presets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.branding-preset-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 10px;
+  background: var(--bg-input);
+  border: 2px solid var(--border-color);
+  border-radius: 10px;
+  cursor: pointer;
+  color: var(--text-main);
+  font-family: inherit;
+  font-size: 13px;
+  transition: border-color 0.15s, background 0.15s;
+  position: relative;
+}
+
+.branding-preset-card:hover { border-color: var(--preset-color, var(--primary)); }
+.branding-preset-card.active { border-color: var(--preset-color, var(--primary)); background: rgba(255,255,255,0.05); }
+
+.preset-dot {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: block;
+}
+
+.preset-label { font-size: 12px; }
+
+.preset-check {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-size: 11px;
+  color: var(--success);
+  font-weight: 700;
+}
+
+.branding-bg-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 10px;
+}
+
+.branding-bg-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 10px;
+  background: var(--bg-input);
+  border: 2px solid var(--border-color);
+  border-radius: 10px;
+  cursor: pointer;
+  color: var(--text-main);
+  font-family: inherit;
+  font-size: 12px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.branding-bg-card:hover { border-color: var(--primary); }
+.branding-bg-card.active { border-color: var(--primary); background: rgba(var(--primary-rgb,0,174,239), 0.1); }
+
+.bg-card-icon { font-size: 24px; }
+
+.branding-logo-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.branding-logo-preview {
+  width: 80px;
+  height: 80px;
+  border-radius: 12px;
+  border: 2px dashed var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+  flex-shrink: 0;
+  position: relative;
+  transition: border-color 0.15s;
+}
+
+.branding-logo-preview:hover { border-color: var(--primary); }
+.branding-logo-preview img { width: 100%; height: 100%; object-fit: contain; }
+
+.branding-logo-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.branding-logo-preview:hover .branding-logo-overlay { opacity: 1; }
+.lumeo-powered:hover { opacity: 0.8; }

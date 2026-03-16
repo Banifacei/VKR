@@ -15,6 +15,7 @@ import authRoutes from './src/routes/authRoutes.js';
 import userRoutes from './src/routes/userRoutes.js';
 import testRoutes from './src/routes/testRoutes.js';
 import adminRoutes from './src/routes/adminRoutes.js';
+import themeRoutes from './src/routes/themeRoutes.js';
 import { trackActivityMiddleware, addSystemLog } from './src/controllers/adminController.js';
 import { createDefaultAdmin } from './src/models/initAdmin.js';
 import { cleanupOrphanFiles } from './src/utils/cleanup.js';
@@ -28,15 +29,17 @@ const BASE_URL = process.env.API_URL || `http://localhost:${PORT}`;
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 const uploadDir = path.join(__dirname, 'uploads');
 const avatarDir = path.join(uploadDir, 'avatars');
-[uploadDir, avatarDir].forEach(dir => {
+const logoDir   = path.join(uploadDir, 'logos');
+[uploadDir, avatarDir, logoDir].forEach(dir => {
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
     }
 });
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        const dest = file.fieldname === 'avatar' ? avatarDir : uploadDir;
-        cb(null, dest);
+        if (file.fieldname === 'avatar') return cb(null, avatarDir);
+        if (file.fieldname === 'logo')   return cb(null, logoDir);
+        cb(null, uploadDir);
     },
     filename: (req, file, cb) => {
         const ext = path.extname(file.originalname);
@@ -59,17 +62,22 @@ const videoUpload = multer({
     }
 });
 
+const imageFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'];
+    if (allowed.includes(file.mimetype)) cb(null, true);
+    else cb(new Error('Только изображения разрешены (jpeg, png, webp, gif, svg).'));
+};
+
 const avatarUpload = multer({
     storage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
-    fileFilter: (_req, file, cb) => {
-        const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-        if (allowed.includes(file.mimetype)) {
-            cb(null, true);
-        } else {
-            cb(new Error('Только изображения разрешены (jpeg, png, webp, gif).'));
-        }
-    }
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: imageFilter,
+});
+
+const logoUpload = multer({
+    storage,
+    limits: { fileSize: 2 * 1024 * 1024 },
+    fileFilter: imageFilter,
 });
 app.use(passport.initialize());
 app.use(cors({ origin: CLIENT_URL, credentials: true }));
@@ -80,6 +88,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/tests', testRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/theme', themeRoutes(logoUpload));
 
 app.post('/api/upload', videoUpload.single('video'), (req: Request, res: Response): void => {
     try {

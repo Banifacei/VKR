@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { UserProfile } from '../components/UserProfile';
+import { BrandingTab } from '../components/Admin/BrandingTab';
 import { Link } from 'react-router-dom';
 import './AdminPage.css';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { getAllUsers, changeUserRole, updateUser, createUser, deleteUser } from '../api/userApi';
 import type { IAdminUser } from '../api/userApi';
 import api from '../api/axiosInstance';
@@ -14,9 +16,10 @@ interface ISystemLog { id: number; time: string; msg: string; type: 'info' | 'su
 export const AdminPage = () => {
   const { showToast } = useToast();
   const { user, logout, updateUser: updateContextUser } = useAuth();
+  const { globalTheme } = useTheme();
   const [showSamlModal, setShowSamlModal] = useState(false);
   const [samlForm, setSamlForm] = useState({ enabled: false, entryPoint: '', cert: '' });
-  const [activeTab, setActiveTab] = useState<'system' | 'users' | 'requests' | 'integrations'>('system');
+  const [activeTab, setActiveTab] = useState<'system' | 'users' | 'requests' | 'integrations' | 'branding'>('system');
   const [usersList, setUsersList] = useState<IAdminUser[]>([]);
   const [pendingUsers, setPendingUsers] = useState<any[]>([]); 
   const [loading, setLoading] = useState(true);
@@ -549,7 +552,10 @@ export const AdminPage = () => {
       {/* ШАПКА */}
       <header className="lumeo-header">
           <div className="logo-group">
-            <div className="logo">Lumeo<span className="dot">.</span></div>
+            <div className="logo">
+              {globalTheme.platform_logo && <img src={globalTheme.platform_logo} alt="logo" style={{ height: 28, marginRight: 8, verticalAlign: 'middle' }} />}
+              {globalTheme.platform_name}<span className="dot">.</span>
+            </div>
             <span className="admin-badge">ROOT ACCESS</span>
           </div>
           <div style={{display: 'flex', alignItems: 'center', gap: '24px'}}>
@@ -589,6 +595,9 @@ export const AdminPage = () => {
                 </button>
                 <button className={`admin-tab ${activeTab === 'integrations' ? 'active' : ''}`} onClick={() => setActiveTab('integrations')}>
                     <Icons.LinkIcon /> Интеграции (SSO)
+                </button>
+                <button className={`admin-tab ${activeTab === 'branding' ? 'active' : ''}`} onClick={() => setActiveTab('branding')}>
+                    <Icons.Palette /> Брендинг
                 </button>
                 {/* Вкладка заявок появляется ТОЛЬКО если модерация включена */}
                 {requiresApproval && (
@@ -891,6 +900,8 @@ export const AdminPage = () => {
                 </div>
             )}
             {/* ==================== ВКЛАДКА 4: ИНТЕГРАЦИИ SSO ==================== */}
+            {activeTab === 'branding' && <BrandingTab />}
+
             {activeTab === 'integrations' && (
                 <div className="admin-section">
                     <div className="section-header">

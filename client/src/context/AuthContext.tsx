@@ -12,6 +12,7 @@ interface User {
     phone?: string;
     role: string;
     avatarUrl?: string;
+    themeConfig?: { scheme?: string; bgPattern?: string; density?: string };
 }
 
 // Тип контекста (что доступно компонентам)
@@ -80,9 +81,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             try {
                 // Пытаемся получить свежие данные о себе с сервера
                 const { data } = await api.get('/auth/me');
-                
+
                 setUser(data);
                 localStorage.setItem('lumeo_user', JSON.stringify(data));
+                // Синхронизируем тему пользователя из БД (для кросс-девайс sync)
+                if (data.themeConfig && Object.keys(data.themeConfig).length > 0) {
+                    const stored = localStorage.getItem('lumeo_user_theme');
+                    const storedTheme = stored ? JSON.parse(stored) : {};
+                    localStorage.setItem('lumeo_user_theme', JSON.stringify({ ...storedTheme, ...data.themeConfig }));
+                }
             } catch (error: any) {
                 console.error("Ошибка при проверке сессии:", error);
                 
