@@ -70,18 +70,20 @@ export const saveUserTheme = async (req: Request, res: Response) => {
         const userId = (req as any).user?.id;
         if (!userId) return res.status(401).json({ message: 'Не авторизован' });
 
-        const { scheme, bgPattern, density } = req.body;
+        const { scheme, bgPattern, density, bgScale, bgSpeed } = req.body;
 
         const allowed = {
-            scheme:     ['dark', 'light', 'system'],
-            bgPattern:  ['none', 'grid', 'dots', 'particles'],
+            scheme:     ['dark', 'light', 'system', 'time'],
+            bgPattern:  ['none', 'off', 'grid', 'dots', 'particles', 'cross', 'diagonal'],
             density:    ['normal', 'compact'],
         };
 
-        const themeConfig: Record<string, string> = {};
+        const themeConfig: Record<string, string | number> = {};
         if (scheme    && allowed.scheme.includes(scheme))       themeConfig.scheme     = scheme;
         if (bgPattern && allowed.bgPattern.includes(bgPattern)) themeConfig.bgPattern  = bgPattern;
         if (density   && allowed.density.includes(density))     themeConfig.density    = density;
+        if (bgScale   != null && !isNaN(Number(bgScale)))       themeConfig.bgScale    = Number(bgScale);
+        if (bgSpeed   != null && !isNaN(Number(bgSpeed)))       themeConfig.bgSpeed    = Number(bgSpeed);
 
         const user = await User.findByPk(userId);
         if (!user) return res.status(404).json({ message: 'Пользователь не найден' });

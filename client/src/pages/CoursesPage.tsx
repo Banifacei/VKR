@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getCourses } from '../api/videoApi';
 import { getUserCourseProgress } from '../api/testApi';
 import type { ICourse } from '../types';
 import './UserPage.css';
-import './CoursesPage.css'; // 🔥 Подключаем наши новые стили!
+import './CoursesPage.css';
 import { UserProfile } from '../components/UserProfile';
+import { PreviewBar } from '../components/PreviewBar';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import api from '../api/axiosInstance';
@@ -35,6 +36,8 @@ export const CoursesPage = () => {
     const { user, logout, updateUser } = useAuth();
     const { globalTheme } = useTheme();
     const { showToast } = useToast();
+    const [searchParams] = useSearchParams();
+    const isPreview = searchParams.get('preview') === '1';
 
     const [showAddModal, setShowAddModal] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
@@ -131,7 +134,8 @@ export const CoursesPage = () => {
     };
 
     return (
-        <div className="lumeo-layout">
+        <div className="lumeo-layout" style={isPreview ? { paddingTop: 44 } : undefined}>
+            {isPreview && <PreviewBar />}
             <header className="lumeo-header">
                 <div className="logo">
                     {globalTheme.platform_logo && <img src={globalTheme.platform_logo} alt="logo" style={{ height: 28, marginRight: 8, verticalAlign: 'middle' }} />}
@@ -152,8 +156,8 @@ export const CoursesPage = () => {
                 
                 <div className="course-showcase-grid">
                     
-                    {/* КНОПКА СОЗДАНИЯ (ДЛЯ ПРЕПОДА/АДМИНА) */}
-                    {user && ['teacher', 'admin'].includes(user.role) && (
+                    {/* КНОПКА СОЗДАНИЯ (ДЛЯ ПРЕПОДА/АДМИНА, скрыта в режиме предпросмотра) */}
+                    {!isPreview && user && ['teacher', 'admin'].includes(user.role) && (
                         <div 
                             className="course-card-modern" 
                             onClick={openAddModal}

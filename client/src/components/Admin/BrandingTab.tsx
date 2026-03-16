@@ -5,6 +5,8 @@ const BG_PATTERNS: { value: BgPattern; label: string; icon: string }[] = [
     { value: 'none',      label: 'Без паттерна', icon: '⬛' },
     { value: 'grid',      label: 'Сетка',        icon: '🔲' },
     { value: 'dots',      label: 'Точки',        icon: '⠿' },
+    { value: 'cross',     label: 'Решётка+',     icon: '✛' },
+    { value: 'diagonal',  label: 'Диагональ',    icon: '╱' },
     { value: 'particles', label: 'Частицы',      icon: '✨' },
 ];
 
@@ -137,10 +139,19 @@ export const BrandingTab = () => {
                 </div>
             </div>
 
-            {/* Сохранить */}
-            <button className="btn btn-primary" onClick={handleSave} disabled={isSaving} style={{ minWidth: 160 }}>
-                {isSaving ? 'Сохранение...' : 'Сохранить брендинг'}
-            </button>
+            {/* Действия */}
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                <button className="btn btn-primary" onClick={handleSave} disabled={isSaving} style={{ minWidth: 160 }}>
+                    {isSaving ? 'Сохранение...' : 'Сохранить брендинг'}
+                </button>
+                <button
+                    className="btn btn-secondary"
+                    onClick={() => window.open('/?preview=1', '_blank')}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+                >
+                    👁 Предпросмотр как студент
+                </button>
+            </div>
         </div>
     );
 };

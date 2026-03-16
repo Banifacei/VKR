@@ -712,59 +712,85 @@ html.theme-light .sidebar-divider,
 html.theme-light .form-divider               { background: #e5e7eb; }
 /* Бейдж роли */
 html.theme-light .role-tag                   { border-color: rgba(0,174,239,0.4); }
-/* Частицы на светлой — чуть заметнее */
-html.theme-light[data-bg="particles"] body::before { opacity: 0.25; }
-
 /* ──────────────────────────────────────────────────────
    15. ПАТТЕРНЫ ФОНА
-   Управляется единственным атрибутом data-bg на <html>.
-   Вычисляется в ThemeContext (user перекрывает global).
+   Управляется атрибутом data-bg на <html>.
+   --bg-scale (default 1) — масштаб размера паттерна.
+   --bg-anim-duration (default 30s) — скорость частиц.
    ────────────────────────────────────────────────────── */
+
+/* --- Сброс --- */
+html[data-bg="none"] body,
+html[data-bg="off"]  body  { background-image: none; }
 
 /* --- Сетка --- */
 html[data-bg="grid"] body {
   background-image:
     linear-gradient(var(--bg-pattern-color) 1px, transparent 1px),
     linear-gradient(90deg, var(--bg-pattern-color) 1px, transparent 1px);
-  background-size: 40px 40px;
+  background-size:
+    calc(var(--bg-scale, 1) * 40px) calc(var(--bg-scale, 1) * 40px);
 }
 
 /* --- Точки --- */
 html[data-bg="dots"] body {
-  background-image: radial-gradient(circle, var(--bg-pattern-color) 1.5px, transparent 1.5px);
-  background-size: 24px 24px;
+  background-image: radial-gradient(
+    circle calc(var(--bg-scale, 1) * 1.5px) at center,
+    var(--bg-pattern-color) 0%,
+    transparent 100%
+  );
+  background-size:
+    calc(var(--bg-scale, 1) * 24px) calc(var(--bg-scale, 1) * 24px);
 }
 
-/* --- Без паттерна --- */
-html[data-bg="none"] body {
-  background-image: none;
-}
-
-/* --- Частицы (CSS-only, анимированные) --- */
-html[data-bg="particles"] body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
+/* --- Решётка+ (крест) --- */
+html[data-bg="cross"] body {
   background-image:
-    radial-gradient(1px 1px at 10% 20%, var(--primary) 0%, transparent 100%),
-    radial-gradient(1px 1px at 30% 60%, var(--primary) 0%, transparent 100%),
-    radial-gradient(1px 1px at 50% 40%, var(--primary) 0%, transparent 100%),
-    radial-gradient(1px 1px at 70% 80%, var(--primary) 0%, transparent 100%),
-    radial-gradient(1px 1px at 90% 15%, var(--primary) 0%, transparent 100%),
-    radial-gradient(1px 1px at 20% 85%, var(--primary) 0%, transparent 100%),
-    radial-gradient(1px 1px at 60% 10%, var(--primary) 0%, transparent 100%),
-    radial-gradient(1px 1px at 80% 50%, var(--primary) 0%, transparent 100%);
-  background-size: 100vw 100vh;
-  animation: particlesFloat 20s linear infinite alternate;
-  opacity: 0.5;
+    linear-gradient(var(--bg-pattern-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--bg-pattern-color) 1px, transparent 1px),
+    linear-gradient(45deg, var(--bg-pattern-color) 0.5px, transparent 0.5px),
+    linear-gradient(-45deg, var(--bg-pattern-color) 0.5px, transparent 0.5px);
+  background-size:
+    calc(var(--bg-scale, 1) * 40px) calc(var(--bg-scale, 1) * 40px),
+    calc(var(--bg-scale, 1) * 40px) calc(var(--bg-scale, 1) * 40px),
+    calc(var(--bg-scale, 1) * 20px) calc(var(--bg-scale, 1) * 20px),
+    calc(var(--bg-scale, 1) * 20px) calc(var(--bg-scale, 1) * 20px);
 }
+
+/* --- Диагональ --- */
+html[data-bg="diagonal"] body {
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent calc(var(--bg-scale, 1) * 18px),
+      var(--bg-pattern-color) calc(var(--bg-scale, 1) * 18px),
+      var(--bg-pattern-color) calc(var(--bg-scale, 1) * 19px)
+    );
+}
+
+/* --- Частицы ---
+   animation: background-position НЕ создаёт новый containing block для fixed-элементов
+   (только transform/filter/perspective это делают), поэтому анимируем body напрямую.
+   body::before с z-index:-1 невидим за html background-color — не используем.        */
+html[data-bg="particles"] body {
+  background-image:
+    radial-gradient(circle calc(var(--bg-scale, 1) * 2.5px) at center, var(--primary) 0%, transparent 80%),
+    radial-gradient(circle calc(var(--bg-scale, 1) * 1.5px) at center, var(--primary) 0%, transparent 80%),
+    radial-gradient(circle calc(var(--bg-scale, 1) * 1px)   at center, var(--primary) 0%, transparent 80%);
+  background-size:
+    calc(var(--bg-scale, 1) * 100px) calc(var(--bg-scale, 1) * 100px),
+    calc(var(--bg-scale, 1) * 60px)  calc(var(--bg-scale, 1) * 60px),
+    calc(var(--bg-scale, 1) * 35px)  calc(var(--bg-scale, 1) * 35px);
+  background-position: 0 0, 30px 30px, 15px 50px;
+  animation: particlesFloat var(--bg-anim-duration, 30s) linear infinite;
+}
+
+html.theme-light[data-bg="particles"] body { opacity: 0.6; }
 
 @keyframes particlesFloat {
-  0%   { background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0; }
-  100% { background-position: 30px -20px, -20px 30px, 20px 20px, -30px -10px,
-                               10px 30px, -10px -30px, 25px 10px, -25px 20px; }
+  0%   { background-position: 0 0,        30px 30px,  15px 50px; }
+  100% { background-position: 100px 80px, 90px 60px,  50px 85px; }
 }
 
 /* ──────────────────────────────────────────────────────
