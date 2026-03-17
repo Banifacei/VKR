@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react'; // Импортируем тип отдельно
 import api from '../api/axiosInstance';
+import { normalizeUploadUrl } from '../utils/uploadUrl';
 
 // Тип данных пользователя
 interface User {
@@ -44,11 +45,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     // --- ЛОГИКА ---
 
+    const normalizeUser = (userData: User): User => ({
+        ...userData,
+        avatarUrl: normalizeUploadUrl(userData.avatarUrl),
+    });
+
     const login = (newToken: string, userData: User) => {
+        const normalized = normalizeUser(userData);
         setToken(newToken);
-        setUser(userData);
+        setUser(normalized);
         localStorage.setItem('lumeo_token', newToken);
-        localStorage.setItem('lumeo_user', JSON.stringify(userData));
+        localStorage.setItem('lumeo_user', JSON.stringify(normalized));
         setLoading(false);
     };
 
@@ -82,8 +89,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 // Пытаемся получить свежие данные о себе с сервера
                 const { data } = await api.get('/auth/me');
 
-                setUser(data);
-                localStorage.setItem('lumeo_user', JSON.stringify(data));
+                const normalized = normalizeUser(data);
+                setUser(normalized);
+                localStorage.setItem('lumeo_user', JSON.stringify(normalized));
                 // Синхронизируем тему пользователя из БД (для кросс-девайс sync)
                 if (data.themeConfig && Object.keys(data.themeConfig).length > 0) {
                     const stored = localStorage.getItem('lumeo_user_theme');

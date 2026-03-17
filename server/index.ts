@@ -84,6 +84,7 @@ app.use(cors({ origin: CLIENT_URL, credentials: true }));
 app.use(express.json());
 app.use(trackActivityMiddleware);
 app.use('/uploads', express.static(uploadDir));
+app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/tests', testRoutes);
@@ -97,8 +98,7 @@ app.post('/api/upload', videoUpload.single('video'), (req: Request, res: Respons
             return;
         }
         
-        // 🔥 Формируем динамическую ссылку
-        const fullUrl = `${BASE_URL}/uploads/${req.file.filename}`;
+        const fullUrl = `/uploads/${req.file.filename}`;
         addSystemLog(`Загружено новое видео: ${req.file.originalname}`, 'info');
         res.json({ url: fullUrl });
     } catch (err) {
@@ -126,8 +126,7 @@ app.post('/api/auth/avatar', avatarUpload.single('avatar'), async (req: Request,
             return;
         }
 
-        // 🔥 Формируем динамическую ссылку для аватарки
-        const avatarUrl = `${BASE_URL}/uploads/avatars/${req.file.filename}`;
+        const avatarUrl = `/uploads/avatars/${req.file.filename}`;
 
         user.avatarUrl = avatarUrl;
         await user.save();
@@ -148,16 +147,22 @@ app.use((err: any, _req: Request, res: Response, _next: any) => {
     res.status(500).json({ message: 'Внутренняя ошибка сервера' });
 });
 
+let server: ReturnType<typeof app.listen>;
+
 async function start() {
     try {
         await sequelize.authenticate();
         await sequelize.sync({ alter: true });
         // force: true — удаляет таблицы (DROP) и создает их заново (CREATE) что бы бд очистить
         //await sequelize.sync({ force: true });
+        // Миграция: исправляем типы колонок, которые alter:true не меняет автоматически
+        await sequelize.query(`ALTER TABLE interactive_events ALTER COLUMN "explanation" TYPE TEXT`).catch(() => {});
+        // Миграция: 'none' как глобальный паттерн фона означает 'off' (без фона), а не "следовать платформе"
+        await sequelize.query(`UPDATE system_settings SET value = 'off' WHERE key = 'platform_bg_pattern' AND value = 'none'`).catch(() => {});
         await createDefaultAdmin();
         console.log('✅ База данных подключена');
         await cleanupOrphanFiles(uploadDir, avatarDir);
-        const server = app.listen(PORT, () => {
+        server = app.listen(PORT, () => {
             console.log(`🚀 Сервер запущен на порту ${PORT}`);
             console.log(`📁 Папка для загрузок: ${uploadDir}`);
             addSystemLog(`Сервер Lumeo успешно стартовал на порту ${PORT}`, 'success');
@@ -167,6 +172,22 @@ async function start() {
         console.error('❌ Ошибка запуска:', e);
     }
 }
+
+const shutdown = () => {
+    console.log('🛑 Остановка сервера...');
+    if (server) {
+        server.close(async () => {
+            await sequelize.close();
+            console.log('✅ Сервер остановлен');
+            process.exit(0);
+        });
+    } else {
+        process.exit(0);
+    }
+};
+
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);
 
 export interface IInteractiveEvent {
     id: number;

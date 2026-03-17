@@ -14,12 +14,17 @@ import { CourseCollaborator } from '../models/CourseCollaborator.js';
 import { CourseEnrollment } from '../models/CourseEnrollment.js';
 dotenv.config();
 
+const requiredEnvVars = ['DB_NAME', 'DB_USER', 'DB_PASSWORD', 'DB_HOST'];
+requiredEnvVars.forEach(v => {
+  if (!process.env[v]) throw new Error(`Переменная окружения ${v} не задана в .env`);
+});
+
 const sequelize = new Sequelize({
-  database: process.env.DB_NAME || 'vkr_db',
+  database: process.env.DB_NAME!,
   dialect: 'postgres',
-  username: process.env.DB_USER || 'postgres',
-  password: String(process.env.DB_PASSWORD),
-  host: process.env.DB_HOST || 'localhost',
+  username: process.env.DB_USER!,
+  password: process.env.DB_PASSWORD!,
+  host: process.env.DB_HOST!,
   port: Number(process.env.DB_PORT) || 5432,
   
   models: [

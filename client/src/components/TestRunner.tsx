@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { submitTestResult, type ICourseTest } from '../api/testApi';
+import { Icons } from './Icons';
 
 interface TestRunnerProps {
     test: ICourseTest;
@@ -73,7 +74,7 @@ export const TestRunner = ({ test, onExit, onSuccess }: TestRunnerProps) => {
         return (
             <div className="runner-container">
                 <div className="runner-card center">
-                    <div className="runner-icon-big">📝</div>
+                    <div className="runner-icon-big"><Icons.FileText size={40}/></div>
                     <h1>{test.title}</h1>
                     {test.description && <p className="runner-desc">{test.description}</p>}
                     
@@ -89,7 +90,7 @@ export const TestRunner = ({ test, onExit, onSuccess }: TestRunnerProps) => {
                         {/* Добавляем информацию о попытках в инфо-блок */}
                         <div className="meta-item">
                             <span>Попытки:</span>
-                            <strong style={{ color: isExhausted ? '#ff4d4d' : '#00aeef' }}>
+                            <strong style={{ color: isExhausted ? '#ff4d4d' : 'var(--primary)' }}>
                                 {attemptsUsed} / {test.maxAttempts === 0 ? '∞' : test.maxAttempts}
                             </strong>
                         </div>
@@ -164,7 +165,7 @@ export const TestRunner = ({ test, onExit, onSuccess }: TestRunnerProps) => {
 
                                                 {/* НОВОЕ: Показываем оценку ИИ, если она пришла с сервера */}
                                                 {resData.similarity !== null && resData.similarity !== undefined && (
-                                                    <span style={{ background: 'rgba(0, 174, 239, 0.15)', color: '#00aeef', padding: '2px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: 'bold' }}>
+                                                    <span style={{ background: 'rgba(var(--primary-rgb), 0.15)', color: 'var(--primary)', padding: '2px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: 'bold' }}>
                                                         ИИ: {resData.similarity}%
                                                     </span>
                                                 )}

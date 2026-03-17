@@ -180,14 +180,32 @@ export const AdminPage = () => {
       fetchPendingUsers();
       fetchSystemData();
       fetchLiveServerStats();
-      
-      const staticInterval = setInterval(() => {
-          fetchSystemData();
-          fetchPendingUsers(); 
-      }, 10000);
-      const liveInterval = setInterval(fetchLiveServerStats, 1500); 
 
-      return () => { clearInterval(staticInterval); clearInterval(liveInterval); };
+      // CPU/RAM статистика — оставляем polling (pull-данные без события)
+      const liveInterval = setInterval(fetchLiveServerStats, 1500);
+
+      // SSE: мгновенные уведомления о новых заявках и одобрениях/отклонениях
+      const token = localStorage.getItem('lumeo_token');
+      const es = token ? new EventSource(`/api/users/admin/stream?token=${token}`) : null;
+      if (es) {
+          es.onmessage = ({ data }) => {
+              try {
+                  const d = JSON.parse(data);
+                  if (d.type === 'pending_user') {
+                      setPendingUsers(prev => {
+                          if (prev.find(u => u.id === d.userId)) return prev;
+                          return [{ id: d.userId, email: d.email, firstName: d.name?.split(' ')[0] || '', lastName: d.name?.split(' ')[1] || '', createdAt: new Date().toISOString() }, ...prev];
+                      });
+                  } else if (d.type === 'user_approved' || d.type === 'user_rejected') {
+                      setPendingUsers(prev => prev.filter(u => u.id !== d.userId));
+                      if (d.type === 'user_approved') fetchUsers();
+                  }
+              } catch { /* игнорируем */ }
+          };
+          es.onerror = () => es.close();
+      }
+
+      return () => { clearInterval(liveInterval); es?.close(); };
   }, []);
 
   const handleToggleSetting = async () => {
@@ -612,7 +630,7 @@ export const AdminPage = () => {
             {activeTab !== 'requests' && (
                 <div className="metrics-row">
                     <div className="stat-card mini">
-                        <div className="stat-icon" style={{color: '#00aeef'}}><Icons.Users /></div>
+                        <div className="stat-icon" style={{color: 'var(--primary)'}}><Icons.Users /></div>
                         <div className="stat-info"><div className="stat-label">Пользователей</div><div className="stat-value">{usersList.length}</div></div>
                     </div>
                     <div className="stat-card mini">

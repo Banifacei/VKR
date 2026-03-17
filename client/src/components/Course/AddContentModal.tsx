@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import api from '../../api/axiosInstance';
+import { Icons } from '../Icons';
 import { useToast } from '../../context/ToastContext';
 import { AddVideoForm } from '../AddVideoForm';
 
@@ -63,7 +64,7 @@ export const AddContentModal = ({ isOpen, onClose, courseId, nextOrderIndex, onS
                                 onClick={() => setModalView('create_video')} 
                                 style={{ background: '#2a2a2a', border: '1px solid #444', color: '#fff', padding: '15px', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '15px', transition: '0.2s' }}
                             >
-                                <span style={{fontSize: '24px'}}>📺</span> 
+                                <Icons.Monitor size={24}/>
                                 <div style={{textAlign: 'left'}}>
                                     <div style={{fontWeight: 'bold'}}>Видео-урок</div>
                                     <div style={{fontSize: '12px', color: '#888'}}>Добавить обучающее видео</div>
@@ -74,7 +75,7 @@ export const AddContentModal = ({ isOpen, onClose, courseId, nextOrderIndex, onS
                                 onClick={() => setModalView('create_test')} 
                                 style={{ background: 'rgba(255, 215, 0, 0.1)', border: '1px solid rgba(255, 215, 0, 0.3)', color: '#fff', padding: '15px', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '15px', transition: '0.2s' }}
                             >
-                                <span style={{fontSize: '24px'}}>📝</span> 
+                                <Icons.FileText size={24}/>
                                 <div style={{textAlign: 'left'}}>
                                     <div style={{fontWeight: 'bold', color: '#ffd700'}}>Тест</div>
                                     <div style={{fontSize: '12px', color: '#888'}}>Проверка знаний</div>
@@ -87,7 +88,7 @@ export const AddContentModal = ({ isOpen, onClose, courseId, nextOrderIndex, onS
                 {/* ЭКРАН 2: ФОРМА СОЗДАНИЯ ТЕСТА */}
                 {modalView === 'create_test' && (
                     <>
-                        <h2 style={{color: '#fff', marginBottom: '20px', marginTop: 0}}>📝 Новый тест</h2>
+                        <h2 style={{color: '#fff', marginBottom: '20px', marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px'}}><Icons.FileText size={20}/> Новый тест</h2>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                             <input 
                                 type="text" placeholder="Название теста" className="modern-input"
@@ -117,7 +118,7 @@ export const AddContentModal = ({ isOpen, onClose, courseId, nextOrderIndex, onS
                 {/* ЭКРАН 3: ФОРМА СОЗДАНИЯ ВИДЕО */}
                 {modalView === 'create_video' && (
                     <>
-                        <h2 style={{color: '#fff', marginBottom: '20px', marginTop: 0}}>📺 Новый урок</h2>
+                        <h2 style={{color: '#fff', marginBottom: '20px', marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px'}}><Icons.Monitor size={20}/> Новый урок</h2>
                         <AddVideoForm 
                             courseId={courseId} 
                             onVideoAdded={() => {

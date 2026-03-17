@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import './UserProfile.css';
+import { Icons } from './Icons';
 interface UserProfileProps {
     user: {
         id: number;
@@ -69,7 +69,7 @@ export const UserProfile = ({ user, onLogout }: UserProfileProps) => {
                             navigate('/profile'); // <-- ПРОСТО ПЕРЕХОДИМ НА СТРАНИЦУ
                         }}
                     >
-                        ⚙️ Настройки
+                        <Icons.Settings size={14}/> Настройки
                     </button>
                     {user.role === 'student' && (
                         <button 
@@ -79,7 +79,7 @@ export const UserProfile = ({ user, onLogout }: UserProfileProps) => {
                                 navigate('/history'); // ПРОСТО ПРЯМОЙ ПУТЬ
                             }}
                         >
-                            📊 Моя статистика
+                            <Icons.BarChart2 size={14}/> Моя статистика
                         </button>
                     )}
                     {user.role === 'teacher' && (
@@ -88,7 +88,7 @@ export const UserProfile = ({ user, onLogout }: UserProfileProps) => {
                             setIsOpen(false); 
                             navigate('/analytics'); 
                         }}>
-                            📈 Центр аналитики
+                            <Icons.TrendingUp size={14}/> Центр аналитики
                         </button>
                     )}
                     {user.role === 'admin' && (
@@ -103,7 +103,7 @@ export const UserProfile = ({ user, onLogout }: UserProfileProps) => {
                         </button>
                     )}
                     <button className="dropdown-item danger" onClick={onLogout}>
-                        🚪 Выйти
+                        <Icons.LogOut size={14}/> Выйти
                     </button>
                 </div>
             )}

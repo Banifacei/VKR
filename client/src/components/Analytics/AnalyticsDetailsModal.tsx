@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../../api/axiosInstance';
 import { useToast } from '../../context/ToastContext';
+import { Icons } from '../Icons';
 
 interface AnalyticsDetailsModalProps {
     studentId: number | null;
@@ -56,7 +57,7 @@ export const AnalyticsDetailsModal = ({ studentId, courseId, onClose }: Analytic
                         <div style={{ padding: '30px', borderBottom: '1px solid #222', background: '#161616', position: 'sticky', top: 0, zIndex: 10 }}>
                             <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#888', fontSize: '24px', position: 'absolute', right: '20px', top: '20px', cursor: 'pointer' }}>×</button>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                                <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'linear-gradient(135deg, #00aeef, #0077a3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', fontWeight: 'bold', color: '#fff' }}>
+                                <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--primary), var(--primary-hover))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', fontWeight: 'bold', color: '#fff' }}>
                                     {data.student.firstName.charAt(0)}
                                 </div>
                                 <div>
@@ -67,8 +68,8 @@ export const AnalyticsDetailsModal = ({ studentId, courseId, onClose }: Analytic
                             
                             {/* Вкладки */}
                             <div style={{ display: 'flex', gap: '20px', marginTop: '25px', borderBottom: '1px solid #333' }}>
-                                <div onClick={() => setActiveTab('timeline')} style={{ paddingBottom: '10px', cursor: 'pointer', color: activeTab === 'timeline' ? '#00aeef' : '#888', borderBottom: activeTab === 'timeline' ? '2px solid #00aeef' : '2px solid transparent', fontWeight: 'bold', fontSize: '14px' }}>
-                                    📈 Прогресс
+                                <div onClick={() => setActiveTab('timeline')} style={{ paddingBottom: '10px', cursor: 'pointer', color: activeTab === 'timeline' ? 'var(--primary)' : '#888', borderBottom: activeTab === 'timeline' ? '2px solid var(--primary)' : '2px solid transparent', fontWeight: 'bold', fontSize: '14px' }}>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Icons.TrendingUp size={14}/> Прогресс</span>
                                 </div>
                                 <div onClick={() => setActiveTab('ai_answers')} style={{ paddingBottom: '10px', cursor: 'pointer', color: activeTab === 'ai_answers' ? '#b5179e' : '#888', borderBottom: activeTab === 'ai_answers' ? '2px solid #b5179e' : '2px solid transparent', fontWeight: 'bold', fontSize: '14px' }}>
                                     🤖 AI Ответы
@@ -84,7 +85,7 @@ export const AnalyticsDetailsModal = ({ studentId, courseId, onClose }: Analytic
                                     
                                     {data.videoProgress.filter((v: any) => v.isWatched).map((v: any) => (
                                         <div key={`v-${v.id}`} style={{ background: 'rgba(255,255,255,0.03)', padding: '15px', borderRadius: '12px', border: '1px solid #222' }}>
-                                            <div style={{ fontSize: '12px', color: '#00aeef', fontWeight: 'bold', marginBottom: '5px' }}>📺 Видео посмотрено</div>
+                                            <div style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: 'bold', marginBottom: '5px', display: 'flex', alignItems: 'center', gap: '5px' }}><Icons.Monitor size={12}/> Видео посмотрено</div>
                                             <div style={{ color: '#eee' }}>{v.video?.title || 'Неизвестное видео'}</div>
                                         </div>
                                     ))}
@@ -92,7 +93,7 @@ export const AnalyticsDetailsModal = ({ studentId, courseId, onClose }: Analytic
                                     {data.testResults.map((t: any) => (
                                         <div key={`t-${t.id}`} style={{ background: 'rgba(255,255,255,0.03)', padding: '15px', borderRadius: '12px', border: '1px solid #222' }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-                                                <div style={{ fontSize: '12px', color: '#b5179e', fontWeight: 'bold' }}>📝 Тест сдан</div>
+                                                <div style={{ fontSize: '12px', color: '#b5179e', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '5px' }}><Icons.FileText size={12}/> Тест сдан</div>
                                                 <div style={{ fontSize: '12px', fontWeight: 'bold', color: t.score >= t.test.passingScore ? '#4dff88' : '#ff4d4d' }}>{t.score}%</div>
                                             </div>
                                             <div style={{ color: '#eee' }}>{t.test?.title}</div>

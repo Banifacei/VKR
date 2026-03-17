@@ -51,6 +51,9 @@ services:
     container_name: lumeo-client
     ports:
       - "80:80"
+    volumes:
+      # Тот же том — nginx раздаёт видео напрямую, минуя Node.js
+      - uploads:/app/uploads:ro
     depends_on:
       - server
     restart: unless-stopped

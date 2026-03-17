@@ -59,16 +59,16 @@ export const AnalyticsDrillDownModal = ({ config, courseId, onClose }: Analytics
             subTitle: data.student.email || 'Нет email'
         };
         
-        if (config.type === 'test' && data.item) return { 
-            icon: '📝', 
-            title: data.item.title || 'Без названия', 
-            subTitle: 'Курсовой тест' 
+        if (config.type === 'test' && data.item) return {
+            icon: <Icons.FileText size={24}/>,
+            title: data.item.title || 'Без названия',
+            subTitle: 'Курсовой тест'
         };
-        
-        if (config.type === 'video' && data.item) return { 
-            icon: '📺', 
-            title: data.item.title || 'Без названия', 
-            subTitle: 'Видеоурок' 
+
+        if (config.type === 'video' && data.item) return {
+            icon: <Icons.Monitor size={24}/>,
+            title: data.item.title || 'Без названия',
+            subTitle: 'Видеоурок'
         };
 
         // Заглушка на момент переключения между вкладками

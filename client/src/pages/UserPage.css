@@ -234,7 +234,7 @@
     display: flex; justify-content: center; gap: 8px;
 }
 .edit-btn.primary { background: var(--primary); color: #fff; }
-.edit-btn.danger  { background: rgba(255,77,77,0.2); color: var(--danger); border: 1px solid rgba(255,77,77,0.3); }
+.edit-btn.danger  { background: rgba(var(--danger-rgb),0.2); color: var(--danger); border: 1px solid rgba(var(--danger-rgb),0.3); }
 .edit-btn:hover   { filter: brightness(1.2); transform: scale(1.05) !important; }
 
 /* Адаптив */

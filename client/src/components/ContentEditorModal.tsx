@@ -6,12 +6,12 @@ import type { IVideo } from '../types';
 import * as XLSX from 'xlsx';
 import api from '../api/axiosInstance';
 import { useToast } from '../context/ToastContext';
+import { Icons } from './Icons';
 
 // Drag & Drop
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Icons } from './Icons';
 
 const SortableQuestion = ({ q, i, onEdit, onDelete }: any) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: q.id });
@@ -41,8 +41,8 @@ const SortableQuestion = ({ q, i, onEdit, onDelete }: any) => {
                     <span style={{ marginLeft: '10px', fontSize: '10px', color: '#aaa', background: 'rgba(255,255,255,0.1)', padding: '3px 8px', borderRadius: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{q.type.replace('_', ' ')}</span>
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                    <button className="btn btn-ghost" style={{ padding: '8px', background: 'rgba(0, 174, 239, 0.1)', color: '#00aeef', borderRadius: '8px' }} onClick={() => onEdit(q)}>✏️</button>
-                    <button className="btn btn-ghost" style={{ padding: '8px', background: 'rgba(255, 77, 77, 0.1)', color: '#ff4d4d', borderRadius: '8px' }} onClick={() => onDelete(q.id)}>🗑️</button>
+                    <button className="btn btn-ghost" style={{ padding: '8px', background: 'rgba(var(--primary-rgb), 0.1)', color: 'var(--primary)', borderRadius: '8px' }} onClick={() => onEdit(q)}><Icons.Edit size={14}/></button>
+                    <button className="btn btn-ghost" style={{ padding: '8px', background: 'rgba(255, 77, 77, 0.1)', color: '#ff4d4d', borderRadius: '8px' }} onClick={() => onDelete(q.id)}><Icons.Trash size={14}/></button>
                 </div>
             </div>
         </div>
@@ -63,7 +63,7 @@ const SortableOption = ({ opt, idx, isCorrect, isDuplicate, accentColor, onChang
         display: 'flex', 
         alignItems: 'center', 
         gap: '12px', 
-        background: isCorrect ? `rgba(${accentColor === '#00aeef' ? '0,174,239' : '255,215,0'},0.1)` : 'rgba(0,0,0,0.3)', 
+        background: isCorrect ? (accentColor === 'var(--primary)' ? 'rgba(var(--primary-rgb),0.1)' : 'rgba(255,215,0,0.1)') : 'rgba(0,0,0,0.3)', 
         padding: '8px 12px', 
         borderRadius: '12px', 
         border: isDuplicate ? '1px solid #ff4d4d' : `1px solid ${isCorrect ? accentColor : 'transparent'}`,
@@ -96,7 +96,8 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
     const { showToast } = useToast();
     const isDraggingQuestionRef = useRef(false);
     const isVideo = item.type === 'video';
-    const accentColor = isVideo ? '#00aeef' : '#ffd700';
+    const accentColor = isVideo ? 'var(--primary)' : '#ffd700';
+    const accentRgb = isVideo ? 'var(--primary-rgb)' : '255,215,0';
 
     const [selectedVideo, setSelectedVideo] = useState<IVideo | null>(isVideo ? item : null);
     const [selectedTest, setSelectedTest] = useState<ICourseTest | null>(!isVideo ? item : null);
@@ -567,6 +568,24 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
         } catch (e) { showToast('Ошибка при удалении', 'error'); }
     };
 
+    const [chapterName, setChapterName] = useState('');
+    const [isAddingChapter, setIsAddingChapter] = useState(false);
+
+    const handleAddChapter = async () => {
+        if (!selectedVideo || !chapterName.trim()) return;
+        setIsAddingChapter(true);
+        try {
+            await addEvent(selectedVideo.id, {
+                time: currentTime, type: 'chapter', question: chapterName.trim(),
+                options: [], correctAnswer: '', weight: 1,
+            });
+            setChapterName('');
+            await reloadCurrentVideo();
+            showToast('Глава добавлена', 'success');
+        } catch { showToast('Ошибка при добавлении главы', 'error'); }
+        finally { setIsAddingChapter(false); }
+    };
+
     const handleGenerateSubs = async () => {
         if (!selectedVideo) return;
         setGeneratingVideos((prev: number[]) => [...prev, selectedVideo.id]); 
@@ -613,10 +632,10 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
         }} onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
             
             <div style={{ 
-                background: '#0f0f11', border: `1px solid rgba(${isVideo ? '0,174,239' : '255,215,0'}, 0.2)`, 
+                background: '#0f0f11', border: `1px solid rgba(${accentRgb}, 0.2)`, 
                 width: '100%', maxWidth: '1400px', height: '90vh', borderRadius: '24px', 
                 display: 'flex', flexDirection: 'column', overflow: 'hidden', animation: 'fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-                boxShadow: `0 30px 60px -12px rgba(${isVideo ? '0,174,239' : '255,215,0'}, 0.15)`
+                boxShadow: `0 30px 60px -12px rgba(${accentRgb}, 0.15)`
             }}>
                 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 30px', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.02)' }}>
@@ -624,9 +643,9 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                         <div style={{ 
                             background: `linear-gradient(135deg, ${accentColor} 0%, transparent 150%)`, 
                             padding: '12px', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            boxShadow: `0 0 20px rgba(${isVideo ? '0,174,239' : '255,215,0'}, 0.3)`
+                            boxShadow: `0 0 20px rgba(${accentRgb}, 0.3)`
                         }}>
-                            <span style={{ fontSize: '28px', lineHeight: 1 }}>{isVideo ? '📺' : '📝'}</span>
+                            {isVideo ? <Icons.Monitor size={28}/> : <Icons.FileText size={28}/>}
                         </div>
                         <div style={{ flex: 1, position: 'relative' }}>
                             <input 
@@ -711,7 +730,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                                                         )}
                                                                     </td>
                                                                     <td style={{padding:'20px', textAlign: 'right'}}>
-                                                                            <button className="btn btn-ghost" style={{color: accentColor, background: `rgba(${isVideo ? '0,174,239' : '255,215,0'}, 0.1)`, borderRadius: '8px', padding: '8px 16px'}} onClick={() => setExpandedStudent(student.userId)}>Детали</button>
+                                                                            <button className="btn btn-ghost" style={{color: accentColor, background: `rgba(${accentRgb}, 0.1)`, borderRadius: '8px', padding: '8px 16px'}} onClick={() => setExpandedStudent(student.userId)}>Детали</button>
                                                                     </td>
                                                                 </tr>
                                                             );
@@ -743,9 +762,9 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                                                         </td>
                                                                         <td style={{padding:'20px', textAlign:'center'}}>
                                                                             {stat.isCorrect ? (
-                                                                                <div style={{background: 'rgba(77,255,136,0.1)', color: '#4dff88', padding: '6px 12px', borderRadius: '8px', display: 'inline-block', fontWeight: 'bold'}}>✅ Верно</div>
+                                                                                <div style={{background: 'rgba(77,255,136,0.1)', color: '#4dff88', padding: '6px 12px', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 'bold'}}><Icons.LogSuccess size={13}/> Верно</div>
                                                                             ) : (
-                                                                                <div style={{background: 'rgba(255,77,77,0.1)', color: '#ff4d4d', padding: '6px 12px', borderRadius: '8px', display: 'inline-block', fontWeight: 'bold'}}>❌ Ошибка</div>
+                                                                                <div style={{background: 'rgba(255,77,77,0.1)', color: '#ff4d4d', padding: '6px 12px', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 'bold'}}><Icons.Fail size={13}/> Ошибка</div>
                                                                             )}
                                                                         </td>
                                                                     </tr>
@@ -783,13 +802,13 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                                                                             {userAns || <i style={{color:'#666'}}>Нет ответа</i>}
                                                                                             {/* Если есть оценка ИИ, покажем преподу! */}
                                                                                             {resData.similarity !== undefined && resData.similarity !== null && (
-                                                                                                <span style={{ marginLeft: '8px', color: '#00aeef', fontSize: '12px', background: 'rgba(0,174,239,0.1)', padding: '2px 6px', borderRadius: '4px' }}>
+                                                                                                <span style={{ marginLeft: '8px', color: 'var(--primary)', fontSize: '12px', background: 'rgba(var(--primary-rgb),0.1)', padding: '2px 6px', borderRadius: '4px' }}>
                                                                                                     ИИ: {resData.similarity}%
                                                                                                 </span>
                                                                                             )}
                                                                                         </td>
                                                                                         <td style={{padding:'12px 0', textAlign: 'right', fontSize: '13px'}}>
-                                                                                            {isCorrect ? <span style={{color: '#4dff88'}}>✅ Верно</span> : <span style={{color: '#ff4d4d'}}>❌ Ошибка</span>}
+                                                                                            {isCorrect ? <span style={{color: '#4dff88', display: 'inline-flex', alignItems: 'center', gap: '4px'}}><Icons.LogSuccess size={13}/> Верно</span> : <span style={{color: '#ff4d4d', display: 'inline-flex', alignItems: 'center', gap: '4px'}}><Icons.Fail size={13}/> Ошибка</span>}
                                                                                         </td>
                                                                                     </tr>
                                                                                 );
@@ -819,11 +838,37 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                                 videoId={selectedVideo.id} onTimeUpdate={(t) => setCurrentTime(t)} maxAttempts={selectedVideo.maxAttempts}
                                             />
                                         </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px' }}>
-                                            <span style={{ color: '#888', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', fontSize: '12px' }}>Таймлайн интерактива:</span>
-                                            <button className={`btn ${generatingVideos.includes(selectedVideo.id) ? 'btn-ghost' : 'btn-primary'}`} style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '10px' }} onClick={handleGenerateSubs} disabled={generatingVideos.includes(selectedVideo.id)}>
-                                                {generatingVideos.includes(selectedVideo.id) ? <><Icons.Spinner /> Генерация ИИ...</> : <><Icons.AI /> Сгенерировать ИИ Субтитры</>}
-                                            </button>
+                                        <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                            {/* Строка 1: заголовок + кнопка субтитров */}
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <span style={{ color: '#888', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', fontSize: '12px' }}>Таймлайн интерактива:</span>
+                                                <button className={`btn ${generatingVideos.includes(selectedVideo.id) ? 'btn-ghost' : 'btn-primary'}`} style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '10px' }} onClick={handleGenerateSubs} disabled={generatingVideos.includes(selectedVideo.id)}>
+                                                    {generatingVideos.includes(selectedVideo.id) ? <><Icons.Spinner /> Генерация ИИ...</> : <><Icons.AI /> Сгенерировать ИИ Субтитры</>}
+                                                </button>
+                                            </div>
+                                            {/* Строка 2: быстрое добавление главы */}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(var(--primary-rgb),0.04)', border: '1px solid rgba(var(--primary-rgb),0.15)', borderRadius: '12px', padding: '8px 12px' }}>
+                                                <span style={{ flexShrink: 0 }}><Icons.FileText size={16}/></span>
+                                                <input
+                                                    className="deck-input"
+                                                    placeholder="Название главы..."
+                                                    value={chapterName}
+                                                    onChange={e => setChapterName(e.target.value)}
+                                                    onKeyDown={e => e.key === 'Enter' && handleAddChapter()}
+                                                    style={{ flex: 1, margin: 0, padding: '6px 10px', fontSize: '13px', background: 'transparent', border: 'none', outline: 'none' }}
+                                                />
+                                                <span style={{ fontSize: '12px', color: 'var(--primary)', fontFamily: 'monospace', fontWeight: 'bold', flexShrink: 0 }}>
+                                                    @ {Math.floor(currentTime / 60)}:{Math.floor(currentTime % 60).toString().padStart(2, '0')}
+                                                </span>
+                                                <button
+                                                    className="btn"
+                                                    style={{ padding: '6px 14px', fontSize: '12px', borderRadius: '8px', background: 'var(--primary)', color: '#fff', fontWeight: 'bold', flexShrink: 0, opacity: chapterName.trim() ? 1 : 0.4 }}
+                                                    onClick={handleAddChapter}
+                                                    disabled={!chapterName.trim() || isAddingChapter}
+                                                >
+                                                    {isAddingChapter ? '...' : '+ Глава'}
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 )}
@@ -831,15 +876,15 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                 {isVideo && selectedVideo?.events && (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                         {[...selectedVideo.events].sort((a, b) => a.time - b.time).map(ev => (
-                                            <div key={ev.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', padding: '15px 20px', borderRadius: '16px', borderLeft: `4px solid ${ev.type === 'info' ? '#ffd700' : '#00aeef'}`, transition: 'all 0.2s ease', cursor: 'pointer' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}>
+                                            <div key={ev.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', padding: '15px 20px', borderRadius: '16px', borderLeft: `4px solid ${ev.type === 'chapter' ? 'var(--primary)' : ev.type === 'info' ? '#ffd700' : 'var(--primary)'}`, transition: 'all 0.2s ease', cursor: 'pointer' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}>
                                                 <div>
-                                                    <strong style={{ color: ev.type === 'info' ? '#ffd700' : '#00aeef', marginRight: '15px', fontSize: '18px', fontFamily: 'monospace' }}>{Math.floor(ev.time / 60)}:{(Math.floor(ev.time % 60)).toString().padStart(2, '0')}</strong>
+                                                    <strong style={{ color: ev.type === 'chapter' ? 'var(--primary)' : ev.type === 'info' ? '#ffd700' : 'var(--primary)', marginRight: '15px', fontSize: '18px', fontFamily: 'monospace' }}>{Math.floor(ev.time / 60)}:{(Math.floor(ev.time % 60)).toString().padStart(2, '0')}</strong>
                                                     <span style={{ color: '#fff', fontSize: '16px', fontWeight: 500 }}>{ev.question}</span>
                                                     <span style={{ marginLeft: '12px', fontSize: '10px', color: '#888', background: 'rgba(255,255,255,0.1)', padding: '4px 8px', borderRadius: '8px', textTransform: 'uppercase' }}>{ev.type.replace('_', ' ')}</span>
                                                 </div>
                                                 <div style={{ display: 'flex', gap: '8px' }}>
-                                                    <button className="btn btn-ghost" style={{ padding: '8px', background: 'rgba(0, 174, 239, 0.1)', color: '#00aeef', borderRadius: '8px' }} onClick={() => handleEditClick(ev)}>✏️</button>
-                                                    <button className="btn btn-ghost" style={{ padding: '8px', background: 'rgba(255, 77, 77, 0.1)', color: '#ff4d4d', borderRadius: '8px' }} onClick={() => handleDeleteClick(ev.id)}>🗑️</button>
+                                                    <button className="btn btn-ghost" style={{ padding: '8px', background: 'rgba(var(--primary-rgb), 0.1)', color: 'var(--primary)', borderRadius: '8px' }} onClick={() => handleEditClick(ev)}><Icons.Edit size={14}/></button>
+                                                    <button className="btn btn-ghost" style={{ padding: '8px', background: 'rgba(255, 77, 77, 0.1)', color: '#ff4d4d', borderRadius: '8px' }} onClick={() => handleDeleteClick(ev.id)}><Icons.Trash size={14}/></button>
                                                 </div>
                                             </div>
                                         ))}
@@ -953,7 +998,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                             onClick={handleSaveSettings} 
                                             disabled={isSavingSettings || !isChanged}
                                         >
-                                            {isSavingSettings ? 'Сохранение...' : (isChanged ? '💾 Сохранить настройки' : '✅ Настройки сохранены')}
+                                            {isSavingSettings ? 'Сохранение...' : (isChanged ? <><Icons.Save size={14}/> Сохранить настройки</> : <><Icons.Check size={14}/> Настройки сохранены</>)}
                                         </button>
                                     </div>
 
@@ -1017,21 +1062,21 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                                     </div>
                                                 </SortableContext>
                                             </DndContext>
-                                            <button className="btn btn-ghost" style={{ marginTop: '15px', fontSize: '14px', color: accentColor, width: '100%', background: `rgba(${isVideo?'0,174,239':'255,215,0'},0.05)`, padding: '10px', borderRadius: '12px', fontWeight: 'bold' }} onClick={handleAddOption}>+ Добавить вариант</button>
+                                            <button className="btn btn-ghost" style={{ marginTop: '15px', fontSize: '14px', color: accentColor, width: '100%', background: `rgba(${accentRgb},0.05)`, padding: '10px', borderRadius: '12px', fontWeight: 'bold' }} onClick={handleAddOption}>+ Добавить вариант</button>
                                         </div>
                                     )}
 
                                     {eventType === 'free_text' && (
-                                        <div style={{ background: 'rgba(0, 174, 239, 0.05)', padding: '20px', borderRadius: '16px', border: '1px solid rgba(0, 174, 239, 0.3)', position: 'relative', overflow: 'hidden' }}>
-                                            <label style={{ fontSize: '12px', color: '#00aeef', display: 'block', marginBottom: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }}>Эталон для нейросети:</label>
-                                            <textarea className="deck-input" placeholder="Напишите идеальный ответ или ключевые слова, которые должен упомянуть студент..." value={freeTextAnswer} onChange={e => setFreeTextAnswer(e.target.value)} style={{ background: 'rgba(0,0,0,0.5)', minHeight: '100px', resize: 'vertical', fontSize: '14px', border: '1px solid rgba(0, 174, 239, 0.2)' }} />
+                                        <div style={{ background: 'rgba(var(--primary-rgb), 0.05)', padding: '20px', borderRadius: '16px', border: '1px solid rgba(var(--primary-rgb), 0.3)', position: 'relative', overflow: 'hidden' }}>
+                                            <label style={{ fontSize: '12px', color: 'var(--primary)', display: 'block', marginBottom: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }}>Эталон для нейросети:</label>
+                                            <textarea className="deck-input" placeholder="Напишите идеальный ответ или ключевые слова, которые должен упомянуть студент..." value={freeTextAnswer} onChange={e => setFreeTextAnswer(e.target.value)} style={{ background: 'rgba(0,0,0,0.5)', minHeight: '100px', resize: 'vertical', fontSize: '14px', border: '1px solid rgba(var(--primary-rgb), 0.2)' }} />
                                             
                                             <div style={{ marginTop: '20px' }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                                                    <span style={{ fontSize: '13px', color: '#00aeef', fontWeight: 500 }}>Требуемая точность ответа:</span>
-                                                    <span style={{ fontSize: '14px', color: '#fff', fontWeight: 'bold', background: 'rgba(0,174,239,0.2)', padding: '2px 8px', borderRadius: '8px' }}>{aiThreshold}%</span>
+                                                    <span style={{ fontSize: '13px', color: 'var(--primary)', fontWeight: 500 }}>Требуемая точность ответа:</span>
+                                                    <span style={{ fontSize: '14px', color: '#fff', fontWeight: 'bold', background: 'rgba(var(--primary-rgb),0.2)', padding: '2px 8px', borderRadius: '8px' }}>{aiThreshold}%</span>
                                                 </div>
-                                                <input type="range" min="10" max="100" value={aiThreshold} onChange={e => setAiThreshold(e.target.value === '' ? '' : Number(e.target.value))} style={{ width: '100%', accentColor: '#00aeef', height: '6px' }} />
+                                                <input type="range" min="10" max="100" value={aiThreshold} onChange={e => setAiThreshold(e.target.value === '' ? '' : Number(e.target.value))} style={{ width: '100%', accentColor: 'var(--primary)', height: '6px' }} />
                                             </div>
                                         </div>
                                     )}
@@ -1085,7 +1130,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                     <button className="btn btn-ghost" style={{ flex: 1, background: 'rgba(255,255,255,0.05)', padding: '12px', borderRadius: '12px', fontWeight: 'bold' }} onClick={resetForm}>Отменить</button>
                                 )}
                                 <button className="btn btn-primary" style={{ flex: 2, background: accentColor, color: '#000', fontWeight: '900', padding: '12px', fontSize: '15px', borderRadius: '12px', boxShadow: `0 4px 15px ${accentColor}66` }} onClick={handleSaveItem} disabled={isAddingEvent}>
-                                    {isAddingEvent ? 'Сохранение...' : (editingEventId ? '💾 Сохранить изменения' : '➕ Создать элемент')}
+                                    {isAddingEvent ? 'Сохранение...' : (editingEventId ? <><Icons.Save size={14}/> Сохранить изменения</> : <><Icons.Plus size={14}/> Создать элемент</>)}
                                 </button>
                             </div>
                         )}

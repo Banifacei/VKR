@@ -23,7 +23,7 @@
     transition: transform 0.2s;
 }
 .stat-widget:hover { transform: translateY(-2px); border-color: #444; }
-.highlight-widget  { background: linear-gradient(135deg, var(--primary) 0%, #0077a3 100%); border: none; }
+.highlight-widget  { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%); border: none; }
 
 .widget-icon  { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .widget-info  { display: flex; flex-direction: column; flex: 1; }
@@ -63,13 +63,13 @@
 .history-date          { font-size: 12px; color: #666; }
 
 .history-badge         { font-size: 11px; padding: 4px 10px; border-radius: 6px; font-weight: 600; display: flex; align-items: center; gap: 4px; }
-.history-badge.success { background: rgba(77,255,136,0.1); color: #4dff88; }
-.history-badge.warning { background: rgba(255,215,0,0.15); color: var(--warning); }
+.history-badge.success { background: rgba(var(--success-rgb),0.1); color: #4dff88; }
+.history-badge.warning { background: rgba(var(--warning-rgb),0.15); color: var(--warning); }
 
 /* Карточки незавершённых */
-.unfinished-card { border: 1px solid rgba(255,215,0,0.3); background: linear-gradient(180deg, rgba(255,215,0,0.03) 0%, #111 100%); }
-.unfinished-item { background: rgba(255,215,0,0.02); border: 1px solid rgba(255,215,0,0.1); }
-.unfinished-item:hover { background: rgba(255,215,0,0.05); border-color: rgba(255,215,0,0.3); }
+.unfinished-card { border: 1px solid rgba(var(--warning-rgb),0.3); background: linear-gradient(180deg, rgba(var(--warning-rgb),0.03) 0%, #111 100%); }
+.unfinished-item { background: rgba(var(--warning-rgb),0.02); border: 1px solid rgba(var(--warning-rgb),0.1); }
+.unfinished-item:hover { background: rgba(var(--warning-rgb),0.05); border-color: rgba(var(--warning-rgb),0.3); }
 
 .empty-history { text-align: center; padding: 40px 20px; color: #666; }
 

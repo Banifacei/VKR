@@ -119,7 +119,7 @@ export const HistoryPage = () => {
                                     </div>
                                     
                                     <div className="stat-widget">
-                                        <div className="widget-icon" style={{ background: 'rgba(0, 174, 239, 0.1)', color: '#00aeef' }}>
+                                        <div className="widget-icon" style={{ background: 'rgba(var(--primary-rgb), 0.1)', color: 'var(--primary)' }}>
                                             <Icons.Brain />
                                         </div>
                                         <div className="widget-info">
@@ -134,7 +134,7 @@ export const HistoryPage = () => {
                                                 <div className="widget-value" style={{ fontSize: '28px' }}>{stats.stats.watchedVideosCount}</div>
                                                 <div className="widget-label" style={{ color: 'rgba(255,255,255,0.7)' }}>Уроков завершено</div>
                                             </div>
-                                            <div style={{ fontSize: '46px', opacity: 0.9 }}>🏆</div>
+                                            <div style={{ opacity: 0.9 }}><Icons.Trophy size={46}/></div>
                                         </div>
                                     </div>
 
@@ -145,7 +145,7 @@ export const HistoryPage = () => {
                                                 <div className="widget-value" style={{ fontSize: '28px', color: '#ffd700' }}>{stats.stats.completedTestsCount || 0}</div>
                                                 <div className="widget-label" style={{ color: '#888' }}>Тестов сдано</div>
                                             </div>
-                                            <div style={{ fontSize: '40px', opacity: 0.9 }}>📝</div>
+                                            <div style={{ opacity: 0.9 }}><Icons.FileText size={40}/></div>
                                         </div>
                                     </div>
                                 </div>
@@ -153,7 +153,7 @@ export const HistoryPage = () => {
                                 {/* НОВЫЙ БЛОК: Результаты глобальных тестов */}
                                 <div className="profile-history-card" style={{ marginTop: '30px' }}>
                                     <h3 className="history-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                        📝 Результаты тестов
+                                        <Icons.FileText size={18}/> Результаты тестов
                                     </h3>
                                     
                                     {stats.globalTests && stats.globalTests.length > 0 ? (
@@ -194,7 +194,7 @@ export const HistoryPage = () => {
                                         </div>
                                     ) : (
                                         <div className="empty-history">
-                                            <div style={{ fontSize: '30px', marginBottom: '10px' }}>🤷‍♂️</div>
+                                            <div style={{ marginBottom: '10px' }}><Icons.Empty size={30}/></div>
                                             <p style={{ color: '#666', fontSize: '14px' }}>Вы еще не сдавали тесты.</p>
                                         </div>
                                     )}
@@ -203,7 +203,7 @@ export const HistoryPage = () => {
                                 {stats.unfinished?.length > 0 && (
                                     <div className="profile-history-card unfinished-card" style={{ marginTop: '30px' }}>
                                         <h3 className="history-title" style={{ color: '#ffd700', borderBottomColor: 'rgba(255, 215, 0, 0.2)' }}>
-                                            ⏳ Ждут завершения
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Icons.Time size={16}/> Ждут завершения</span>
                                         </h3>
                                         <div className="history-list">
                                             {stats.unfinished.map((item: any) => (

@@ -5,19 +5,31 @@ import { Op } from 'sequelize';
 import { User } from '../models/User.js';
 import { SystemSetting } from '../models/SystemSetting.js';
 import { addSystemLog } from './adminController.js';
+import { adminSse } from './userController.js';
 import LdapAuth from 'ldapauth-fork';
 import passport from 'passport';
 import { Strategy as SamlStrategy } from 'passport-saml';
 if (!process.env.JWT_SECRET) {
-    console.warn('⚠️  WARNING: JWT_SECRET не задан в .env — используется небезопасный дефолт.');
+    throw new Error('JWT_SECRET не задан в .env. Установите переменную окружения перед запуском сервера.');
 }
-const JWT_SECRET = process.env.JWT_SECRET || 'lumeo_super_secret_2024';
+const JWT_SECRET = process.env.JWT_SECRET;
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 const API_URL = process.env.API_URL || 'http://localhost:5001';
 export const register = async (req: Request, res: Response) => {
     try {
         const { firstName, lastName, middleName, email, phone, password } = req.body;
-        const existingUser = await User.findOne({ 
+
+        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            return res.status(400).json({ message: 'Некорректный адрес email' });
+        }
+        if (!password || password.length < 8) {
+            return res.status(400).json({ message: 'Пароль должен содержать минимум 8 символов' });
+        }
+        if (!firstName || !lastName) {
+            return res.status(400).json({ message: 'Имя и фамилия обязательны' });
+        }
+
+        const existingUser = await User.findOne({
             where: { 
                 [Op.or]: [
                     { email },
@@ -48,6 +60,12 @@ export const register = async (req: Request, res: Response) => {
 
         if (requiresApproval) {
             addSystemLog(`Новая заявка на регистрацию: ${email}`, 'warning');
+            adminSse.broadcast({
+                type: 'pending_user',
+                userId: user.id,
+                email,
+                name: `${firstName} ${lastName}`,
+            });
             res.status(201).json({ message: 'Заявка отправлена на рассмотрение', status: 'pending' });
         } else {
             addSystemLog(`Новый пользователь зарегистрирован: ${email}`, 'success');
@@ -527,7 +545,7 @@ export const samlCallback = async (req: Request, res: Response, next: any) => {
                 return res.redirect(`${CLIENT_URL}/auth?error=saml_rejected`);
             }
             
-            const jwtToken = jwt.sign({ id: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET || 'lumeo_super_secret_2024', { expiresIn: '7d' });
+            const jwtToken = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
             res.redirect(`${CLIENT_URL}/auth?token=${jwtToken}`);
         })(req, res, next);
 

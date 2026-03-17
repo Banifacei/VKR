@@ -1,4 +1,5 @@
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { Icons } from './Icons';
 import { arrayMove, SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { IVideo } from '../types';
@@ -45,13 +46,13 @@ const SortableItem = ({ video, index, isActive, onClick, onEdit, onDelete }: Sor
                     style={{ padding: '4px', fontSize: '12px' }} 
                     title="Переименовать" 
                     onClick={(e) => onEdit(video, e)}
-                >✏️</button>
-                <button 
-                    className="btn btn-ghost" 
-                    style={{ padding: '4px', fontSize: '12px', color: '#ff4d4d' }} 
-                    title="Удалить" 
+                ><Icons.Edit size={14}/></button>
+                <button
+                    className="btn btn-ghost"
+                    style={{ padding: '4px', fontSize: '12px', color: '#ff4d4d' }}
+                    title="Удалить"
                     onClick={(e) => onDelete(video, e)}
-                >🗑️</button>
+                ><Icons.Trash size={14}/></button>
             </div>
         </div>
     );

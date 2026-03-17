@@ -1,8 +1,9 @@
 import { useState, useRef } from 'react';
-import { useTheme, THEME_PRESETS, previewGlobalBg, previewPreset, type ThemePreset, type BgPattern } from '../../context/ThemeContext';
+import { useTheme, THEME_PRESETS, previewGlobalBg, previewPreset, previewScheme, previewDensity, type ThemePreset, type BgPattern, type ColorScheme, type Density } from '../../context/ThemeContext';
+import { Icons } from '../Icons';
 
 const BG_PATTERNS: { value: BgPattern; label: string; icon: string }[] = [
-    { value: 'none',      label: 'Без паттерна', icon: '⬛' },
+    { value: 'off',       label: 'Без паттерна', icon: '⬛' },
     { value: 'grid',      label: 'Сетка',        icon: '🔲' },
     { value: 'dots',      label: 'Точки',        icon: '⠿' },
     { value: 'cross',     label: 'Решётка+',     icon: '✛' },
@@ -10,14 +11,28 @@ const BG_PATTERNS: { value: BgPattern; label: string; icon: string }[] = [
     { value: 'particles', label: 'Частицы',      icon: '✨' },
 ];
 
+const COLOR_SCHEMES: { value: ColorScheme; label: string; icon: string; desc: string }[] = [
+    { value: 'dark',   label: 'Тёмная',    icon: '🌑', desc: 'Тёмный интерфейс по умолчанию' },
+    { value: 'light',  label: 'Светлая',   icon: '☀️', desc: 'Светлый интерфейс по умолчанию' },
+    { value: 'system', label: 'Системная', icon: '💻', desc: 'Следовать настройкам ОС' },
+    { value: 'time',   label: 'По времени', icon: '🕐', desc: 'Тёмная ночью (20:00–7:00)' },
+];
+
+const DENSITIES: { value: Density; label: string; icon: string; desc: string }[] = [
+    { value: 'normal',  label: 'Обычный',   icon: '▣', desc: 'Стандартные отступы' },
+    { value: 'compact', label: 'Компактный', icon: '▪', desc: 'Уменьшенные отступы' },
+];
+
 export const BrandingTab = () => {
     const { globalTheme, saveGlobalTheme, isSaving } = useTheme();
 
-    const [preset,    setPreset]    = useState<ThemePreset>(globalTheme.theme_preset);
-    const [name,      setName]      = useState(globalTheme.platform_name);
-    const [bgPattern, setBgPattern] = useState<BgPattern>(globalTheme.platform_bg_pattern);
-    const [logoFile,  setLogoFile]  = useState<File | null>(null);
-    const [logoPreview, setLogoPreview] = useState(globalTheme.platform_logo);
+    const [preset,        setPreset]        = useState<ThemePreset>(globalTheme.theme_preset);
+    const [name,          setName]          = useState(globalTheme.platform_name);
+    const [bgPattern,     setBgPattern]     = useState<BgPattern>(globalTheme.platform_bg_pattern);
+    const [defaultScheme, setDefaultScheme] = useState<ColorScheme>(globalTheme.default_scheme);
+    const [defaultDensity, setDefaultDensity] = useState<Density>(globalTheme.default_density);
+    const [logoFile,      setLogoFile]      = useState<File | null>(null);
+    const [logoPreview,   setLogoPreview]   = useState(globalTheme.platform_logo);
     const fileRef = useRef<HTMLInputElement>(null);
 
     const handleLogo = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -32,6 +47,8 @@ export const BrandingTab = () => {
             theme_preset:        preset,
             platform_name:       name,
             platform_bg_pattern: bgPattern,
+            default_scheme:      defaultScheme,
+            default_density:     defaultDensity,
             logoFile,
         });
         setLogoFile(null);
@@ -68,7 +85,7 @@ export const BrandingTab = () => {
                         <div className="branding-logo-preview" onClick={() => fileRef.current?.click()}>
                             {logoPreview
                                 ? <img src={logoPreview} alt="logo" />
-                                : <span style={{ fontSize: 32 }}>🏫</span>
+                                : <Icons.Building size={32}/>
                             }
                             <div className="branding-logo-overlay">Изменить</div>
                         </div>
@@ -139,6 +156,58 @@ export const BrandingTab = () => {
                 </div>
             </div>
 
+            {/* Тема по умолчанию */}
+            <div className="admin-section" style={{ marginBottom: 24 }}>
+                <div className="section-header">
+                    <h2>Тема по умолчанию</h2>
+                </div>
+                <div className="section-body">
+                    <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: '0 0 16px' }}>
+                        Применяется для новых пользователей и тех, кто не изменял настройки интерфейса.
+                    </p>
+                    <div className="branding-scheme-grid">
+                        {COLOR_SCHEMES.map(s => (
+                            <button
+                                key={s.value}
+                                className={`branding-scheme-card ${defaultScheme === s.value ? 'active' : ''}`}
+                                onClick={() => { setDefaultScheme(s.value); previewScheme(s.value); }}
+                            >
+                                <span className="scheme-icon">{s.icon}</span>
+                                <span className="scheme-label">{s.label}</span>
+                                <span className="scheme-desc">{s.desc}</span>
+                                {defaultScheme === s.value && <span className="scheme-check">✓</span>}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* Плотность интерфейса по умолчанию */}
+            <div className="admin-section" style={{ marginBottom: 24 }}>
+                <div className="section-header">
+                    <h2>Плотность интерфейса</h2>
+                </div>
+                <div className="section-body">
+                    <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: '0 0 16px' }}>
+                        Влияет на размер отступов и элементов для новых пользователей.
+                    </p>
+                    <div className="branding-density-grid">
+                        {DENSITIES.map(d => (
+                            <button
+                                key={d.value}
+                                className={`branding-density-card ${defaultDensity === d.value ? 'active' : ''}`}
+                                onClick={() => { setDefaultDensity(d.value); previewDensity(d.value); }}
+                            >
+                                <span className="density-icon">{d.icon}</span>
+                                <span className="density-label">{d.label}</span>
+                                <span className="density-desc">{d.desc}</span>
+                                {defaultDensity === d.value && <span className="density-check">✓</span>}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
             {/* Действия */}
             <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
                 <button className="btn btn-primary" onClick={handleSave} disabled={isSaving} style={{ minWidth: 160 }}>
@@ -149,7 +218,7 @@ export const BrandingTab = () => {
                     onClick={() => window.open('/?preview=1', '_blank')}
                     style={{ display: 'flex', alignItems: 'center', gap: 8 }}
                 >
-                    👁 Предпросмотр как студент
+                    <Icons.Eye size={14}/> Предпросмотр как студент
                 </button>
             </div>
         </div>

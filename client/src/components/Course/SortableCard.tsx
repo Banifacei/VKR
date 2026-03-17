@@ -41,7 +41,7 @@ export const SortableCard = ({ item, idx, isEditMode, completedVideoIds, testRes
                     </button>
                 </div>
             )}
-            <div style={{ height: '140px', background: isVideo ? 'linear-gradient(135deg, #00aeef 0%, #0056b3 100%)' : 'linear-gradient(135deg, #F09819 0%, #EDDE5D 100%)', display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative' }}>
+            <div style={{ height: '140px', background: isVideo ? 'linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%)' : 'linear-gradient(135deg, #F09819 0%, #EDDE5D 100%)', display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative', color: '#fff' }}>
                 <div style={{ position: 'absolute', top: '12px', left: '12px', background: 'rgba(0,0,0,0.5)', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: 'bold', color: '#fff', backdropFilter: 'blur(4px)' }}>
                     {isVideo ? 'ВИДЕО-УРОК' : 'ТЕСТИРОВАНИЕ'}
                 </div>

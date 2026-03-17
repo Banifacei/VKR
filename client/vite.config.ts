@@ -5,7 +5,12 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
-    host: true, // Теперь это на своем месте
-    port: 5173, // Можно явно указать порт, если хочешь
+    host: true,
+    port: 5173,
+    proxy: {
+      // В dev-режиме Vite сам проксирует /api и /uploads на сервер
+      '/api': { target: 'http://server:5001', changeOrigin: true },
+      '/uploads': { target: 'http://server:5001', changeOrigin: true },
+    },
   },
 })

@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { uploadVideoFile, createVideo } from '../api/videoApi';
 import { useToast } from '../context/ToastContext'; // 🔥 ИМПОРТ
-import './AddVideoForm.css';
 
 interface AddVideoFormProps {
   onVideoAdded: () => void;

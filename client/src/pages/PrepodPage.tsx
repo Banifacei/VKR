@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { AddVideoForm } from '../components/AddVideoForm';
@@ -54,7 +54,6 @@ export const PrepodPage = () => {
   // --- СОСТОЯНИЕ: ВИДЕО И РЕДАКТОР ---
   const [videos, setVideos] = useState<IVideo[]>([]);
   const [selectedVideo, setSelectedVideo] = useState<IVideo | null>(null);
-  const prevVideosRef = useRef<IVideo[]>([]);
   // Вспомогательный стейт для восстановления видео после F5
   const [savedVideoId, setSavedVideoId] = useState<number | null>(() => {
       const saved = localStorage.getItem('prepod_video_id');
@@ -79,22 +78,29 @@ export const PrepodPage = () => {
       const saved = localStorage.getItem('prepod_generating_videos');
       return saved ? JSON.parse(saved) : [];
   });
-  // --- УМНЫЙ НАБЛЮДАТЕЛЬ ЗА ОКОНЧАНИЕМ ГЕНЕРАЦИИ ---
+  // --- SSE: мгновенное уведомление о завершении генерации субтитров ---
   useEffect(() => {
-      if (videos.length > 0 && prevVideosRef.current.length > 0) {
-          generatingVideos.forEach(genId => {
-              const oldVid = prevVideosRef.current.find(v => v.id === genId);
-              const newVid = videos.find(v => v.id === genId);
-              
-              // Если субтитры обновились у видео, которое мы ждали
-              if (oldVid && newVid && JSON.stringify(oldVid.subtitles) !== JSON.stringify(newVid.subtitles)) {
-                  showToast(`Субтитры для урока "${newVid.title}" успешно созданы!`, 'success');
-                  setGeneratingVideos(prev => prev.filter(id => id !== genId));
-              }
-          });
-      }
-      prevVideosRef.current = videos; // Запоминаем текущий список для следующей проверки
-  }, [videos, generatingVideos]);
+      if (!selectedCourseId) return;
+      const token = localStorage.getItem('lumeo_token');
+      if (!token) return;
+
+      const es = new EventSource(`/api/videos/courses/${selectedCourseId}/processing/stream?token=${token}`);
+
+      es.onmessage = async ({ data }) => {
+          try {
+              const d = JSON.parse(data);
+              if (d.type !== 'subtitle_done') return;
+              showToast(`Субтитры для урока "${d.videoTitle}" успешно созданы!`, 'success');
+              setGeneratingVideos(prev => prev.filter(id => id !== d.videoId));
+              // Перезагружаем список видео чтобы подтянуть новые субтитры
+              const freshVideos = await getVideosByCourse(selectedCourseId);
+              setVideos(freshVideos);
+          } catch { /* игнорируем */ }
+      };
+
+      es.onerror = () => es.close();
+      return () => es.close();
+  }, [selectedCourseId]);
   // Сохраняем этот список в кэш браузера при каждом изменении
   useEffect(() => {
       localStorage.setItem('prepod_generating_videos', JSON.stringify(generatingVideos));
@@ -263,20 +269,7 @@ export const PrepodPage = () => {
       return () => clearInterval(interval);
   }, [showStats, selectedVideo]);
 
-  // 3. РАДАР ВИДЕО
-  useEffect(() => {
-      if (!selectedCourseId) return;
-      const interval = setInterval(async () => {
-          try {
-              const freshVideos = await getVideosByCourse(selectedCourseId);
-              setVideos(prev => {
-                  if (JSON.stringify(prev) !== JSON.stringify(freshVideos)) return freshVideos;
-                  return prev;
-              });
-          } catch (e) {}
-      }, 10000);
-      return () => clearInterval(interval);
-  }, [selectedCourseId]);
+  // Видео обновляются через SSE (subtitle_done) — polling убран
 
   // СИНХРОНИЗАЦИЯ ПЛЕЕРА
   useEffect(() => {
@@ -596,7 +589,7 @@ export const PrepodPage = () => {
                             }}
                         >
                             <h3 className="course-title" style={{ paddingRight: '60px' }}>{c.title}</h3>
-                            <div className="course-instructor">👨‍🏫 {c.instructor}</div>
+                            <div className="course-instructor" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><Icons.Teacher size={14}/> {c.instructor}</div>
                             {/* ВОТ ЭТИХ СТРОК И ЗАКРЫВАЮЩИХ ТЕГОВ НЕ ХВАТАЛО! 👇 */}
                             <div className="course-desc">{c.description || 'Нет описания'}</div>
                             <div className="course-meta">{c.videos?.length || 0} УРОКОВ</div>
@@ -665,7 +658,7 @@ export const PrepodPage = () => {
                                 )}
                                 {expandedStudent && (
                                     <div>
-                                        <h4 style={{ color: '#00aeef', marginTop: 0, marginBottom: '25px', fontSize: '1.2rem' }}>
+                                        <h4 style={{ color: 'var(--primary)', marginTop: 0, marginBottom: '25px', fontSize: '1.2rem' }}>
                                             Ответы студента: <span style={{color: 'white'}}>{expandedStudentName}</span>
                                         </h4>
                                         <table className="stats-table">
@@ -684,7 +677,7 @@ export const PrepodPage = () => {
                                                             ) : (<span style={{ color: '#444' }}>—</span>)}
                                                         </td>
                                                         <td style={{ textAlign: 'right' }}>
-                                                            {stat.isCorrect ? (<span style={{ color: '#4dff88', fontWeight: 'bold' }}>✅ Верно</span>) : (<span style={{ color: '#ff4d4d', fontWeight: 'bold' }}>❌ Ошибка</span>)}
+                                                            {stat.isCorrect ? (<span style={{ color: '#4dff88', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}><Icons.LogSuccess size={14}/> Верно</span>) : (<span style={{ color: '#ff4d4d', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}><Icons.Fail size={14}/> Ошибка</span>)}
                                                         </td>
                                                     </tr>
                                                 ))}
@@ -720,13 +713,13 @@ export const PrepodPage = () => {
                         <div style={{ display: 'flex', borderBottom: '1px solid #333', background: '#0a0a0a' }}>
                             <button 
                                 onClick={() => setSettingsTab('info')}
-                                style={{ flex: 1, padding: '15px', background: 'none', border: 'none', borderBottom: settingsTab === 'info' ? '2px solid #00aeef' : '2px solid transparent', color: settingsTab === 'info' ? '#00aeef' : '#888', fontWeight: 'bold', cursor: 'pointer' }}
+                                style={{ flex: 1, padding: '15px', background: 'none', border: 'none', borderBottom: settingsTab === 'info' ? '2px solid var(--primary)' : '2px solid transparent', color: settingsTab === 'info' ? 'var(--primary)' : '#888', fontWeight: 'bold', cursor: 'pointer' }}
                             >
                                 Основное
                             </button>
                             <button 
                                 onClick={() => { setSettingsTab('team'); fetchCollaborators(selectedCourseId!); }}
-                                style={{ flex: 1, padding: '15px', background: 'none', border: 'none', borderBottom: settingsTab === 'team' ? '2px solid #00aeef' : '2px solid transparent', color: settingsTab === 'team' ? '#00aeef' : '#888', fontWeight: 'bold', cursor: 'pointer' }}
+                                style={{ flex: 1, padding: '15px', background: 'none', border: 'none', borderBottom: settingsTab === 'team' ? '2px solid var(--primary)' : '2px solid transparent', color: settingsTab === 'team' ? 'var(--primary)' : '#888', fontWeight: 'bold', cursor: 'pointer' }}
                             >
                                 Команда
                             </button>
@@ -775,7 +768,7 @@ export const PrepodPage = () => {
                                                         loadCourses();
                                                     } catch (e) { showToast('Ошибка при удалении', 'error'); }
                                                 }
-                                            }}>🗑️ Удалить курс</button>
+                                            }}><Icons.Trash size={14}/> Удалить курс</button>
                                         )}
                                     </div>
                                 </div>
@@ -852,7 +845,7 @@ export const PrepodPage = () => {
                             }
                         }}
                     >
-                        ⚙️ Настройки курса
+                        <Icons.Settings size={14}/> Настройки курса
                     </button>
                  </div>
              </div>
@@ -942,7 +935,7 @@ export const PrepodPage = () => {
                                         }}
                                     >
                                         <div>
-                                            <div className="test-item-title">📝 {test.title}</div>
+                                            <div className="test-item-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Icons.FileText size={14}/> {test.title}</div>
                                             <div className="test-item-meta">{test.questions?.length || 0} вопросов</div>
                                         </div>
                                         <button className="btn-icon" style={{ color: '#ff4d4d' }} onClick={async (e) => {
@@ -955,7 +948,7 @@ export const PrepodPage = () => {
                                                     showToast('Тест удален', 'info');
                                                 } catch (err) { showToast('Ошибка удаления', 'error'); }
                                             }
-                                        }}>🗑️</button>
+                                        }}><Icons.Trash size={14}/></button>
                                     </div>
                                 ))}
                                 {tests.length === 0 && <div style={{ textAlign: 'center', color: '#666', fontSize: '13px', marginTop: '20px' }}>Нет итоговых тестов</div>}
@@ -1013,9 +1006,9 @@ export const PrepodPage = () => {
                                             <div style={{color: '#666', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px'}}><Icons.Time /> {currentTime.toFixed(1)}s</div>
                                         </div>
                                         {eventType === 'free_text' && (
-                                            <div style={{ marginBottom: '15px', background: 'rgba(0, 174, 239, 0.05)', padding: '15px', borderRadius: '8px', borderLeft: '3px solid #00aeef' }}>
-                                                <label style={{ fontSize: '13px', color: '#00aeef', display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontWeight: 'bold' }}><span>Точность (ИИ):</span><span>{aiThreshold}%</span></label>
-                                                <input type="range" min="10" max="100" value={aiThreshold} onChange={e => setAiThreshold(Number(e.target.value))} style={{ width: '100%', accentColor: '#00aeef' }} />
+                                            <div style={{ marginBottom: '15px', background: 'rgba(var(--primary-rgb), 0.05)', padding: '15px', borderRadius: '8px', borderLeft: '3px solid var(--primary)' }}>
+                                                <label style={{ fontSize: '13px', color: 'var(--primary)', display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontWeight: 'bold' }}><span>Точность (ИИ):</span><span>{aiThreshold}%</span></label>
+                                                <input type="range" min="10" max="100" value={aiThreshold} onChange={e => setAiThreshold(Number(e.target.value))} style={{ width: '100%', accentColor: 'var(--primary)' }} />
                                             </div>
                                         )}
                                         <input className="deck-input" placeholder={eventType === 'info' ? "Текст карточки..." : "Текст вопроса..."} value={questionText} onChange={e => setQuestionText(e.target.value)} />
@@ -1062,14 +1055,14 @@ export const PrepodPage = () => {
                                     <h3 style={{ margin: '0 0 20px 0', color: '#fff' }}>Метки ({selectedVideo.events.length})</h3>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                         {[...selectedVideo.events].sort((a, b) => a.time - b.time).map(ev => (
-                                            <div key={ev.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1a1a1a', padding: '15px', borderRadius: '8px', borderLeft: `3px solid ${ev.type === 'info' ? '#ffd700' : '#00aeef'}` }}>
+                                            <div key={ev.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1a1a1a', padding: '15px', borderRadius: '8px', borderLeft: `3px solid ${ev.type === 'info' ? '#ffd700' : 'var(--primary)'}` }}>
                                                 <div>
-                                                    <strong style={{ color: ev.type === 'info' ? '#ffd700' : '#00aeef', marginRight: '10px' }}>{Math.floor(ev.time / 60)}:{(Math.floor(ev.time % 60)).toString().padStart(2, '0')}</strong>
+                                                    <strong style={{ color: ev.type === 'info' ? '#ffd700' : 'var(--primary)', marginRight: '10px' }}>{Math.floor(ev.time / 60)}:{(Math.floor(ev.time % 60)).toString().padStart(2, '0')}</strong>
                                                     <span style={{ color: '#eee' }}>{ev.question}</span>
                                                 </div>
                                                 <div style={{ display: 'flex', gap: '10px' }}>
-                                                    <button className="btn btn-ghost" style={{ padding: '6px' }} onClick={() => handleEditClick(ev)}>✏️</button>
-                                                    <button className="btn btn-ghost" style={{ padding: '6px', color: '#ff4d4d' }} onClick={() => handleDeleteClick(ev.id)}>🗑️</button>
+                                                    <button className="btn btn-ghost" style={{ padding: '6px' }} onClick={() => handleEditClick(ev)}><Icons.Edit size={14}/></button>
+                                                    <button className="btn btn-ghost" style={{ padding: '6px', color: '#ff4d4d' }} onClick={() => handleDeleteClick(ev.id)}><Icons.Trash size={14}/></button>
                                                 </div>
                                             </div>
                                         ))}
@@ -1092,7 +1085,7 @@ export const PrepodPage = () => {
                             {/* КОНСТРУКТОР ВОПРОСА ДЛЯ ТЕСТА */}
                             <div className="control-deck">
                                 <div className="deck-header">
-                                    <div className="deck-title"><div className="deck-icon" style={{background: 'rgba(255, 215, 0, 0.1)', color: '#ffd700'}}>📝</div><h3>Новый вопрос в тест</h3></div>
+                                    <div className="deck-title"><div className="deck-icon" style={{background: 'rgba(255, 215, 0, 0.1)', color: '#ffd700'}}><Icons.FileText size={16}/></div><h3>Новый вопрос в тест</h3></div>
                                 </div>
                                 <div style={{ display: 'flex', gap: '40px', flexWrap: 'wrap' }}>
                                     <div style={{ flex: 2, minWidth: '300px' }}>
@@ -1105,9 +1098,9 @@ export const PrepodPage = () => {
                                         </div>
                                         
                                         {eventType === 'free_text' && (
-                                            <div style={{ marginBottom: '15px', background: 'rgba(0, 174, 239, 0.05)', padding: '15px', borderRadius: '8px', borderLeft: '3px solid #00aeef' }}>
-                                                <label style={{ fontSize: '13px', color: '#00aeef', display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontWeight: 'bold' }}><span>Точность (ИИ):</span><span>{aiThreshold}%</span></label>
-                                                <input type="range" min="10" max="100" value={aiThreshold} onChange={e => setAiThreshold(Number(e.target.value))} style={{ width: '100%', accentColor: '#00aeef' }} />
+                                            <div style={{ marginBottom: '15px', background: 'rgba(var(--primary-rgb), 0.05)', padding: '15px', borderRadius: '8px', borderLeft: '3px solid var(--primary)' }}>
+                                                <label style={{ fontSize: '13px', color: 'var(--primary)', display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontWeight: 'bold' }}><span>Точность (ИИ):</span><span>{aiThreshold}%</span></label>
+                                                <input type="range" min="10" max="100" value={aiThreshold} onChange={e => setAiThreshold(Number(e.target.value))} style={{ width: '100%', accentColor: 'var(--primary)' }} />
                                             </div>
                                         )}
                                         <input className="deck-input" placeholder="Текст вопроса..." value={questionText} onChange={e => setQuestionText(e.target.value)} />
@@ -1146,7 +1139,7 @@ export const PrepodPage = () => {
                                                     <span style={{ color: '#eee' }}>{q.text}</span>
                                                     <span style={{ marginLeft: '10px', fontSize: '11px', color: '#666', background: '#222', padding: '2px 6px', borderRadius: '4px' }}>{q.type}</span>
                                                 </div>
-                                                <button className="btn btn-ghost" style={{ padding: '6px', color: '#ff4d4d' }} onClick={() => handleDeleteTestQuestion(q.id)}>🗑️</button>
+                                                <button className="btn btn-ghost" style={{ padding: '6px', color: '#ff4d4d' }} onClick={() => handleDeleteTestQuestion(q.id)}><Icons.Trash size={14}/></button>
                                             </div>
                                         ))}
                                     </div>

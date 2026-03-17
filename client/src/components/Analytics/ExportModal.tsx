@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import * as XLSX from 'xlsx';
+import { Icons } from '../Icons';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 
@@ -126,7 +127,7 @@ export const ExportModal = ({ isOpen, onClose, course, analytics, exportType }: 
         <div className="test-overlay" onClick={onClose} style={{ zIndex: 99999 }}>
             <div className="test-modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '450px', padding: '30px' }}>
                 <h2 style={{ marginTop: 0, marginBottom: '20px', fontSize: '22px' }}>
-                    {exportType === 'gost' ? '🖨️ Настройка ведомости' : '📥 Детальный отчет'}
+                    {exportType === 'gost' ? <><Icons.Printer size={20}/> Настройка ведомости</> : <><Icons.Download size={20}/> Детальный отчет</>}
                 </h2>
                 
                 {exportType === 'gost' && (
@@ -167,7 +168,7 @@ export const ExportModal = ({ isOpen, onClose, course, analytics, exportType }: 
 
                 <div style={{ display: 'flex', gap: '15px' }}>
                     <button className="btn btn-ghost" style={{ flex: 1 }} onClick={onClose}>Отмена</button>
-                    <button className="btn btn-primary" style={{ flex: 1, background: exportType === 'gost' ? '#00aeef' : '#4dff88', color: exportType === 'gost' ? '#fff' : '#000' }} onClick={handleExport}>
+                    <button className="btn btn-primary" style={{ flex: 1, background: exportType === 'gost' ? 'var(--primary)' : '#4dff88', color: exportType === 'gost' ? '#fff' : '#000' }} onClick={handleExport}>
                         Скачать .xlsx
                     </button>
                 </div>

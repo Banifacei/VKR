@@ -10,6 +10,13 @@ import { CourseTest } from '../models/CourseTest.js';
 import { addSystemLog } from './adminController.js';
 import { Op } from 'sequelize';
 import * as xlsx from 'xlsx';
+import { createBroadcast } from '../utils/sseHub.js';
+
+// ─── SSE-канал для администраторов ───────────────────────────────────────────
+export const adminSse = createBroadcast();
+
+export const sseAdminEvents = (req: Request, res: Response) =>
+    adminSse.subscribe(req, res);
 export const getAllUsers = async (req: Request, res: Response) => {
     try {
         const users = await User.findAll({
@@ -60,6 +67,10 @@ export const updateUserByAdmin = async (req: Request, res: Response) => {
         const userIdToUpdate = Number(req.params.id);
         const adminId = Number((req as any).user?.id);
         const { firstName, lastName, email, role, password } = req.body;
+
+        if (role && !['student', 'teacher', 'admin'].includes(role)) {
+            return res.status(400).json({ message: 'Недопустимая роль' });
+        }
 
         // 🔥 ИБ: Защита от случайного лишения себя прав через модальное окно редактирования
         if (userIdToUpdate === adminId && role !== 'admin') {
@@ -191,6 +202,16 @@ export const createUserByAdmin = async (req: Request, res: Response) => {
     try {
         const { firstName, lastName, email, role, password } = req.body;
 
+        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            return res.status(400).json({ message: 'Некорректный адрес email' });
+        }
+        if (!password || password.length < 8) {
+            return res.status(400).json({ message: 'Пароль должен содержать минимум 8 символов' });
+        }
+        if (!['student', 'teacher', 'admin'].includes(role)) {
+            return res.status(400).json({ message: 'Недопустимая роль' });
+        }
+
         // Проверяем, нет ли уже такого email
         const existingUser = await User.findOne({ where: { email } });
         if (existingUser) {
@@ -271,8 +292,9 @@ export const approveUser = async (req: Request, res: Response) => {
         
         user.status = 'active';
         await user.save();
-        
+
         addSystemLog(`Одобрена регистрация пользователя: ${user.email}`, 'success');
+        adminSse.broadcast({ type: 'user_approved', userId: user.id, email: user.email });
         res.json({ success: true, user });
     } catch (e) {
         res.status(500).json({ message: 'Ошибка при одобрении пользователя' });
@@ -288,8 +310,9 @@ export const rejectUser = async (req: Request, res: Response) => {
         
         user.status = 'rejected';
         await user.save();
-        
+
         addSystemLog(`Отклонена заявка пользователя: ${user.email}`, 'error');
+        adminSse.broadcast({ type: 'user_rejected', userId: user.id, email: user.email });
         res.json({ success: true, message: 'Заявка отклонена' });
     } catch (e) {
         res.status(500).json({ message: 'Ошибка при отклонении пользователя' });

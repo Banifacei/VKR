@@ -244,7 +244,7 @@ export const AuthPage = () => {
                     )}
                     <div style={{marginTop: '20px', color: '#888', fontSize: '14px'}}>
                         {isLogin ? 'Нет аккаунта? ' : 'Уже есть аккаунт? '}
-                        <span style={{color: '#00aeef', cursor: 'pointer', fontWeight: 'bold'}} onClick={() => { setIsLogin(!isLogin); setError(''); }}>
+                        <span style={{color: 'var(--primary)', cursor: 'pointer', fontWeight: 'bold'}} onClick={() => { setIsLogin(!isLogin); setError(''); }}>
                             {isLogin ? 'Создать' : 'Войти'}
                         </span>
                     </div>

@@ -16,7 +16,8 @@ import {
     searchUsers,
     getAvailableUsers
 } from '../controllers/userController.js';
-import {checkAuth, isAdmin} from '../middleware/authMiddleware.js';
+import { checkAuth, isAdmin, checkAuthSse } from '../middleware/authMiddleware.js';
+import { sseAdminEvents } from '../controllers/userController.js';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -34,4 +35,6 @@ router.get('/template', checkAuth, isAdmin, downloadTemplate);
 router.post('/:id/approve', checkAuth, isAdmin, approveUser);
 router.post('/:id/reject', checkAuth, isAdmin, rejectUser);
 router.post('/import', checkAuth, isAdmin, upload.single('file'), importUsersFromExcel);
+// SSE: администратор получает live-уведомления о новых заявках
+router.get('/admin/stream', checkAuthSse, isAdmin, sseAdminEvents);
 export default router;

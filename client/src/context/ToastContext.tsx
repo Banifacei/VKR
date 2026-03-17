@@ -1,5 +1,4 @@
 import { createContext, useContext, useState, useCallback } from 'react';
-import '../components/Toast.css'; // CSS файл создадим на следующем шаге
 
 type ToastType = 'success' | 'error' | 'info';
 

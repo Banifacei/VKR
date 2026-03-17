@@ -4,6 +4,7 @@ import api from '../../api/axiosInstance';
 import { updateCourseApi, deleteCourseApi } from '../../api/videoApi';
 import { useToast } from '../../context/ToastContext';
 import type { ICourse } from '../../types';
+import { Icons } from '../Icons';
 
 interface CourseSettingsModalProps {
     isOpen: boolean;
@@ -157,14 +158,14 @@ export const CourseSettingsModal = ({
                 </div>
 
                 <div style={{ display: 'flex', borderBottom: '1px solid #333', background: '#0a0a0a' }}>
-                    <button onClick={() => setSettingsTab('info')} style={{ flex: 1, padding: '15px', background: 'none', border: 'none', borderBottom: settingsTab === 'info' ? '2px solid #00aeef' : '2px solid transparent', color: settingsTab === 'info' ? '#00aeef' : '#888', fontWeight: 'bold', cursor: 'pointer' }}>Основное</button>
-                    <button onClick={() => { setSettingsTab('enrollments'); fetchEnrollments(); }} style={{ flex: 1, padding: '15px', background: 'none', border: 'none', borderBottom: settingsTab === 'enrollments' ? '2px solid #00aeef' : '2px solid transparent', color: settingsTab === 'enrollments' ? '#00aeef' : '#888', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                    <button onClick={() => setSettingsTab('info')} style={{ flex: 1, padding: '15px', background: 'none', border: 'none', borderBottom: settingsTab === 'info' ? '2px solid var(--primary)' : '2px solid transparent', color: settingsTab === 'info' ? 'var(--primary)' : '#888', fontWeight: 'bold', cursor: 'pointer' }}>Основное</button>
+                    <button onClick={() => { setSettingsTab('enrollments'); fetchEnrollments(); }} style={{ flex: 1, padding: '15px', background: 'none', border: 'none', borderBottom: settingsTab === 'enrollments' ? '2px solid var(--primary)' : '2px solid transparent', color: settingsTab === 'enrollments' ? 'var(--primary)' : '#888', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                         Заявки
                         {pendingCount > 0 && (
                             <span style={{ background: '#ff4d4d', color: '#fff', fontSize: '11px', padding: '2px 6px', borderRadius: '10px', lineHeight: 1 }}>{pendingCount}</span>
                         )}
                     </button>
-                    <button onClick={() => { setSettingsTab('team'); fetchCollaborators(); }} style={{ flex: 1, padding: '15px', background: 'none', border: 'none', borderBottom: settingsTab === 'team' ? '2px solid #00aeef' : '2px solid transparent', color: settingsTab === 'team' ? '#00aeef' : '#888', fontWeight: 'bold', cursor: 'pointer' }}>Команда</button>
+                    <button onClick={() => { setSettingsTab('team'); fetchCollaborators(); }} style={{ flex: 1, padding: '15px', background: 'none', border: 'none', borderBottom: settingsTab === 'team' ? '2px solid var(--primary)' : '2px solid transparent', color: settingsTab === 'team' ? 'var(--primary)' : '#888', fontWeight: 'bold', cursor: 'pointer' }}>Команда</button>
                 </div>
 
                 <div style={{ padding: '25px', overflowY: 'auto', flex: 1 }}>
@@ -191,7 +192,7 @@ export const CourseSettingsModal = ({
                                         if (window.confirm('⚠️ Вы уверены, что хотите навсегда удалить этот курс?')) {
                                             try { await deleteCourseApi(course.id); navigate('/courses'); } catch (e) { showToast('Ошибка', 'error'); }
                                         }
-                                    }}>🗑️ Удалить</button>
+                                    }}><Icons.Trash size={14}/> Удалить</button>
                                 )}
                             </div>
                         </div>
@@ -215,7 +216,7 @@ export const CourseSettingsModal = ({
                                                 if (!searchQuery.trim()) loadAllUsers();
                                             }}
                                         />
-                                        {isSearching && <span className="loader-dots" style={{color: '#00aeef', paddingRight: '10px'}}>...</span>}
+                                        {isSearching && <span className="loader-dots" style={{color: 'var(--primary)', paddingRight: '10px'}}>...</span>}
                                     </div>
 
                                     {showDropdown && searchResults.length > 0 && (
@@ -241,7 +242,7 @@ export const CourseSettingsModal = ({
                                                             <div style={{ color: '#fff', fontSize: '14px', fontWeight: 'bold' }}>{userItem.firstName} {userItem.lastName}</div>
                                                             <div style={{ color: '#888', fontSize: '12px' }}>{userItem.email}</div>
                                                         </div>
-                                                        <div style={{ fontSize: '11px', color: '#00aeef', background: 'rgba(0,174,239,0.1)', padding: '4px 8px', borderRadius: '6px' }}>
+                                                        <div style={{ fontSize: '11px', color: 'var(--primary)', background: 'rgba(var(--primary-rgb),0.1)', padding: '4px 8px', borderRadius: '6px' }}>
                                                             {userItem.role === 'teacher' ? 'Преподаватель' : 'Студент'}
                                                         </div>
                                                     </div>
@@ -364,7 +365,7 @@ export const CourseSettingsModal = ({
                                         disabled={isMassApproving}
                                         style={{ background: 'linear-gradient(135deg, #00ff88 0%, #00b35f 100%)', color: '#000', border: 'none', padding: '6px 14px', fontSize: '13px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 10px rgba(0, 255, 136, 0.2)', opacity: isMassApproving ? 0.5 : 1 }}
                                     >
-                                        {isMassApproving ? 'Загрузка...' : '🚀 Принять всех'}
+                                        {isMassApproving ? 'Загрузка...' : <><Icons.Rocket size={14}/> Принять всех</>}
                                     </button>
                                 )}
                             </div>
@@ -394,11 +395,11 @@ export const CourseSettingsModal = ({
                                         <div>
                                             {req.status === 'pending' ? (
                                                 <div style={{ display: 'flex', gap: '8px' }}>
-                                                    <button className="btn-icon" style={{ background: 'rgba(0, 255, 136, 0.1)', color: '#00ff88', padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(0, 255, 136, 0.3)', cursor: 'pointer', fontWeight: 'bold', transition: '0.2s' }} onMouseEnter={e=>e.currentTarget.style.background='rgba(0,255,136,0.2)'} onMouseLeave={e=>e.currentTarget.style.background='rgba(0,255,136,0.1)'} onClick={() => onEnrollmentAction(req.id, 'approved')}>
-                                                        ✅ Принять
+                                                    <button className="btn-icon" style={{ background: 'rgba(0, 255, 136, 0.1)', color: '#00ff88', padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(0, 255, 136, 0.3)', cursor: 'pointer', fontWeight: 'bold', transition: '0.2s', display: 'inline-flex', alignItems: 'center', gap: '5px' }} onMouseEnter={e=>e.currentTarget.style.background='rgba(0,255,136,0.2)'} onMouseLeave={e=>e.currentTarget.style.background='rgba(0,255,136,0.1)'} onClick={() => onEnrollmentAction(req.id, 'approved')}>
+                                                        <Icons.LogSuccess size={13}/> Принять
                                                     </button>
-                                                    <button className="btn-icon" style={{ background: 'rgba(255, 77, 77, 0.1)', color: '#ff4d4d', padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(255, 77, 77, 0.3)', cursor: 'pointer', fontWeight: 'bold', transition: '0.2s' }} onMouseEnter={e=>e.currentTarget.style.background='rgba(255,77,77,0.2)'} onMouseLeave={e=>e.currentTarget.style.background='rgba(255,77,77,0.1)'} onClick={() => onEnrollmentAction(req.id, 'rejected')}>
-                                                        ❌ Отклонить
+                                                    <button className="btn-icon" style={{ background: 'rgba(255, 77, 77, 0.1)', color: '#ff4d4d', padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(255, 77, 77, 0.3)', cursor: 'pointer', fontWeight: 'bold', transition: '0.2s', display: 'inline-flex', alignItems: 'center', gap: '5px' }} onMouseEnter={e=>e.currentTarget.style.background='rgba(255,77,77,0.2)'} onMouseLeave={e=>e.currentTarget.style.background='rgba(255,77,77,0.1)'} onClick={() => onEnrollmentAction(req.id, 'rejected')}>
+                                                        <Icons.Fail size={13}/> Отклонить
                                                     </button>
                                                 </div>
                                             ) : req.status === 'approved' ? (
@@ -434,7 +435,7 @@ export const CourseSettingsModal = ({
                                                         onMouseLeave={e=>e.currentTarget.style.background='transparent'}
                                                         title="Вернуть доступ"
                                                     >
-                                                        ↩️ Вернуть
+                                                        <Icons.RotateCcw size={13}/> Вернуть
                                                     </button>
                                                 </div>
                                             )}
@@ -451,7 +452,7 @@ export const CourseSettingsModal = ({
             {transferUserId && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10000 }} onClick={() => setTransferUserId(null)}>
                     <div style={{ background: '#111', padding: '30px', borderRadius: '20px', border: '1px solid #ff4d4d', width: '450px', animation: 'fadeIn 0.2s ease', textAlign: 'center', boxShadow: '0 20px 50px rgba(255, 77, 77, 0.15)' }} onClick={(e) => e.stopPropagation()} >
-                        <div style={{ fontSize: '48px', marginBottom: '15px' }}>⚠️</div>
+                        <div style={{ marginBottom: '15px' }}><Icons.AlertTriangle size={48}/></div>
                         <h2 style={{color: '#fff', marginBottom: '15px', marginTop: 0}}>Передача прав</h2>
                         <p style={{color: '#aaa', fontSize: '14px', lineHeight: '1.6', marginBottom: '25px'}}>
                             Вы уверены, что хотите передать права Владельца этому пользователю? <br/><br/>

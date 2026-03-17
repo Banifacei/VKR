@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { Icons } from './Icons';
 
 export const PreviewBar = () => {
     const handleClose = () => {
@@ -19,7 +20,7 @@ export const PreviewBar = () => {
             right: 0,
             zIndex: 9999,
             height: 44,
-            background: 'linear-gradient(90deg, #7928ca, #00aeef)',
+            background: 'linear-gradient(90deg, var(--primary-hover), var(--primary))',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -31,7 +32,7 @@ export const PreviewBar = () => {
             fontFamily: 'Inter, system-ui, sans-serif',
         }}>
             <span>
-                👁 Режим предпросмотра &mdash; вид студента
+                <Icons.Eye size={14}/> Режим предпросмотра — вид студента
             </span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                 <span style={{ opacity: 0.8, fontWeight: 400, fontSize: 12 }}>

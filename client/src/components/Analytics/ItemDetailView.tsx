@@ -108,7 +108,7 @@ export const ItemDetailView = ({ data }: { data: any }) => {
                     )}
 
                     <div>
-                        <h3 style={{ fontSize: '14px', color: '#00aeef', textTransform: 'uppercase', marginBottom: '15px', letterSpacing: '1px' }}>👥 Студенты, сдавшие тест</h3>
+                        <h3 style={{ fontSize: '14px', color: 'var(--primary)', textTransform: 'uppercase', marginBottom: '15px', letterSpacing: '1px' }}>👥 Студенты, сдавшие тест</h3>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                             {results?.map((res: any, idx: number) => (
                                 <div 

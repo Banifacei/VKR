@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { sendAnswer, resetProgress, savePlaybackProgress, getPlaybackProgress } from '../api/videoApi';
-import './VideoPlayer.css';
 import type { IInteractiveEvent, ISubtitle } from '../types';
 import { TestModeButton } from './TestModeButton'; // <--- ИМПОРТ НОВОЙ КНОПКИ
+import { Icons } from './Icons';
 import { useToast } from '../context/ToastContext';
 import { VideoPlayeIcons } from './Icons';
+import { normalizeUploadUrl } from '../utils/uploadUrl';
 
 const playbackRates = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 
@@ -43,6 +44,12 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   const [attemptsUsed, setAttemptsUsed] = useState(0);
   const { showToast } = useToast();
   const [hasNewAnswers, setHasNewAnswers] = useState(false);
+
+  const safePlay = () => {
+      if (!videoRef.current) return;
+      const p = videoRef.current.play();
+      if (p !== undefined) p.catch(e => { if (e.name !== 'AbortError') console.error(e); });
+  };
 
   // States
   const [isPlaying, setIsPlaying] = useState(false);
@@ -109,17 +116,30 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
         setLocalEvents(events);
     }, [events]);
     
+  const pendingSeekRef = useRef<number | null>(null);
+  // Ref для античита — не залежить від циклу рендерів React
+  const anticheatTimeRef = useRef<number>(0);
+  const progressLoadedRef = useRef<boolean>(false);
+  const processedEventIdsRef = useRef<number[]>([]);
+
   useEffect(() => {
     const fetchProgress = async () => {
         if (!videoId || !userId) return;
         try {
             const data = await getPlaybackProgress(videoId);
             if (data) {
-                // 1. Восстанавливаем время
-                if (data.lastTime > 0 && videoRef.current) {
-                    videoRef.current.currentTime = data.lastTime;
+                // 1. Сохраняем нужное время — применим его после loadedmetadata
+                if (data.lastTime > 0) {
+                    anticheatTimeRef.current = data.lastTime;
                     lastSavedTimeRef.current = data.lastTime;
                     setCurrentTime(data.lastTime);
+                    // Если метаданные видео уже загружены — сразу перематываем.
+                    // Если нет — pendingSeekRef применится в onLoadedMetadata.
+                    if (videoRef.current && videoRef.current.readyState >= 1) {
+                        videoRef.current.currentTime = data.lastTime;
+                    } else {
+                        pendingSeekRef.current = data.lastTime;
+                    }
                 }
                 setAttemptsUsed(data.attemptsUsed || 0);
                 // 2. ВОССТАНАВЛИВАЕМ ИСТОРИЮ ОТВЕТОВ
@@ -131,12 +151,14 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
                         isCorrect: r.isCorrect,
                         similarity: r.similarity
                     }));
-                    
+
                     setSessionResults(historyResults);
-                    
-                    // Самое главное: закидываем ID решенных вопросов в память, 
+
+                    // Самое главное: закидываем ID решенных вопросов в память,
                     // чтобы они исчезли с таймлайна и не всплывали!
-                    setProcessedEventIds(data.responses.map((r: any) => r.eventId));
+                    const ids = data.responses.map((r: any) => r.eventId);
+                    processedEventIdsRef.current = ids; // синхронно оновлюємо ref
+                    setProcessedEventIds(ids);
 
                     // Пересчитываем заработанные баллы
                     const restoredScore = historyResults.reduce((sum: number, r: any) => {
@@ -147,9 +169,14 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
             }
         } catch (e) {
             console.error("Ошибка загрузки прогресса", e);
+        } finally {
+            progressLoadedRef.current = true;
         }
     };
-    
+
+    progressLoadedRef.current = false;
+    anticheatTimeRef.current = 0;
+    processedEventIdsRef.current = [];
     fetchProgress();
   }, [videoId, userId]);
 
@@ -165,6 +192,8 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
 
     try {
         await resetProgress(videoId, userId);
+        processedEventIdsRef.current = [];
+        anticheatTimeRef.current = 0;
         setProcessedEventIds([]);
         setSessionResults([]);
         setScore(0);
@@ -174,7 +203,7 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
         setHasNewAnswers(false);
         if (videoRef.current) {
             videoRef.current.currentTime = 0;
-            videoRef.current.play();
+            safePlay();
         }
         if (onResetTest) onResetTest();
         setShowSettings(false);
@@ -185,29 +214,27 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
         setShowSettings(false);
     }
   };
+  // SSE: мгновенное обновление событий видео когда препод вносит изменения
   useEffect(() => {
-        if (!onRefreshEvents) return; // Если функцию не передали, не делаем ничего
+        if (!videoId || !onRefreshEvents) return;
 
-        const interval = setInterval(async () => {
+        const es = new EventSource(`/api/videos/${videoId}/events/stream`);
+
+        es.onmessage = async ({ data }) => {
             try {
-                // Тихо скачиваем новые события
+                const d = JSON.parse(data);
+                if (d.type !== 'events_updated') return;
                 const freshEvents = await onRefreshEvents();
-                
-                // ИСПОЛЬЗУЕМ JSON.stringify, ЧТОБЫ ЛОВИТЬ НЕ ТОЛЬКО УДАЛЕНИЕ, НО И РЕДАКТИРОВАНИЕ ТЕКСТА
-                const currentHash = JSON.stringify(localEvents);
-                const freshHash = JSON.stringify(freshEvents);
-                
-                if (currentHash !== freshHash) {
-                    console.log('🔄 Нашли изменения (новые, удаленные или отредактированные вопросы)! Обновляем таймлайн...');
-                    setLocalEvents(freshEvents);
-                }
-            } catch (e) {
-                // Игнорируем ошибки сети в фоне
-            }
-        }, 10000); // Каждые 10 секунд
+                setLocalEvents(prev => {
+                    if (JSON.stringify(prev) === JSON.stringify(freshEvents)) return prev;
+                    return freshEvents;
+                });
+            } catch { /* игнорируем */ }
+        };
 
-        return () => clearInterval(interval);
-    }, [localEvents, onRefreshEvents]);
+        es.onerror = () => es.close();
+        return () => es.close();
+    }, [videoId, onRefreshEvents]);
 
   useEffect(() => {
       if (sources && sources.length > 0) {
@@ -261,12 +288,13 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
       // Преподы и админы мотают как хотят!
       if (userRole === 'teacher' || userRole === 'admin' || isExternalTestMode) return null; 
 
-      // Ищем все вопросы, которые находятся между текущим временем и куда кликнули, 
-      // и на которые студент еще НЕ ответил
-      const blockingEvents = questions.filter(ev => 
-          ev.time > fromTime && 
-          ev.time <= toTime && 
-          !processedEventIds.includes(ev.id)
+      // Ищем все вопросы, которые находятся между текущим временем и куда кликнули,
+      // и на которые студент еще НЕ ответил (використовуємо ref для актуальних даних)
+      const processedIds = processedEventIdsRef.current;
+      const blockingEvents = questions.filter(ev =>
+          ev.time > fromTime &&
+          ev.time <= toTime &&
+          !processedIds.includes(ev.id)
       );
 
       if (blockingEvents.length > 0) {
@@ -296,7 +324,7 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
               setIsSpeedingUp(true);
 
               // Если было на паузе - запускаем, чтобы видеть ускорение
-              if (videoRef.current.paused) videoRef.current.play();
+              if (videoRef.current.paused) safePlay();
           }
       }, 300);
   };
@@ -428,18 +456,20 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
       // Очищаем поле ответа для следующего вопроса
       setCurrentAnswer(activeEvent?.type === 'multiple_choice' ? [] : '');
       setActiveEvent(null);
-      videoRef.current?.play();
+      safePlay();
   };
   const handleRewind = () => {
       if (activeEvent?.rewindTo !== undefined && videoRef.current) {
           videoRef.current.currentTime = activeEvent.rewindTo;
+          anticheatTimeRef.current = activeEvent.rewindTo;
           // Удаляем из решенных, чтобы вопрос задался снова, когда студент досмотрит
+          processedEventIdsRef.current = processedEventIdsRef.current.filter(id => id !== activeEvent.id);
           setProcessedEventIds(prev => prev.filter(id => id !== activeEvent.id));
       }
       setFeedback(null);
       setCurrentAnswer(activeEvent?.type === 'multiple_choice' ? [] : '');
       setActiveEvent(null);
-      videoRef.current?.play();
+      safePlay();
   };
   const handleRetry = () => {
       setFeedback(null);
@@ -457,15 +487,19 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
     if (!videoRef.current) return;
     const time = videoRef.current.currentTime;
 
-    // Защита от читеров, которые меняют время через консоль браузера
-    if (time > currentTime + 1.5) { // Если время прыгнуло больше чем на 1.5 секунды
-        const blockTime = getBlockingEventTime(currentTime, time);
+    // Защита от читеров: використовуємо ref (не stale React state!)
+    // Також чекаємо поки прогрес завантажиться, щоб не блокувати відновлення позиції
+    if (progressLoadedRef.current && time > anticheatTimeRef.current + 1.5) {
+        const blockTime = getBlockingEventTime(anticheatTimeRef.current, time);
         if (blockTime !== null) {
-            videoRef.current.currentTime = Math.max(currentTime, blockTime - 0.2);
-            return; 
+            const bounceTime = Math.max(anticheatTimeRef.current, blockTime - 0.2);
+            videoRef.current.currentTime = bounceTime;
+            anticheatTimeRef.current = bounceTime;
+            return;
         }
     }
 
+    anticheatTimeRef.current = time;
     setCurrentTime(time);
 
     if (onTimeUpdate) onTimeUpdate(time);
@@ -486,6 +520,7 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
             setActiveEvent(eventToTrigger);
             setCurrentAnswer(eventToTrigger.type === 'multiple_choice' ? [] : '');
             setShowControls(false);
+            processedEventIdsRef.current = [...processedEventIdsRef.current, eventToTrigger.id];
             setProcessedEventIds(prev => [...prev, eventToTrigger.id]);
         }
     }
@@ -494,7 +529,8 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   const jumpToChapter = (time: number) => {
       if (videoRef.current) {
           videoRef.current.currentTime = time;
-          videoRef.current.play();
+          anticheatTimeRef.current = time;
+          safePlay();
           setIsPlaying(true);
           setShowSettings(false);
       }
@@ -520,14 +556,15 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   };
   
   const replayVideo = () => {
-      setShowEndScreen(false); 
+      setShowEndScreen(false);
       setIsSpeedingUp(false);
       wasLongPressRef.current = false;
       setHasNewAnswers(false);
-      if (videoRef.current) { 
-          videoRef.current.playbackRate = 1; // 👈 Принудительно 1x
-          videoRef.current.currentTime = 0; 
-          videoRef.current.play(); 
+      anticheatTimeRef.current = 0;
+      if (videoRef.current) {
+          videoRef.current.playbackRate = 1;
+          videoRef.current.currentTime = 0;
+          safePlay();
       }
   };
 
@@ -551,16 +588,15 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
           return;
       }
 
-      videoRef.current.paused ? videoRef.current.play() : videoRef.current.pause(); 
+      videoRef.current.paused ? safePlay() : videoRef.current.pause();
       showControlsTemporarily(); 
   };
 
   const skipTime = (amount: number) => {
     if (videoRef.current && !activeEvent) {
-        const currentVideoTime = videoRef.current.currentTime; // Берем самое свежее время
+        const currentVideoTime = videoRef.current.currentTime;
         let targetTime = currentVideoTime + amount;
-        
-        // Блокируем читерство
+
         if (targetTime > currentVideoTime) {
             const blockTime = getBlockingEventTime(currentVideoTime, targetTime);
             if (blockTime !== null) {
@@ -570,9 +606,9 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
         }
 
         videoRef.current.currentTime = targetTime;
+        anticheatTimeRef.current = targetTime;
         showControlsTemporarily();
 
-        // 👇 Прячем финальный экран, если перемотали назад стрелками
         if (showEndScreen) {
             setShowEndScreen(false);
             setHasNewAnswers(false);
@@ -636,24 +672,27 @@ const handleVideoDoubleClick = (e: React.MouseEvent) => {
     return ((currentTime - segStart) / (segEnd - segStart)) * 100;
   };
 
-  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => { 
-      if (activeEvent) return; // Убрали блокировку
+  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
+      if (activeEvent) return;
 
-      const rect = e.currentTarget.getBoundingClientRect(); 
-      const pos = (e.clientX - rect.left) / rect.width; 
-      let targetTime = pos * duration; 
+      const rect = e.currentTarget.getBoundingClientRect();
+      const pos = (e.clientX - rect.left) / rect.width;
+      let targetTime = pos * duration;
 
-      if (targetTime > currentTime) {
-          const blockTime = getBlockingEventTime(currentTime, targetTime);
+      // Берём актуальное время из DOM, а не из stale state
+      const actualNow = videoRef.current?.currentTime ?? anticheatTimeRef.current;
+
+      if (targetTime > actualNow) {
+          const blockTime = getBlockingEventTime(actualNow, targetTime);
           if (blockTime !== null) {
-              targetTime = Math.max(currentTime, blockTime - 0.2);
+              targetTime = Math.max(actualNow, blockTime - 0.2);
               showToast('⚠️ Сначала нужно ответить на вопрос!');
           }
       }
 
       if (videoRef.current && duration) {
-          videoRef.current.currentTime = targetTime; 
-          // Если кликнули по таймлайну - прячем финальный экран!
+          videoRef.current.currentTime = targetTime;
+          anticheatTimeRef.current = targetTime;
           if (showEndScreen) {
               setShowEndScreen(false);
               setHasNewAnswers(false);
@@ -748,7 +787,7 @@ useEffect(() => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
   };
-}, [activeEvent, isSpeedingUp, volume, showEndScreen, processedEventIds, localEvents]);
+}, [activeEvent, isSpeedingUp, volume, showEndScreen, localEvents]);
   
   const hasSubtitles = currentSource.subtitles && currentSource.subtitles.length > 0;
   const hasChapters = chapters.length > 0;
@@ -835,13 +874,13 @@ const renderMainMenu = () => (
                 
                 {/* 1. Блок Успеха: показываем только если ответ верный и результаты не скрыты */}
                 {feedback === 'correct' && !hideResults && (
-                    <div className="feedback-icon">✅ Верно!</div>
+                    <div className="feedback-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}><Icons.LogSuccess size={20}/> Верно!</div>
                 )}
                 
                 {/* 2. Блок Ошибки: показываем пояснение и кнопки действий */}
                 {feedback === 'incorrect' && !hideResults && (
                     <div>
-                        <div className="feedback-icon">❌ Ошибка</div>
+                        <div className="feedback-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}><Icons.Fail size={20}/> Ошибка</div>
                         {activeEvent.explanation && <div className="explanation-box">{activeEvent.explanation}</div>}
                         
                         <div style={{ marginTop: '25px', display: 'flex', gap: '15px', justifyContent: 'center' }}>
@@ -859,8 +898,8 @@ const renderMainMenu = () => (
                 {/* Само задание (до ответа) */}
                 {!feedback && (
                     <>
-                        <h3 style={{color: '#00aeef'}}>
-                            {activeEvent.type === 'info' ? '💡 Информация' : '❓ Вопрос'}
+                        <h3 style={{color: 'var(--primary)'}}>
+                            {activeEvent.type === 'info' ? <><Icons.Lightbulb size={16}/> Информация</> : <><Icons.HelpCircle size={16}/> Вопрос</>}
                         </h3>
                         <p className="question-text">{activeEvent.question}</p>
                         
@@ -1010,7 +1049,7 @@ const renderMainMenu = () => (
                                             <div className="res-q">{res.event.question}</div>
                                             <div className="res-a">Ваш ответ: <span>{res.userAnswer}</span></div>
                                             <div className="res-meta">
-                                                <span className="res-status">{res.isCorrect ? '✅ Верно' : '❌ Ошибка'}</span>
+                                                <span className="res-status" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>{res.isCorrect ? <><Icons.LogSuccess size={13}/> Верно</> : <><Icons.Fail size={13}/> Ошибка</>}</span>
                                                 {res.event.type === 'free_text' && res.similarity !== null && res.similarity !== undefined && (
                                                     <span className="res-ai">ИИ-Оценка: {res.similarity}%</span>
                                                 )}
@@ -1043,36 +1082,54 @@ const renderMainMenu = () => (
 
       <video
         ref={videoRef}
-        src={currentSource.url}
+        src={normalizeUploadUrl(currentSource.url)}
         className={`yt-video ${showControls ? 'controls-visible' : ''}`}
         playsInline
+        preload="metadata"
         onDoubleClick={handleVideoDoubleClick}
-        crossOrigin="anonymous"
         onMouseDown={handlePressStart}
         onTouchStart={handlePressStart}
         onMouseUp={handlePressEnd}
         onTouchEnd={handlePressEnd}
         onMouseLeave={handlePressCancel}
         onTimeUpdate={handleTimeUpdate}
-        onLoadedMetadata={() => setDuration(videoRef.current?.duration || 0)}
+        onLoadedMetadata={() => {
+            setDuration(videoRef.current?.duration || 0);
+            if (pendingSeekRef.current !== null && videoRef.current) {
+                videoRef.current.currentTime = pendingSeekRef.current;
+                anticheatTimeRef.current = pendingSeekRef.current;
+                pendingSeekRef.current = null;
+            }
+        }}
         onPlay={() => setIsPlaying(true)}
         onPause={() => {
             setIsPlaying(false);
-            // Сохраняем сразу, как только юзер нажал паузу
             if (videoId && videoRef.current) {
                 savePlaybackProgress(videoId, videoRef.current.currentTime, false);
                 lastSavedTimeRef.current = videoRef.current.currentTime;
             }
         }}
+        onError={() => {
+            const code = videoRef.current?.error?.code;
+            const msgs: Record<number, string> = {
+                1: 'Загрузка видео прервана',
+                2: 'Видеофайл не найден (404)',
+                3: 'Ошибка декодирования видео',
+                4: 'Формат видео не поддерживается',
+            };
+            const msg = (code && msgs[code]) || 'Не удалось загрузить видео';
+            showToast(msg, 'error');
+            console.error('[VideoPlayer] mediaError code:', code, 'src:', currentSource.url);
+        }}
         onEnded={handleVideoEnd}
         muted={isMuted}
       >
           {currentSource.subtitles?.map((sub, idx) => (
-              <track key={idx} kind="subtitles" src={sub.src} srcLang={sub.lang} label={sub.label} />
+              <track key={idx} kind="subtitles" src={normalizeUploadUrl(sub.src)} srcLang={sub.lang} label={sub.label} />
           ))}
           {isSpeedingUp && (
           <div className="speed-overlay">
-              <span>🚀 2x Скорость</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Icons.Rocket size={16}/> 2x Скорость</span>
           </div>
       )}
       </video>
@@ -1219,7 +1276,7 @@ const renderMainMenu = () => (
                         {chapters.map((chap) => (
                             <div key={chap.id} className="menu-item" onClick={() => jumpToChapter(chap.time)}>
                                 <div style={{display: 'flex', gap: '10px', width: '100%'}}>
-                                    <span style={{color: '#00aeef', fontWeight: 'bold', minWidth: '40px'}}>{formatTime(chap.time)}</span>
+                                    <span style={{color: 'var(--primary)', fontWeight: 'bold', minWidth: '40px'}}>{formatTime(chap.time)}</span>
                                     <span style={{whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '160px'}}>{chap.question}</span>
                                 </div>
                             </div>

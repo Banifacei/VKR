@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Icons } from '../Icons';
 
 export const StudentDetailView = ({ data }: { data: any }) => {
     // Внутренний стейт для погружения в конкретный материал
@@ -111,7 +112,7 @@ export const StudentDetailView = ({ data }: { data: any }) => {
         <div style={{ padding: '10px 0', display: 'flex', flexDirection: 'column', gap: '25px', animation: 'fadeIn 0.3s' }}>
             
             <div>
-                <h3 style={{ fontSize: '14px', color: '#b5179e', textTransform: 'uppercase', marginBottom: '15px', letterSpacing: '1px' }}>📈 Активность студента</h3>
+                <h3 style={{ fontSize: '14px', color: '#b5179e', textTransform: 'uppercase', marginBottom: '15px', letterSpacing: '1px', display: 'flex', alignItems: 'center', gap: '6px' }}><Icons.TrendingUp size={14}/> Активность студента</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     
                     {/* Список тестов */}
@@ -124,7 +125,7 @@ export const StudentDetailView = ({ data }: { data: any }) => {
                             onClick={() => setSelectedItem({ id: t.testId, type: 'test', title: t.test?.title })}
                         >
                             <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                                <div style={{ fontSize: '20px' }}>📝</div>
+                                <div><Icons.FileText size={20}/></div>
                                 <div style={{ color: '#fff' }}>{t.test?.title}</div>
                             </div>
                             <div style={{ color: t.score >= t.test?.passingScore ? '#4dff88' : '#ff4d4d', fontWeight: 'bold' }}>{t.score}%</div>
@@ -150,12 +151,12 @@ export const StudentDetailView = ({ data }: { data: any }) => {
                                 onClick={() => hasAnswers && setSelectedItem({ id: v.videoId, type: 'video', title: v.video?.title })}
                             >
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                                    <div style={{ fontSize: '20px' }}>📺</div>
+                                    <div><Icons.Monitor size={20}/></div>
                                     <div style={{ color: '#fff' }}>{v.video?.title || 'Видеоурок'}</div>
                                 </div>
                                 {/* Меняем текст, если ответов нет */}
                                 {hasAnswers ? (
-                                    <div style={{ color: '#00aeef', fontSize: '13px', fontWeight: 'bold' }}>Смотреть ответы →</div>
+                                    <div style={{ color: 'var(--primary)', fontSize: '13px', fontWeight: 'bold' }}>Смотреть ответы →</div>
                                 ) : (
                                     <div style={{ color: '#555', fontSize: '12px', background: 'rgba(255,255,255,0.05)', padding: '4px 8px', borderRadius: '6px' }}>Просмотрено</div>
                                 )}

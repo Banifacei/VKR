@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../context/ToastContext';
 import api from '../api/axiosInstance';
+import { Icons } from '../components/Icons';
 import { ExportModal } from '../components/Analytics/ExportModal';
 import { AnalyticsDrillDownModal } from '../components/Analytics/AnalyticsDrillDownModal';
 
@@ -67,7 +68,7 @@ export const AnalyticsPage = () => {
     };
 
     if (isLoading) {
-        return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: '#00aeef', fontSize: '18px' }}>⏳ Lumeo Intelligence: Загрузка...</div>;
+        return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', height: '100vh', color: 'var(--primary)', fontSize: '18px' }}><Icons.Spinner size={20}/> Lumeo Intelligence: Загрузка...</div>;
     }
 
     return (
@@ -99,7 +100,7 @@ export const AnalyticsPage = () => {
                                     </div>
                                     <div style={{ padding: '20px' }}>
                                         <p style={{ color: '#888', fontSize: '14px', marginBottom: '15px', height: '40px', overflow: 'hidden' }}>{course.description || 'Нет описания'}</p>
-                                        <button className="btn btn-primary" style={{ width: '100%' }}>📊 Глубокая аналитика</button>
+                                        <button className="btn btn-primary" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}><Icons.BarChart2 size={15}/> Глубокая аналитика</button>
                                     </div>
                                 </div>
                             ))}
@@ -137,18 +138,18 @@ export const AnalyticsPage = () => {
                                         🪄 Demo
                                     </button>
                                 )}
-                                <button className="btn btn-secondary" style={{ background: 'rgba(77, 255, 136, 0.05)', color: '#4dff88', borderColor: 'rgba(77, 255, 136, 0.2)', height: '45px' }} onClick={() => setExportModalConfig({ isOpen: true, type: 'detailed' })}>
-                                    📥 Детальный .xlsx
+                                <button className="btn btn-secondary" style={{ background: 'rgba(77, 255, 136, 0.05)', color: '#4dff88', borderColor: 'rgba(77, 255, 136, 0.2)', height: '45px', display: 'flex', alignItems: 'center', gap: '8px' }} onClick={() => setExportModalConfig({ isOpen: true, type: 'detailed' })}>
+                                    <Icons.Download size={15}/> Детальный .xlsx
                                 </button>
-                                <button className="btn btn-primary" style={{ height: '45px', padding: '0 25px' }} onClick={() => setExportModalConfig({ isOpen: true, type: 'gost' })}>
-                                    🖨️ Ведомость (ГОСТ)
+                                <button className="btn btn-primary" style={{ height: '45px', padding: '0 25px', display: 'flex', alignItems: 'center', gap: '8px' }} onClick={() => setExportModalConfig({ isOpen: true, type: 'gost' })}>
+                                    <Icons.Printer size={15}/> Ведомость (ГОСТ)
                                 </button>
                             </div>
                         </div>
 
                         {isFetchingStats || !analytics ? (
-                            <div style={{ padding: '100px', textAlign: 'center', color: '#666', fontSize: '16px' }}>
-                                ⏳ Сбор данных по курсу...
+                            <div style={{ padding: '100px', textAlign: 'center', color: '#666', fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                                <Icons.Spinner size={18}/> Сбор данных по курсу...
                             </div>
                         ) : (
                             <>
@@ -159,11 +160,11 @@ export const AnalyticsPage = () => {
                                         <div><div style={{ fontSize: '13px', color: '#888' }}>Студентов на курсе</div><div style={{ fontSize: '28px', fontWeight: '800' }}>{analytics.totalStudents}</div></div>
                                     </div>
                                     <div style={{ background: '#111', padding: '25px', borderRadius: '20px', border: '1px solid #333', display: 'flex', alignItems: 'center', gap: '20px' }}>
-                                        <div style={{ fontSize: '30px', background: 'rgba(0,174,239,0.1)', color: '#00aeef', width: '60px', height: '60px', borderRadius: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>📈</div>
-                                        <div><div style={{ fontSize: '13px', color: '#888' }}>Средний прогресс</div><div style={{ fontSize: '28px', fontWeight: '800', color: '#00aeef' }}>{analytics.globalAvgProgress}%</div></div>
+                                        <div style={{ background: 'rgba(var(--primary-rgb),0.1)', color: 'var(--primary)', width: '60px', height: '60px', borderRadius: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icons.TrendingUp size={28}/></div>
+                                        <div><div style={{ fontSize: '13px', color: '#888' }}>Средний прогресс</div><div style={{ fontSize: '28px', fontWeight: '800', color: 'var(--primary)' }}>{analytics.globalAvgProgress}%</div></div>
                                     </div>
                                     <div style={{ background: '#111', padding: '25px', borderRadius: '20px', border: '1px solid #333', display: 'flex', alignItems: 'center', gap: '20px' }}>
-                                        <div style={{ fontSize: '30px', background: 'rgba(77,255,136,0.1)', color: '#4dff88', width: '60px', height: '60px', borderRadius: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>⭐</div>
+                                        <div style={{ background: 'rgba(77,255,136,0.1)', color: '#4dff88', width: '60px', height: '60px', borderRadius: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icons.Star size={28}/></div>
                                         <div><div style={{ fontSize: '13px', color: '#888' }}>Средний балл тестов</div><div style={{ fontSize: '28px', fontWeight: '800', color: '#4dff88' }}>{analytics.globalAvgScore}%</div></div>
                                     </div>
                                 </div>
@@ -175,7 +176,7 @@ export const AnalyticsPage = () => {
                                     <div style={{ background: '#111', padding: '30px', borderRadius: '20px', border: '1px solid #333' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '25px' }}>
                                             <div>
-                                                <h2 style={{ fontSize: '22px', margin: '0 0 5px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>🏆 Рейтинг потока</h2>
+                                                <h2 style={{ fontSize: '22px', margin: '0 0 5px 0', display: 'flex', alignItems: 'center', gap: '10px' }}><Icons.Trophy size={20}/> Рейтинг потока</h2>
                                                 <div style={{ color: '#888', fontSize: '14px' }}>Общая успеваемость студентов</div>
                                             </div>
                                             <div style={{ position: 'relative' }}>
@@ -184,7 +185,7 @@ export const AnalyticsPage = () => {
                                                     type="text" placeholder="Поиск студента..." 
                                                     value={studentSearch} onChange={e => setStudentSearch(e.target.value)}
                                                     style={{ background: '#080808', border: '1px solid #222', color: '#fff', padding: '10px 16px 10px 40px', borderRadius: '12px', fontSize: '13px', width: '220px', outline: 'none', transition: 'all 0.2s' }}
-                                                    onFocus={e => { e.target.style.borderColor = '#00aeef'; }}
+                                                    onFocus={e => { e.target.style.borderColor = 'var(--primary)'; }}
                                                     onBlur={e => { e.target.style.borderColor = '#222'; }}
                                                 />
                                             </div>
@@ -244,10 +245,10 @@ export const AnalyticsPage = () => {
                                                             </div>
                                                             <div style={{ paddingRight: '20px' }}>
                                                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '4px' }}>
-                                                                    <span style={{ color: '#00aeef', fontWeight: 'bold' }}>{student.progressPercent}%</span>
+                                                                    <span style={{ color: 'var(--primary)', fontWeight: 'bold' }}>{student.progressPercent}%</span>
                                                                 </div>
                                                                 <div style={{ width: '100%', height: '4px', background: '#222', borderRadius: '2px', overflow: 'hidden' }}>
-                                                                    <div style={{ width: `${student.progressPercent}%`, height: '100%', background: '#00aeef', borderRadius: '2px' }}></div>
+                                                                    <div style={{ width: `${student.progressPercent}%`, height: '100%', background: 'var(--primary)', borderRadius: '2px' }}></div>
                                                                 </div>
                                                             </div>
                                                             <div style={{ textAlign: 'right' }}>
@@ -281,7 +282,7 @@ export const AnalyticsPage = () => {
                                                     >
                                                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '13px', alignItems: 'flex-start' }}>
                                                             <div style={{ color: '#eee', fontWeight: '500', paddingRight: '10px', lineHeight: '1.4' }}>
-                                                                {item.type === 'video' ? '📺' : '📝'} {index + 1}. {item.title}
+                                                                {item.type === 'video' ? <Icons.Monitor size={13}/> : <Icons.FileText size={13}/>} {index + 1}. {item.title}
                                                             </div>
                                                             <div style={{ color: '#777', flexShrink: 0, fontSize: '12px' }}>
                                                                 <strong style={{ color: item.completionRate < 30 ? '#ff4d4d' : '#fff', fontSize: '14px' }}>{item.completionRate}%</strong> / {item.startedRate}%
@@ -289,7 +290,7 @@ export const AnalyticsPage = () => {
                                                         </div>
                                                         <div style={{ height: '6px', background: '#222', borderRadius: '3px', position: 'relative' }}>
                                                             <div style={{ width: `${item.startedRate}%`, height: '100%', background: 'rgba(255, 255, 255, 0.1)', position: 'absolute', left: 0, top: 0, borderRadius: '3px' }}></div>
-                                                            <div style={{ width: `${item.completionRate}%`, height: '100%', background: item.type === 'video' ? '#00aeef' : '#b5179e', position: 'absolute', left: 0, top: 0, borderRadius: '3px', zIndex: 2 }}></div>
+                                                            <div style={{ width: `${item.completionRate}%`, height: '100%', background: item.type === 'video' ? 'var(--primary)' : '#b5179e', position: 'absolute', left: 0, top: 0, borderRadius: '3px', zIndex: 2 }}></div>
                                                         </div>
                                                     </div>
                                                 ))

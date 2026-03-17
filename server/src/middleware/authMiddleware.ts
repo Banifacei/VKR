@@ -4,9 +4,9 @@ import { User } from '../models/User.js';
 import jwt from 'jsonwebtoken';
 
 if (!process.env.JWT_SECRET) {
-    console.warn('⚠️  WARNING: JWT_SECRET не задан в .env — используется небезопасный дефолт. Никогда не деплойте без этой переменной.');
+    throw new Error('JWT_SECRET не задан в .env. Установите переменную окружения перед запуском сервера.');
 }
-const JWT_SECRET = process.env.JWT_SECRET || 'lumeo_super_secret_2024';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 export const isAdmin = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -39,19 +39,32 @@ export const checkAuth = (req: Request, res: Response, next: NextFunction) => {
     }
 
     try {
-        const token = req.headers.authorization?.split(' ')[1]; 
-        
+        const token = req.headers.authorization?.split(' ')[1];
+
         if (!token) {
             return res.status(401).json({ message: 'Токен отсутствует. Пожалуйста, войдите в систему.' });
-            return;
         }
 
         const decoded = jwt.verify(token, JWT_SECRET) as { id: number; role: string; email: string };
-        
+
         (req as any).user = decoded;
-        
+
         next();
     } catch (e) {
         res.status(401).json({ message: 'Сессия истекла или токен неверный' });
+    }
+};
+
+/** Вариант checkAuth для SSE-эндпоинтов: принимает токен из ?token= query param,
+ *  т.к. EventSource API не поддерживает кастомные заголовки. */
+export const checkAuthSse = (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const token = (req.query.token as string) || req.headers.authorization?.split(' ')[1];
+        if (!token) return res.status(401).end();
+        const decoded = jwt.verify(token, JWT_SECRET) as { id: number; role: string; email: string };
+        (req as any).user = decoded;
+        next();
+    } catch {
+        res.status(401).end();
     }
 };

@@ -21,8 +21,34 @@ import fsPromises from 'fs/promises';
 import { TestQuestion } from '../models/TestQuestion.js';
 import { UserTestResult } from '../models/UserTestResult.js';
 import { CourseEnrollment } from '../models/CourseEnrollment.js';
-import { CourseCollaborator } from '../models/CourseCollaborator.js'; // 🔥 Не забудь импорт в начале файла!
+import { CourseCollaborator } from '../models/CourseCollaborator.js';
 import bcrypt from 'bcrypt';
+import sequelize from '../config/db.js';
+import { createChannel } from '../utils/sseHub.js';
+
+// ─── SSE-каналы ───────────────────────────────────────────────────────────────
+// videoId → клиенты, смотрящие события конкретного видео
+const videoEventsSse = createChannel<number>();
+// userId студента → студент получает обновление своей заявки
+const enrollStudentSse = createChannel<number>();
+// courseId → препод/владелец курса видит новые заявки
+const enrollCourseSse = createChannel<number>();
+// courseId → преподаватель получает уведомление о завершении генерации субтитров
+const subtitleDoneSse = createChannel<number>();
+
+// ─── SSE-хендлеры (монтируются в роутах) ─────────────────────────────────────
+
+export const sseVideoEvents = (req: Request, res: Response) =>
+    videoEventsSse.subscribe(Number(req.params.videoId), req, res);
+
+export const sseEnrollStudentEvents = (req: Request, res: Response) =>
+    enrollStudentSse.subscribe((req as any).user.id, req, res);
+
+export const sseEnrollCourseEvents = (req: Request, res: Response) =>
+    enrollCourseSse.subscribe(Number(req.params.courseId), req, res);
+
+export const sseSubtitleEvents = (req: Request, res: Response) =>
+    subtitleDoneSse.subscribe(Number(req.params.courseId), req, res);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 let semanticExtractor: any = null;
@@ -154,49 +180,47 @@ export const deleteCourse = async (req: Request, res: Response) => {
         const videoIds = videos.map((v: any) => v.id);
         const uploadsDir = path.join(__dirname, '../../uploads');
 
-        // 🔥 1. ФИЗИЧЕСКОЕ УДАЛЕНИЕ ФАЙЛОВ С ДИСКА
+        // Собираем пути файлов заранее (удалим после успешной транзакции)
+        const filePaths: string[] = [];
         for (const video of videos) {
-            // Удаляем видеофайл
             if (video.url) {
                 const fileName = video.url.split('/').pop();
-                if (fileName) {
-                    const filePath = path.join(uploadsDir, fileName);
-                    try { await fsPromises.unlink(filePath); } catch (e) { /* Файл уже удален или не найден */ }
-                }
+                if (fileName) filePaths.push(path.join(uploadsDir, fileName));
             }
-            // Удаляем файлы субтитров (.vtt)
             if (video.subtitles && Array.isArray(video.subtitles)) {
                 for (const sub of video.subtitles) {
                     if (sub.src) {
                         const subName = sub.src.split('/').pop();
-                        if (subName) {
-                            const subPath = path.join(uploadsDir, subName);
-                            try { await fsPromises.unlink(subPath); } catch (e) {}
-                        }
+                        if (subName) filePaths.push(path.join(uploadsDir, subName));
                     }
                 }
             }
         }
 
-        // 2. КАСКАДНОЕ УДАЛЕНИЕ ДАННЫХ ИЗ БД (ВИДЕО)
-        if (videoIds.length > 0) {
-            await UserResponse.destroy({ where: { videoId: videoIds } });
-            await UserVideoProgress.destroy({ where: { videoId: videoIds } });
-            await InteractiveEvent.destroy({ where: { videoId: videoIds } });
-            await Video.destroy({ where: { courseId } });
-        }
+        // Каскадное удаление из БД в транзакции
+        await sequelize.transaction(async (tx) => {
+            if (videoIds.length > 0) {
+                await UserResponse.destroy({ where: { videoId: videoIds }, transaction: tx });
+                await UserVideoProgress.destroy({ where: { videoId: videoIds }, transaction: tx });
+                await InteractiveEvent.destroy({ where: { videoId: videoIds }, transaction: tx });
+                await Video.destroy({ where: { courseId }, transaction: tx });
+            }
 
-        // 3. КАСКАДНОЕ УДАЛЕНИЕ ТЕСТОВ (Они могут мешать удалению курса)
-        const tests = await CourseTest.findAll({ where: { courseId } });
-        const testIds = tests.map((t: any) => t.id);
-        if (testIds.length > 0) {
-            await TestQuestion.destroy({ where: { testId: testIds } });
-            await UserTestResult.destroy({ where: { testId: testIds } });
-            await CourseTest.destroy({ where: { courseId } });
-        }
+            const tests = await CourseTest.findAll({ where: { courseId }, transaction: tx });
+            const testIds = tests.map((t: any) => t.id);
+            if (testIds.length > 0) {
+                await TestQuestion.destroy({ where: { testId: testIds }, transaction: tx });
+                await UserTestResult.destroy({ where: { testId: testIds }, transaction: tx });
+                await CourseTest.destroy({ where: { courseId }, transaction: tx });
+            }
 
-        // 4. УДАЛЕНИЕ САМОГО КУРСА
-        await course.destroy();
+            await course.destroy({ transaction: tx });
+        });
+
+        // Удаляем файлы с диска только после успешного коммита транзакции
+        for (const filePath of filePaths) {
+            try { await fsPromises.unlink(filePath); } catch (e) { console.warn('Не удалось удалить файл:', filePath); }
+        }
         addSystemLog(`Полностью удален курс (ID: ${courseId}) и все связанные файлы`, 'error');
         res.json({ success: true, message: 'Курс и файлы удалены' });
     } catch (e) {
@@ -214,7 +238,7 @@ export const getAllCourses = async (req: Request, res: Response) => {
         });
         res.json(courses);
     } catch (e) {
-        res.status(500).json(e);
+        res.status(500).json({ message: 'Ошибка получения курсов' });
     }
 };
 export const createVideo = async (req: Request, res: Response) => {
@@ -246,7 +270,7 @@ export const createVideo = async (req: Request, res: Response) => {
     res.status(201).json(video);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Ошибка при сохранении видео', error });
+    res.status(500).json({ message: 'Ошибка при сохранении видео' });
   }
 };
 export const getVideosByCourse = async (req: Request, res: Response) => {
@@ -283,6 +307,7 @@ export const createEvent = async (req: Request, res: Response) => {
             aiThreshold: aiThreshold || 50
         });
         addSystemLog(`В видео (ID: ${videoId}) добавлен новый интерактивный элемент`, 'info');
+        videoEventsSse.broadcast(Number(videoId), { type: 'events_updated', videoId: Number(videoId) });
         res.status(201).json(event);
     } catch (error) {
         console.error(error);
@@ -379,7 +404,7 @@ export const getVideoStats = async (req: Request, res: Response) => {
         res.json(stats);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Ошибка получения статистики', error });
+        res.status(500).json({ message: 'Ошибка получения статистики' });
     }
 };
 
@@ -398,7 +423,8 @@ export const updateVideoSettings = async (req: Request, res: Response) => {
         await video.save();
         res.json(video);
     } catch (error) {
-        res.status(500).json(error);
+        console.error(error);
+        res.status(500).json({ message: 'Ошибка обновления настроек видео' });
     }
 };
 
@@ -554,8 +580,7 @@ export const generateSubtitles = async (req: Request, res: Response) => {
 
         const fileName = video.url.split('/').pop();
         if (!fileName) return res.status(400).json({ message: 'Некорректный URL' });
-        const BASE_URL = process.env.API_URL || `${req.protocol}://${req.get('host')}`;
-        const uploadsDir = path.join(__dirname, '../../uploads'); 
+        const uploadsDir = path.join(__dirname, '../../uploads');
         const videoPath = path.join(uploadsDir, fileName);
         const tempAudioPath = path.join(uploadsDir, `temp-${Date.now()}.wav`);
         const vttFileName = `sub-${Date.now()}.vtt`;
@@ -592,7 +617,7 @@ export const generateSubtitles = async (req: Request, res: Response) => {
         worker.on('message', async (msg) => {
             if (msg.status === 'done') {
                 console.log(`[AI WORKER] Готово! Субтитры для видео ${videoId} сгенерированы.`);
-                const vttUrl = `${BASE_URL}/uploads/${vttFileName}`;
+                const vttUrl = `/uploads/${vttFileName}`;
                 
                 const newSubtitle = { lang: 'ru-auto', label: 'Авто (AI)', src: vttUrl };
                 
@@ -608,6 +633,12 @@ export const generateSubtitles = async (req: Request, res: Response) => {
                 video.subtitles = currentSubs;
                 addSystemLog(`AI-субтитры для видео (ID: ${videoId}) успешно сгенерированы!`, 'success');
                 await video.save();
+                subtitleDoneSse.broadcast(video.courseId, {
+                    type: 'subtitle_done',
+                    videoId: Number(videoId),
+                    videoTitle: video.title,
+                    subtitleUrl: vttUrl,
+                });
                 
             } else if (msg.status === 'error') {
                 console.error(`[AI WORKER] Ошибка для видео ${videoId}:`, msg.error);
@@ -629,7 +660,7 @@ export const generateSubtitles = async (req: Request, res: Response) => {
     } catch (error) {
         console.error("[AI] Ошибка старта:", error);
         if (!res.headersSent) {
-            res.status(500).json({ message: 'Ошибка запуска генерации', error });
+            res.status(500).json({ message: 'Ошибка запуска генерации' });
         }
     }
 };
@@ -639,7 +670,8 @@ export const getAllVideos = async (req: Request, res: Response) => {
         const videos = await Video.findAll({ order: [['createdAt', 'DESC']], include: [InteractiveEvent] });
         res.json(videos);
     } catch (error) {
-        res.status(500).json(error);
+        console.error(error);
+        res.status(500).json({ message: 'Ошибка получения видео' });
     }
 };
 
@@ -657,10 +689,11 @@ export const updateEvent = async (req: Request, res: Response) => {
             isStrict, weight, rewindTo, explanation, aiThreshold
         });
 
+        videoEventsSse.broadcast(event.videoId, { type: 'events_updated', videoId: event.videoId });
         res.json({ success: true, event });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Ошибка при обновлении события', error });
+        res.status(500).json({ message: 'Ошибка при обновлении события' });
     }
 };
 
@@ -670,9 +703,11 @@ export const deleteEvent = async (req: Request, res: Response) => {
         const { eventId } = req.params;
         const event = await InteractiveEvent.findByPk(eventId);
         if (!event) return res.status(404).json({ message: 'Событие не найдено' });
+        const { videoId } = event;
         await UserResponse.destroy({ where: { eventId } });
         await event.destroy();
         addSystemLog(`Удален интерактивный элемент (ID: ${eventId})`, 'warning');
+        videoEventsSse.broadcast(videoId, { type: 'events_updated', videoId });
         res.json({ success: true });
     } catch (error) {
         console.error(error);
@@ -917,6 +952,19 @@ export const applyForCourse = async (req: Request, res: Response) => {
         const enrollment = await CourseEnrollment.create({ courseId, userId, status });
         
         addSystemLog(`Пользователь (ID: ${userId}) подал заявку на курс (ID: ${courseId}). Статус: ${status}`, 'info');
+
+        // Уведомляем владельца курса о новой заявке (если статус pending)
+        if (status === 'pending') {
+            const applicant = await User.findByPk(userId, { attributes: ['firstName', 'lastName'] });
+            enrollCourseSse.broadcast(Number(courseId), {
+                type: 'new_request',
+                courseId: Number(courseId),
+                enrollmentId: enrollment.id,
+                userId,
+                userName: applicant ? `${applicant.firstName} ${applicant.lastName}` : `ID:${userId}`,
+            });
+        }
+
         res.json({ success: true, status: enrollment.status });
 
     } catch (e) {
@@ -1014,6 +1062,13 @@ export const updateEnrollmentStatus = async (req: Request, res: Response) => {
         // Если всё ок — сохраняем статус
         enrollment.status = status;
         await enrollment.save();
+
+        // Уведомляем студента о решении по его заявке
+        enrollStudentSse.broadcast(enrollment.userId, {
+            type: 'enrollment_updated',
+            courseId: enrollment.courseId,
+            status,
+        });
 
         res.json({ success: true, message: `Заявка ${status === 'approved' ? 'одобрена' : 'отклонена'}`, enrollment });
     } catch (e) {

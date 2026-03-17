@@ -6,6 +6,7 @@ import {
     saveGlobalTheme,
     deleteGlobalLogo,
     saveUserTheme,
+    themeSSE,
 } from '../controllers/themeController.js';
 
 const isAdmin = (req: Request, res: Response, next: NextFunction) => {
@@ -20,6 +21,9 @@ export default (logoUpload: multer.Multer) => {
 
     // Глобальная тема (публичный GET — нужен при старте приложения)
     router.get('/', getGlobalTheme);
+
+    // SSE: live-обновление темы для всех клиентов
+    router.get('/events', themeSSE);
 
     // Сохранение глобальной темы + загрузка логотипа (только admin)
     router.put('/', checkAuth, isAdmin, logoUpload.single('logo'), saveGlobalTheme);

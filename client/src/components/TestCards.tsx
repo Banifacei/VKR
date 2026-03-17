@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { sendAnswer } from '../api/videoApi';
-import './TestCards.css';
+import { Icons } from './Icons';
 import api from '../api/axiosInstance';
 import { useToast } from '../context/ToastContext';
 interface TestCardsProps {
@@ -131,7 +131,7 @@ export const TestCards = ({ events, videoId, userId, onAllSolved }: TestCardsPro
                                         <strong>Ваш ответ:</strong> {result.answerText}
                                     </div>
                                     <div className={`solved-status ${result.isCorrect ? 'text-success' : 'text-error'}`}>
-                                        {result.isCorrect ? '✅ Верно' : '❌ Неверно'} 
+                                        {result.isCorrect ? <><Icons.LogSuccess size={13}/> Верно</> : <><Icons.Fail size={13}/> Неверно</>}
                                         {q.type === 'free_text' && result.similarity !== undefined && result.similarity !== null && (
                                             <span className="similarity-badge">Точность: {result.similarity}%</span>
                                         )}

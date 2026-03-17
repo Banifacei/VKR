@@ -6,6 +6,7 @@ import type { ICourse } from '../types';
 import './UserPage.css';
 import './CoursesPage.css';
 import { UserProfile } from '../components/UserProfile';
+import { Icons } from '../components/Icons';
 import { PreviewBar } from '../components/PreviewBar';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -22,7 +23,7 @@ const getGradient = (id: number) => {
         'linear-gradient(135deg, #1A2980 0%, #26D0CE 100%)', // Океан
         'linear-gradient(135deg, #b224ef 0%, #7579ff 100%)', // Фиолетовый
         'linear-gradient(135deg, #F09819 0%, #EDDE5D 100%)', // Золотой
-        'linear-gradient(135deg, #00aeef 0%, #0056b3 100%)', // Фирменный синий
+        'linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%)', // Фирменный синий
         'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)', // Неоновый зеленый
     ];
     return gradients[id % gradients.length];
@@ -163,7 +164,7 @@ export const CoursesPage = () => {
                             onClick={openAddModal}
                             style={{ border: '2px dashed #333', background: 'transparent', justifyContent: 'center', alignItems: 'center', minHeight: '300px' }}
                         >
-                            <div style={{ color: '#00aeef', marginBottom: '15px' }}><CorsesIcons.Plus /></div>
+                            <div style={{ color: 'var(--primary)', marginBottom: '15px' }}><CorsesIcons.Plus /></div>
                             <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '18px' }}>Создать новый курс</div>
                             <div style={{ color: '#666', fontSize: '13px', marginTop: '8px' }}>Нажмите, чтобы добавить программу</div>
                         </div>
@@ -216,7 +217,7 @@ export const CoursesPage = () => {
                                             <div className="course-progress-header">
                                                 <span>Прогресс</span>
                                                 <span style={{ color: isFinished ? '#00ff88' : '#fff', fontWeight: 'bold' }}>
-                                                    {isFinished ? 'Завершен ✅' : `${progress}%`}
+                                                    {isFinished ? <><Icons.LogSuccess size={13}/> Завершен</> : `${progress}%`}
                                                 </span>
                                             </div>
                                             <div className="course-progress-track">
@@ -224,7 +225,7 @@ export const CoursesPage = () => {
                                                     className="course-progress-fill" 
                                                     style={{ 
                                                         width: `${progress}%`, 
-                                                        background: isFinished ? '#00ff88' : '#00aeef' 
+                                                        background: isFinished ? '#00ff88' : 'var(--primary)' 
                                                     }}
                                                 ></div>
                                             </div>

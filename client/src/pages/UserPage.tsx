@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { getVideosByCourse, getCourses } from '../api/videoApi';
 import { getCourseTests, getUserCourseProgress, type ICourseTest } from '../api/testApi';
@@ -21,6 +21,7 @@ import { CourseLanding } from '../components/Course/CourseLanding';
 import { SortableCard } from '../components/Course/SortableCard';
 import { AddContentModal } from '../components/Course/AddContentModal';
 import { CourseSettingsModal } from '../components/Course/CourseSettingsModal';
+import { Icons } from '../components/Icons';
 
 type DashboardItem = 
     | ({ type: 'video' } & IVideo) 
@@ -82,7 +83,19 @@ export const UserPage = () => {
     const [isEditMode, setIsEditMode] = useState(false);
     // Активный элемент (вместо selectedVideo)
     const [activeItem, setActiveItem] = useState<DashboardItem | null>(null);
-    
+
+    const handleRefreshEvents = useCallback(async () => {
+        if (!courseId || !activeItem) return [];
+        try {
+            const data = await getVideosByCourse(Number(courseId));
+            const updatedVideo = data.find((v: any) => v.id === activeItem.id);
+            if (updatedVideo) {
+                setActiveItem(prev => (prev && prev.id === updatedVideo.id) ? { ...prev, ...updatedVideo, type: 'video' } : prev);
+            }
+            return updatedVideo?.events || [];
+        } catch (e) { return []; }
+    }, [courseId, activeItem?.id]);
+
     // Модалка авторизации
     const [showAuthModal, setShowAuthModal] = useState(!userData || !userData.id);
 
@@ -261,70 +274,48 @@ export const UserPage = () => {
             showToast('Сбой сети при удалении', 'error');
         }
     };
-    // --- ДИНАМИЧЕСКОЕ ОБНОВЛЕНИЕ СЕТКИ И ПРОГРЕССА (Каждые 10 секунд) ---
+    // --- SSE: мгновенное обновление статуса записи на курс ---
     useEffect(() => {
         if (!courseId) return;
+        const token = localStorage.getItem('lumeo_token');
+        if (!token) return;
 
-        const interval = setInterval(async () => {
-            // 🛑 ВАЖНО: Если препод прямо сейчас тащит карточку, отменяем фоновое обновление!
-            // Иначе карточка "вырвется" из курсора при перерисовке сетки.
-            if (activeDragId || isSavingOrderRef.current) return;
+        const es = new EventSource(`/api/videos/enrollment/stream?token=${token}`);
 
+        es.onmessage = async ({ data }) => {
             try {
-                // 1. Узнаем наш текущий статус
-                const status = await checkEnrollment(Number(courseId));
-                
-                // 🔥 МАГИЯ: Ловим момент, когда препод нажал кнопку!
-                if (prevStatusRef.current === 'pending' && status === 'approved') {
+                const d = JSON.parse(data);
+                if (d.type !== 'enrollment_updated' || d.courseId !== Number(courseId)) return;
+
+                if (prevStatusRef.current === 'pending' && d.status === 'approved') {
                     showToast('Ваша заявка одобрена! Добро пожаловать на курс 🎉', 'success');
-                    fetchCourseData(); // Мгновенно подтягиваем все уроки
-                } else if (prevStatusRef.current === 'pending' && status === 'rejected') {
+                    fetchCourseData();
+                } else if (prevStatusRef.current === 'pending' && d.status === 'rejected') {
                     showToast('Преподаватель отклонил вашу заявку ❌', 'error');
                 }
-                
-                setEnrollStatus(status);
+                setEnrollStatus(d.status);
+                prevStatusRef.current = d.status;
+            } catch { /* игнорируем */ }
+        };
 
-                // 2. Если препод — качаем новые заявки в фоне (для бейджика)
-                if (canEdit) {
+        // SSE для преподавателя — новые заявки на курс (бейджик)
+        let esCourse: EventSource | null = null;
+        if (canEdit) {
+            esCourse = new EventSource(`/api/videos/courses/${courseId}/enrollment/stream?token=${token}`);
+            esCourse.onmessage = async ({ data }) => {
+                try {
+                    const d = JSON.parse(data);
+                    if (d.type !== 'new_request') return;
                     const enrolls = await getCourseEnrollments(Number(courseId));
                     setEnrollmentsList(enrolls);
-                }
+                } catch { /* игнорируем */ }
+            };
+            esCourse.onerror = () => esCourse?.close();
+        }
 
-                // 3. Если мы зачислены ИЛИ мы препод — тихо обновляем сами уроки и прогресс
-                // (Если студент еще сидит на лендинге - не качаем контент, чтобы не было ошибок доступа)
-                if (status === 'approved' || canEdit) {
-                    const videos = await getVideosByCourse(Number(courseId));
-                    const tests = await getCourseTests(Number(courseId));
-
-                    const combinedItems: DashboardItem[] = [
-                        ...videos.map(v => ({ ...v, type: 'video' as const })),
-                        ...tests.map(t => ({ ...t, type: 'test' as const }))
-                    ].sort((a: any, b: any) => (a.orderIndex || 0) - (b.orderIndex || 0));
-
-                    setItems(prevItems => {
-                        const prevHash = JSON.stringify(prevItems.map(i => `${i.type}-${i.id}-${i.title}-${(i as any).orderIndex}`));
-                        const newHash = JSON.stringify(combinedItems.map(i => `${i.type}-${i.id}-${i.title}-${(i as any).orderIndex}`));
-                        if (prevHash !== newHash) return combinedItems;
-                        return prevItems;
-                    });
-
-                    const progressData = await getUserCourseProgress(Number(courseId));
-                    setCompletedVideoIds(progressData.completedVideoIds || []);
-                    
-                    const resultsMap: Record<number, {score: number, passed: boolean}> = {};
-                    (progressData.testResults || []).forEach((tr: any) => {
-                        resultsMap[tr.testId] = { score: tr.score, passed: tr.passed };
-                    });
-                    setTestResults(resultsMap);
-                }
-
-            } catch (e) {
-                // Игнорируем сетевые ошибки в фоне
-            }
-        }, 10000); // 10 секунд
-
-        return () => clearInterval(interval);
-    }, [courseId, activeDragId, canEdit]); // 👈 Обязательно передаем activeDragId в зависимости!
+        es.onerror = () => es.close();
+        return () => { es.close(); esCourse?.close(); };
+    }, [courseId, canEdit]);
     // --- РАСЧЕТ ПРОГРЕССА КУРСА ---
     // 🔥 ФУНКЦИЯ ДЛЯ КНОПКИ "ЗАПИСАТЬСЯ"
     const handleEnroll = async () => {
@@ -360,7 +351,10 @@ export const UserPage = () => {
                 <div style={{ padding: '20px', borderBottom: '1px solid #222', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: '#000', zIndex: 10 }}>
                     <button className="btn btn-ghost" onClick={() => setActiveItem(null)}>← Назад к курсу</button>
                     <div style={{ color: '#888' }}>
-                        {activeItem.type === 'video' ? '📺 Просмотр видео' : '📝 Прохождение теста'}
+                        {activeItem.type === 'video'
+                            ? <><Icons.Monitor size={16}/> Просмотр видео</>
+                            : <><Icons.FileText size={16}/> Прохождение теста</>
+                        }
                     </div>
                     <div style={{ width: '100px' }}></div> 
                 </div>
@@ -386,17 +380,7 @@ export const UserPage = () => {
                                     
                                     // 👇 3. ФУНКЦИИ ДЛЯ СЧЕТЧИКА ПОПЫТОК
                                     onResetTest={() => showToast('Прогресс сброшен', 'info')}
-                                    onRefreshEvents={async () => {
-                                        if (!courseId || !activeItem) return []; 
-                                        try {
-                                            const data = await getVideosByCourse(Number(courseId)); 
-                                            const updatedVideo = data.find(v => v.id === activeItem.id);
-                                            if (updatedVideo) {
-                                                setActiveItem(prev => (prev && prev.id === updatedVideo.id) ? { ...prev, ...updatedVideo, type: 'video' } : prev);
-                                            }
-                                            return updatedVideo?.events || [];
-                                        } catch (e) { return []; }
-                                    }}
+                                    onRefreshEvents={handleRefreshEvents}
                                 />
                             </div>
                             
@@ -409,7 +393,7 @@ export const UserPage = () => {
                             {isExternalTest && activeItem.events && activeItem.events.some(e => ['single_choice', 'multiple_choice', 'free_text', 'question'].includes(e.type)) && userData?.role === 'student' && (
                                 <div ref={testCardsRef} style={{ marginTop: '30px', animation: 'fadeIn 0.4s ease' }}>
                                     <div style={{ background: '#111', padding: '20px', borderRadius: '12px', border: '1px solid #333', marginBottom: '20px' }}>
-                                        <h3 style={{marginTop: 0, color: '#00aeef'}}>📝 Вопросы к уроку</h3>
+                                        <h3 style={{marginTop: 0, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px'}}><Icons.FileText size={16}/> Вопросы к уроку</h3>
                                         <p style={{color: '#666', fontSize: '14px'}}>Вы можете ответить на вопросы здесь, не просматривая видео целиком.</p>
                                     </div>
                                     
@@ -508,16 +492,16 @@ export const UserPage = () => {
                                             onClick={() => setIsEditMode(false)}
                                             style={{ background: !isEditMode ? '#2a2a2a' : 'transparent', color: !isEditMode ? '#fff' : '#888', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', transition: '0.2s' }}
                                         >
-                                            👁️ Глазами студента
+                                            <Icons.Eye size={14}/> Глазами студента
                                         </button>
                                         <button 
                                             onClick={() => setIsEditMode(true)} 
-                                            style={{ background: isEditMode ? '#00aeef' : 'transparent', color: isEditMode ? '#fff' : '#888', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', transition: '0.2s' }}
+                                            style={{ background: isEditMode ? 'var(--primary)' : 'transparent', color: isEditMode ? '#fff' : '#888', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', transition: '0.2s' }}
                                         >
-                                            ✏️ Редактирование
+                                            <Icons.Edit size={14}/> Редактирование
                                         </button>
                                         <button onClick={() => setShowCourseSettings(true)} style={{ background: 'rgba(255,255,255,0.05)', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            ⚙️ Настройки
+                                            <Icons.Settings size={14}/> Настройки
                                             {pendingCount > 0 && (
                                                 <span style={{ background: '#ff4d4d', color: '#fff', fontSize: '11px', padding: '2px 6px', borderRadius: '10px', lineHeight: 1 }}>
                                                     {pendingCount}
@@ -529,13 +513,13 @@ export const UserPage = () => {
                                 <div style={{ marginTop: '20px' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '14px', color: '#888' }}>
                                         <span>Прогресс курса</span>
-                                        <span style={{ color: progressPercent === 100 ? '#4dff88' : '#00aeef', fontWeight: 'bold' }}>{progressPercent}%</span>
+                                        <span style={{ color: progressPercent === 100 ? '#4dff88' : 'var(--primary)', fontWeight: 'bold' }}>{progressPercent}%</span>
                                     </div>
                                     <div style={{ background: '#222', borderRadius: '10px', height: '8px', overflow: 'hidden' }}>
-                                        <div style={{ width: `${progressPercent}%`, background: progressPercent === 100 ? '#4dff88' : '#00aeef', height: '100%', transition: 'width 0.8s ease' }} />
+                                        <div style={{ width: `${progressPercent}%`, background: progressPercent === 100 ? '#4dff88' : 'var(--primary)', height: '100%', transition: 'width 0.8s ease' }} />
                                     </div>
                                 </div>
-                                <span>👨‍🏫 {course?.instructor}</span>
+                                <span><Icons.Teacher size={14}/> {course?.instructor}</span>
                                 <span>•</span>
                                 <span>{items.filter(i => i.type === 'video').length} уроков</span>
                                 <span>•</span>

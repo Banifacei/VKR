@@ -34,8 +34,8 @@ import {
 
 } from '../controllers/videoController.js';
 import { checkCourseAccess } from '../middleware/courseAuthMiddleware.js';
-import { checkAuth } from '../middleware/authMiddleware.js';
-import { updateEvent, deleteEvent } from '../controllers/videoController.js';
+import { checkAuth, checkAuthSse } from '../middleware/authMiddleware.js';
+import { updateEvent, deleteEvent, sseVideoEvents, sseEnrollStudentEvents, sseEnrollCourseEvents, sseSubtitleEvents } from '../controllers/videoController.js';
 console.log("!!! ЗАГРУЖАЮТСЯ НОВЫЕ РОУТЫ С AI !!!");
 
 const router = Router();
@@ -87,4 +87,15 @@ router.post('/:videoId/events', createEvent);
 router.put('/events/:eventId', updateEvent);
 router.delete('/events/:eventId', deleteEvent);
 router.delete('/:videoId', checkAuth, deleteVideo);
+
+// --- SSE-стримы ---
+// Видео-события (вопросы/главы): публичный, без авторизации (как и сами эндпоинты событий)
+router.get('/:videoId/events/stream', sseVideoEvents);
+// Статус записи студента: авторизованный
+router.get('/enrollment/stream', checkAuthSse, sseEnrollStudentEvents);
+// Новые заявки на курс (для препода): авторизованный + доступ к курсу
+router.get('/courses/:courseId/enrollment/stream', checkAuthSse, sseEnrollCourseEvents);
+// Завершение генерации субтитров (для препода): авторизованный
+router.get('/courses/:courseId/processing/stream', checkAuthSse, sseSubtitleEvents);
+
 export default router;
