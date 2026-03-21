@@ -1233,6 +1233,42 @@ html[data-density="compact"] .btn                 { padding: 6px 12px; font-size
 .option-group { display: flex; flex-direction: column; gap: 8px; }
 .option-label { margin: 0; font-size: 11px; color: #888; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
 
+/* --- Табы режима загрузки видео --- */
+.input-mode-tabs {
+    display: flex;
+    gap: 4px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 8px;
+    padding: 4px;
+    margin-bottom: 12px;
+}
+.mode-tab {
+    flex: 1;
+    padding: 7px 12px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: #888;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.18s, color 0.18s;
+}
+.mode-tab.active { background: var(--primary, #5b6af5); color: #fff; }
+.mode-tab:hover:not(.active) { background: rgba(255,255,255,0.08); color: #ccc; }
+.url-input-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.link-type-badge {
+    display: inline-flex;
+    align-self: flex-start;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    background: rgba(91, 106, 245, 0.2);
+    color: var(--primary, #5b6af5);
+    border: 1px solid rgba(91, 106, 245, 0.35);
+}
+
 .file-input-wrapper { position: relative; display: flex; align-items: center; width: 100%; }
 
 input[type="file"] { width: 100%; color: #888; font-size: 12px; font-family: inherit; cursor: pointer; }

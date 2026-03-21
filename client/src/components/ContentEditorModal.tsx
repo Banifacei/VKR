@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { VideoPlayer } from './VideoPlayer';
-import { addEvent, updateEvent, deleteEvent, generateAutoSubtitles, updateVideo, getVideosByCourse, getVideoStats } from '../api/videoApi';
+import { addEvent, updateEvent, deleteEvent, generateAutoSubtitles, updateVideo, getVideosByCourse, getVideoStats, transcodeVideo } from '../api/videoApi';
 import { addTestQuestion, deleteTestQuestion, getCourseTests, getTestStats, type ICourseTest } from '../api/testApi';
 import type { IVideo } from '../types';
 import * as XLSX from 'xlsx';
@@ -170,6 +170,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
             return next;
         });
     };
+    const [transcodingVideos, setTranscodingVideos] = useState<number[]>([]);
     
     const [duplicateIndices, setDuplicateIndices] = useState<number[]>([]);
 
@@ -588,15 +589,60 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
 
     const handleGenerateSubs = async () => {
         if (!selectedVideo) return;
-        setGeneratingVideos((prev: number[]) => [...prev, selectedVideo.id]); 
+        setGeneratingVideos((prev: number[]) => [...prev, selectedVideo.id]);
         try {
             await generateAutoSubtitles(selectedVideo.id);
             showToast("ИИ начал обработку. Субтитры появятся через пару минут.", 'info');
         } catch (e) {
             showToast("Ошибка при старте генерации.", "error");
-            setGeneratingVideos((prev: number[]) => prev.filter((id: number) => id !== selectedVideo.id)); 
+            setGeneratingVideos((prev: number[]) => prev.filter((id: number) => id !== selectedVideo.id));
         }
     };
+
+    const handleTranscode = async () => {
+        if (!selectedVideo) return;
+        if (!selectedVideo.url.startsWith('/uploads/')) {
+            showToast('Транскодирование доступно только для загруженных файлов', 'error');
+            return;
+        }
+        setTranscodingVideos(prev => [...prev, selectedVideo.id]);
+        try {
+            await transcodeVideo(selectedVideo.id);
+            showToast('Транскодирование запущено. Версии 360p и 720p создаются...', 'info');
+        } catch (e) {
+            showToast('Ошибка при запуске транскодирования', 'error');
+            setTranscodingVideos(prev => prev.filter(id => id !== selectedVideo.id));
+        }
+    };
+
+    // SSE: обновление когда транскодирование завершилось
+    useEffect(() => {
+        if (!selectedVideo?.courseId) return;
+        const token = localStorage.getItem('lumeo_token');
+        if (!token) return;
+        const es = new EventSource(`/api/videos/courses/${selectedVideo.courseId}/processing/stream?token=${token}`);
+        es.onmessage = async ({ data }) => {
+            try {
+                const d = JSON.parse(data);
+                if (d.type === 'subtitle_done' && d.videoId === selectedVideo.id) {
+                    setGeneratingVideos((prev: number[]) => prev.filter((id: number) => id !== selectedVideo.id));
+                    const fresh = await getVideosByCourse(selectedVideo.courseId!);
+                    const updated = fresh.find((v: IVideo) => v.id === selectedVideo.id);
+                    if (updated) setSelectedVideo(updated);
+                    onSuccess();
+                } else if (d.type === 'quality_ready' && d.videoId === selectedVideo.id) {
+                    setTranscodingVideos(prev => prev.filter(id => id !== selectedVideo.id));
+                    showToast(`Версии качества готовы!`, 'success');
+                    const fresh = await getVideosByCourse(selectedVideo.courseId!);
+                    const updated = fresh.find((v: IVideo) => v.id === selectedVideo.id);
+                    if (updated) setSelectedVideo(updated);
+                    onSuccess();
+                }
+            } catch { /* игнорируем */ }
+        };
+        es.onerror = () => es.close();
+        return () => es.close();
+    }, [selectedVideo?.id, selectedVideo?.courseId]);
 
     // --- Drag and Drop ---
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
@@ -829,10 +875,14 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                             <div style={{ maxWidth: '800px', margin: '0 auto', width: '100%' }}>
                                 {isVideo && selectedVideo && (
                                     <div style={{ width: '100%', marginBottom: '40px', position: 'relative' }}>
-                                        <div style={{ position: 'absolute', top: '10%', left: '10%', right: '10%', bottom: '10%', background: accentColor, filter: 'blur(100px)', opacity: 0.1, zIndex: 0 }}></div>
+                                        <div style={{ position: 'absolute', top: '10%', left: '10%', right: '10%', bottom: '10%', background: accentColor, filter: 'blur(100px)', opacity: 0.1, zIndex: 0, pointerEvents: 'none' }}></div>
                                         <div className="player-wrapper-animation" style={{ position: 'relative', zIndex: 1, borderRadius: '16px', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.6)' }}>
-                                            <VideoPlayer 
-                                                key={selectedVideo.id} sources={[{ quality: 'Auto', url: selectedVideo.url, subtitles: selectedVideo.subtitles }]} 
+                                            <VideoPlayer
+                                                key={selectedVideo.id}
+                                                sources={[
+                                                    { quality: 'Оригинал', url: selectedVideo.url, subtitles: selectedVideo.subtitles },
+                                                    ...(selectedVideo.qualityUrls || []).map((q: any) => ({ quality: q.quality, url: q.url, subtitles: selectedVideo.subtitles }))
+                                                ]}
                                                 title={selectedVideo.title} events={selectedVideo.events || []} hideResults={selectedVideo.hideResults}
                                                 userId={userData?.id} userRole={userData?.role}
                                                 videoId={selectedVideo.id} onTimeUpdate={(t) => setCurrentTime(t)} maxAttempts={selectedVideo.maxAttempts}
@@ -840,11 +890,18 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                         </div>
                                         <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                             {/* Строка 1: заголовок + кнопка субтитров */}
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                                                 <span style={{ color: '#888', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', fontSize: '12px' }}>Таймлайн интерактива:</span>
-                                                <button className={`btn ${generatingVideos.includes(selectedVideo.id) ? 'btn-ghost' : 'btn-primary'}`} style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '10px' }} onClick={handleGenerateSubs} disabled={generatingVideos.includes(selectedVideo.id)}>
-                                                    {generatingVideos.includes(selectedVideo.id) ? <><Icons.Spinner /> Генерация ИИ...</> : <><Icons.AI /> Сгенерировать ИИ Субтитры</>}
-                                                </button>
+                                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                                    <button className={`btn ${generatingVideos.includes(selectedVideo.id) ? 'btn-ghost' : 'btn-primary'}`} style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '10px' }} onClick={handleGenerateSubs} disabled={generatingVideos.includes(selectedVideo.id)}>
+                                                        {generatingVideos.includes(selectedVideo.id) ? <><Icons.Spinner /> Генерация ИИ...</> : <><Icons.AI /> ИИ Субтитры</>}
+                                                    </button>
+                                                    {selectedVideo.url.startsWith('/uploads/') && (
+                                                        <button className={`btn btn-ghost`} style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '10px' }} onClick={handleTranscode} disabled={transcodingVideos.includes(selectedVideo.id)} title="Создать версии 360p и 720p">
+                                                            {transcodingVideos.includes(selectedVideo.id) ? <><Icons.Spinner /> Транскодирование...</> : <><Icons.Settings /> Версии качества</>}
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </div>
                                             {/* Строка 2: быстрое добавление главы */}
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(var(--primary-rgb),0.04)', border: '1px solid rgba(var(--primary-rgb),0.15)', borderRadius: '12px', padding: '8px 12px' }}>

@@ -30,7 +30,8 @@ import {
     getCourseAnalytics,
     getStudentCourseDetails,
     getCourseItemAnalytics,
-    generateDemoData
+    generateDemoData,
+    transcodeVideo
 
 } from '../controllers/videoController.js';
 import { checkCourseAccess } from '../middleware/courseAuthMiddleware.js';
@@ -48,6 +49,7 @@ router.post('/:videoId/autocaptions', (req, res, next) => {
 // --- СУЩЕСТВУЮЩИЕ РОУТЫ ---
 router.put('/reorder', reorderVideos);
 router.post('/:videoId/autocaptions', generateSubtitles);
+router.post('/:videoId/transcode', checkAuth, transcodeVideo);
 router.post('/', createVideo);
 router.get('/courses', getAllCourses);
 router.post('/courses', checkAuth, createCourse);

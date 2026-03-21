@@ -367,7 +367,10 @@ export const UserPage = () => {
                                     key={activeItem.id} 
                                     videoId={activeItem.id}
                                     title={activeItem.title}
-                                    sources={[{ quality: 'Auto', url: activeItem.url, subtitles: activeItem.subtitles }]}
+                                    sources={[
+                                        { quality: 'Оригинал', url: activeItem.url, subtitles: activeItem.subtitles },
+                                        ...(activeItem.qualityUrls || []).map(q => ({ quality: q.quality, url: q.url, subtitles: activeItem.subtitles }))
+                                    ]}
                                     events={activeItem.events || []}
                                     hideResults={activeItem.hideResults}
                                     maxAttempts={activeItem.maxAttempts}

@@ -44,4 +44,7 @@ export class Video extends Model {
 
   @Column({ type: DataType.DATE, allowNull: true })
   declare unlockDate: Date | null; // Отложенный релиз (дата и время)
+
+  @Column({ type: DataType.JSONB, defaultValue: [] })
+  declare qualityUrls: { quality: string; url: string }[]; // Варианты качества
 }

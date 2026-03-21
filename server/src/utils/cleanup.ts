@@ -26,6 +26,14 @@ export const cleanupOrphanFiles = async (uploadDir: string, avatarDir: string) =
                     }
                 });
             }
+            if (v.qualityUrls && Array.isArray(v.qualityUrls)) {
+                v.qualityUrls.forEach((q: any) => {
+                    if (q.url) {
+                        const qName = q.url.split('/').pop();
+                        if (qName) usedFiles.add(qName);
+                    }
+                });
+            }
         });
 
         // Достаем все аватарки юзеров

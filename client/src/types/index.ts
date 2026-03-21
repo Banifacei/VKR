@@ -38,6 +38,7 @@ export interface IVideo {
     allowExternalTest?: boolean;
     isHidden?: boolean;
     unlockDate?: string | null;
+    qualityUrls?: { quality: string; url: string }[];
 }
 
 export interface ICourse {

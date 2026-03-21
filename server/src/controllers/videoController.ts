@@ -195,6 +195,14 @@ export const deleteCourse = async (req: Request, res: Response) => {
                     }
                 }
             }
+            if (video.qualityUrls && Array.isArray(video.qualityUrls)) {
+                for (const q of video.qualityUrls as any[]) {
+                    if (q.url) {
+                        const qName = q.url.split('/').pop();
+                        if (qName) filePaths.push(path.join(uploadsDir, qName));
+                    }
+                }
+            }
         }
 
         // Каскадное удаление из БД в транзакции
@@ -258,16 +266,21 @@ export const createVideo = async (req: Request, res: Response) => {
         finalOrderIndex = Math.max(maxVideoIndex, maxTestIndex) + 1;
     }
 
-    const video = await Video.create({ 
+    const video = await Video.create({
         title,
         url,
-        subtitles, 
-        hideResults: hideResults || false, 
+        subtitles,
+        hideResults: hideResults || false,
         courseId: Number(courseId),
-        orderIndex: finalOrderIndex // 👈 Железобетонно сохраняем в базу!
+        orderIndex: finalOrderIndex
     });
     addSystemLog(`В курс добавлен урок: "${title}"`, 'success');
     res.status(201).json(video);
+
+    // Авто-транскодирование: если загружен локальный файл — запускаем в фоне
+    if (url && url.startsWith('/uploads/') && !url.endsWith('.vtt')) {
+        transcodeVideoInBackground(video.id, url, Number(courseId));
+    }
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Ошибка при сохранении видео' });
@@ -459,11 +472,23 @@ export const deleteVideo = async (req: Request, res: Response) => {
             }
         }
 
-        // 3. Удаляем связи из БД
+        // 🔥 3. Удаляем транскодированные версии качества
+        if (video.qualityUrls && Array.isArray(video.qualityUrls)) {
+            for (const q of video.qualityUrls) {
+                if (q.url) {
+                    const qName = q.url.split('/').pop();
+                    if (qName) {
+                        try { await fsPromises.unlink(path.join(uploadsDir, qName)); } catch (e) {}
+                    }
+                }
+            }
+        }
+
+        // 4. Удаляем связи из БД
         await UserResponse.destroy({ where: { videoId } });
         await UserVideoProgress.destroy({ where: { videoId } });
         await InteractiveEvent.destroy({ where: { videoId } });
-        
+
         await video.destroy();
         addSystemLog(`Удалено видео (ID: ${videoId}) и его файлы`, 'warning');
         res.json({ success: true, message: 'Видео и файлы успешно удалены' });
@@ -662,6 +687,72 @@ export const generateSubtitles = async (req: Request, res: Response) => {
         if (!res.headersSent) {
             res.status(500).json({ message: 'Ошибка запуска генерации' });
         }
+    }
+};
+
+// --- ФОНОВОЕ ТРАНСКОДИРОВАНИЕ — Worker Thread (не блокирует основной поток) ---
+const transcodeVideoInBackground = (videoId: number, videoUrl: string, courseId: number): void => {
+    const uploadsDir = path.join(__dirname, '../../uploads');
+    const filename = videoUrl.split('/').pop();
+    if (!filename) return;
+
+    const inputPath = path.join(uploadsDir, filename);
+    const ext = path.extname(filename);
+    const base = path.basename(filename, ext);
+
+    const workerPath = path.resolve(__dirname, '../transcoderWorker.ts');
+    if (!fs.existsSync(workerPath)) {
+        console.error('[Transcode] transcoderWorker.ts не найден');
+        return;
+    }
+    const tsCode = fs.readFileSync(workerPath, 'utf8');
+    const { code: jsCode } = transformSync(tsCode, { loader: 'ts', target: 'es2022', format: 'cjs' });
+
+    addSystemLog(`Запущено авто-транскодирование для видео (ID: ${videoId})`, 'info');
+
+    const worker = new Worker(jsCode, {
+        eval: true,
+        workerData: { inputPath, uploadsDir, base },
+    });
+
+    worker.on('message', async (msg) => {
+        if (msg.status === 'done') {
+            if (msg.results && msg.results.length > 0) {
+                await Video.update({ qualityUrls: msg.results }, { where: { id: videoId } });
+                const video = await Video.findByPk(videoId);
+                subtitleDoneSse.broadcast(courseId, {
+                    type: 'quality_ready',
+                    videoId,
+                    videoTitle: video?.title || '',
+                });
+                addSystemLog(`Транскодирование видео (ID: ${videoId}) завершено — ${msg.results.length} версии`, 'success');
+            }
+        } else if (msg.status === 'warn') {
+            console.warn('[Transcode]', msg.message);
+        } else {
+            console.log(`[Transcode Worker] Видео ${videoId}: ${msg.status}`);
+        }
+    });
+    worker.on('error', err => console.error('[Transcode Worker Error]', err));
+    worker.on('exit', code => { if (code !== 0) console.error(`[Transcode Worker] завершился с кодом ${code}`); });
+};
+
+export const transcodeVideo = async (req: Request, res: Response) => {
+    try {
+        const { videoId } = req.params;
+        const video = await Video.findByPk(videoId);
+        if (!video) return res.status(404).json({ message: 'Видео не найдено' });
+
+        if (!video.url.startsWith('/uploads/')) {
+            return res.status(400).json({ message: 'Транскодирование доступно только для локальных файлов' });
+        }
+
+        res.status(202).json({ message: 'Транскодирование запущено' });
+        // Запускаем в фоне (не await)
+        transcodeVideoInBackground(video.id, video.url, video.courseId);
+    } catch (e) {
+        console.error('[Transcode]', e);
+        if (!res.headersSent) res.status(500).json({ message: 'Ошибка запуска транскодирования' });
     }
 };
 

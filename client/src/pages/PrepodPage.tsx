@@ -16,6 +16,7 @@ import {
     updateCourseApi,
     deleteCourseApi,
     generateAutoSubtitles,
+    transcodeVideo,
     reorderVideos,
     deleteVideoApi
 } from '../api/videoApi';
@@ -78,6 +79,7 @@ export const PrepodPage = () => {
       const saved = localStorage.getItem('prepod_generating_videos');
       return saved ? JSON.parse(saved) : [];
   });
+  const [transcodingVideos, setTranscodingVideos] = useState<number[]>([]);
   // --- SSE: мгновенное уведомление о завершении генерации субтитров ---
   useEffect(() => {
       if (!selectedCourseId) return;
@@ -89,12 +91,17 @@ export const PrepodPage = () => {
       es.onmessage = async ({ data }) => {
           try {
               const d = JSON.parse(data);
-              if (d.type !== 'subtitle_done') return;
-              showToast(`Субтитры для урока "${d.videoTitle}" успешно созданы!`, 'success');
-              setGeneratingVideos(prev => prev.filter(id => id !== d.videoId));
-              // Перезагружаем список видео чтобы подтянуть новые субтитры
-              const freshVideos = await getVideosByCourse(selectedCourseId);
-              setVideos(freshVideos);
+              if (d.type === 'subtitle_done') {
+                  showToast(`Субтитры для урока "${d.videoTitle}" успешно созданы!`, 'success');
+                  setGeneratingVideos(prev => prev.filter(id => id !== d.videoId));
+                  const freshVideos = await getVideosByCourse(selectedCourseId);
+                  setVideos(freshVideos);
+              } else if (d.type === 'quality_ready') {
+                  showToast(`Версии качества для урока "${d.videoTitle}" готовы!`, 'success');
+                  setTranscodingVideos(prev => prev.filter(id => id !== d.videoId));
+                  const freshVideos = await getVideosByCourse(selectedCourseId);
+                  setVideos(freshVideos);
+              }
           } catch { /* игнорируем */ }
       };
 
@@ -436,6 +443,23 @@ export const PrepodPage = () => {
           console.error(e);
           showToast("Ошибка при старте генерации.", 'error');
           setGeneratingVideos(prev => prev.filter(id => id !== selectedVideo.id)); 
+      }
+  };
+
+  const handleTranscode = async () => {
+      if (!selectedVideo) return;
+      if (!selectedVideo.url.startsWith('/uploads/')) {
+          showToast('Транскодирование доступно только для загруженных файлов', 'error');
+          return;
+      }
+      setTranscodingVideos(prev => [...prev, selectedVideo.id]);
+      try {
+          await transcodeVideo(selectedVideo.id);
+          showToast('Транскодирование запущено. Это может занять несколько минут.', 'info');
+      } catch (e) {
+          console.error(e);
+          showToast('Ошибка при запуске транскодирования', 'error');
+          setTranscodingVideos(prev => prev.filter(id => id !== selectedVideo.id));
       }
   };
 
@@ -968,7 +992,10 @@ export const PrepodPage = () => {
                             <div className="player-wrapper-animation" style={{width: '100%', maxWidth: '1000px'}}>
                                 <VideoPlayer 
                                     key={selectedVideo.id}
-                                    sources={[{ quality: 'Auto', url: selectedVideo.url, subtitles: selectedVideo.subtitles }]} 
+                                    sources={[
+                                    { quality: 'Оригинал', url: selectedVideo.url, subtitles: selectedVideo.subtitles },
+                                    ...(selectedVideo.qualityUrls || []).map((q: any) => ({ quality: q.quality, url: q.url, subtitles: selectedVideo.subtitles }))
+                                ]}
                                     title={selectedVideo.title} 
                                     events={selectedVideo.events || []}
                                     hideResults={selectedVideo.hideResults}
@@ -992,6 +1019,11 @@ export const PrepodPage = () => {
                                         <button className={`btn btn-ai ${generatingVideos.includes(selectedVideo.id) ? 'generating' : ''}`} onClick={handleGenerateSubs} disabled={generatingVideos.includes(selectedVideo.id)}>
                                             {generatingVideos.includes(selectedVideo.id) ? <><Icons.Spinner /> Обработка ИИ...</> : <><Icons.AI /> AI Субтитры</>}
                                         </button>
+                                        {selectedVideo.url.startsWith('/uploads/') && (
+                                            <button className={`btn btn-ghost ${transcodingVideos.includes(selectedVideo.id) ? 'generating' : ''}`} onClick={handleTranscode} disabled={transcodingVideos.includes(selectedVideo.id)} title="Создать версии 360p и 720p для выбора качества">
+                                                {transcodingVideos.includes(selectedVideo.id) ? <><Icons.Spinner /> Транскодирование...</> : <><Icons.Settings /> Качество</>}
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                                 <div style={{ display: 'flex', gap: '40px', flexWrap: 'wrap' }}>

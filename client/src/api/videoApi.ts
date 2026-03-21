@@ -116,3 +116,8 @@ export const getCourseAnalytics = async (courseId: number) => {
     const res = await api.get(`/videos/courses/${courseId}/analytics`);
     return res.data;
 };
+
+export const transcodeVideo = async (videoId: number) => {
+    const res = await api.post(`/videos/${videoId}/transcode`);
+    return res.data;
+};

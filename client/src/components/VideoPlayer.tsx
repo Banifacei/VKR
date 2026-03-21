@@ -9,6 +9,32 @@ import { normalizeUploadUrl } from '../utils/uploadUrl';
 
 const playbackRates = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 
+// --- Определение и конвертация внешних ссылок ---
+const getEmbedUrl = (url: string): string | null => {
+    // YouTube: watch?v= или youtu.be/
+    const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    if (ytMatch) return `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=0&rel=0&enablejsapi=1&controls=0`;
+
+    // Rutube
+    const rtMatch = url.match(/rutube\.ru\/video\/([a-f0-9]+)/i);
+    if (rtMatch) return `https://rutube.ru/play/embed/${rtMatch[1]}?enableapi=1`;
+
+    // VK Видео
+    const vkMatch = url.match(/vk\.com\/video(-?\d+)_(\d+)/);
+    if (vkMatch) return `https://vk.com/video_ext.php?oid=${vkMatch[1]}&id=${vkMatch[2]}&js_api=1`;
+
+    // Прямая ссылка — не iframe
+    return null;
+};
+
+// Типы для YouTube IFrame API
+declare global {
+    interface Window {
+        YT: any;
+        onYouTubeIframeAPIReady: () => void;
+    }
+}
+
 interface VideoPlayerProps {
   sources: { quality: string; url: string; subtitles?: ISubtitle[] }[];
   title?: string;
@@ -45,10 +71,45 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   const { showToast } = useToast();
   const [hasNewAnswers, setHasNewAnswers] = useState(false);
 
+  // --- Внешние плееры (YouTube / Rutube / VK) ---
+  const currentEmbedUrl = getEmbedUrl(currentSource.url);
+  const isYouTube = !!currentEmbedUrl && /youtube\.com|youtu\.be/.test(currentSource.url);
+  const isRutube  = !!currentEmbedUrl && /rutube\.ru/.test(currentSource.url);
+  const ytPlayerRef = useRef<any>(null);
+  const externalIframeRef = useRef<HTMLIFrameElement>(null);
+  // Для Rutube: время приходит через postMessage
+  const externalTimeRef = useRef<number>(0);
+
   const safePlay = () => {
+      if (currentEmbedUrl) {
+          if (isYouTube && ytPlayerRef.current?.playVideo) {
+              ytPlayerRef.current.playVideo();
+          } else if (externalIframeRef.current?.contentWindow) {
+              externalIframeRef.current.contentWindow.postMessage(
+                  JSON.stringify({ type: 'player:play', data: {} }), '*'
+              );
+          }
+          setIsPlaying(true);
+          return;
+      }
       if (!videoRef.current) return;
       const p = videoRef.current.play();
       if (p !== undefined) p.catch(e => { if (e.name !== 'AbortError') console.error(e); });
+  };
+
+  const safePause = () => {
+      if (currentEmbedUrl) {
+          if (isYouTube && ytPlayerRef.current?.pauseVideo) {
+              ytPlayerRef.current.pauseVideo();
+          } else if (externalIframeRef.current?.contentWindow) {
+              externalIframeRef.current.contentWindow.postMessage(
+                  JSON.stringify({ type: 'player:pause', data: {} }), '*'
+              );
+          }
+          setIsPlaying(false);
+          return;
+      }
+      videoRef.current?.pause();
   };
 
   // States
@@ -68,6 +129,8 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
 
   const isLongPressActiveRef = useRef(false); // Флаг: сейчас активно удержание?
   const wasPlayingRef = useRef(false);        // Флаг: играло ли видео ДО нажатия?
+  const isSeekingRef = useRef(false);         // Флаг: идёт перемотка
+  const lastQualitySwitchRef = useRef(0);     // Время последнего авто-переключения качества
 
   const [isFullscreen] = useState(false);
   const [isZoomFill, setIsZoomFill] = useState(false);
@@ -201,7 +264,10 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
         setActiveEvent(null);
         setAttemptsUsed(prev => prev + 1);
         setHasNewAnswers(false);
-        if (videoRef.current) {
+        if (currentEmbedUrl) {
+            seekExternal(0);
+            safePlay();
+        } else if (videoRef.current) {
             videoRef.current.currentTime = 0;
             safePlay();
         }
@@ -239,17 +305,16 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   useEffect(() => {
       if (sources && sources.length > 0) {
           setCurrentSource(prev => {
-              // Если URL видео не изменился, мы НЕ ПЕРЕЗАГРУЖАЕМ источник,
-              // а только аккуратно подмешиваем новые субтитры.
-              // Это спасает от сброса плеера и ошибки AbortError!
               if (prev.url === sources[0].url) {
-                  // Если субтитры обновились, меняем их
                   if (JSON.stringify(prev.subtitles) !== JSON.stringify(sources[0].subtitles)) {
                       return { ...prev, subtitles: sources[0].subtitles };
                   }
-                  return prev; // Вообще ничего не меняем
+                  return prev;
               }
-              return sources[0]; // Если это реально другое видео (следующий урок), тогда грузим
+              // Другое видео → сбрасываем авто-режим
+              setIsAutoMode(true);
+              autoIdxRef.current = 0;
+              return sources[0];
           });
       }
   }, [sources]);
@@ -273,15 +338,146 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
         }
     }, [activeSubtitle, currentSource]);
 
-  useEffect(() => { if (videoRef.current) videoRef.current.volume = volume; }, [volume]);
+  useEffect(() => {
+      if (currentEmbedUrl) {
+          if (isYouTube && ytPlayerRef.current) {
+              if (isMuted) ytPlayerRef.current.mute?.();
+              else { ytPlayerRef.current.unMute?.(); ytPlayerRef.current.setVolume?.(volume * 100); }
+          }
+          // Rutube/VK — API громкости не поддерживается через postMessage
+      } else if (videoRef.current) {
+          videoRef.current.volume = volume;
+      }
+  }, [volume, isMuted]);
+
   useEffect(() => {
         return () => {
             // Сработает, когда компонент удаляется (переход на другую страницу)
             if (videoId && videoRef.current && !videoRef.current.ended) {
-            savePlaybackProgress(videoId, videoRef.current.currentTime, false);
+                savePlaybackProgress(videoId, videoRef.current.currentTime, false);
             }
         };
     }, [videoId]);
+
+  // --- YouTube IFrame API: инициализация ---
+  useEffect(() => {
+      if (!isYouTube || !externalIframeRef.current) return;
+
+      const initPlayer = () => {
+          if (!externalIframeRef.current) return;
+          ytPlayerRef.current = new window.YT.Player(externalIframeRef.current, {
+              events: {
+                  onReady: (event: any) => {
+                      const dur = event.target.getDuration();
+                      if (dur > 0) setDuration(dur);
+                  },
+                  onStateChange: (event: any) => {
+                      const YTState = window.YT?.PlayerState;
+                      if (!YTState) return;
+                      if (event.data === YTState.PLAYING) {
+                          setIsPlaying(true);
+                      } else if (event.data === YTState.PAUSED) {
+                          setIsPlaying(false);
+                      } else if (event.data === YTState.ENDED) {
+                          handleVideoEnd();
+                      }
+                  },
+              },
+          });
+      };
+
+      if (window.YT?.Player) {
+          initPlayer();
+      } else {
+          const prevCallback = window.onYouTubeIframeAPIReady;
+          window.onYouTubeIframeAPIReady = () => {
+              prevCallback?.();
+              initPlayer();
+          };
+          if (!document.querySelector('script[src*="youtube.com/iframe_api"]')) {
+              const tag = document.createElement('script');
+              tag.src = 'https://www.youtube.com/iframe_api';
+              document.head.appendChild(tag);
+          }
+      }
+
+      return () => {
+          ytPlayerRef.current?.destroy?.();
+          ytPlayerRef.current = null;
+      };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentEmbedUrl]);
+
+  // --- Rutube / VK: слушаем postMessage для времени и состояния ---
+  useEffect(() => {
+      if (!isRutube && !(!isYouTube && currentEmbedUrl)) return;
+
+      const onMessage = (e: MessageEvent) => {
+          try {
+              const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+              if (!data?.type) return;
+              if (data.type === 'player:currentTime' || data.type === 'currentTime') {
+                  const t = data.data?.time ?? data.time ?? 0;
+                  externalTimeRef.current = t;
+              }
+              if (data.type === 'player:durationChange' || data.type === 'durationChange') {
+                  const d = data.data?.duration ?? data.duration ?? 0;
+                  if (d > 0) setDuration(d);
+              }
+              if (data.type === 'player:play' || data.type === 'play') setIsPlaying(true);
+              if (data.type === 'player:pause' || data.type === 'pause') setIsPlaying(false);
+              if (data.type === 'player:stop' || data.type === 'stop') handleVideoEnd();
+          } catch { /* ignore */ }
+      };
+
+      window.addEventListener('message', onMessage);
+      return () => window.removeEventListener('message', onMessage);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentEmbedUrl]);
+
+  // --- Polling времени для внешних плееров (нужен для interactive events) ---
+  useEffect(() => {
+      if (!currentEmbedUrl) return;
+
+      const interval = setInterval(() => {
+          let time = externalTimeRef.current;
+
+          // YouTube: берём актуальное время напрямую из API
+          if (isYouTube && ytPlayerRef.current?.getCurrentTime) {
+              time = ytPlayerRef.current.getCurrentTime() || 0;
+              externalTimeRef.current = time;
+              const dur = ytPlayerRef.current.getDuration?.() || 0;
+              if (dur > 0 && dur !== duration) setDuration(dur);
+          }
+
+          anticheatTimeRef.current = time;
+          setCurrentTime(time);
+
+          if (onTimeUpdate) onTimeUpdate(time);
+
+          if (videoId && Math.abs(time - lastSavedTimeRef.current) > 30) {
+              savePlaybackProgress(videoId, time, false).catch(() => {});
+              lastSavedTimeRef.current = time;
+          }
+
+          if (questions.length > 0 && !activeEvent && !showEndScreen && !isExternalTestMode && isPlaying) {
+              const eventToTrigger = questions.find(ev =>
+                  Math.abs(ev.time - time) < 0.8 && !processedEventIdsRef.current.includes(ev.id)
+              );
+              if (eventToTrigger) {
+                  safePause();
+                  setActiveEvent(eventToTrigger);
+                  setCurrentAnswer(eventToTrigger.type === 'multiple_choice' ? [] : '');
+                  setShowControls(false);
+                  processedEventIdsRef.current = [...processedEventIdsRef.current, eventToTrigger.id];
+                  setProcessedEventIds(prev => [...prev, eventToTrigger.id]);
+              }
+          }
+      }, 500);
+
+      return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentEmbedUrl, activeEvent, showEndScreen, isExternalTestMode, isPlaying, questions, duration]);
 
     // --- УМНЫЙ АНТИ-СКИП: Ищет нерешенные вопросы на пути перемотки ---
   const getBlockingEventTime = (fromTime: number, toTime: number) => {
@@ -308,22 +504,30 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   
   const handlePressStart = () => {
       if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
-      
+
       // Запоминаем состояние (играло или нет), чтобы вернуть его при отмене
-      if (videoRef.current) {
-          wasPlayingRef.current = !videoRef.current.paused;
-      }
-      
+      wasPlayingRef.current = currentEmbedUrl ? isPlaying : !videoRef.current?.paused;
+
       isLongPressActiveRef.current = false;
 
       longPressTimerRef.current = window.setTimeout(() => {
-          if (videoRef.current) {
-              isLongPressActiveRef.current = true; // Это удержание
-              originalRateRef.current = videoRef.current.playbackRate;
-              videoRef.current.playbackRate = 2; // Врубаем 2x
+          isLongPressActiveRef.current = true;
+          if (currentEmbedUrl) {
+              // Внешние плееры: YouTube API или postMessage
+              originalRateRef.current = playbackRate;
+              if (isYouTube && ytPlayerRef.current?.setPlaybackRate) {
+                  ytPlayerRef.current.setPlaybackRate(2);
+              } else if (externalIframeRef.current?.contentWindow) {
+                  externalIframeRef.current.contentWindow.postMessage(
+                      JSON.stringify({ type: 'player:setPlaybackRate', data: { rate: 2 } }), '*'
+                  );
+              }
               setIsSpeedingUp(true);
-
-              // Если было на паузе - запускаем, чтобы видеть ускорение
+              if (!isPlaying) safePlay();
+          } else if (videoRef.current) {
+              originalRateRef.current = videoRef.current.playbackRate;
+              videoRef.current.playbackRate = 2;
+              setIsSpeedingUp(true);
               if (videoRef.current.paused) safePlay();
           }
       }, 300);
@@ -339,15 +543,24 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
 
       // 2. Если было ускорение (2x) -> Выключаем его
       if (isLongPressActiveRef.current) {
-          if (videoRef.current) {
+          if (currentEmbedUrl) {
+              const rate = originalRateRef.current;
+              if (isYouTube && ytPlayerRef.current?.setPlaybackRate) {
+                  ytPlayerRef.current.setPlaybackRate(rate);
+              } else if (externalIframeRef.current?.contentWindow) {
+                  externalIframeRef.current.contentWindow.postMessage(
+                      JSON.stringify({ type: 'player:setPlaybackRate', data: { rate } }), '*'
+                  );
+              }
+              setIsSpeedingUp(false);
+              if (!wasPlayingRef.current) safePause();
+          } else if (videoRef.current) {
               videoRef.current.playbackRate = originalRateRef.current;
               setIsSpeedingUp(false);
-              
-              // Возвращаем паузу, если видео стояло
               if (!wasPlayingRef.current) videoRef.current.pause();
           }
           isLongPressActiveRef.current = false;
-      } 
+      }
       // 3. Если ускорения НЕ было -> Значит это обычный КЛИК -> Пауза/Плей
       else {
           if (!activeEvent) {
@@ -367,11 +580,20 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
 
       // Если мы успели войти в режим 2x -> выключаем его
       if (isLongPressActiveRef.current) {
-          if (videoRef.current) {
+          if (currentEmbedUrl) {
+              const rate = originalRateRef.current;
+              if (isYouTube && ytPlayerRef.current?.setPlaybackRate) {
+                  ytPlayerRef.current.setPlaybackRate(rate);
+              } else if (externalIframeRef.current?.contentWindow) {
+                  externalIframeRef.current.contentWindow.postMessage(
+                      JSON.stringify({ type: 'player:setPlaybackRate', data: { rate } }), '*'
+                  );
+              }
+              setIsSpeedingUp(false);
+              if (!wasPlayingRef.current) safePause();
+          } else if (videoRef.current) {
               videoRef.current.playbackRate = originalRateRef.current;
               setIsSpeedingUp(false);
-              
-              // Возвращаем как было
               if (!wasPlayingRef.current) videoRef.current.pause();
           }
           isLongPressActiveRef.current = false;
@@ -459,9 +681,14 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
       safePlay();
   };
   const handleRewind = () => {
-      if (activeEvent?.rewindTo !== undefined && videoRef.current) {
-          videoRef.current.currentTime = activeEvent.rewindTo;
-          anticheatTimeRef.current = activeEvent.rewindTo;
+      if (activeEvent?.rewindTo !== undefined) {
+          const rewindTime = activeEvent.rewindTo;
+          if (currentEmbedUrl) {
+              seekExternal(rewindTime);
+          } else if (videoRef.current) {
+              videoRef.current.currentTime = rewindTime;
+              anticheatTimeRef.current = rewindTime;
+          }
           // Удаляем из решенных, чтобы вопрос задался снова, когда студент досмотрит
           processedEventIdsRef.current = processedEventIdsRef.current.filter(id => id !== activeEvent.id);
           setProcessedEventIds(prev => prev.filter(id => id !== activeEvent.id));
@@ -527,6 +754,12 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   };
 
   const jumpToChapter = (time: number) => {
+      if (currentEmbedUrl) {
+          seekExternal(time);
+          safePlay();
+          setShowSettings(false);
+          return;
+      }
       if (videoRef.current) {
           videoRef.current.currentTime = time;
           anticheatTimeRef.current = time;
@@ -561,6 +794,11 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
       wasLongPressRef.current = false;
       setHasNewAnswers(false);
       anticheatTimeRef.current = 0;
+      if (currentEmbedUrl) {
+          seekExternal(0);
+          safePlay();
+          return;
+      }
       if (videoRef.current) {
           videoRef.current.playbackRate = 1;
           videoRef.current.currentTime = 0;
@@ -575,45 +813,73 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
     timeoutRef.current = window.setTimeout(() => { if (!showSettings) setShowControls(false); }, 3000);
   };
 
-  const togglePlay = () => { 
+  const togglePlay = () => {
       if (wasLongPressRef.current) {
           wasLongPressRef.current = false;
           return;
       }
-      
-      if (!videoRef.current || activeEvent) return; 
+
+      if (activeEvent) return;
 
       if (showEndScreen) {
           replayVideo();
           return;
       }
 
-      videoRef.current.paused ? safePlay() : videoRef.current.pause();
-      showControlsTemporarily(); 
+      if (currentEmbedUrl) {
+          isPlaying ? safePause() : safePlay();
+          showControlsTemporarily();
+          return;
+      }
+
+      if (!videoRef.current) return;
+      videoRef.current.paused ? safePlay() : safePause();
+      showControlsTemporarily();
+  };
+
+  const seekExternal = (targetTime: number) => {
+      anticheatTimeRef.current = targetTime;
+      externalTimeRef.current = targetTime;
+      setCurrentTime(targetTime);
+      if (isYouTube && ytPlayerRef.current?.seekTo) {
+          ytPlayerRef.current.seekTo(targetTime, true);
+      } else if (externalIframeRef.current?.contentWindow) {
+          externalIframeRef.current.contentWindow.postMessage(
+              JSON.stringify({ type: 'player:setCurrentTime', data: { time: targetTime } }), '*'
+          );
+      }
   };
 
   const skipTime = (amount: number) => {
-    if (videoRef.current && !activeEvent) {
-        const currentVideoTime = videoRef.current.currentTime;
-        let targetTime = currentVideoTime + amount;
+      if (activeEvent) return;
 
-        if (targetTime > currentVideoTime) {
-            const blockTime = getBlockingEventTime(currentVideoTime, targetTime);
-            if (blockTime !== null) {
-                targetTime = Math.max(currentVideoTime, blockTime - 0.2);
-                showToast('⚠️ Сначала нужно ответить на вопрос!');
-            }
-        }
+      const currentVideoTime = currentEmbedUrl
+          ? externalTimeRef.current
+          : (videoRef.current?.currentTime ?? 0);
 
-        videoRef.current.currentTime = targetTime;
-        anticheatTimeRef.current = targetTime;
-        showControlsTemporarily();
+      let targetTime = currentVideoTime + amount;
 
-        if (showEndScreen) {
-            setShowEndScreen(false);
-            setHasNewAnswers(false);
-        }
-    }
+      if (targetTime > currentVideoTime) {
+          const blockTime = getBlockingEventTime(currentVideoTime, targetTime);
+          if (blockTime !== null) {
+              targetTime = Math.max(currentVideoTime, blockTime - 0.2);
+              showToast('⚠️ Сначала нужно ответить на вопрос!');
+          }
+      }
+
+      if (currentEmbedUrl) {
+          seekExternal(targetTime);
+      } else if (videoRef.current) {
+          videoRef.current.currentTime = targetTime;
+          anticheatTimeRef.current = targetTime;
+      }
+
+      showControlsTemporarily();
+
+      if (showEndScreen) {
+          setShowEndScreen(false);
+          setHasNewAnswers(false);
+      }
   };
 
     const toggleSubtitles = () => {
@@ -679,8 +945,9 @@ const handleVideoDoubleClick = (e: React.MouseEvent) => {
       const pos = (e.clientX - rect.left) / rect.width;
       let targetTime = pos * duration;
 
-      // Берём актуальное время из DOM, а не из stale state
-      const actualNow = videoRef.current?.currentTime ?? anticheatTimeRef.current;
+      const actualNow = currentEmbedUrl
+          ? externalTimeRef.current
+          : (videoRef.current?.currentTime ?? anticheatTimeRef.current);
 
       if (targetTime > actualNow) {
           const blockTime = getBlockingEventTime(actualNow, targetTime);
@@ -690,7 +957,13 @@ const handleVideoDoubleClick = (e: React.MouseEvent) => {
           }
       }
 
-      if (videoRef.current && duration) {
+      if (currentEmbedUrl && duration) {
+          seekExternal(targetTime);
+          if (showEndScreen) {
+              setShowEndScreen(false);
+              setHasNewAnswers(false);
+          }
+      } else if (videoRef.current && duration) {
           videoRef.current.currentTime = targetTime;
           anticheatTimeRef.current = targetTime;
           if (showEndScreen) {
@@ -787,10 +1060,54 @@ useEffect(() => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
   };
-}, [activeEvent, isSpeedingUp, volume, showEndScreen, localEvents]);
+}, [activeEvent, isSpeedingUp, volume, showEndScreen, localEvents, isPlaying]);
   
   const hasSubtitles = currentSource.subtitles && currentSource.subtitles.length > 0;
   const hasChapters = chapters.length > 0;
+  const hasQualities = sources && sources.length > 1;
+
+  // --- Авто-качество ---
+  const [isAutoMode, setIsAutoMode] = useState(true);
+  // Индекс в массиве sources, который сейчас играет в авто-режиме
+  const autoIdxRef = useRef(0);
+
+  // Переключение качества с сохранением позиции
+  const switchQuality = (newSource: typeof safeSource, auto = false) => {
+      const savedTime = videoRef.current?.currentTime || 0;
+      const wasPlaying = !videoRef.current?.paused;
+      if (!auto) setIsAutoMode(false); // ручной выбор отключает авто
+      setCurrentSource(newSource);
+      setShowSettings(false);
+      requestAnimationFrame(() => {
+          setTimeout(() => {
+              if (videoRef.current) {
+                  videoRef.current.currentTime = savedTime;
+                  anticheatTimeRef.current = savedTime;
+                  if (wasPlaying) safePlay();
+              }
+          }, 200);
+      });
+  };
+
+  // Авто-снижение качества при буферизации (с защитой от seek и частых переключений)
+  const handleVideoWaiting = () => {
+      if (!isAutoMode || !hasQualities) return;
+      if (isSeekingRef.current) return; // при перемотке не переключаем
+      if (Date.now() - lastQualitySwitchRef.current < 5000) return; // cooldown 5 секунд
+      const currentIdx = sources.findIndex(s => s.url === currentSource.url);
+      const nextIdx = currentIdx + 1;
+      if (nextIdx < sources.length) {
+          lastQualitySwitchRef.current = Date.now();
+          autoIdxRef.current = nextIdx;
+          switchQuality(sources[nextIdx], true);
+          showToast(`Авто: качество снижено до ${sources[nextIdx].quality}`, 'info');
+      }
+  };
+
+  // Отображение текущего качества в меню
+  const qualityLabel = isAutoMode
+      ? `Авто · ${currentSource.quality}`
+      : currentSource.quality;
 
   const formatTime = (sec: number) => {
     const m = Math.floor(sec / 60);
@@ -806,7 +1123,15 @@ const renderMainMenu = () => (
       <span className="menu-value">{playbackRate}x ›</span>
     </div>
 
-    {/* 2. Субтитры */}
+    {/* 2. Качество */}
+    {hasQualities && (
+      <div className="menu-item" onClick={() => setCurrentMenu('quality')}>
+        <span className="menu-label">Качество</span>
+        <span className="menu-value">{qualityLabel} ›</span>
+      </div>
+    )}
+
+    {/* 3. Субтитры */}
     {hasSubtitles && (
       <div className="menu-item" onClick={() => setCurrentMenu('captions')}>
         <span className="menu-label">Субтитры</span>
@@ -854,7 +1179,7 @@ const renderMainMenu = () => (
 );
 
   return (
-    <div ref={containerRef} className={`yt-player-container ${isZoomFill ? 'zoom-active' : ''} ${isFullscreen ? 'is-fullscreen' : ''}`} onMouseMove={showControlsTemporarily} onMouseLeave={() => !showSettings && setShowControls(false)}>
+    <div ref={containerRef} tabIndex={0} style={{ outline: 'none' }} className={`yt-player-container ${isZoomFill ? 'zoom-active' : ''} ${isFullscreen ? 'is-fullscreen' : ''}`} onMouseMove={showControlsTemporarily} onMouseLeave={() => !showSettings && setShowControls(false)}>
       {/* --- ОВЕРЛЕЙ ИНТЕРАКТИВА (ИСПРАВЛЕННЫЙ) --- */}
       {activeEvent && (
         <div 
@@ -1080,9 +1405,35 @@ const renderMainMenu = () => (
         )}
       </div>
 
+      {currentEmbedUrl && (
+          <>
+              <iframe
+                  ref={externalIframeRef}
+                  src={currentEmbedUrl}
+                  className="yt-video"
+                  style={{ border: 'none', width: '100%', height: isRutube ? 'calc(100% + 120px)' : '100%', position: 'absolute', top: isRutube ? '-4px' : 0, left: 0, zIndex: 1 }}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  tabIndex={-1}
+                  title={title || 'Видео'}
+              />
+              {/* Прозрачный оверлей: перехватывает клики, чтобы они попадали в кастомные контролы, а не в iframe */}
+              <div
+                  style={{ position: 'absolute', inset: 0, zIndex: 2, cursor: 'pointer', outline: 'none' }}
+                  tabIndex={0}
+                  onDoubleClick={toggleFullscreen}
+                  onMouseDown={() => { containerRef.current?.focus(); handlePressStart(); }}
+                  onMouseUp={handlePressEnd}
+                  onMouseLeave={handlePressCancel}
+                  onTouchStart={handlePressStart}
+                  onTouchEnd={handlePressEnd}
+              />
+          </>
+      )}
       <video
         ref={videoRef}
-        src={normalizeUploadUrl(currentSource.url)}
+        src={currentEmbedUrl ? '' : normalizeUploadUrl(currentSource.url)}
+        style={currentEmbedUrl ? { display: 'none' } : undefined}
         className={`yt-video ${showControls ? 'controls-visible' : ''}`}
         playsInline
         preload="metadata"
@@ -1121,19 +1472,23 @@ const renderMainMenu = () => (
             showToast(msg, 'error');
             console.error('[VideoPlayer] mediaError code:', code, 'src:', currentSource.url);
         }}
+        onSeeking={() => { isSeekingRef.current = true; }}
+        onSeeked={() => { isSeekingRef.current = false; }}
         onEnded={handleVideoEnd}
+        onWaiting={handleVideoWaiting}
         muted={isMuted}
       >
           {currentSource.subtitles?.map((sub, idx) => (
               <track key={idx} kind="subtitles" src={normalizeUploadUrl(sub.src)} srcLang={sub.lang} label={sub.label} />
           ))}
-          {isSpeedingUp && (
-          <div className="speed-overlay">
+      </video>
+
+      {isSpeedingUp && (
+          <div className="speed-overlay" style={{ position: 'absolute', zIndex: 10 }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Icons.Rocket size={16}/> 2x Скорость</span>
           </div>
       )}
-      </video>
-      
+
       {!isPlaying && showControls && !activeEvent && !showEndScreen && (<div className="center-play-overlay-static" onClick={togglePlay}><VideoPlayeIcons.Play /></div>)}
 
       <div className={`yt-controls ${showControls && !activeEvent ? 'show' : ''}`} style={{ zIndex: 100 }}>
@@ -1249,8 +1604,42 @@ const renderMainMenu = () => (
                       <div className="menu-list">
                         <div className="menu-header" onClick={() => setCurrentMenu('main')}>‹ Скорость</div>
                         {playbackRates.map(rate => (
-                            <div key={rate} className="menu-item" onClick={() => { setPlaybackRate(rate); if(videoRef.current) videoRef.current.playbackRate = rate; setShowSettings(false); }}>
+                            <div key={rate} className="menu-item" onClick={() => {
+                                setPlaybackRate(rate);
+                                if (currentEmbedUrl) {
+                                    if (isYouTube && ytPlayerRef.current?.setPlaybackRate) {
+                                        ytPlayerRef.current.setPlaybackRate(rate);
+                                    } else if (externalIframeRef.current?.contentWindow) {
+                                        externalIframeRef.current.contentWindow.postMessage(
+                                            JSON.stringify({ type: 'player:setPlaybackRate', data: { rate } }), '*'
+                                        );
+                                    }
+                                } else if (videoRef.current) {
+                                    videoRef.current.playbackRate = rate;
+                                }
+                                setShowSettings(false);
+                            }}>
                                 <span>{rate}x</span>
+                            </div>
+                        ))}
+                      </div>
+                  )}
+                  {currentMenu === 'quality' && (
+                      <div className="menu-list">
+                        <div className="menu-header" onClick={() => setCurrentMenu('main')}>‹ Качество</div>
+                        {/* Авто — всегда первым */}
+                        <div className="menu-item" onClick={() => {
+                            setIsAutoMode(true);
+                            autoIdxRef.current = 0;
+                            switchQuality(sources[0], true);
+                        }}>
+                            <span>Авто</span>
+                            {isAutoMode && <span className="check-mark">●</span>}
+                        </div>
+                        {sources.map(src => (
+                            <div key={src.quality} className="menu-item" onClick={() => switchQuality(src)}>
+                                <span>{src.quality}</span>
+                                {!isAutoMode && currentSource.quality === src.quality && <span className="check-mark">●</span>}
                             </div>
                         ))}
                       </div>
