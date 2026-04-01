@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import './ContentEditorModal.css';
 import { VideoPlayer } from './VideoPlayer';
 import { addEvent, updateEvent, deleteEvent, generateAutoSubtitles, updateVideo, getVideosByCourse, getVideoStats, transcodeVideo } from '../api/videoApi';
 import { addTestQuestion, deleteTestQuestion, getCourseTests, getTestStats, type ICourseTest } from '../api/testApi';
@@ -671,36 +672,37 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
     };
 
     return (
-        <div style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
+        <div className="cem-overlay" style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
             background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(15px)',
             display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999, padding: '20px',
         }} onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
             
-            <div style={{ 
-                background: '#0f0f11', border: `1px solid rgba(${accentRgb}, 0.2)`, 
-                width: '100%', maxWidth: '1400px', height: '90vh', borderRadius: '24px', 
+            <div className="cem-container" style={{
+                background: '#0f0f11', border: `1px solid rgba(${accentRgb}, 0.2)`,
+                width: '100%', maxWidth: '1400px', height: '90vh', borderRadius: '24px',
                 display: 'flex', flexDirection: 'column', overflow: 'hidden', animation: 'fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
                 boxShadow: `0 30px 60px -12px rgba(${accentRgb}, 0.15)`
             }}>
                 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 30px', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.02)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flex: 1 }}>
-                        <div style={{ 
-                            background: `linear-gradient(135deg, ${accentColor} 0%, transparent 150%)`, 
+                <div className="cem-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 30px', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.02)' }}>
+                    <div className="cem-header-left" style={{ display: 'flex', alignItems: 'center', gap: '20px', flex: 1, minWidth: 0 }}>
+                        <div className="cem-header-icon" style={{
+                            background: `linear-gradient(135deg, ${accentColor} 0%, transparent 150%)`,
                             padding: '12px', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center',
                             boxShadow: `0 0 20px rgba(${accentRgb}, 0.3)`
                         }}>
                             {isVideo ? <Icons.Monitor size={28}/> : <Icons.FileText size={28}/>}
                         </div>
-                        <div style={{ flex: 1, position: 'relative' }}>
-                            <input 
-                                value={settingsData.title} 
+                        <div style={{ flex: 1, position: 'relative', minWidth: 0 }}>
+                            <input
+                                className="cem-title-input"
+                                value={settingsData.title}
                                 onChange={e => setSettingsData({...settingsData, title: e.target.value})}
                                 onBlur={handleSaveSettings}
                                 placeholder="Введите название..."
-                                style={{ 
-                                    background: 'transparent', border: 'none', 
+                                style={{
+                                    background: 'transparent', border: 'none',
                                     color: '#fff', fontSize: '28px', fontWeight: '800', outline: 'none', width: '100%',
                                     borderBottom: '2px dashed transparent', transition: '0.3s', paddingBottom: '4px', letterSpacing: '-0.5px'
                                 }}
@@ -708,19 +710,19 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                             />
                         </div>
                     </div>
-                    
-                    <div style={{ display: 'flex', gap: '15px' }}>
-                            <button className="btn btn-ghost" onClick={loadStats} style={{ background: 'rgba(255,255,255,0.05)', padding: '10px 20px', borderRadius: '12px', fontWeight: 'bold' }}>
-                                <Icons.Stats /> Статистика
-                            </button>
-                        <button className="btn btn-primary" onClick={onClose} style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', padding: '10px 20px', borderRadius: '12px', fontWeight: 'bold' }}>✕ Закрыть</button>
+
+                    <div className="cem-header-actions" style={{ display: 'flex', gap: '15px', flexShrink: 0 }}>
+                        <button className="btn btn-ghost" onClick={loadStats} style={{ background: 'rgba(255,255,255,0.05)', padding: '10px 20px', borderRadius: '12px', fontWeight: 'bold' }}>
+                            <Icons.Stats /> <span className="cem-btn-text">Статистика</span>
+                        </button>
+                        <button className="btn btn-primary" onClick={onClose} style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', padding: '10px 20px', borderRadius: '12px', fontWeight: 'bold' }}>✕ <span className="cem-close-text">Закрыть</span></button>
                     </div>
                 </div>
 
-                <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-                    
+                <div className="cem-body" style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+
                     {/* ЛЕВАЯ КОЛОНКА */}
-                    <div style={{ flex: '6', display: 'flex', flexDirection: 'column', padding: '40px', overflowY: 'auto', background: 'radial-gradient(circle at 0% 0%, rgba(255,255,255,0.03) 0%, transparent 50%)' }}>
+                    <div className="cem-left" style={{ flex: '6', display: 'flex', flexDirection: 'column', padding: '40px', overflowY: 'auto', background: 'radial-gradient(circle at 0% 0%, rgba(255,255,255,0.03) 0%, transparent 50%)' }}>
                         
                         {showStats ? (
                             <div className="stats-container" style={{ animation: 'fadeIn 0.4s ease' }}>
@@ -746,7 +748,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                 ) : (
                                     <>
                                         {!expandedStudent && (
-                                            <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+                                            <div className="cem-stats-table-wrap" style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden' }}>
                                                 <table className="stats-table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
                                                     <thead><tr style={{ color: '#888', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(0,0,0,0.3)' }}><th style={{padding:'20px'}}>Студент</th><th style={{padding:'20px'}}>Успеваемость (Прогресс)</th><th style={{padding:'20px'}}>Ответы (В / О)</th><th></th></tr></thead>
                                                     <tbody>
@@ -985,7 +987,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                     </div>
 
                     {/* ПРАВАЯ КОЛОНКА */}
-                    <div style={{ flex: '4', minWidth: '400px', background: '#141416', borderLeft: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', zIndex: 10 }}>
+                    <div className="cem-right" style={{ flex: '4', minWidth: '400px', background: '#141416', borderLeft: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', zIndex: 10 }}>
                         <div style={{ padding: '20px 20px 0 20px', flexShrink: 0 }}>
                             <div style={{ display: 'flex', background: 'rgba(0,0,0,0.5)', padding: '6px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
                                 <button 

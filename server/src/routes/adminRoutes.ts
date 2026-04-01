@@ -29,10 +29,7 @@ const isAdmin = (req: Request, res: Response, next: NextFunction) => {
     // То здесь нужно делать запрос к базе данных (User.findById / prisma.user.findUnique).
     
     // Пока что выводим ошибку, чтобы ты увидел, что пришло
-    res.status(403).json({ 
-        message: 'Доступ запрещен. Требуются права администратора.',
-        debugData: user 
-    });
+    res.status(403).json({ message: 'Доступ запрещен. Требуются права администратора.' });
 };
 
 // Комбинируем middlewares: сначала проверяем токен, затем проверяем, админ ли это

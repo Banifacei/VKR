@@ -38,6 +38,10 @@ export class User extends Model {
     @Column({ type: DataType.DATE })
     declare lastLogin: Date;
 
+    // Провайдер аутентификации: local | yandex | google | ldap | saml
+    @Column({ type: DataType.STRING, defaultValue: 'local' })
+    declare authProvider: string;
+
     @Column({ type: DataType.JSONB, defaultValue: {} })
     declare themeConfig: object; // { scheme, bgPattern, density }
 

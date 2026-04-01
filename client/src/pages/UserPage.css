@@ -134,7 +134,20 @@
     padding-bottom: 20px;
 }
 .course-title-large    { font-size: 2.5rem; color: #fff; margin: 0 0 10px 0; }
-.course-progress-section { display: flex; align-items: center; gap: 15px; color: #888; font-size: 14px; }
+.course-progress-section { display: flex; align-items: center; gap: 15px; color: #888; font-size: 14px; flex-wrap: wrap; }
+
+/* Блок прогресс-бара + мета-инфо курса */
+.course-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    color: #888;
+    font-size: 14px;
+    flex-wrap: wrap;
+    flex: 1;
+    min-width: 0;
+}
+.course-progress-bar-wrap { min-width: 180px; flex: 1; }
 
 /* Сетка карточек контента */
 .content-grid {
@@ -237,14 +250,101 @@
 .edit-btn.danger  { background: rgba(var(--danger-rgb),0.2); color: var(--danger); border: 1px solid rgba(var(--danger-rgb),0.3); }
 .edit-btn:hover   { filter: brightness(1.2); transform: scale(1.05) !important; }
 
+/* ── Переключатель режима просмотра (Глазами студента / Редактирование / Настройки) ── */
+.view-mode-switcher {
+    margin-top: 25px;
+    display: flex;
+    gap: 5px;
+    background: #111;
+    padding: 6px;
+    border-radius: 12px;
+    width: fit-content;
+    border: 1px solid #333;
+    flex-wrap: nowrap;
+}
+.vms-btn {
+    background: transparent;
+    color: #888;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 13px;
+    transition: 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+.vms-btn:hover           { color: #fff; background: rgba(255,255,255,0.05); }
+.vms-btn.active          { background: #2a2a2a; color: #fff; }
+.vms-btn.active-primary  { background: var(--primary); color: #fff; }
+.vms-settings            { background: rgba(255,255,255,0.05); color: #fff; }
+/* На десктопе — длинный текст, короткий скрыт */
+.vms-label-short { display: none; }
+.vms-label-full  { display: inline; }
+
+.vms-badge {
+    background: #ff4d4d;
+    color: #fff;
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    line-height: 1;
+    font-weight: 700;
+}
+
 /* Адаптив */
 @media (max-width: 900px) {
     .lumeo-container  { flex-direction: column; }
     .playlist-sidebar { width: 100%; height: 40%; border-left: none; border-top: 1px solid #333; }
+    .dashboard-container { padding: 24px 20px; }
 }
 
 @media (max-width: 600px) {
+    .lumeo-header     { padding: 0 16px; height: 52px; }
+    .video-stage      { padding: 12px; }
     .playlist-sidebar { height: 35%; }
     .lumeo-container  { height: auto; min-height: 100vh; }
     .player-wrapper-animation { border-radius: 0; }
+    .dashboard-container { padding: 16px 12px; }
+    .course-title-large { font-size: 1.6rem; }
+    .content-grid { gap: 12px; }
+    .runner-card { padding: 20px; }
+    .question-text { font-size: 16px; margin: 20px 0; }
+
+    /* Секция в колонку */
+    .course-progress-section { flex-direction: column; align-items: stretch; gap: 0; }
+
+    /* Ряд 1: прогресс + мета-инфо */
+    .course-meta-row {
+        order: 1;
+        width: 100%;
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+    }
+    /* Прогресс-бар занимает всю строку */
+    .course-progress-bar-wrap { width: 100%; flex: none; min-width: 0; margin-bottom: 4px; }
+
+    /* Ряд 2: переключатель режима */
+    .view-mode-switcher {
+        order: 2;
+        width: 100%;
+        margin-top: 14px;
+        border-radius: 10px;
+    }
+    .vms-btn { flex: 1; justify-content: center; padding: 9px 6px; }
+    /* Короткие подписи на мобиле */
+    .vms-label-full  { display: none; }
+    .vms-label-short { display: inline; }
+}
+
+@media (max-width: 480px) {
+    .content-grid { grid-template-columns: 1fr; }
+    .content-card { height: auto; min-height: 180px; }
+    .course-title-large { font-size: 1.3rem; }
+    .user-name-badge { padding: 6px 10px; font-size: 13px; }
 }

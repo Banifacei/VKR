@@ -50,7 +50,7 @@ export const getGlobalTheme = async (_req: Request, res: Response) => {
 
         res.json(result);
     } catch (e) {
-        res.status(500).json({ message: 'Ошибка получения темы', error: e });
+        res.status(500).json({ message: 'Ошибка получения темы' });
     }
 };
 
@@ -88,7 +88,7 @@ export const saveGlobalTheme = async (req: Request, res: Response) => {
         broadcastTheme(full);
         res.json({ message: 'Тема сохранена', ...updates });
     } catch (e) {
-        res.status(500).json({ message: 'Ошибка сохранения темы', error: e });
+        res.status(500).json({ message: 'Ошибка сохранения темы' });
     }
 };
 
@@ -98,7 +98,7 @@ export const deleteGlobalLogo = async (_req: Request, res: Response) => {
         await SystemSetting.upsert({ key: 'platform_logo', value: '' });
         res.json({ message: 'Логотип удалён' });
     } catch (e) {
-        res.status(500).json({ message: 'Ошибка удаления логотипа', error: e });
+        res.status(500).json({ message: 'Ошибка удаления логотипа' });
     }
 };
 
@@ -133,6 +133,6 @@ export const saveUserTheme = async (req: Request, res: Response) => {
 
         res.json({ message: 'Тема сохранена', themeConfig: user.themeConfig });
     } catch (e) {
-        res.status(500).json({ message: 'Ошибка сохранения темы', error: e });
+        res.status(500).json({ message: 'Ошибка сохранения темы' });
     }
 };

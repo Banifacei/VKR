@@ -36,35 +36,29 @@ export const AuthPage = () => {
     const [error, setError] = useState('');
     const navigate = useNavigate();
 
-    // 🔥 УМНЫЙ ПЕРЕХВАТЧИК ТОКЕНА ЯНДЕКСА
+    // OAuth code exchange — получаем одноразовый код и меняем на JWT
     useEffect(() => {
         const params = new URLSearchParams(location.search);
-        const urlToken = params.get('token');
+        const oauthCode = params.get('code');
         const urlError = params.get('error');
 
-        if (urlToken) {
-            
-            // 1. Сохраняем токен под ПРАВИЛЬНЫМ ключом для axios
-            localStorage.setItem('lumeo_token', urlToken);
-            
-            // 2. Сразу запрашиваем профиль юзера с этим токеном
-            api.get('/auth/me', {
-                headers: { Authorization: `Bearer ${urlToken}` }
-            })
-            .then(res => {
-                // 3. Используем твою готовую функцию login из AuthContext!
-                // Она сама положит всё в стейт и localStorage
-                login(urlToken, res.data);
-                // 4. Отправляем в личный кабинет
-                navigate('/');
-            })
-            .catch(err => {
-                console.error("Ошибка при загрузке профиля Яндекса", err);
-                setError('Не удалось завершить вход');
-            });
-
-            // Очищаем URL от мусора
+        if (oauthCode) {
+            // Сразу чистим URL, чтобы код не остался в истории браузера
             window.history.replaceState({}, document.title, location.pathname);
+
+            api.post('/auth/exchange', { code: oauthCode })
+                .then(res => {
+                    const token = res.data.token;
+                    return api.get('/auth/me', {
+                        headers: { Authorization: `Bearer ${token}` }
+                    }).then(meRes => {
+                        login(token, meRes.data);
+                        navigate('/');
+                    });
+                })
+                .catch(() => {
+                    setError('Не удалось завершить вход через OAuth');
+                });
             return;
         }
 

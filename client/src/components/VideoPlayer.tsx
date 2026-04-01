@@ -12,8 +12,9 @@ const playbackRates = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 // --- Определение и конвертация внешних ссылок ---
 const getEmbedUrl = (url: string): string | null => {
     // YouTube: watch?v= или youtu.be/
+    // youtube-nocookie.com — privacy-enhanced режим, меньше CDN-ограничений у провайдеров РФ
     const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-    if (ytMatch) return `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=0&rel=0&enablejsapi=1&controls=0`;
+    if (ytMatch) return `https://www.youtube-nocookie.com/embed/${ytMatch[1]}?rel=0&enablejsapi=1&controls=0`;
 
     // Rutube
     const rtMatch = url.match(/rutube\.ru\/video\/([a-f0-9]+)/i);
@@ -73,7 +74,7 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
 
   // --- Внешние плееры (YouTube / Rutube / VK) ---
   const currentEmbedUrl = getEmbedUrl(currentSource.url);
-  const isYouTube = !!currentEmbedUrl && /youtube\.com|youtu\.be/.test(currentSource.url);
+  const isYouTube = !!currentEmbedUrl && /youtube\.com|youtu\.be|youtube-nocookie\.com/.test(currentSource.url);
   const isRutube  = !!currentEmbedUrl && /rutube\.ru/.test(currentSource.url);
   const ytPlayerRef = useRef<any>(null);
   const externalIframeRef = useRef<HTMLIFrameElement>(null);
@@ -132,7 +133,7 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   const isSeekingRef = useRef(false);         // Флаг: идёт перемотка
   const lastQualitySwitchRef = useRef(0);     // Время последнего авто-переключения качества
 
-  const [isFullscreen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [isZoomFill, setIsZoomFill] = useState(false);
   const [currentMenu, setCurrentMenu] = useState<'main' | 'speed' | 'quality' | 'captions' | 'chapters'>('main');
   const [activeSubtitle, setActiveSubtitle] = useState<string>('off');
@@ -284,7 +285,8 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   useEffect(() => {
         if (!videoId || !onRefreshEvents) return;
 
-        const es = new EventSource(`/api/videos/${videoId}/events/stream`);
+        const token = localStorage.getItem('lumeo_token');
+        const es = new EventSource(`/api/videos/${videoId}/events/stream?token=${token}`);
 
         es.onmessage = async ({ data }) => {
             try {
@@ -898,7 +900,37 @@ const handleVideoDoubleClick = (e: React.MouseEvent) => {
         e.preventDefault();
         toggleFullscreen();
     };
-  const toggleFullscreen = () => { if (!document.fullscreenElement) containerRef.current?.requestFullscreen(); else document.exitFullscreen(); };
+  const toggleFullscreen = () => {
+      const container = containerRef.current;
+      const video = videoRef.current;
+      const isFs = !!(document.fullscreenElement || (document as any).webkitFullscreenElement);
+      if (!isFs) {
+          if (container?.requestFullscreen) {
+              container.requestFullscreen();
+          } else if ((container as any)?.webkitRequestFullscreen) {
+              (container as any).webkitRequestFullscreen();
+          } else if (video && (video as any).webkitEnterFullscreen) {
+              // iOS Safari: fullscreen работает только на <video>
+              (video as any).webkitEnterFullscreen();
+          }
+      } else {
+          if (document.exitFullscreen) document.exitFullscreen();
+          else if ((document as any).webkitExitFullscreen) (document as any).webkitExitFullscreen();
+      }
+  };
+
+  // Синхронизируем isFullscreen с реальным состоянием браузера
+  useEffect(() => {
+      const onFsChange = () => {
+          setIsFullscreen(!!(document.fullscreenElement || (document as any).webkitFullscreenElement));
+      };
+      document.addEventListener('fullscreenchange', onFsChange);
+      document.addEventListener('webkitfullscreenchange', onFsChange);
+      return () => {
+          document.removeEventListener('fullscreenchange', onFsChange);
+          document.removeEventListener('webkitfullscreenchange', onFsChange);
+      };
+  }, []);
   
   // 1. Вычисляем сегменты (Главы)
   const timelineSegments = useMemo(() => {
@@ -1070,6 +1102,9 @@ useEffect(() => {
   const [isAutoMode, setIsAutoMode] = useState(true);
   // Индекс в массиве sources, который сейчас играет в авто-режиме
   const autoIdxRef = useRef(0);
+  // Ref для чтения isAutoMode внутри интервала без пересоздания
+  const isAutoModeRef = useRef(true);
+  useEffect(() => { isAutoModeRef.current = isAutoMode; }, [isAutoMode]);
 
   // Переключение качества с сохранением позиции
   const switchQuality = (newSource: typeof safeSource, auto = false) => {
@@ -1103,6 +1138,28 @@ useEffect(() => {
           showToast(`Авто: качество снижено до ${sources[nextIdx].quality}`, 'info');
       }
   };
+
+  // Авто-повышение качества когда буфер здоровый (>= 20 сек вперёд)
+  useEffect(() => {
+      const id = setInterval(() => {
+          if (!isAutoModeRef.current || !videoRef.current) return;
+          if (autoIdxRef.current === 0) return; // уже лучшее качество
+          if (Date.now() - lastQualitySwitchRef.current < 30_000) return; // cooldown 30с после любого переключения
+          const video = videoRef.current;
+          const ahead = video.buffered.length > 0
+              ? video.buffered.end(video.buffered.length - 1) - video.currentTime
+              : 0;
+          if (ahead >= 20) {
+              const nextIdx = autoIdxRef.current - 1;
+              lastQualitySwitchRef.current = Date.now();
+              autoIdxRef.current = nextIdx;
+              switchQuality(sources[nextIdx], true);
+              showToast(`Авто: качество повышено до ${sources[nextIdx].quality}`, 'info');
+          }
+      }, 10_000);
+      return () => clearInterval(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sources]);
 
   // Отображение текущего качества в меню
   const qualityLabel = isAutoMode
@@ -1179,7 +1236,7 @@ const renderMainMenu = () => (
 );
 
   return (
-    <div ref={containerRef} tabIndex={0} style={{ outline: 'none' }} className={`yt-player-container ${isZoomFill ? 'zoom-active' : ''} ${isFullscreen ? 'is-fullscreen' : ''}`} onMouseMove={showControlsTemporarily} onMouseLeave={() => !showSettings && setShowControls(false)}>
+    <div ref={containerRef} tabIndex={0} style={{ outline: 'none' }} className={`yt-player-container ${isZoomFill ? 'zoom-active' : ''} ${isFullscreen ? 'is-fullscreen' : ''}`} onMouseMove={showControlsTemporarily} onTouchStart={showControlsTemporarily} onMouseLeave={() => !showSettings && setShowControls(false)}>
       {/* --- ОВЕРЛЕЙ ИНТЕРАКТИВА (ИСПРАВЛЕННЫЙ) --- */}
       {activeEvent && (
         <div 
@@ -1412,8 +1469,9 @@ const renderMainMenu = () => (
                   src={currentEmbedUrl}
                   className="yt-video"
                   style={{ border: 'none', width: '100%', height: isRutube ? 'calc(100% + 120px)' : '100%', position: 'absolute', top: isRutube ? '-4px' : 0, left: 0, zIndex: 1 }}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
                   allowFullScreen
+                  loading="lazy"
                   tabIndex={-1}
                   title={title || 'Видео'}
               />
@@ -1675,8 +1733,8 @@ const renderMainMenu = () => (
                 </div>
               )}
           </div>
-            <button className="yt-btn" onClick={toggleFullscreen} title="Полный экран (f)">
-                <VideoPlayeIcons.Fullscreen />
+            <button className="yt-btn" onClick={toggleFullscreen} title={isFullscreen ? 'Выйти из полного экрана (f)' : 'Полный экран (f)'}>
+                {isFullscreen ? <VideoPlayeIcons.FullscreenExit /> : <VideoPlayeIcons.Fullscreen />}
             </button>
           </div>
         </div>

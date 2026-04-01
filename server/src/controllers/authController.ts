@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import { randomBytes } from 'crypto';
 import { Op } from 'sequelize';
 import { User } from '../models/User.js';
 import { SystemSetting } from '../models/SystemSetting.js';
@@ -15,6 +16,32 @@ if (!process.env.JWT_SECRET) {
 const JWT_SECRET = process.env.JWT_SECRET;
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 const API_URL = process.env.API_URL || 'http://localhost:5001';
+
+// Временное хранилище одноразовых кодов для OAuth (code → jwtToken, TTL 60 сек)
+const oauthCodeStore = new Map<string, { token: string; expiresAt: number }>();
+
+function createOAuthCode(jwtToken: string): string {
+    const code = randomBytes(32).toString('hex');
+    oauthCodeStore.set(code, { token: jwtToken, expiresAt: Date.now() + 60_000 });
+    // Чистим просроченные коды (lazy cleanup)
+    for (const [k, v] of oauthCodeStore) {
+        if (v.expiresAt < Date.now()) oauthCodeStore.delete(k);
+    }
+    return code;
+}
+
+export const exchangeOAuthCode = (req: Request, res: Response) => {
+    const { code } = req.body;
+    if (!code || typeof code !== 'string') return res.status(400).json({ message: 'Код не передан' });
+    const entry = oauthCodeStore.get(code);
+    if (!entry) return res.status(400).json({ message: 'Код недействителен или истёк' });
+    if (entry.expiresAt < Date.now()) {
+        oauthCodeStore.delete(code);
+        return res.status(400).json({ message: 'Код истёк' });
+    }
+    oauthCodeStore.delete(code);
+    return res.json({ token: entry.token });
+};
 export const register = async (req: Request, res: Response) => {
     try {
         const { firstName, lastName, middleName, email, phone, password } = req.body;
@@ -48,14 +75,15 @@ export const register = async (req: Request, res: Response) => {
         const requiresApproval = setting ? setting.value : false; // По умолчанию пропускаем всех
         const userStatus = requiresApproval ? 'pending' : 'active';
         
-        const user = await User.create({ 
-            firstName, 
-            lastName, 
-            middleName: middleName || null, 
-            email, 
+        const user = await User.create({
+            firstName,
+            lastName,
+            middleName: middleName || null,
+            email,
             phone: phone || null,
             password: hash,
-            status: userStatus
+            status: userStatus,
+            authProvider: 'local',
         });
 
         if (requiresApproval) {
@@ -73,7 +101,7 @@ export const register = async (req: Request, res: Response) => {
         }
     } catch (e) {
         console.error(e);
-        res.status(500).json({ message: 'Ошибка регистрации', error: e });
+        res.status(500).json({ message: 'Ошибка регистрации' });
     }
 };
 
@@ -103,24 +131,30 @@ export const login = async (req: Request, res: Response) => {
                 const ldap = new LdapAuth({
                     url: ldapUrlSetting.value,
                     searchBase: ldapSearchBaseSetting.value,
-                    searchFilter: '(uid={{username}})', // Для AD обычно используется (sAMAccountName={{username}})
+                    searchFilter: '(uid={{username}})',
+                    connectTimeout: 3000,
+                    timeout: 3000,
+                    reconnect: false,
                 });
 
-                // 🔥 ФИКС 2: Перехватываем ошибки отпавшего LDAP-сервера, чтобы бэкенд НЕ ПАДАЛ
                 ldap.on('error', (err: any) => {
                     console.error('⚠️ Глобальная ошибка LDAP (сервер недоступен):', err.message);
                 });
 
-                // Если ввели ivan@test.com, отрезаем всё после @ для LDAP
                 const username = authId.includes('@') ? authId.split('@')[0] : authId;
 
-                ldapUser = await new Promise((resolve, reject) => {
+                const ldapAuth = new Promise((resolve, reject) => {
                     ldap.authenticate(username, password, (err: any, user: any) => {
-                        ldap.close((closeErr: any) => { /* игнорим ошибку закрытия */ });
+                        ldap.close(() => {});
                         if (err) reject(err);
                         else resolve(user);
                     });
                 });
+                const ldapTimeout = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('LDAP timeout')), 4000)
+                );
+
+                ldapUser = await Promise.race([ldapAuth, ldapTimeout]);
 
                 authenticatedViaLdap = true;
                 addSystemLog(`Успешная LDAP авторизация: ${username}`, 'success');
@@ -136,14 +170,17 @@ export const login = async (req: Request, res: Response) => {
         if (authenticatedViaLdap) {
             if (!user) {
                 user = await User.create({
-                    email: authId, // Сохраняем логин как email
+                    email: authId,
                     firstName: ldapUser?.givenName || ldapUser?.cn || 'Корпоративный',
                     lastName: ldapUser?.sn || 'Пользователь',
                     password: await bcrypt.hash(password, 10),
                     role: 'student',
-                    status: 'active'
+                    status: 'active',
+                    authProvider: 'ldap',
                 });
                 addSystemLog(`Создан новый профиль из LDAP: ${authId}`, 'success');
+            } else if (user.authProvider !== 'ldap') {
+                user.authProvider = 'ldap';
             }
         } else {
             // 5. Обычная локальная проверка (если LDAP выключен, упал или логин не подошел)
@@ -195,8 +232,10 @@ export const login = async (req: Request, res: Response) => {
 
 export const updateProfile = async (req: Request, res: Response) => {
     try {
-        const { userId, firstName, lastName, middleName, phone, email, newPassword } = req.body;
-        
+        // Всегда берём userId из токена — пользователь не может изменить чужой профиль
+        const userId = (req as any).user.id;
+        const { firstName, lastName, middleName, phone, email, newPassword } = req.body;
+
         const user = await User.findByPk(userId);
         if (!user) return res.status(404).json({ message: 'Пользователь не найден' });
         if (email || phone) {
@@ -348,7 +387,7 @@ export const yandexCallback = async (req: Request, res: Response) => {
 
         if (!user) {
             const salt = await bcrypt.genSalt(10);
-            const randomPassword = await bcrypt.hash(Math.random().toString(36).slice(-10), salt);
+            const randomPassword = await bcrypt.hash(randomBytes(32).toString('hex'), salt);
 
             user = await User.create({
                 email,
@@ -357,22 +396,23 @@ export const yandexCallback = async (req: Request, res: Response) => {
                 role: 'student',
                 status: 'active',
                 password: randomPassword,
-                avatarUrl: yandexAvatar // Присваиваем при создании
+                avatarUrl: yandexAvatar,
+                authProvider: 'yandex',
             });
             addSystemLog(`Создан профиль через Яндекс (Динамический): ${email}`, 'success');
         } else {
-            // 🔥 ФИКС: Если юзер уже есть, но аватарки в Lumeo нет — забираем с Яндекса!
             if (yandexAvatar && !user.avatarUrl) {
                 user.avatarUrl = yandexAvatar;
             }
+            if (user.authProvider !== 'yandex') user.authProvider = 'yandex';
         }
 
         user.lastLogin = new Date();
         await user.save();
         
         const jwtToken = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
-
-        res.redirect(`${CLIENT_URL}/auth?token=${jwtToken}`);
+        const oneTimeCode = createOAuthCode(jwtToken);
+        res.redirect(`${CLIENT_URL}/auth?code=${oneTimeCode}`);
     } catch (error) {
         console.error('Ошибка Yandex OAuth:', error);
         // 🔥 МЕНЯЕМ НА CLIENT_URL
@@ -441,7 +481,7 @@ export const googleCallback = async (req: Request, res: Response) => {
 
         if (!user) {
             const salt = await bcrypt.genSalt(10);
-            const randomPassword = await bcrypt.hash(Math.random().toString(36).slice(-10), salt);
+            const randomPassword = await bcrypt.hash(randomBytes(32).toString('hex'), salt);
 
             user = await User.create({
                 email,
@@ -450,22 +490,23 @@ export const googleCallback = async (req: Request, res: Response) => {
                 role: 'student',
                 status: 'active',
                 password: randomPassword,
-                avatarUrl: googleAvatar
+                avatarUrl: googleAvatar,
+                authProvider: 'google',
             });
             addSystemLog(`Создан профиль через Google: ${email}`, 'success');
         } else {
-            // Обновляем аватарку, если её нет
             if (googleAvatar && (!user.avatarUrl || user.avatarUrl.endsWith('/0') || user.avatarUrl.includes('googleusercontent.com'))) {
                 user.avatarUrl = googleAvatar;
             }
+            if (user.authProvider !== 'google') user.authProvider = 'google';
         }
 
         user.lastLogin = new Date();
         await user.save();
         
         const jwtToken = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
-
-        res.redirect(`${CLIENT_URL}/auth?token=${jwtToken}`);
+        const oneTimeCode = createOAuthCode(jwtToken);
+        res.redirect(`${CLIENT_URL}/auth?code=${oneTimeCode}`);
     } catch (error) {
         console.error('Ошибка Google OAuth:', error);
         res.redirect(`${CLIENT_URL}/auth?error=server_error`);
@@ -517,7 +558,7 @@ export const samlCallback = async (req: Request, res: Response, next: any) => {
 
                 if (!user) {
                     const salt = await bcrypt.genSalt(10);
-                    const randomPassword = await bcrypt.hash(Math.random().toString(36).slice(-10), salt);
+                    const randomPassword = await bcrypt.hash(randomBytes(32).toString('hex'), salt);
 
                     user = await User.create({
                         email,
@@ -525,9 +566,12 @@ export const samlCallback = async (req: Request, res: Response, next: any) => {
                         lastName: profile.lastName || profile.sn || '',
                         role: 'student',
                         status: 'active',
-                        password: randomPassword
+                        password: randomPassword,
+                        authProvider: 'saml',
                     });
                     addSystemLog(`Создан корпоративный профиль (SAML): ${email}`, 'success');
+                } else if (user.authProvider !== 'saml') {
+                    user.authProvider = 'saml';
                 }
 
                 user.lastLogin = new Date();
@@ -546,7 +590,8 @@ export const samlCallback = async (req: Request, res: Response, next: any) => {
             }
             
             const jwtToken = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
-            res.redirect(`${CLIENT_URL}/auth?token=${jwtToken}`);
+            const oneTimeCode = createOAuthCode(jwtToken);
+            res.redirect(`${CLIENT_URL}/auth?code=${oneTimeCode}`);
         })(req, res, next);
 
     } catch (error) {

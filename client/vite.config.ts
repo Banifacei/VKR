@@ -13,4 +13,15 @@ export default defineConfig({
       '/uploads': { target: 'http://server:5001', changeOrigin: true },
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor':  ['react', 'react-dom', 'react-router-dom'],
+          'xlsx':    ['xlsx'],
+          'dnd':     ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
+        },
+      },
+    },
+  },
 })

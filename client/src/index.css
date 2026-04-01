@@ -363,6 +363,8 @@ select.cyber-input {
   justify-content: center;
   align-items: center;
   z-index: 1000;
+  padding: 16px;
+  overflow-y: auto;
   animation: fadeIn 0.2s ease-out;
 }
 
@@ -370,12 +372,15 @@ select.cyber-input {
   background: rgba(15, 15, 15, 0.97);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 16px;
-  width: 480px;
+  width: 100%;
+  max-width: 480px;
   padding: 30px;
   box-shadow: 0 20px 40px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(255,255,255,0.04);
   animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   display: flex;
   flex-direction: column;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
 }
 
 .modal-header {
@@ -1705,6 +1710,33 @@ video.controls-visible::-webkit-media-text-track-container { transform: translat
   background: #fff; border-radius: 50%; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.4);
 }
 
+/* ── Плеер: мобильные стили ── */
+@media (max-width: 600px) {
+  .yt-controls { padding: 4px 8px 8px; }
+  .yt-controls-row { gap: 2px; }
+  .yt-left, .yt-right { gap: 2px; }
+  .yt-btn { padding: 6px; }
+  .yt-btn svg { width: 20px; height: 20px; }
+  .yt-time-display { font-size: 11px; margin-left: 4px; }
+  /* На мобиле hover не работает — громкость всегда видна */
+  .volume-slider-container { width: 48px !important; margin-left: 6px !important; }
+  /* Меню настроек не уходит за край экрана */
+  .yt-settings-menu { right: 0; width: min(240px, 80vw); }
+  /* Субтитры чуть меньше */
+  video::cue { font-size: 13px; }
+  .center-play-overlay-static { padding: 14px; }
+  .center-play-overlay-static svg { width: 32px; height: 32px; }
+  /* Карточки вопросов */
+  .interaction-card { padding: 16px; }
+  .question-text { font-size: 1rem; margin-bottom: 14px; }
+  .option-btn { padding: 10px 14px; font-size: 13px; }
+  .interaction-card h3 { font-size: 1rem; }
+  .feedback-icon { font-size: 2rem; }
+  .interaction-card.end-screen-large { padding: 14px; }
+  .end-screen-actions { flex-direction: column; gap: 8px; }
+  .end-screen-actions .btn { width: 100%; justify-content: center; }
+}
+
 .option-label-interactive {
   display: flex; align-items: center; gap: 12px; padding: 12px 16px;
   background: #2a2a2a; border: 1px solid #444; border-radius: 8px;
@@ -1792,3 +1824,49 @@ video.controls-visible::-webkit-media-text-track-container { transform: translat
     to { top: 20px; opacity: 1; }
 }
 @keyframes popIn { 0% { transform: scale(0.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+
+/* =============================================================================
+   ГЛОБАЛЬНЫЙ АДАПТИВ — шапка, модалки, общие компоненты
+   ============================================================================= */
+
+/* ── Модалки: padding уменьшаем на телефонах ── */
+@media (max-width: 480px) {
+  .modal-content {
+    padding: 20px 16px;
+    border-radius: 12px;
+  }
+  .modal-header {
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+  }
+  .modal-header h3 { font-size: 1.05rem; }
+  .modal-footer { gap: 8px; flex-wrap: wrap; }
+  .modal-footer .btn { flex: 1; justify-content: center; }
+}
+
+/* ── Шапка: скрываем текстовые nav-ссылки на телефонах ── */
+@media (max-width: 600px) {
+  .lumeo-header .nav-link { display: none; }
+}
+
+/* ── Шапка: общий адаптив ── */
+@media (max-width: 480px) {
+  .lumeo-header { padding: 0 12px !important; height: 52px !important; flex-shrink: 0; }
+  .logo, .logo-link { font-size: 18px !important; }
+}
+
+/* ── Кнопки: минимальный размер для касания на тачскрине ── */
+@media (max-width: 768px) {
+  .btn { min-height: 40px; }
+  .btn-icon { min-width: 36px; min-height: 36px; }
+}
+
+/* ── Dropdown: на мобиле на всю доступную ширину ── */
+@media (max-width: 480px) {
+  .profile-dropdown { width: min(200px, calc(100vw - 32px)); right: 0; }
+}
+
+/* ── Таблицы: горизонтальный скролл везде ── */
+@media (max-width: 768px) {
+  .table-responsive { -webkit-overflow-scrolling: touch; }
+}

@@ -134,7 +134,7 @@ export const createCourse = async (req: Request, res: Response) => {
         res.status(201).json(course);
     } catch (e) {
         console.error('Ошибка создания курса:', e);
-        res.status(500).json({ message: 'Ошибка создания курса', error: e });
+        res.status(500).json({ message: 'Ошибка создания курса' });
     }
 };
 
@@ -239,10 +239,10 @@ export const deleteCourse = async (req: Request, res: Response) => {
 
 export const getAllCourses = async (req: Request, res: Response) => {
     try {
-        const courses = await Course.findAll({ 
+        const courses = await Course.findAll({
             include: [Video],
-            // 🔥 Жесткая привязка порядка, чтобы не дергались
-            order: [['createdAt', 'ASC']] 
+            order: [['createdAt', 'ASC']],
+            limit: 500,
         });
         res.json(courses);
     } catch (e) {
@@ -311,7 +311,7 @@ export const getVideosByCourse = async (req: Request, res: Response) => {
     res.json(videos);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Ошибка при получении списка', error });
+    res.status(500).json({ message: 'Ошибка при получении списка' });
   }
 };
 
@@ -338,7 +338,7 @@ export const createEvent = async (req: Request, res: Response) => {
         res.status(201).json(event);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Ошибка при создании события', error });
+        res.status(500).json({ message: 'Ошибка при создании события' });
     }
 };
 export const saveProgress = async (req: Request, res: Response) => {
@@ -381,11 +381,6 @@ export const saveProgress = async (req: Request, res: Response) => {
             const threshold = (event.aiThreshold || 50) / 100; // Порог: 70% смыслового совпадения
             const similarity = await calculateSemanticSimilarity(answer, event.correctAnswer || '');
             similarityValue = Math.round(similarity * 100);
-            console.log(`\n[AI ОЦЕНКА]`);
-            console.log(`Студент написал: "${answer}"`);
-            console.log(`Эталон препода: "${event.correctAnswer}"`);
-            console.log(`[AI ОЦЕНКА] Сходство: ${similarityValue}%`);
-            console.log(`Вердикт: ${similarity >= threshold ? '✅ ЗАЧТЕНО' : '❌ ОШИБКА'}\n`);
             
             isCorrect = similarity >= threshold;
         }
@@ -412,7 +407,7 @@ export const saveProgress = async (req: Request, res: Response) => {
         res.json({ success: true, isCorrect, responseRecord });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Ошибка сохранения ответа', error });
+        res.status(500).json({ message: 'Ошибка сохранения ответа' });
     }
 };
 export const getVideoStats = async (req: Request, res: Response) => {
@@ -518,7 +513,7 @@ export const deleteVideo = async (req: Request, res: Response) => {
 export const resetVideoProgress = async (req: Request, res: Response) => {
     try {
         const { videoId } = req.params;
-        const userId = (req as any).user?.id || req.query.userId;
+        const userId = (req as any).user.id;
 
         const video = await Video.findByPk(videoId);
         if (!video) return res.status(404).json({ message: 'Видео не найдено' });
@@ -579,7 +574,7 @@ export const saveVideoProgress = async (req: Request, res: Response) => {
         res.json({ success: true, progress });
     } catch (error) {
         console.error("Ошибка сохранения прогресса:", error);
-        res.status(500).json({ message: 'Ошибка сервера', error });
+        res.status(500).json({ message: 'Ошибка сервера' });
     }
 };
 export const getVideoProgress = async (req: Request, res: Response) => {
@@ -608,7 +603,7 @@ export const getVideoProgress = async (req: Request, res: Response) => {
         });
     } catch (error) {
         console.error("Ошибка getVideoProgress:", error);
-        res.status(500).json({ message: 'Ошибка получения прогресса', error });
+        res.status(500).json({ message: 'Ошибка получения прогресса' });
     }
 };
 
@@ -636,7 +631,6 @@ export const generateSubtitles = async (req: Request, res: Response) => {
         // ВАЖНО: Превращаем путь в URL (file:///opt/VKR/...), иначе import внутри воркера упадет
         const workerUrl = pathToFileURL(workerPath).href;
 
-        console.log(`[DEBUG] Запускаем воркер через враппер. URL: ${workerUrl}`);
 
         // 2. СОЗДАЕМ ВОРКЕР
         // Мы используем eval: true, чтобы скормить ему JS-код напрямую.
@@ -705,7 +699,6 @@ export const generateSubtitles = async (req: Request, res: Response) => {
             if (code !== 0) {
                 console.error(`[AI WORKER] Поток завершился с кодом ошибки: ${code}`);
             }
-            console.log(`[AI WORKER] Поток для видео ${videoId} завершил работу.`);
         });
     } catch (error) {
         console.error("[AI] Ошибка старта:", error);
@@ -755,7 +748,6 @@ const transcodeVideoInBackground = (videoId: number, videoUrl: string, courseId:
         } else if (msg.status === 'warn') {
             console.warn('[Transcode]', msg.message);
         } else {
-            console.log(`[Transcode Worker] Видео ${videoId}: ${msg.status}`);
         }
     });
     worker.on('error', err => console.error('[Transcode Worker Error]', err));
@@ -783,7 +775,7 @@ export const transcodeVideo = async (req: Request, res: Response) => {
 
 export const getAllVideos = async (req: Request, res: Response) => {
     try {
-        const videos = await Video.findAll({ order: [['createdAt', 'DESC']], include: [InteractiveEvent] });
+        const videos = await Video.findAll({ order: [['createdAt', 'DESC']], include: [InteractiveEvent], limit: 1000 });
         res.json(videos);
     } catch (error) {
         console.error(error);
@@ -827,7 +819,7 @@ export const deleteEvent = async (req: Request, res: Response) => {
         res.json({ success: true });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Ошибка при удалении события', error });
+        res.status(500).json({ message: 'Ошибка при удалении события' });
     }
 };
 
@@ -846,7 +838,7 @@ export const reorderVideos = async (req: Request, res: Response) => {
         res.json({ success: true, message: 'Порядок успешно сохранен' });
     } catch (error) {
         console.error("Ошибка при сортировке:", error);
-        res.status(500).json({ message: 'Ошибка сохранения порядка', error });
+        res.status(500).json({ message: 'Ошибка сохранения порядка' });
     }
 };
 
@@ -1133,7 +1125,8 @@ export const getCourseEnrollments = async (req: Request, res: Response) => {
         const enrollments = await CourseEnrollment.findAll({
             where: { courseId },
             include: [{ model: User, attributes: ['id', 'firstName', 'lastName', 'email', 'avatarUrl'] }],
-            order: [['createdAt', 'DESC']]
+            order: [['createdAt', 'DESC']],
+            limit: 1000,
         });
 
         res.json(enrollments);
@@ -1208,7 +1201,8 @@ export const getCourseAnalytics = async (req: Request, res: Response) => {
 
         const enrollments = await CourseEnrollment.findAll({
             where: { courseId, status: 'approved' },
-            include: [{ model: User, attributes: ['id', 'firstName', 'lastName', 'email', 'avatarUrl', 'lastLogin'] }]
+            include: [{ model: User, attributes: ['id', 'firstName', 'lastName', 'email', 'avatarUrl', 'lastLogin'] }],
+            limit: 2000,
         });
 
         const students = enrollments.map(e => e.user);
@@ -1508,6 +1502,6 @@ export const generateDemoData = async (req: Request, res: Response) => {
     } catch (e: any) {
         console.error('Ошибка генерации демо-данных:', e);
         // Теперь если сервер упадет, он отправит точную причину на фронт
-        res.status(500).json({ message: 'Ошибка генерации', error: e.message }); 
+        res.status(500).json({ message: 'Ошибка генерации' }); 
     }
 };

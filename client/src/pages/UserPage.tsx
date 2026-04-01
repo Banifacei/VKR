@@ -367,8 +367,8 @@ export const UserPage = () => {
                                     videoId={activeItem.id}
                                     title={activeItem.title}
                                     sources={[
+                                        ...(activeItem.qualityUrls || []).map(q => ({ quality: q.quality, url: q.url, subtitles: activeItem.subtitles })),
                                         { quality: 'Оригинал', url: activeItem.url, subtitles: activeItem.subtitles },
-                                        ...(activeItem.qualityUrls || []).map(q => ({ quality: q.quality, url: q.url, subtitles: activeItem.subtitles }))
                                     ]}
                                     events={activeItem.events || []}
                                     hideResults={activeItem.hideResults}
@@ -489,43 +489,47 @@ export const UserPage = () => {
                             <h1 className="course-title-large">{course?.title}</h1>
                             <div className="course-progress-section">
                                 {canEdit && (
-                                    <div style={{ marginTop: '25px', display: 'flex', gap: '5px', background: '#111', padding: '6px', borderRadius: '12px', width: 'fit-content', border: '1px solid #333' }}>
-                                        <button 
+                                    <div className="view-mode-switcher">
+                                        <button
+                                            className={`vms-btn ${!isEditMode ? 'active' : ''}`}
                                             onClick={() => setIsEditMode(false)}
-                                            style={{ background: !isEditMode ? '#2a2a2a' : 'transparent', color: !isEditMode ? '#fff' : '#888', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', transition: '0.2s' }}
                                         >
-                                            <Icons.Eye size={14}/> Глазами студента
+                                            <Icons.Eye size={14}/>
+                                            <span className="vms-label-full">Глазами студента</span>
+                                            <span className="vms-label-short">Студент</span>
                                         </button>
-                                        <button 
-                                            onClick={() => setIsEditMode(true)} 
-                                            style={{ background: isEditMode ? 'var(--primary)' : 'transparent', color: isEditMode ? '#fff' : '#888', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', transition: '0.2s' }}
+                                        <button
+                                            className={`vms-btn ${isEditMode ? 'active-primary' : ''}`}
+                                            onClick={() => setIsEditMode(true)}
                                         >
-                                            <Icons.Edit size={14}/> Редактирование
+                                            <Icons.Edit size={14}/>
+                                            <span className="vms-label-full">Редактирование</span>
+                                            <span className="vms-label-short">Редактор</span>
                                         </button>
-                                        <button onClick={() => setShowCourseSettings(true)} style={{ background: 'rgba(255,255,255,0.05)', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <Icons.Settings size={14}/> Настройки
-                                            {pendingCount > 0 && (
-                                                <span style={{ background: '#ff4d4d', color: '#fff', fontSize: '11px', padding: '2px 6px', borderRadius: '10px', lineHeight: 1 }}>
-                                                    {pendingCount}
-                                                </span>
-                                            )}
+                                        <button className="vms-btn vms-settings" onClick={() => setShowCourseSettings(true)}>
+                                            <Icons.Settings size={14}/>
+                                            <span className="vms-label-full">Настройки</span>
+                                            <span className="vms-label-short">Настройки</span>
+                                            {pendingCount > 0 && <span className="vms-badge">{pendingCount}</span>}
                                         </button>
                                     </div>
                                 )}
-                                <div style={{ marginTop: '20px' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '14px', color: '#888' }}>
-                                        <span>Прогресс курса</span>
-                                        <span style={{ color: progressPercent === 100 ? '#4dff88' : 'var(--primary)', fontWeight: 'bold' }}>{progressPercent}%</span>
+                                <div className="course-meta-row">
+                                    <div className="course-progress-bar-wrap">
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '14px', color: '#888' }}>
+                                            <span>Прогресс курса</span>
+                                            <span style={{ color: progressPercent === 100 ? '#4dff88' : 'var(--primary)', fontWeight: 'bold' }}>{progressPercent}%</span>
+                                        </div>
+                                        <div style={{ background: '#222', borderRadius: '10px', height: '8px', overflow: 'hidden' }}>
+                                            <div style={{ width: `${progressPercent}%`, background: progressPercent === 100 ? '#4dff88' : 'var(--primary)', height: '100%', transition: 'width 0.8s ease' }} />
+                                        </div>
                                     </div>
-                                    <div style={{ background: '#222', borderRadius: '10px', height: '8px', overflow: 'hidden' }}>
-                                        <div style={{ width: `${progressPercent}%`, background: progressPercent === 100 ? '#4dff88' : 'var(--primary)', height: '100%', transition: 'width 0.8s ease' }} />
-                                    </div>
+                                    <span><Icons.Teacher size={14}/> {course?.instructor}</span>
+                                    <span>•</span>
+                                    <span>{items.filter(i => i.type === 'video').length} уроков</span>
+                                    <span>•</span>
+                                    <span>{items.filter(i => i.type === 'test').length} тестов</span>
                                 </div>
-                                <span><Icons.Teacher size={14}/> {course?.instructor}</span>
-                                <span>•</span>
-                                <span>{items.filter(i => i.type === 'video').length} уроков</span>
-                                <span>•</span>
-                                <span>{items.filter(i => i.type === 'test').length} тестов</span>
                             </div>
                             <p style={{ color: '#ccc', marginTop: '15px', maxWidth: '800px', lineHeight: '1.5' }}>
                                 {course?.description}

@@ -866,7 +866,7 @@ export const PrepodPage = () => {
                  <div style={{height: '24px', width: '1px', background: '#333'}}></div>
                  <div className="logo" style={{fontSize: '18px', display: 'flex', alignItems: 'center', gap: '15px'}}>
                     {courses.find(c => c.id === selectedCourseId)?.title}
-                    <span style={{color: '#666', fontWeight: 400}}>| Редактор</span>
+                    <span className="editor-mode-label" style={{color: '#666', fontWeight: 400}}>| Редактор</span>
                     <button 
                         className="btn btn-ghost" 
                         style={{ padding: '4px 10px', fontSize: '13px', background: 'rgba(255,255,255,0.05)' }}
@@ -1003,8 +1003,8 @@ export const PrepodPage = () => {
                                 <VideoPlayer 
                                     key={selectedVideo.id}
                                     sources={[
+                                    ...(selectedVideo.qualityUrls || []).map((q: any) => ({ quality: q.quality, url: q.url, subtitles: selectedVideo.subtitles })),
                                     { quality: 'Оригинал', url: selectedVideo.url, subtitles: selectedVideo.subtitles },
-                                    ...(selectedVideo.qualityUrls || []).map((q: any) => ({ quality: q.quality, url: q.url, subtitles: selectedVideo.subtitles }))
                                 ]}
                                     title={selectedVideo.title} 
                                     events={selectedVideo.events || []}

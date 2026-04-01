@@ -1,8 +1,4 @@
 services:
-
-  # ---------------------------------------------------------------------------
-  # PostgreSQL
-  # ---------------------------------------------------------------------------
   postgres:
     image: postgres:15
     container_name: lumeo-postgres
@@ -20,44 +16,46 @@ services:
       retries: 10
     restart: unless-stopped
 
-  # ---------------------------------------------------------------------------
-  # Backend (Node.js + Express)
-  # ---------------------------------------------------------------------------
   server:
     build:
       context: ./server
     container_name: lumeo-server
     env_file: .env
     environment:
-      # Переопределяем хост БД на имя docker-сервиса
       DB_HOST: postgres
     volumes:
-      # Загруженные файлы (видео, аватары) сохраняются между перезапусками
       - uploads:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:5001/api/theme',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))\""]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
     restart: unless-stopped
 
-  # ---------------------------------------------------------------------------
-  # Frontend (React + nginx)
-  # Собирает клиент и раздаёт статику + проксирует /api/ и /uploads/ на сервер
-  # ---------------------------------------------------------------------------
   client:
     build:
       context: ./client
       args:
         VITE_API_URL: ${VITE_API_URL:-/api}
     container_name: lumeo-client
-    ports:
-      - "80:80"
     volumes:
-      # Тот же том — nginx раздаёт видео напрямую, минуя Node.js
       - uploads:/app/uploads:ro
+    networks:
+      - default
+      - proxy
     depends_on:
-      - server
+      server:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
   postgres_data:
   uploads:
+
+networks:
+  proxy:
+    external: true

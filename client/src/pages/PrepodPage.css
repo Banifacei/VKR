@@ -283,4 +283,33 @@
 @media (max-width: 500px) {
     .courses-header h1 { font-size: 22px; }
     .editor-stage { padding: 10px; }
+    .courses-container { padding: 24px 12px; }
+    .courses-header { margin-bottom: 24px; }
+    .course-card { height: auto; min-height: 160px; }
+    .create-course-panel { padding: 20px; }
+    .deck-header { padding: 12px 16px; }
+}
+
+/* ── Шапка редактора: телефоны ── */
+@media (max-width: 600px) {
+    /* Скрываем "| Редактор" — название курса и так понятно */
+    .editor-mode-label { display: none; }
+    /* Название курса не переполняет шапку */
+    .prepod-layout .lumeo-header .logo {
+        font-size: 14px !important;
+        max-width: 160px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        gap: 8px !important;
+    }
+    /* Кнопка настроек в шапке — только иконка */
+    .prepod-layout .lumeo-header .logo .btn { padding: 4px 6px !important; font-size: 0; gap: 0; }
+    .prepod-layout .lumeo-header .logo .btn svg { display: block; }
+}
+@media (max-width: 480px) {
+    .prepod-layout .lumeo-header { height: auto !important; min-height: 52px; padding: 8px 12px !important; flex-wrap: wrap; gap: 8px; }
+    .prepod-layout .lumeo-header > div { gap: 8px !important; }
+    .sidebar-header h3 { font-size: 11px; }
+    .control-deck { padding: 16px; }
 }

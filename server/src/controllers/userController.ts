@@ -19,11 +19,48 @@ export const sseAdminEvents = (req: Request, res: Response) =>
     adminSse.subscribe(req, res);
 export const getAllUsers = async (req: Request, res: Response) => {
     try {
-        const users = await User.findAll({
-            attributes: ['id', 'email', 'firstName', 'lastName', 'role', 'lastLogin'],
-            order: [['createdAt', 'DESC']]
+        const page = Math.max(1, parseInt(req.query.page as string) || 1);
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 50));
+        const offset = (page - 1) * limit;
+        const search = ((req.query.search as string) || '').trim();
+        const roleFilter = req.query.role as string;
+        const providerFilter = req.query.provider as string;
+
+        const where: any = {};
+        if (search) {
+            where[Op.or] = [
+                { firstName: { [Op.iLike]: `%${search}%` } },
+                { lastName:  { [Op.iLike]: `%${search}%` } },
+                { email:     { [Op.iLike]: `%${search}%` } },
+            ];
+        }
+        if (roleFilter && ['student', 'teacher', 'admin'].includes(roleFilter)) {
+            where.role = roleFilter;
+        }
+        if (providerFilter && ['local', 'yandex', 'google', 'ldap', 'saml'].includes(providerFilter)) {
+            where.authProvider = providerFilter;
+        }
+
+        const [{ count, rows }, studentCount, teacherCount, adminCount] = await Promise.all([
+            User.findAndCountAll({
+                where,
+                attributes: ['id', 'email', 'firstName', 'lastName', 'middleName', 'phone', 'role', 'lastLogin', 'status', 'avatarUrl', 'authProvider'],
+                order: [['createdAt', 'DESC']],
+                limit,
+                offset,
+            }),
+            User.count({ where: { role: 'student' } }),
+            User.count({ where: { role: 'teacher' } }),
+            User.count({ where: { role: 'admin' } }),
+        ]);
+
+        res.json({
+            users: rows,
+            total: count,
+            page,
+            totalPages: Math.ceil(count / limit),
+            byRole: { student: studentCount, teacher: teacherCount, admin: adminCount },
         });
-        res.json(users);
     } catch (e) {
         console.error(e);
         res.status(500).json({ message: 'Ошибка получения списка пользователей' });
@@ -272,10 +309,11 @@ export const deleteUserByAdmin = async (req: Request, res: Response) => {
 
 export const getPendingUsers = async (req: Request, res: Response) => {
     try {
-        const users = await User.findAll({ 
+        const users = await User.findAll({
             where: { status: 'pending' },
             attributes: ['id', 'email', 'firstName', 'lastName', 'createdAt'],
-            order: [['createdAt', 'DESC']]
+            order: [['createdAt', 'DESC']],
+            limit: 500,
         });
         res.json(users);
     } catch (e) {

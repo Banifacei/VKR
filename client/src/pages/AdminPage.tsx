@@ -21,7 +21,14 @@ export const AdminPage = () => {
   const [samlForm, setSamlForm] = useState({ enabled: false, entryPoint: '', cert: '' });
   const [activeTab, setActiveTab] = useState<'system' | 'users' | 'requests' | 'integrations' | 'branding'>('system');
   const [usersList, setUsersList] = useState<IAdminUser[]>([]);
-  const [pendingUsers, setPendingUsers] = useState<any[]>([]); 
+  const [usersTotal, setUsersTotal] = useState(0);
+  const [usersPage, setUsersPage] = useState(1);
+  const [usersTotalPages, setUsersTotalPages] = useState(1);
+  const [usersByRole, setUsersByRole] = useState({ student: 0, teacher: 0, admin: 0 });
+  const [usersSearch, setUsersSearch] = useState('');
+  const [usersRoleFilter, setUsersRoleFilter] = useState('');
+  const [usersProviderFilter, setUsersProviderFilter] = useState('');
+  const [pendingUsers, setPendingUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [systemLoading, setSystemLoading] = useState(true);
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
@@ -292,12 +299,16 @@ export const AdminPage = () => {
 
   const handleAvatarUpdate = (newUrl: string) => updateContextUser({ avatarUrl: newUrl });
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (page = usersPage, search = usersSearch, role = usersRoleFilter, provider = usersProviderFilter) => {
       setLoading(true);
       try {
-          const data = await getAllUsers();
-          setUsersList(data);
-      } catch (e) { showToast('Ошибка при загрузке пользователей', 'error'); } 
+          const data = await getAllUsers({ page, limit: 50, search: search || undefined, role: role || undefined, provider: provider || undefined });
+          setUsersList(data.users);
+          setUsersTotal(data.total);
+          setUsersPage(data.page);
+          setUsersTotalPages(data.totalPages);
+          setUsersByRole(data.byRole);
+      } catch (e) { showToast('Ошибка при загрузке пользователей', 'error'); }
       finally { setLoading(false); }
   };
 
@@ -532,7 +543,7 @@ export const AdminPage = () => {
       )}
       {showSamlModal && (
           <div className="modal-overlay">
-              <div className="modal-content" style={{ width: '500px' }}>
+              <div className="modal-content" style={{ maxWidth: '500px' }}>
                   <div className="modal-header">
                       <h3>Корпоративный вход (SAML 2.0)</h3>
                       <button className="btn-icon" onClick={() => setShowSamlModal(false)}><Icons.Close /></button>
@@ -629,15 +640,15 @@ export const AdminPage = () => {
                 <div className={`metrics-row${systemLoading ? ' metrics-loading' : ''}`}>
                     <div className="stat-card mini">
                         <div className="stat-icon" style={{color: 'var(--primary)'}}><Icons.Users /></div>
-                        <div className="stat-info"><div className="stat-label">Пользователей</div><div className="stat-value">{usersList.length}</div></div>
+                        <div className="stat-info"><div className="stat-label">Пользователей</div><div className="stat-value">{usersTotal || usersByRole.student + usersByRole.teacher + usersByRole.admin}</div></div>
                     </div>
                     <div className="stat-card mini">
                         <div className="stat-icon" style={{color: '#ffd700'}}><Icons.Code /></div>
-                        <div className="stat-info"><div className="stat-label">Преподавателей</div><div className="stat-value">{usersList.filter(u => u.role === 'teacher').length}</div></div>
+                        <div className="stat-info"><div className="stat-label">Преподавателей</div><div className="stat-value">{usersByRole.teacher}</div></div>
                     </div>
                     <div className="stat-card mini">
                         <div className="stat-icon" style={{color: '#ff4d4d'}}><Icons.Shield /></div>
-                        <div className="stat-info"><div className="stat-label">Администраторов</div><div className="stat-value">{usersList.filter(u => u.role === 'admin').length}</div></div>
+                        <div className="stat-info"><div className="stat-label">Администраторов</div><div className="stat-value">{usersByRole.admin}</div></div>
                     </div>
                     <div className="stat-card mini">
                         <div className="stat-icon" style={{color: '#00ff88'}}><Icons.Activity /></div>
@@ -776,12 +787,12 @@ export const AdminPage = () => {
                                 <Icons.Database /> Выгрузить БД
                             </button>
                             <button className="btn btn-primary" onClick={openAddModal}><Icons.Plus /> Добавить</button>
-                            <button className="btn btn-secondary" onClick={fetchUsers}><Icons.Refresh /> Обновить</button>
+                            <button className="btn btn-secondary" onClick={() => fetchUsers()}><Icons.Refresh /> Обновить</button>
                         </div>
                         {/* МОДАЛЬНОЕ ОКНО ИНСТРУКЦИИ К ШАБЛОНУ */}
                         {modalMode === 'template' && (
                             <div className="modal-overlay">
-                                <div className="modal-content" style={{ width: '580px', padding: '30px' }}>
+                                <div className="modal-content" style={{ maxWidth: '580px', padding: '30px' }}>
                                     <div className="modal-header" style={{ marginBottom: '15px', borderBottom: 'none' }}>
                                         <h3 style={{ fontSize: '20px' }}>Инструкция к импорту</h3>
                                         <button className="btn-icon" onClick={closeModal}><Icons.Close /></button>
@@ -826,6 +837,53 @@ export const AdminPage = () => {
                         )}
                     </div>
 
+                    {/* Поиск и фильтр */}
+                    <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                        <input
+                            className="modern-input"
+                            style={{ flex: 1, minWidth: '200px' }}
+                            placeholder="Поиск по имени или email..."
+                            value={usersSearch}
+                            onChange={e => {
+                                setUsersSearch(e.target.value);
+                                setUsersPage(1);
+                                fetchUsers(1, e.target.value, usersRoleFilter);
+                            }}
+                        />
+                        <select
+                            className="modern-input"
+                            style={{ width: '180px' }}
+                            value={usersRoleFilter}
+                            onChange={e => {
+                                setUsersRoleFilter(e.target.value);
+                                setUsersPage(1);
+                                fetchUsers(1, usersSearch, e.target.value, usersProviderFilter);
+                            }}
+                        >
+                            <option value="">Все роли</option>
+                            <option value="student">Студенты</option>
+                            <option value="teacher">Преподаватели</option>
+                            <option value="admin">Администраторы</option>
+                        </select>
+                        <select
+                            className="modern-input"
+                            style={{ width: '160px' }}
+                            value={usersProviderFilter}
+                            onChange={e => {
+                                setUsersProviderFilter(e.target.value);
+                                setUsersPage(1);
+                                fetchUsers(1, usersSearch, usersRoleFilter, e.target.value);
+                            }}
+                        >
+                            <option value="">Все источники</option>
+                            <option value="local">Локальные</option>
+                            <option value="ldap">LDAP / AD</option>
+                            <option value="google">Google</option>
+                            <option value="yandex">Яндекс</option>
+                            <option value="saml">SAML SSO</option>
+                        </select>
+                    </div>
+
                     {loading ? (
                         <div style={{padding: '40px', textAlign: 'center', color: '#666'}}>Загрузка базы данных...</div>
                     ) : (
@@ -842,8 +900,36 @@ export const AdminPage = () => {
                                     {usersList.map((u) => (
                                         <tr key={u.id}>
                                             <td>
-                                                <div style={{fontWeight: '600', color: '#fff', fontSize: '14px', marginBottom: '4px'}}>
-                                                    {u.firstName} {u.lastName}
+                                                <div style={{display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px'}}>
+                                                    <span style={{fontWeight: '600', color: '#fff', fontSize: '14px'}}>
+                                                        {u.firstName} {u.lastName}
+                                                    </span>
+                                                    {u.authProvider && u.authProvider !== 'local' && (
+                                                        <span style={{
+                                                            fontSize: '10px',
+                                                            fontWeight: '600',
+                                                            padding: '2px 6px',
+                                                            borderRadius: '4px',
+                                                            letterSpacing: '0.5px',
+                                                            textTransform: 'uppercase',
+                                                            background: u.authProvider === 'yandex' ? 'rgba(255,51,51,0.15)'
+                                                                      : u.authProvider === 'google' ? 'rgba(66,133,244,0.15)'
+                                                                      : u.authProvider === 'ldap'   ? 'rgba(0,255,136,0.15)'
+                                                                      : 'rgba(155,89,182,0.15)',
+                                                            color: u.authProvider === 'yandex' ? '#ff5555'
+                                                                 : u.authProvider === 'google' ? '#4285f4'
+                                                                 : u.authProvider === 'ldap'   ? '#00ff88'
+                                                                 : '#c39bd3',
+                                                            border: `1px solid ${
+                                                                u.authProvider === 'yandex' ? 'rgba(255,51,51,0.3)'
+                                                              : u.authProvider === 'google' ? 'rgba(66,133,244,0.3)'
+                                                              : u.authProvider === 'ldap'   ? 'rgba(0,255,136,0.3)'
+                                                              : 'rgba(155,89,182,0.3)'
+                                                            }`,
+                                                        }}>
+                                                            {u.authProvider}
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <div style={{fontSize: '12px', color: '#666'}}>{u.email} &bull; ID: {u.id}</div>
                                             </td>
@@ -864,6 +950,29 @@ export const AdminPage = () => {
                                     ))}
                                 </tbody>
                             </table>
+                        </div>
+                    )}
+
+                    {/* Пагинация */}
+                    {usersTotalPages > 1 && (
+                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '16px' }}>
+                            <button
+                                className="btn btn-secondary"
+                                disabled={usersPage <= 1}
+                                onClick={() => { const p = usersPage - 1; setUsersPage(p); fetchUsers(p); }}
+                            >
+                                &lsaquo; Назад
+                            </button>
+                            <span style={{ color: '#888', fontSize: '13px' }}>
+                                Стр. {usersPage} / {usersTotalPages} &nbsp;&bull;&nbsp; Всего: {usersTotal}
+                            </span>
+                            <button
+                                className="btn btn-secondary"
+                                disabled={usersPage >= usersTotalPages}
+                                onClick={() => { const p = usersPage + 1; setUsersPage(p); fetchUsers(p); }}
+                            >
+                                Вперёд &rsaquo;
+                            </button>
                         </div>
                     )}
                 </div>

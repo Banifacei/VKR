@@ -7,15 +7,28 @@ import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
 import { SystemSetting } from '../models/SystemSetting.js';
 // --- НОВОЕ: Трекер реальных сессий ---
-// Храним IP-адреса и время их последнего запроса (в миллисекундах)
+// Ключ: userId (если авторизован) или IP (гость). Так два устройства одного юзера = 1 сессия,
+// а два разных юзера за одним роутером = 2 сессии.
 export const activeSessions = new Map<string, number>();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-// Этот Middleware мы подключим ко всему серверу, чтобы он "видел" каждого посетителя
+import jwt from 'jsonwebtoken';
 export const trackActivityMiddleware = (req: Request, res: Response, next: NextFunction) => {
-    // Получаем IP (даже если сервер стоит за Nginx/Proxy)
-    const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown') as string;
-    activeSessions.set(ip, Date.now()); // Обновляем время активности
+    let key: string;
+    try {
+        const token = (req.headers.authorization?.split(' ')[1]) || (req.query.token as string);
+        if (token && process.env.JWT_SECRET) {
+            const decoded = jwt.verify(token, process.env.JWT_SECRET) as { id: number };
+            key = `user:${decoded.id}`;
+        } else {
+            const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown') as string;
+            key = `ip:${ip}`;
+        }
+    } catch {
+        const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown') as string;
+        key = `ip:${ip}`;
+    }
+    activeSessions.set(key, Date.now());
     next();
 };
 // -------------------------------------

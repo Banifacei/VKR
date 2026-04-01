@@ -55,7 +55,6 @@ export const TestRunner = ({ test, onExit, onSuccess }: TestRunnerProps) => {
                 setDetailedResults(res.detailedAnswers); // Берем ИИ-разбор с сервера
             }
 
-            console.log('Результат сохранен!');
             if (onSuccess) {
                 onSuccess();
             }

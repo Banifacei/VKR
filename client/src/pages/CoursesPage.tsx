@@ -151,9 +151,9 @@ export const CoursesPage = () => {
                 )}
             </header>
 
-            <div className="lumeo-container" style={{display: 'block', padding: '40px'}}>
-                <h1 style={{marginBottom: '10px', fontSize: '32px'}}>Витрина курсов</h1>
-                <p style={{color: '#888', marginBottom: '30px'}}>Выберите программу обучения и начните развиваться уже сегодня.</p>
+            <div className="courses-content">
+                <h1 className="courses-page-title">Витрина курсов</h1>
+                <p className="courses-page-subtitle">Выберите программу обучения и начните развиваться уже сегодня.</p>
                 
                 <div className="course-showcase-grid">
                     

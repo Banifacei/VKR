@@ -3,6 +3,34 @@
    skeleton, shimmer — в index.css
    ========================================================== */
 
+.courses-content {
+    display: block;
+    padding: 40px;
+    overflow-y: auto;
+    flex: 1;
+}
+.courses-page-title {
+    font-size: 32px;
+    font-weight: 800;
+    margin: 0 0 10px 0;
+    letter-spacing: -0.5px;
+}
+.courses-page-subtitle {
+    color: #888;
+    margin: 0 0 30px 0;
+    font-size: 15px;
+}
+
+@media (max-width: 768px) {
+    .courses-content { padding: 24px 20px; }
+    .courses-page-title { font-size: 26px; }
+}
+@media (max-width: 480px) {
+    .courses-content { padding: 16px 12px; }
+    .courses-page-title { font-size: 22px; }
+    .courses-page-subtitle { font-size: 13px; margin-bottom: 20px; }
+}
+
 .course-showcase-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -89,3 +117,15 @@
 .skeleton-text.short { width: 60%; }
 .skeleton-tags  { display: flex; gap: 10px; margin-top: auto; }
 .skeleton-tag   { height: 28px; width: 80px; border-radius: 8px; }
+
+/* ── Адаптив ── */
+@media (max-width: 768px) {
+    .course-showcase-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+}
+@media (max-width: 480px) {
+    .course-showcase-grid { grid-template-columns: 1fr; gap: 12px; margin-top: 16px; }
+    .course-title { font-size: 16px; }
+    .course-body  { padding: 14px; }
+    .course-cover { height: 120px; }
+    .skeleton-card { height: 320px; }
+}

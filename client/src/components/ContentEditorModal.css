@@ -1,0 +1,98 @@
+/* ==========================================================
+   ContentEditorModal.css — редактор контента (видео / тест)
+   ========================================================== */
+
+/* ── Планшет + телефон ── */
+@media (max-width: 900px) {
+    /* Полноэкранный оверлей без отступов */
+    .cem-overlay {
+        padding: 0 !important;
+        align-items: stretch !important;
+    }
+
+    /* Модалка = весь экран */
+    .cem-container {
+        height: 100dvh !important;
+        height: 100vh !important;
+        max-width: 100% !important;
+        border-radius: 0 !important;
+    }
+
+    /* Компактная шапка */
+    .cem-header {
+        padding: 10px 14px !important;
+        gap: 10px !important;
+        flex-wrap: nowrap !important;
+    }
+    .cem-header-left {
+        gap: 10px !important;
+        min-width: 0 !important;
+    }
+    .cem-header-icon {
+        padding: 8px !important;
+        border-radius: 10px !important;
+        flex-shrink: 0 !important;
+    }
+    .cem-header-icon svg {
+        width: 20px !important;
+        height: 20px !important;
+    }
+    .cem-title-input {
+        font-size: 18px !important;
+        letter-spacing: 0 !important;
+    }
+    .cem-header-actions {
+        gap: 8px !important;
+        flex-shrink: 0 !important;
+    }
+    .cem-header-actions .btn {
+        padding: 8px 10px !important;
+        font-size: 12px !important;
+    }
+    /* Скрываем текст в кнопках шапки, оставляем иконки */
+    .cem-btn-text { display: none; }
+
+    /* Тело: вертикальная прокрутка вместо горизонтального сплита */
+    .cem-body {
+        flex-direction: column !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+    }
+
+    /* Левая колонка */
+    .cem-left {
+        padding: 16px !important;
+        flex: none !important;
+        overflow-y: visible !important;
+    }
+
+    /* Правая колонка: на всю ширину, без боковой рамки */
+    .cem-right {
+        flex: none !important;
+        min-width: 0 !important;
+        width: 100% !important;
+        border-left: none !important;
+        border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
+    }
+
+    /* Таблицы статистики: горизонтальный скролл */
+    .cem-stats-table-wrap {
+        overflow-x: auto !important;
+    }
+    .cem-stats-table-wrap .stats-table th,
+    .cem-stats-table-wrap .stats-table td {
+        padding: 10px 8px !important;
+        font-size: 13px !important;
+    }
+}
+
+@media (max-width: 600px) {
+    .cem-title-input {
+        font-size: 15px !important;
+    }
+    .cem-left {
+        padding: 12px !important;
+    }
+    /* Кнопка "Закрыть": только крестик */
+    .cem-close-text { display: none; }
+}

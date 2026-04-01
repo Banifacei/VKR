@@ -6,13 +6,31 @@ export interface IAdminUser {
     email: string;
     firstName: string;
     lastName: string;
+    middleName?: string;
+    phone?: string;
     role: 'student' | 'teacher' | 'admin';
+    status?: string;
     lastLogin?: string;
+    avatarUrl?: string;
+    authProvider?: 'local' | 'yandex' | 'google' | 'ldap' | 'saml';
 }
 
-export const getAllUsers = async (): Promise<IAdminUser[]> => {
-    // api уже знает baseURL и сам подставит токен!
-    const response = await api.get('/users'); 
+export interface IUsersPage {
+    users: IAdminUser[];
+    total: number;
+    page: number;
+    totalPages: number;
+    byRole: { student: number; teacher: number; admin: number };
+}
+
+export const getAllUsers = async (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    role?: string;
+    provider?: string;
+}): Promise<IUsersPage> => {
+    const response = await api.get('/users', { params });
     return response.data;
 };
 

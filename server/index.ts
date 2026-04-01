@@ -2,6 +2,7 @@
 import 'reflect-metadata';
 import express, { Request, Response } from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import sequelize from './src/config/db.js';
 import videoRoutes from './src/routes/videoRoutes.js';
 import path from 'path';
@@ -19,11 +20,13 @@ import themeRoutes from './src/routes/themeRoutes.js';
 import { trackActivityMiddleware, addSystemLog } from './src/controllers/adminController.js';
 import { createDefaultAdmin } from './src/models/initAdmin.js';
 import { cleanupOrphanFiles } from './src/utils/cleanup.js';
+import { checkAuth } from './src/middleware/authMiddleware.js';
 import passport from 'passport';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 5001;
 const BASE_URL = process.env.API_URL || `http://localhost:${PORT}`;
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
@@ -79,6 +82,10 @@ const logoUpload = multer({
     limits: { fileSize: 2 * 1024 * 1024 },
     fileFilter: imageFilter,
 });
+app.use(helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' }, // разрешаем отдавать /uploads фронту
+    contentSecurityPolicy: false, // SPA управляет своим CSP сама
+}));
 app.use(passport.initialize());
 app.use(cors({ origin: CLIENT_URL, credentials: true }));
 app.use(express.json());
@@ -91,7 +98,7 @@ app.use('/api/tests', testRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/theme', themeRoutes(logoUpload));
 
-app.post('/api/upload', videoUpload.single('video'), (req: Request, res: Response): void => {
+app.post('/api/upload', checkAuth, videoUpload.single('video'), (req: Request, res: Response): void => {
     try {
         if (!req.file) {
             res.status(400).send('Файл не загружен');
@@ -107,19 +114,14 @@ app.post('/api/upload', videoUpload.single('video'), (req: Request, res: Respons
     }
 });
 
-app.post('/api/auth/avatar', avatarUpload.single('avatar'), async (req: Request, res: Response): Promise<void> => {
+app.post('/api/auth/avatar', checkAuth, avatarUpload.single('avatar'), async (req: Request, res: Response): Promise<void> => {
     try {
         if (!req.file) {
             res.status(400).json({ message: 'Файл не выбран' });
             return;
         }
 
-        const { userId } = req.body;
-        if (!userId) {
-            res.status(400).json({ message: 'ID пользователя не указан' });
-            return;
-        }
-
+        const userId = (req as any).user?.id;
         const user = await User.findByPk(userId);
         if (!user) {
             res.status(404).json({ message: 'Пользователь не найден' });
@@ -127,7 +129,6 @@ app.post('/api/auth/avatar', avatarUpload.single('avatar'), async (req: Request,
         }
 
         const avatarUrl = `/uploads/avatars/${req.file.filename}`;
-
         user.avatarUrl = avatarUrl;
         await user.save();
         addSystemLog(`Пользователь (ID: ${userId}) обновил аватар`, 'info');

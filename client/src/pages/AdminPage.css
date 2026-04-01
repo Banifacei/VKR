@@ -482,6 +482,8 @@ label.dont-show-again input[type="checkbox"]:checked + .custom-checkbox::after {
     .dashboard-columns { grid-template-columns: 1fr; }
 }
 @media (max-width: 768px) {
+    .lumeo-header { padding: 0 16px; }
+    .admin-layout { padding: 20px 16px; }
     .admin-tabs { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; }
     .admin-tab  { flex-shrink: 0; }
     .data-table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
@@ -491,6 +493,17 @@ label.dont-show-again input[type="checkbox"]:checked + .custom-checkbox::after {
 @media (max-width: 600px) {
     .metrics-row { grid-template-columns: 1fr; }
     .admin-content { padding: 16px; }
+    .admin-header h1 { font-size: 24px; }
+    .section-body { padding: 14px; }
+}
+@media (max-width: 480px) {
+    .lumeo-header { height: 56px; padding: 0 12px; }
+    .admin-layout { padding: 12px; }
+    .admin-header h1 { font-size: 20px; }
+    .stat-value  { font-size: 18px; }
+    .log-item    { gap: 10px; }
+    .data-table th, .data-table td { padding: 12px 10px; }
+    .actions-row { flex-wrap: wrap; }
 }
 
 /* ========================================================

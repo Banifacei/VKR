@@ -1,17 +1,19 @@
 
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
-
-import { UserPage } from './pages/UserPage';
-import { PrepodPage } from './pages/PrepodPage';
-import { AdminPage } from './pages/AdminPage';
-import { CoursesPage } from './pages/CoursesPage';
-import { AuthPage } from './pages/AuthPage';
-import { ProfilePage } from './pages/ProfilePage';
-import { HistoryPage } from './pages/HistoryPage';
 import { ToastProvider } from './context/ToastContext';
-import { AnalyticsPage } from './pages/AnalyticsPage';
+
+import { AuthPage } from './pages/AuthPage';
+import { CoursesPage } from './pages/CoursesPage';
+
+const UserPage      = lazy(() => import('./pages/UserPage').then(m => ({ default: m.UserPage })));
+const PrepodPage    = lazy(() => import('./pages/PrepodPage').then(m => ({ default: m.PrepodPage })));
+const AdminPage     = lazy(() => import('./pages/AdminPage').then(m => ({ default: m.AdminPage })));
+const ProfilePage   = lazy(() => import('./pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
+const HistoryPage   = lazy(() => import('./pages/HistoryPage').then(m => ({ default: m.HistoryPage })));
+const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage').then(m => ({ default: m.AnalyticsPage })));
 // Обновленный ProtectedRoute с поддержкой проверки ролей
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) => {
     const { isAuthenticated, user } = useAuth(); // Достаем user из AuthContext
@@ -41,9 +43,10 @@ function App() {
         <ThemeProvider>
         <AuthProvider>
             <BrowserRouter>
+                <Suspense fallback={null}>
                 <Routes>
                     <Route path="/auth" element={<PublicRoute><AuthPage /></PublicRoute>} />
-                    
+
                     {/* --- ОБЩИЕ РОУТЫ (Доступны всем авторизованным) --- */}
                     <Route path="/" element={<ProtectedRoute><CoursesPage /></ProtectedRoute>} />
                     <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
@@ -62,7 +65,7 @@ function App() {
                             <AnalyticsPage />
                         </ProtectedRoute>
                     } />
-                    
+
                     {/* --- АДМИН ПАНЕЛЬ (Только для admin) --- */}
                     <Route path="/adminpanel" element={
                         <ProtectedRoute allowedRoles={['admin']}>
@@ -72,6 +75,7 @@ function App() {
 
                     <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
+                </Suspense>
             </BrowserRouter>
         </AuthProvider>
         </ThemeProvider>
