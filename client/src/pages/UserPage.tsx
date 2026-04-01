@@ -175,7 +175,6 @@ export const UserPage = () => {
                 const payload = updatedItems.map((i: any) => ({ id: i.id, type: i.type, orderIndex: i.orderIndex }));
                 // 🔥 Чистый axios
                 await api.post(`/videos/course/${courseId}/reorder`, { items: payload });
-                console.log("✅ Порядок успешно сохранен в БД!");
             } catch (e) {
                 console.error("❌ Ошибка при сохранении сортировки:", e);
                 showToast('Ошибка при сохранении порядка', 'error');
@@ -288,10 +287,10 @@ export const UserPage = () => {
                 if (d.type !== 'enrollment_updated' || d.courseId !== Number(courseId)) return;
 
                 if (prevStatusRef.current === 'pending' && d.status === 'approved') {
-                    showToast('Ваша заявка одобрена! Добро пожаловать на курс 🎉', 'success');
+                    showToast('Ваша заявка одобрена! Добро пожаловать на курс', 'success');
                     fetchCourseData();
                 } else if (prevStatusRef.current === 'pending' && d.status === 'rejected') {
-                    showToast('Преподаватель отклонил вашу заявку ❌', 'error');
+                    showToast('Преподаватель отклонил вашу заявку', 'error');
                 }
                 setEnrollStatus(d.status);
                 prevStatusRef.current = d.status;

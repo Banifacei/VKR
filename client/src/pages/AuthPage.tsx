@@ -43,7 +43,6 @@ export const AuthPage = () => {
         const urlError = params.get('error');
 
         if (urlToken) {
-            console.log("✅ Поймали токен от Яндекса!");
             
             // 1. Сохраняем токен под ПРАВИЛЬНЫМ ключом для axios
             localStorage.setItem('lumeo_token', urlToken);

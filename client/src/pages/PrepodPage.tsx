@@ -80,7 +80,10 @@ export const PrepodPage = () => {
       return saved ? JSON.parse(saved) : [];
   });
   const [transcodingVideos, setTranscodingVideos] = useState<number[]>([]);
-  // --- SSE: мгновенное уведомление о завершении генерации субтитров ---
+  // Прогресс субтитров: videoId → { label, progress }
+  const [subtitleProgress, setSubtitleProgress] = useState<Record<number, { label: string; progress: number }>>({});
+
+  // --- SSE: мгновенное уведомление о завершении / прогрессе генерации субтитров ---
   useEffect(() => {
       if (!selectedCourseId) return;
       const token = localStorage.getItem('lumeo_token');
@@ -94,8 +97,15 @@ export const PrepodPage = () => {
               if (d.type === 'subtitle_done') {
                   showToast(`Субтитры для урока "${d.videoTitle}" успешно созданы!`, 'success');
                   setGeneratingVideos(prev => prev.filter(id => id !== d.videoId));
+                  setSubtitleProgress(prev => { const n = { ...prev }; delete n[d.videoId]; return n; });
                   const freshVideos = await getVideosByCourse(selectedCourseId);
                   setVideos(freshVideos);
+              } else if (d.type === 'subtitle_progress') {
+                  setSubtitleProgress(prev => ({ ...prev, [d.videoId]: { label: d.label, progress: d.progress } }));
+              } else if (d.type === 'subtitle_error') {
+                  showToast('Ошибка генерации субтитров', 'error');
+                  setGeneratingVideos(prev => prev.filter(id => id !== d.videoId));
+                  setSubtitleProgress(prev => { const n = { ...prev }; delete n[d.videoId]; return n; });
               } else if (d.type === 'quality_ready') {
                   showToast(`Версии качества для урока "${d.videoTitle}" готовы!`, 'success');
                   setTranscodingVideos(prev => prev.filter(id => id !== d.videoId));
@@ -624,8 +634,8 @@ export const PrepodPage = () => {
                 <div className="create-course-panel">
                     <h3>+ Создать новый курс</h3>
                     <div style={{display: 'flex', gap: '12px', marginBottom: '12px'}}>
-                        <input className="deck-input" style={{marginBottom: 0}} placeholder="Название курса (DevOps)" value={newCourseTitle} onChange={e => setNewCourseTitle(e.target.value)} />
-                        <input className="deck-input" style={{marginBottom: 0}} placeholder="ФИО Преподавателя" value={newCourseInstructor} onChange={e => setNewCourseInstructor(e.target.value)} />
+                        <input className="deck-input" style={{marginBottom: 0}} placeholder="Название курса" value={newCourseTitle} onChange={e => setNewCourseTitle(e.target.value)} />
+                        <input className="deck-input" style={{marginBottom: 0}} placeholder="Преподаватель (ФИО)" value={newCourseInstructor} onChange={e => setNewCourseInstructor(e.target.value)} />
                     </div>
                     <textarea className="deck-input" placeholder="Краткое описание курса..." value={newCourseDesc} onChange={e => setNewCourseDesc(e.target.value)} style={{minHeight: '80px', resize: 'vertical'}} />
                     <button className="btn btn-primary" onClick={handleCreateCourse}>Создать курс</button>
@@ -659,7 +669,7 @@ export const PrepodPage = () => {
                     <div className="stats-modal-body">
                         {statsData.length === 0 ? (
                             <div style={{ textAlign: 'center', padding: '60px', color: '#666' }}>
-                                <div style={{ fontSize: '40px', marginBottom: '20px' }}>📭</div>
+                                <div style={{ marginBottom: '16px' }}><Icons.Empty size={48} color="#444" /></div>
                                 <p>Пока никто не проходил этот урок.</p>
                             </div>
                         ) : (
@@ -784,7 +794,7 @@ export const PrepodPage = () => {
                                         
                                         {isOwner && (
                                             <button className="btn btn-ghost" style={{ background: 'rgba(255, 77, 77, 0.1)', color: '#ff4d4d' }} onClick={async () => {
-                                                if (window.confirm(`⚠️ УДАЛЕНИЕ КУРСА!\nВы уверены, что хотите навсегда удалить "${currentCourse?.title}"?\nВсе видео, субтитры и тесты будут стерты с жесткого диска!`)) {
+                                                if (window.confirm(`Удалить курс "${currentCourse?.title}"?\n\nВсе видео, субтитры и тесты будут безвозвратно удалены с сервера.`)) {
                                                     try {
                                                         await deleteCourseApi(selectedCourseId!);
                                                         setShowCourseSettings(false);
@@ -1011,14 +1021,26 @@ export const PrepodPage = () => {
                             <div className="control-deck">
                                 <div className="deck-header">
                                     <div className="deck-title">
-                                        <div className="deck-icon">⚡</div>
+                                        <div className="deck-icon"><Icons.Zap size={20} /></div>
                                         <h3>Добавление интерактива в видео</h3>
                                     </div>
                                     <div style={{display: 'flex', gap: '10px'}}>
                                         <button className="btn btn-ghost" onClick={loadStats}><Icons.Stats /> Статистика</button>
-                                        <button className={`btn btn-ai ${generatingVideos.includes(selectedVideo.id) ? 'generating' : ''}`} onClick={handleGenerateSubs} disabled={generatingVideos.includes(selectedVideo.id)}>
-                                            {generatingVideos.includes(selectedVideo.id) ? <><Icons.Spinner /> Обработка ИИ...</> : <><Icons.AI /> AI Субтитры</>}
-                                        </button>
+                                        {generatingVideos.includes(selectedVideo.id) ? (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '180px' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#aaa' }}>
+                                                    <span><Icons.Spinner /> {subtitleProgress[selectedVideo.id]?.label || 'Запуск...'}</span>
+                                                    <span>{subtitleProgress[selectedVideo.id]?.progress ?? 0}%</span>
+                                                </div>
+                                                <div style={{ height: '4px', background: '#333', borderRadius: '2px', overflow: 'hidden' }}>
+                                                    <div style={{ height: '100%', background: 'var(--primary)', borderRadius: '2px', width: `${subtitleProgress[selectedVideo.id]?.progress ?? 0}%`, transition: 'width 0.4s ease' }} />
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <button className="btn btn-ai" onClick={handleGenerateSubs}>
+                                                <Icons.AI /> AI Субтитры
+                                            </button>
+                                        )}
                                         {selectedVideo.url.startsWith('/uploads/') && (
                                             <button className={`btn btn-ghost ${transcodingVideos.includes(selectedVideo.id) ? 'generating' : ''}`} onClick={handleTranscode} disabled={transcodingVideos.includes(selectedVideo.id)} title="Создать версии 360p и 720p для выбора качества">
                                                 {transcodingVideos.includes(selectedVideo.id) ? <><Icons.Spinner /> Транскодирование...</> : <><Icons.Settings /> Качество</>}
@@ -1075,7 +1097,18 @@ export const PrepodPage = () => {
                                                 <div style={{ borderTop: '1px solid #333', margin: '20px 0' }}></div>
                                             </>
                                         )}
-                                        <label className="toggle-wrapper" style={{ marginBottom: '20px' }}><input type="checkbox" className="toggle-input" checked={selectedVideo.hideResults || false} onChange={(e) => handleUpdateSettings({ hideResults: e.target.checked })} /><div className="toggle-track"><div className="toggle-thumb"></div></div><span className="toggle-label">Скрыть результаты</span></label>
+                                        <label className="toggle-wrapper" style={{ marginBottom: '12px' }}><input type="checkbox" className="toggle-input" checked={selectedVideo.hideResults || false} onChange={(e) => handleUpdateSettings({ hideResults: e.target.checked })} /><div className="toggle-track"><div className="toggle-thumb"></div></div><span className="toggle-label">Скрыть результаты от студентов</span></label>
+                                        <label className="toggle-wrapper" style={{ marginBottom: '20px' }}><input type="checkbox" className="toggle-input" checked={selectedVideo.isHidden || false} onChange={(e) => handleUpdateSettings({ isHidden: e.target.checked })} /><div className="toggle-track"><div className="toggle-thumb"></div></div><span className="toggle-label">Скрыть урок (не отображать студентам)</span></label>
+                                        <div style={{ marginBottom: '16px' }}>
+                                            <label style={{ fontSize: '12px', color: '#888', display: 'block', marginBottom: '5px' }}>Открыть с даты (оставьте пустым — доступно сразу):</label>
+                                            <input
+                                                type="datetime-local"
+                                                className="deck-input"
+                                                value={selectedVideo.unlockDate ? new Date(selectedVideo.unlockDate).toISOString().slice(0, 16) : ''}
+                                                onChange={(e) => handleUpdateSettings({ unlockDate: e.target.value || null })}
+                                                style={{ marginBottom: 0 }}
+                                            />
+                                        </div>
                                         <div><label style={{ fontSize: '12px', color: '#888', display: 'block', marginBottom: '5px' }}>Попыток пересдачи (0 - безлимит):</label><input type="number" className="deck-input" min="0" value={selectedVideo.maxAttempts ?? 3} onChange={(e) => handleUpdateSettings({ maxAttempts: Number(e.target.value) })} style={{ marginBottom: 0 }} /></div>
                                     </div>
                                 </div>

@@ -42,6 +42,13 @@ export const Icons = {
         </svg>
     ),
 
+    Search: ({ size = 18, color, className, strokeWidth = 2 }: IconProps = {}) => (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color ?? 'currentColor'} strokeWidth={strokeWidth} className={className}>
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+    ),
+
     Edit: ({ size = 16, color, className, strokeWidth = 2 }: IconProps = {}) => (
         <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color ?? 'currentColor'} strokeWidth={strokeWidth} className={className}>
             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>

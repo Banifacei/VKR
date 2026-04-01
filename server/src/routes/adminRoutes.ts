@@ -1,13 +1,14 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { checkAuth } from '../middleware/authMiddleware.js';
 import { getSystemSettings, toggleSystemSetting } from '../controllers/adminController.js';
-import { 
-    getStorageStats, 
+import {
+    getStorageStats,
     getSystemLogs,
     getServerStats,
-    clearAiCache, 
-    backupDatabase, 
-    restartServer
+    clearAiCache,
+    backupDatabase,
+    restartServer,
+    getSystemModules,
 } from '../controllers/adminController.js';
 
 const router = Router();
@@ -39,8 +40,9 @@ router.use(checkAuth, isAdmin);
 
 // --- РОУТЫ ДАШБОРДА ---
 router.get('/storage', getStorageStats);
-router.get('/server-stats', getServerStats); // <--- Новый роут
+router.get('/server-stats', getServerStats);
 router.get('/logs', getSystemLogs);
+router.get('/system-modules', getSystemModules);
 
 // --- РОУТЫ БЫСТРЫХ ДЕЙСТВИЙ ---
 router.post('/clear-cache', clearAiCache);

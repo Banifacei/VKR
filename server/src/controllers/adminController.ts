@@ -1,8 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 import os from 'os';
 import fs from 'fs/promises';
+import fss from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { execSync } from 'child_process';
 import { SystemSetting } from '../models/SystemSetting.js';
 // --- НОВОЕ: Трекер реальных сессий ---
 // Храним IP-адреса и время их последнего запроса (в миллисекундах)
@@ -75,11 +77,30 @@ export const getStorageStats = async (req: Request, res: Response) => {
             console.error('Не удалось получить размер диска, используется 100GB по умолчанию', e);
         }
 
+        // 3. Реальный размер кэша AI-моделей
+        const cacheDir = path.join(__dirname, '../../uploads/.cache');
+        let cacheGb = 0;
+        try {
+            cacheGb = Number(((await getDirSize(cacheDir)) / (1024 * 1024 * 1024)).toFixed(2));
+        } catch { /* кэша может не быть */ }
+
+        // 4. Реальный размер БД PostgreSQL
+        let dbGb = 0;
+        try {
+            const sequelize = (await import('../config/db.js')).default;
+            const dbName = process.env.DB_NAME!;
+            const [[row]]: any = await sequelize.query(
+                `SELECT pg_database_size(:name) AS size`,
+                { replacements: { name: dbName } }
+            );
+            dbGb = Number((Number(row.size) / (1024 * 1024 * 1024)).toFixed(2));
+        } catch { /* если БД недоступна — оставляем 0 */ }
+
         res.json({
-            total: totalGb,     // <-- ТЕПЕРЬ ТУТ НАСТОЯЩИЙ РАЗМЕР ВАШЕГО ДИСКА!
+            total: totalGb,
             video: videoGb,
-            db: 0.15,           
-            cache: 0.05
+            db: dbGb,
+            cache: cacheGb,
         });
     } catch (error) {
         res.status(500).json({ message: 'Ошибка получения статистики диска' });
@@ -101,7 +122,6 @@ export const getServerStats = async (req: Request, res: Response) => {
         let cpuUsage = (firstLoad / cpus) * 100;
         
         if (cpuUsage > 100) cpuUsage = 100;
-        if (cpuUsage === 0) cpuUsage = Math.random() * 2 + 0.5; 
 
         // --- ПОДСЧЕТ РЕАЛЬНЫХ ОНЛАЙН ПОЛЬЗОВАТЕЛЕЙ ---
         const FIVE_MINUTES = 5 * 60 * 1000; // Считаем "онлайн", если был активен за последние 5 минут
@@ -203,4 +223,52 @@ export const toggleSystemSetting = async (req: Request, res: Response) => {
     } catch (e) {
         res.status(500).json({ message: 'Ошибка сохранения настройки' });
     }
+};
+// --- РЕАЛЬНАЯ ИНФОРМАЦИЯ О МОДУЛЯХ СИСТЕМЫ ---
+export const getSystemModules = async (_req: Request, res: Response) => {
+    const modules = [];
+
+    // 1. Lumeo (версия из package.json)
+    try {
+        const pkgPath = path.join(__dirname, '../../../package.json');
+        const pkg = JSON.parse(fss.readFileSync(pkgPath, 'utf8'));
+        modules.push({ name: 'Lumeo Core', version: `v${pkg.version}`, status: 'active' });
+    } catch {
+        modules.push({ name: 'Lumeo Core', version: 'v1.0.0', status: 'active' });
+    }
+
+    // 2. Node.js
+    modules.push({ name: 'Node.js Runtime', version: process.version, status: 'active' });
+
+    // 3. FFmpeg
+    try {
+        const ffmpegVer = execSync('ffmpeg -version 2>&1', { timeout: 3000 })
+            .toString()
+            .match(/ffmpeg version ([^\s]+)/)?.[1] ?? 'installed';
+        modules.push({ name: 'Video Transcoder (FFmpeg)', version: `v${ffmpegVer}`, status: 'active' });
+    } catch {
+        modules.push({ name: 'Video Transcoder (FFmpeg)', version: 'не найден', status: 'inactive' });
+    }
+
+    // 4. Whisper AI — проверяем наличие кэша модели
+    const cacheDir = path.join(__dirname, '../../uploads/.cache');
+    const whisperCached = fss.existsSync(cacheDir) && fss.readdirSync(cacheDir).length > 0;
+    modules.push({
+        name: 'AI Subtitle Engine (Whisper)',
+        version: 'Xenova/whisper-small',
+        status: whisperCached ? 'active' : 'idle',
+        note: whisperCached ? 'Модель загружена' : 'Модель загрузится при первом использовании',
+    });
+
+    // 5. PostgreSQL
+    try {
+        const sequelize = (await import('../config/db.js')).default;
+        const [[{ version }]]: any = await sequelize.query('SELECT version()');
+        const pgVer = (version as string).match(/PostgreSQL ([^\s,]+)/)?.[1] ?? 'unknown';
+        modules.push({ name: 'PostgreSQL', version: `v${pgVer}`, status: 'active' });
+    } catch {
+        modules.push({ name: 'PostgreSQL', version: 'unknown', status: 'inactive' });
+    }
+
+    res.json(modules);
 };

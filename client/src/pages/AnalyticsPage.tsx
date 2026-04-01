@@ -120,24 +120,6 @@ export const AnalyticsPage = () => {
                             </div>
                             
                             <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-                                {user?.role === 'admin' && (
-                                    <button 
-                                        className="btn btn-ghost" 
-                                        title="Сгенерировать демо-данные"
-                                        style={{ color: '#b5179e', border: '1px dashed #b5179e', height: '45px' }}
-                                        onClick={async () => {
-                                            if(window.confirm('Сгенерировать 15 фейковых студентов?')) {
-                                                try {
-                                                    await api.post(`/videos/courses/${selectedCourse.id}/generate-demo`);
-                                                    showToast('Демо-данные загружены!', 'success');
-                                                    handleSelectCourse(selectedCourse);
-                                                } catch (e) { showToast('Ошибка', 'error'); }
-                                            }
-                                        }}
-                                    >
-                                        🪄 Demo
-                                    </button>
-                                )}
                                 <button className="btn btn-secondary" style={{ background: 'rgba(77, 255, 136, 0.05)', color: '#4dff88', borderColor: 'rgba(77, 255, 136, 0.2)', height: '45px', display: 'flex', alignItems: 'center', gap: '8px' }} onClick={() => setExportModalConfig({ isOpen: true, type: 'detailed' })}>
                                     <Icons.Download size={15}/> Детальный .xlsx
                                 </button>
@@ -180,11 +162,13 @@ export const AnalyticsPage = () => {
                                                 <div style={{ color: '#888', fontSize: '14px' }}>Общая успеваемость студентов</div>
                                             </div>
                                             <div style={{ position: 'relative' }}>
-                                                <span style={{ position: 'absolute', left: '14px', top: '10px', fontSize: '14px' }}>🔍</span>
-                                                <input 
-                                                    type="text" placeholder="Поиск студента..." 
+                                                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#555', display: 'flex', pointerEvents: 'none' }}>
+                                                    <Icons.Search size={14} />
+                                                </span>
+                                                <input
+                                                    type="text" placeholder="Поиск студента..."
                                                     value={studentSearch} onChange={e => setStudentSearch(e.target.value)}
-                                                    style={{ background: '#080808', border: '1px solid #222', color: '#fff', padding: '10px 16px 10px 40px', borderRadius: '12px', fontSize: '13px', width: '220px', outline: 'none', transition: 'all 0.2s' }}
+                                                    style={{ background: '#080808', border: '1px solid #222', color: '#fff', padding: '10px 16px 10px 38px', borderRadius: '12px', fontSize: '13px', width: '220px', outline: 'none', transition: 'all 0.2s' }}
                                                     onFocus={e => { e.target.style.borderColor = 'var(--primary)'; }}
                                                     onBlur={e => { e.target.style.borderColor = '#222'; }}
                                                 />

@@ -255,3 +255,32 @@
 .stats-table        { width: 100%; border-collapse: collapse; }
 .stats-table th     { text-align: left; padding: 12px; color: var(--text-muted); font-size: 11px; text-transform: uppercase; border-bottom: 1px solid var(--border-color); }
 .stats-table td     { padding: 16px 12px; border-bottom: 1px solid rgba(255,255,255,0.05); color: #ddd; }
+
+/* ========================================================
+   АДАПТИВ
+   ======================================================== */
+@media (max-width: 1100px) {
+    .editor-sidebar { width: 300px; }
+}
+
+@media (max-width: 800px) {
+    .prepod-layout .editor-body { flex-direction: column; overflow-y: auto; }
+    .editor-sidebar {
+        width: 100%;
+        height: auto;
+        max-height: 45vh;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+        flex-shrink: 0;
+    }
+    .editor-stage { padding: 16px; }
+    .stats-modal-content { width: 95vw; max-height: 90vh; }
+    .courses-grid { grid-template-columns: 1fr; }
+    .deck-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+    .create-course-panel > div { flex-direction: column; }
+}
+
+@media (max-width: 500px) {
+    .courses-header h1 { font-size: 22px; }
+    .editor-stage { padding: 10px; }
+}

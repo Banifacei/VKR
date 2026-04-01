@@ -289,11 +289,25 @@ export const createVideo = async (req: Request, res: Response) => {
 export const getVideosByCourse = async (req: Request, res: Response) => {
   try {
     const { courseId } = req.params;
+    const userRole = (req as any).user?.role;
+    const isStudent = userRole === 'student';
+
     const videos = await Video.findAll({
       where: { courseId },
-      order: [['orderIndex', 'ASC'], ['createdAt', 'ASC']], 
+      order: [['orderIndex', 'ASC'], ['createdAt', 'ASC']],
       include: [InteractiveEvent]
     });
+
+    if (isStudent) {
+      const now = new Date();
+      const visible = videos.filter(v => {
+        if (v.isHidden) return false;
+        if (v.unlockDate && new Date(v.unlockDate) > now) return false;
+        return true;
+      });
+      return res.json(visible);
+    }
+
     res.json(videos);
   } catch (error) {
     console.error(error);
@@ -425,13 +439,15 @@ export const getVideoStats = async (req: Request, res: Response) => {
 export const updateVideoSettings = async (req: Request, res: Response) => {
     try {
         const { videoId } = req.params;
-        const { hideResults, maxAttempts, title } = req.body; // <--- Добавили title
+        const { hideResults, maxAttempts, title, isHidden, unlockDate } = req.body;
         const video = await Video.findByPk(videoId);
         if (!video) return res.status(404).json({ message: 'Видео не найдено' });
-        
-        if (title !== undefined) video.title = title; // <--- Если прислали title, меняем
+
+        if (title !== undefined) video.title = title;
         if (hideResults !== undefined) video.hideResults = hideResults;
-        if (maxAttempts !== undefined) video.maxAttempts = Number(maxAttempts); 
+        if (maxAttempts !== undefined) video.maxAttempts = Number(maxAttempts);
+        if (isHidden !== undefined) video.isHidden = isHidden;
+        if (unlockDate !== undefined) video.unlockDate = unlockDate ? new Date(unlockDate) : null;
         
         await video.save();
         res.json(video);
@@ -641,20 +657,19 @@ export const generateSubtitles = async (req: Request, res: Response) => {
         // 3. СЛУШАЕМ ОТВЕТЫ ОТ ВОРКЕРА
         worker.on('message', async (msg) => {
             if (msg.status === 'done') {
-                console.log(`[AI WORKER] Готово! Субтитры для видео ${videoId} сгенерированы.`);
                 const vttUrl = `/uploads/${vttFileName}`;
-                
+
                 const newSubtitle = { lang: 'ru-auto', label: 'Авто (AI)', src: vttUrl };
-                
+
                 // 1. Извлекаем текущие субтитры
                 let currentSubs = video.subtitles ? JSON.parse(JSON.stringify(video.subtitles)) : [];
-                
-                // 2. ИСПРАВЛЕНИЕ: Фильтруем массив, удаляя старые авто-субтитры, чтобы избежать дублей ключей
+
+                // 2. Фильтруем массив, удаляя старые авто-субтитры, чтобы избежать дублей
                 currentSubs = currentSubs.filter((s: any) => s.lang !== 'ru-auto');
-                
-                // 3. Теперь безопасно добавляем новые
+
+                // 3. Добавляем новые
                 currentSubs.push(newSubtitle);
-                
+
                 video.subtitles = currentSubs;
                 addSystemLog(`AI-субтитры для видео (ID: ${videoId}) успешно сгенерированы!`, 'success');
                 await video.save();
@@ -664,11 +679,21 @@ export const generateSubtitles = async (req: Request, res: Response) => {
                     videoTitle: video.title,
                     subtitleUrl: vttUrl,
                 });
-                
+
             } else if (msg.status === 'error') {
                 console.error(`[AI WORKER] Ошибка для видео ${videoId}:`, msg.error);
+                subtitleDoneSse.broadcast(video.courseId, {
+                    type: 'subtitle_error',
+                    videoId: Number(videoId),
+                });
             } else {
-                console.log(`[AI WORKER - Видео ${videoId}]: ${msg.status}`);
+                // Промежуточный прогресс
+                subtitleDoneSse.broadcast(video.courseId, {
+                    type: 'subtitle_progress',
+                    videoId: Number(videoId),
+                    label: msg.status,
+                    progress: msg.progress ?? 0,
+                });
             }
         });
         worker.on('error', (err) => {

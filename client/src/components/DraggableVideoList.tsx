@@ -35,8 +35,16 @@ const SortableItem = ({ video, index, isActive, onClick, onEdit, onDelete }: Sor
             <div className="video-idx">{index + 1}</div>
             
             {/* Название тянется на всю ширину */}
-            <div className="video-title" style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {video.title}
+            <div className="video-title" style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{video.title}</span>
+                {video.isHidden && (
+                    <span title="Скрыт от студентов" style={{ fontSize: '10px', background: '#333', color: '#888', borderRadius: '4px', padding: '1px 5px', flexShrink: 0 }}>скрыт</span>
+                )}
+                {!video.isHidden && video.unlockDate && new Date(video.unlockDate) > new Date() && (
+                    <span title={`Откроется ${new Date(video.unlockDate).toLocaleDateString('ru-RU')}`} style={{ fontSize: '10px', background: '#1a2a1a', color: '#4caf50', borderRadius: '4px', padding: '1px 5px', flexShrink: 0 }}>
+                        {new Date(video.unlockDate).toLocaleDateString('ru-RU')}
+                    </span>
+                )}
             </div>
 
             {/* Иконки действий */}

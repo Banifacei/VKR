@@ -248,8 +248,8 @@ export const HistoryPage = () => {
                                         </div>
                                     ) : (
                                         <div className="empty-history">
-                                            <div style={{ fontSize: '40px', marginBottom: '15px' }}>📭</div>
-                                            <p>У вас пока нет полностью завершенных уроков.</p>
+                                            <div style={{ marginBottom: '15px', color: '#555' }}><Icons.Empty size={48} /></div>
+                                            <p>У вас пока нет полностью завершённых уроков.</p>
                                         </div>
                                     )}
                                 </div>

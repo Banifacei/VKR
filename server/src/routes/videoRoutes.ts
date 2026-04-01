@@ -37,15 +37,8 @@ import {
 import { checkCourseAccess } from '../middleware/courseAuthMiddleware.js';
 import { checkAuth, checkAuthSse } from '../middleware/authMiddleware.js';
 import { updateEvent, deleteEvent, sseVideoEvents, sseEnrollStudentEvents, sseEnrollCourseEvents, sseSubtitleEvents } from '../controllers/videoController.js';
-console.log("!!! ЗАГРУЖАЮТСЯ НОВЫЕ РОУТЫ С AI !!!");
-
 const router = Router();
 
-// Добавим лог прямо сюда, чтобы видеть, попадает ли запрос в роутер
-router.post('/:videoId/autocaptions', (req, res, next) => {
-    console.log(`>>> РОУТЕР ПОЙМАЛ ЗАПРОС: ${req.originalUrl}`);
-    next();
-}, generateSubtitles);
 // --- СУЩЕСТВУЮЩИЕ РОУТЫ ---
 router.put('/reorder', reorderVideos);
 router.post('/:videoId/autocaptions', generateSubtitles);
@@ -55,7 +48,7 @@ router.get('/courses', getAllCourses);
 router.post('/courses', checkAuth, createCourse);
 router.put('/courses/:courseId', checkAuth, updateCourse);
 router.delete('/courses/:courseId', checkAuth, deleteCourse);
-router.get('/courses/:courseId/videos', getVideosByCourse);
+router.get('/courses/:courseId/videos', checkAuth, getVideosByCourse);
 router.put('/courses/:courseId/transfer', checkAuth, transferCourseOwnership);
 router.post('/course/:courseId/reorder', checkAuth, updateCourseContentOrder);
 router.post('/courses/:courseId/enroll', checkAuth, applyForCourse);

@@ -23,6 +23,7 @@ export const AdminPage = () => {
   const [usersList, setUsersList] = useState<IAdminUser[]>([]);
   const [pendingUsers, setPendingUsers] = useState<any[]>([]); 
   const [loading, setLoading] = useState(true);
+  const [systemLoading, setSystemLoading] = useState(true);
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
   const [storageData, setStorageData] = useState({ total: 100, video: 0, db: 0, cache: 0 });
   const [systemLogs, setSystemLogs] = useState<ISystemLog[]>([]);
@@ -65,26 +66,23 @@ export const AdminPage = () => {
       } catch (e) { showToast('Ошибка при сохранении SAML', 'error'); } 
       finally { setIsSaving(false); }
   };
-  // 🔥 ВОССТАНОВЛЕННЫЕ ПЛАГИНЫ
-  const systemPlugins = [
-      { id: 1, name: 'Lumeo Core API', version: 'v2.4.1', status: 'Активен' },
-      { id: 2, name: 'AI Subtitle Engine', version: 'v1.1.0', status: 'Активен' },
-      { id: 3, name: 'Video Transcoder', version: 'v4.4.2', status: 'Активен' },
-      { id: 4, name: 'PostgreSQL DB', version: 'v14.5', status: 'Активен' }
-  ];
+  const [systemModules, setSystemModules] = useState<{ name: string; version: string; status: string; note?: string }[]>([]);
 
   const fetchSystemData = async () => {
       try {
-          const [storageRes, logsRes, settingsRes] = await Promise.all([
+          const [storageRes, logsRes, settingsRes, modulesRes] = await Promise.all([
               api.get('/admin/storage'),
               api.get('/admin/logs'),
-              api.get('/admin/settings')
+              api.get('/admin/settings'),
+              api.get('/admin/system-modules'),
           ]);
           setStorageData(storageRes.data);
           setSystemLogs(logsRes.data);
           setRequiresApproval(settingsRes.data.registration_requires_approval);
           setSystemSettings(settingsRes.data);
+          setSystemModules(modulesRes.data);
       } catch (e) { console.error('Ошибка загрузки статических данных системы'); }
+      finally { setSystemLoading(false); }
   };
 
   const openLdapModal = () => {
@@ -628,7 +626,7 @@ export const AdminPage = () => {
 
             {/* МЕТРИКИ СВЕРХУ (Скрываем на вкладке заявок для чистоты) */}
             {activeTab !== 'requests' && (
-                <div className="metrics-row">
+                <div className={`metrics-row${systemLoading ? ' metrics-loading' : ''}`}>
                     <div className="stat-card mini">
                         <div className="stat-icon" style={{color: 'var(--primary)'}}><Icons.Users /></div>
                         <div className="stat-info"><div className="stat-label">Пользователей</div><div className="stat-value">{usersList.length}</div></div>
@@ -728,17 +726,25 @@ export const AdminPage = () => {
                                 <h2 style={{display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px'}}><Icons.Activity /> Статус модулей</h2>
                             </div>
                             <div className="section-body">
-                                {systemPlugins.map(plugin => (
-                                    <div key={plugin.id} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', paddingBottom: '10px', borderBottom: '1px solid rgba(255,255,255,0.05)'}}>
-                                        <div>
-                                            <div style={{color: '#fff', fontWeight: '500', fontSize: '12px'}}>{plugin.name}</div>
-                                            <div style={{color: '#666', fontSize: '10px'}}>{plugin.version}</div>
+                                {systemModules.length === 0 ? (
+                                    <div style={{ color: '#555', fontSize: '12px', textAlign: 'center', padding: '10px 0' }}>Загрузка...</div>
+                                ) : systemModules.map((mod, i) => {
+                                    const isActive = mod.status === 'active';
+                                    const isIdle = mod.status === 'idle';
+                                    const color = isActive ? '#00ff88' : isIdle ? '#ffd700' : '#ff4d4d';
+                                    return (
+                                        <div key={i} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', paddingBottom: '10px', borderBottom: '1px solid rgba(255,255,255,0.05)'}}>
+                                            <div>
+                                                <div style={{color: '#fff', fontWeight: '500', fontSize: '12px'}}>{mod.name}</div>
+                                                <div style={{color: '#666', fontSize: '10px'}}>{mod.note || mod.version}</div>
+                                            </div>
+                                            <div style={{color, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0}}>
+                                                <span className={isActive ? 'pulse-dot' : ''} style={{width: '6px', height: '6px', background: color, borderRadius: '50%', display: 'inline-block'}}></span>
+                                                {isActive ? 'Активен' : isIdle ? 'Ожидание' : 'Недоступен'}
+                                            </div>
                                         </div>
-                                        <div style={{color: '#00ff88', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px'}}>
-                                            <span className="pulse-dot" style={{width: '6px', height: '6px'}}></span> {plugin.status}
-                                        </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
 
