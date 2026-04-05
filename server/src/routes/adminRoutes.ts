@@ -1,5 +1,5 @@
-import { Router, Request, Response, NextFunction } from 'express';
-import { checkAuth } from '../middleware/authMiddleware.js';
+import { Router } from 'express';
+import { checkAuth, isAdmin } from '../middleware/authMiddleware.js';
 import { getSystemSettings, toggleSystemSetting } from '../controllers/adminController.js';
 import {
     getStorageStats,
@@ -13,26 +13,8 @@ import {
 
 const router = Router();
 
-// Middleware для дополнительной проверки роли (защита от хитрых студентов)
-const isAdmin = (req: Request, res: Response, next: NextFunction) => {
-    // Получаем пользователя, которого добавил твой checkAuth
-    const user = (req as any).user; 
-
-    //console.log("🛠 [DEBUG isAdmin] Данные пользователя из токена:", user);
-
-    // Вариант А: Если checkAuth передает объект с ролью
-    if (user && user.role === 'admin') {
-        return next();
-    }
-
-    // Вариант Б: Если у тебя в токене вообще нет роли, а есть только ID (например user.id).
-    // То здесь нужно делать запрос к базе данных (User.findById / prisma.user.findUnique).
-    
-    // Пока что выводим ошибку, чтобы ты увидел, что пришло
-    res.status(403).json({ message: 'Доступ запрещен. Требуются права администратора.' });
-};
-
-// Комбинируем middlewares: сначала проверяем токен, затем проверяем, админ ли это
+// checkAuth проверяет JWT, isAdmin делает запрос в БД и проверяет актуальную роль.
+// Это гарантирует что отозванный admin не сохраняет доступ до истечения токена.
 router.use(checkAuth, isAdmin);
 
 // --- РОУТЫ ДАШБОРДА ---
@@ -45,7 +27,7 @@ router.get('/system-modules', getSystemModules);
 router.post('/clear-cache', clearAiCache);
 router.post('/backup-db', backupDatabase);
 router.post('/restart', restartServer);
-router.get('/settings', checkAuth, isAdmin, getSystemSettings);
-router.post('/settings/toggle', checkAuth, isAdmin, toggleSystemSetting);
+router.get('/settings', getSystemSettings);
+router.post('/settings/toggle', toggleSystemSetting);
 
 export default router;

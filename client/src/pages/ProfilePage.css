@@ -149,4 +149,32 @@
 }
 @media (max-width: 600px) {
     .input-grid-2 { grid-template-columns: 1fr; }
+    .profile-wrapper { padding: 24px 14px; }
+    .profile-glass-card { padding: 24px 18px; }
+}
+@media (max-width: 480px) {
+    .profile-wrapper { padding: 16px 12px; }
+    .profile-glass-card { padding: 20px 14px; }
+    .form-header h1 { font-size: 1.5rem; }
+    .profile-avatar-xl { width: 90px; height: 90px; }
+    .avatar-placeholder { font-size: 32px; }
+    .visual-name { font-size: 1.2rem; }
+    .profile-nav-btn { padding: 12px 14px; font-size: 14px; }
+    .header-save-btn { padding: 12px 20px; }
+}
+
+/* ── AnalyticsPage: адаптив ── */
+@media (max-width: 900px) {
+    .analytics-bento-grid { grid-template-columns: 1fr !important; }
+}
+@media (max-width: 768px) {
+    .analytics-stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
+    .analytics-course-header-row { flex-direction: column !important; gap: 16px !important; }
+    .analytics-export-btns { width: 100%; }
+    .analytics-export-btns .btn { flex: 1 !important; justify-content: center; }
+}
+@media (max-width: 480px) {
+    .analytics-stats-grid { grid-template-columns: 1fr !important; }
+    .analytics-export-btns { flex-direction: column; }
+    .analytics-export-btns .btn { height: 42px !important; width: 100%; }
 }

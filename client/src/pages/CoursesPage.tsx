@@ -13,6 +13,11 @@ import { useTheme } from '../context/ThemeContext';
 import api from '../api/axiosInstance';
 import { useToast } from '../context/ToastContext';
 import { CorsesIcons } from '../components/Icons';
+import { useSearch } from '../context/SearchContext';
+import { NotificationBell } from '../components/NotificationBell';
+import { StarDisplay } from '../components/StarRating';
+import '../components/GlobalSearch.css';
+import '../components/NotificationBell.css';
 // 🔥 КАСТОМНЫЕ ИКОНКИ (БЕЗ ЭМОДЗИ)
 
 
@@ -33,10 +38,12 @@ export const CoursesPage = () => {
     const [courses, setCourses] = useState<ICourse[]>([]);
     const [loading, setLoading] = useState(true); // Стейт для скелетонов
     const [progressMap, setProgressMap] = useState<Record<number, number>>({}); // Стейт для прогресс-баров
+    const [ratingsMap, setRatingsMap] = useState<Record<number, { avg: number; total: number }>>({});
     const navigate = useNavigate();
     const { user, logout, updateUser } = useAuth();
     const { globalTheme } = useTheme();
     const { showToast } = useToast();
+    const { openSearch } = useSearch();
     const [searchParams] = useSearchParams();
     const isPreview = searchParams.get('preview') === '1';
 
@@ -81,6 +88,16 @@ export const CoursesPage = () => {
 
             // Обновляем стейты только если данные РЕАЛЬНО изменились (чтобы не было мерцаний)
             setCourses(prev => JSON.stringify(prev) !== JSON.stringify(data) ? data : prev);
+
+            // Загружаем рейтинги для всех курсов
+            const newRatingsMap: Record<number, { avg: number; total: number }> = {};
+            await Promise.all(data.map(async (c: ICourse) => {
+                try {
+                    const r = await api.get(`/ratings/course/${c.id}`);
+                    newRatingsMap[c.id] = { avg: r.data.avg, total: r.data.total };
+                } catch { newRatingsMap[c.id] = { avg: 0, total: 0 }; }
+            }));
+            setRatingsMap(newRatingsMap);
             
             if (user?.role === 'student') {
                 setProgressMap(prev => JSON.stringify(prev) !== JSON.stringify(newProgressMap) ? newProgressMap : prev);
@@ -142,13 +159,24 @@ export const CoursesPage = () => {
                     {globalTheme.platform_logo && <img src={globalTheme.platform_logo} alt="logo" style={{ height: 28, marginRight: 8, verticalAlign: 'middle' }} />}
                     {globalTheme.platform_name}<span className="dot">.</span>
                 </div>
-                {user && (
-                    <UserProfile 
-                        user={user} 
-                        onUpdate={handleAvatarUpdate} 
-                        onLogout={handleLogout} 
-                    />
-                )}
+                <button className="gs-trigger" onClick={openSearch}>
+                    <Icons.Search size={14} /><span>Поиск...</span><kbd>Ctrl+/</kbd>
+                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    {user?.role === 'student' && (
+                        <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={() => navigate('/dashboard')}>
+                            <Icons.BarChart2 size={14} /> Мой прогресс
+                        </button>
+                    )}
+                    <NotificationBell />
+                    {user && (
+                        <UserProfile
+                            user={user}
+                            onUpdate={handleAvatarUpdate}
+                            onLogout={handleLogout}
+                        />
+                    )}
+                </div>
             </header>
 
             <div className="courses-content">
@@ -211,6 +239,12 @@ export const CoursesPage = () => {
                                         <div className="course-tag"><CorsesIcons.Video /> {course.videos?.length || 0} уроков</div>
                                     </div>
 
+                                    {ratingsMap[course.id] !== undefined && (
+                                        <div style={{ marginTop: 8 }} onClick={e => e.stopPropagation()}>
+                                            <StarDisplay avg={ratingsMap[course.id].avg} total={ratingsMap[course.id].total} />
+                                        </div>
+                                    )}
+
                                     {/* Прогресс-бар для студентов */}
                                     {user?.role === 'student' && (
                                         <div className="course-progress-wrapper">
@@ -247,7 +281,7 @@ export const CoursesPage = () => {
                 }} onPointerDown={() => setShowAddModal(false)}>
                     
                     <div 
-                        style={{ background: '#111', padding: '30px', borderRadius: '24px', border: '1px solid #333', width: '450px', animation: 'fadeIn 0.2s ease', boxShadow: '0 20px 40px rgba(0,0,0,0.5)' }}
+                        style={{ background: '#111', padding: 'clamp(16px, 5vw, 30px)', borderRadius: 'clamp(16px, 3vw, 24px)', border: '1px solid #333', width: 'calc(100% - 32px)', maxWidth: '450px', animation: 'fadeIn 0.2s ease', boxShadow: '0 20px 40px rgba(0,0,0,0.5)' }}
                         onPointerDown={(e) => e.stopPropagation()} 
                     >
                         <h2 style={{color: '#fff', marginBottom: '25px', marginTop: 0, fontSize: '22px'}}>Создание курса</h2>

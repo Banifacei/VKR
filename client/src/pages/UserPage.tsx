@@ -22,6 +22,14 @@ import { SortableCard } from '../components/Course/SortableCard';
 import { AddContentModal } from '../components/Course/AddContentModal';
 import { CourseSettingsModal } from '../components/Course/CourseSettingsModal';
 import { Icons } from '../components/Icons';
+import { useSearch } from '../context/SearchContext';
+import { NotificationBell } from '../components/NotificationBell';
+import { VideoComments } from '../components/VideoComments';
+import { VideoBookmarks } from '../components/VideoBookmarks';
+import { StarRating } from '../components/StarRating';
+import '../components/GlobalSearch.css';
+import '../components/NotificationBell.css';
+import '../components/VideoComments.css';
 
 type DashboardItem = 
     | ({ type: 'video' } & IVideo) 
@@ -34,6 +42,7 @@ export const UserPage = () => {
     const navigate = useNavigate();
     const { globalTheme } = useTheme();
     const { showToast } = useToast();
+    const { openSearch } = useSearch();
     const [activeDragId, setActiveDragId] = useState<string | null>(null);
     const [showAddModal, setShowAddModal] = useState(false);
     const [editorItem, setEditorItem] = useState<DashboardItem | null>(null);
@@ -76,6 +85,8 @@ export const UserPage = () => {
         }
     });
     const [completedVideoIds, setCompletedVideoIds] = useState<number[]>([]);
+    const [videoCurrentTime, setVideoCurrentTime] = useState(0);
+    const [showBookmarks, setShowBookmarks] = useState(false);
     const [testResults, setTestResults] = useState<Record<number, {score: number, passed: boolean}>>({}); // ID пройденных элементов
     const [course, setCourse] = useState<ICourse | null>(null);
     const [items, setItems] = useState<DashboardItem[]>([]);
@@ -383,13 +394,34 @@ export const UserPage = () => {
                                     // 👇 3. ФУНКЦИИ ДЛЯ СЧЕТЧИКА ПОПЫТОК
                                     onResetTest={() => showToast('Прогресс сброшен', 'info')}
                                     onRefreshEvents={handleRefreshEvents}
+                                    onTimeUpdate={setVideoCurrentTime}
                                 />
                             </div>
                             
                             <div className="video-info">
-                                <h1>{activeItem.title}</h1>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                                    <h1 style={{ margin: 0 }}>{activeItem.title}</h1>
+                                    {userData && (
+                                        <button
+                                            className={`btn btn-ghost${showBookmarks ? ' btn-active' : ''}`}
+                                            style={{ fontSize: 13, padding: '6px 14px' }}
+                                            onClick={() => setShowBookmarks(b => !b)}
+                                        >
+                                            <Icons.Time size={14} /> Закладки
+                                        </button>
+                                    )}
+                                </div>
                                 <p className="video-meta">Опубликовано: {new Date(activeItem.createdAt || Date.now()).toLocaleDateString()}</p>
                             </div>
+
+                            {/* Закладки */}
+                            {userData && (
+                                <VideoBookmarks
+                                    videoId={activeItem.id}
+                                    currentTime={videoCurrentTime}
+                                    visible={showBookmarks}
+                                />
+                            )}
 
                             {/* 👇 4. БЛОК С КАРТОЧКАМИ ВОПРОСОВ */}
                             {isExternalTest && activeItem.events && activeItem.events.some(e => ['single_choice', 'multiple_choice', 'free_text', 'question'].includes(e.type)) && userData?.role === 'student' && (
@@ -418,6 +450,13 @@ export const UserPage = () => {
                                     </div>
                                 </div>
                             )}
+
+                            {/* Комментарии к уроку */}
+                            <VideoComments
+                                videoId={activeItem.id}
+                                currentUserId={userData?.id}
+                                currentUserRole={userData?.role}
+                            />
                         </div>
                     ) : (
                         <TestRunner 
@@ -443,13 +482,19 @@ export const UserPage = () => {
                         {globalTheme.platform_name}<span className="dot">.</span>
                     </Link>
                 </div>
-                {userData && (
-                    <UserProfile 
-                        user={userData} 
-                        onUpdate={handleAvatarUpdate} 
-                        onLogout={handleLogout} 
-                    />
-                )}
+                <button className="gs-trigger" onClick={openSearch}>
+                    <Icons.Search size={14} /><span>Поиск...</span><kbd>Ctrl+/</kbd>
+                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <NotificationBell />
+                    {userData && (
+                        <UserProfile
+                            user={userData}
+                            onUpdate={handleAvatarUpdate}
+                            onLogout={handleLogout}
+                        />
+                    )}
+                </div>
             </header>
             {/* 🔥 ЕСЛИ СТАТУС ГРУЗИТСЯ */}
             {enrollStatus === 'loading' ? (
@@ -534,6 +579,11 @@ export const UserPage = () => {
                             <p style={{ color: '#ccc', marginTop: '15px', maxWidth: '800px', lineHeight: '1.5' }}>
                                 {course?.description}
                             </p>
+                            {userData?.role === 'student' && course && (
+                                <div style={{ marginTop: 16 }}>
+                                    <StarRating courseId={course.id} />
+                                </div>
+                            )}
                         </>
                     )}
                 </div>

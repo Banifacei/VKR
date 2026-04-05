@@ -5,6 +5,10 @@ import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../context/ToastContext';
 import api from '../api/axiosInstance';
 import { Icons } from '../components/Icons';
+import { useSearch } from '../context/SearchContext';
+import { NotificationBell } from '../components/NotificationBell';
+import '../components/GlobalSearch.css';
+import '../components/NotificationBell.css';
 import { ExportModal } from '../components/Analytics/ExportModal';
 import { AnalyticsDrillDownModal } from '../components/Analytics/AnalyticsDrillDownModal';
 
@@ -15,6 +19,7 @@ export const AnalyticsPage = () => {
     const { user } = useAuth();
     const { globalTheme } = useTheme();
     const navigate = useNavigate();
+    const { openSearch } = useSearch();
     const { showToast } = useToast();
     
     // Стейты Уровня 1
@@ -80,17 +85,21 @@ export const AnalyticsPage = () => {
                         {globalTheme.platform_name}<span className="dot">.</span> <span style={{fontSize: '14px', color: '#888', fontWeight: 'normal'}}>Аналитика Intelligence</span>
                     </span>
                 </div>
-                <div className="user-profile">
-                    <span style={{marginRight: '15px'}}>{user?.firstName} {user?.lastName}</span>
+                <div className="user-profile" style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
+                    <button className="gs-trigger" onClick={openSearch}>
+                        <Icons.Search size={14} /><span>Поиск...</span><kbd>Ctrl+/</kbd>
+                    </button>
+                    <NotificationBell />
+                    <span style={{color: '#888', fontSize: '14px'}}>{user?.firstName} {user?.lastName}</span>
                     <button className="btn btn-ghost" onClick={() => navigate('/prepod')}>В панель управления</button>
                 </div>
             </header>
 
-            <main className="main-content" style={{ padding: '40px 20px', maxWidth: '1600px', margin: '0 auto', width: '95%' }}>
+            <main className="main-content" style={{ padding: 'clamp(16px, 4vw, 40px) clamp(12px, 3vw, 20px)', maxWidth: '1600px', margin: '0 auto', width: '95%' }}>
                 
                 {!selectedCourse ? (
                     <div className="fade-in">
-                        <h1 style={{ marginBottom: '10px', fontSize: '32px', fontWeight: '800' }}>Центр аналитики</h1>
+                        <h1 style={{ marginBottom: '10px', fontSize: 'clamp(22px, 5vw, 32px)', fontWeight: '800' }}>Центр аналитики</h1>
                         <p style={{ color: '#666', marginBottom: '40px' }}>Обзор успеваемости по всем вашим курсам</p>
                         <div className="course-showcase-grid">
                             {courses.map(course => (
@@ -113,13 +122,13 @@ export const AnalyticsPage = () => {
                             ← Вернуться к списку курсов
                         </button>
                         
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '30px' }}>
+                        <div className="analytics-course-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '30px' }}>
                             <div>
-                                <h1 style={{ margin: '0 0 10px 0', fontSize: '32px', fontWeight: '800' }}>{selectedCourse.title}</h1>
+                                <h1 style={{ margin: '0 0 10px 0', fontSize: 'clamp(22px, 5vw, 32px)', fontWeight: '800' }}>{selectedCourse.title}</h1>
                                 <p style={{ color: '#888', margin: 0 }}>Панель управления курсом</p>
                             </div>
-                            
-                            <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+
+                            <div className="analytics-export-btns" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                                 <button className="btn btn-secondary" style={{ background: 'rgba(77, 255, 136, 0.05)', color: '#4dff88', borderColor: 'rgba(77, 255, 136, 0.2)', height: '45px', display: 'flex', alignItems: 'center', gap: '8px' }} onClick={() => setExportModalConfig({ isOpen: true, type: 'detailed' })}>
                                     <Icons.Download size={15}/> Детальный .xlsx
                                 </button>
@@ -136,7 +145,7 @@ export const AnalyticsPage = () => {
                         ) : (
                             <>
                                 {/* ВИДЖЕТЫ */}
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '30px' }}>
+                                <div className="analytics-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '30px' }}>
                                     <div style={{ background: '#111', padding: '25px', borderRadius: '20px', border: '1px solid #333', display: 'flex', alignItems: 'center', gap: '20px' }}>
                                         <div style={{ fontSize: '30px', background: 'rgba(255,255,255,0.05)', width: '60px', height: '60px', borderRadius: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>👥</div>
                                         <div><div style={{ fontSize: '13px', color: '#888' }}>Студентов на курсе</div><div style={{ fontSize: '28px', fontWeight: '800' }}>{analytics.totalStudents}</div></div>
@@ -152,13 +161,13 @@ export const AnalyticsPage = () => {
                                 </div>
 
                                 {/* СЕТКА BENTO GRID */}
-                                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 420px', gap: '30px', alignItems: 'start' }}>
+                                <div className="analytics-bento-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 420px', gap: '30px', alignItems: 'start' }}>
                                     
                                     {/* ЛЕВАЯ КОЛОНКА: РЕЙТИНГ */}
-                                    <div style={{ background: '#111', padding: '30px', borderRadius: '20px', border: '1px solid #333' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '25px' }}>
+                                    <div style={{ background: '#111', padding: 'clamp(16px, 3vw, 30px)', borderRadius: '20px', border: '1px solid #333' }}>
+                                        <div className="analytics-ranking-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '25px', gap: '12px', flexWrap: 'wrap' }}>
                                             <div>
-                                                <h2 style={{ fontSize: '22px', margin: '0 0 5px 0', display: 'flex', alignItems: 'center', gap: '10px' }}><Icons.Trophy size={20}/> Рейтинг потока</h2>
+                                                <h2 style={{ fontSize: 'clamp(16px, 3vw, 22px)', margin: '0 0 5px 0', display: 'flex', alignItems: 'center', gap: '10px' }}><Icons.Trophy size={20}/> Рейтинг потока</h2>
                                                 <div style={{ color: '#888', fontSize: '14px' }}>Общая успеваемость студентов</div>
                                             </div>
                                             <div style={{ position: 'relative' }}>
@@ -168,14 +177,15 @@ export const AnalyticsPage = () => {
                                                 <input
                                                     type="text" placeholder="Поиск студента..."
                                                     value={studentSearch} onChange={e => setStudentSearch(e.target.value)}
-                                                    style={{ background: '#080808', border: '1px solid #222', color: '#fff', padding: '10px 16px 10px 38px', borderRadius: '12px', fontSize: '13px', width: '220px', outline: 'none', transition: 'all 0.2s' }}
+                                                    style={{ background: '#080808', border: '1px solid #222', color: '#fff', padding: '10px 16px 10px 38px', borderRadius: '12px', fontSize: '13px', width: 'clamp(150px, 30vw, 220px)', outline: 'none', transition: 'all 0.2s' }}
                                                     onFocus={e => { e.target.style.borderColor = 'var(--primary)'; }}
                                                     onBlur={e => { e.target.style.borderColor = '#222'; }}
                                                 />
                                             </div>
                                         </div>
 
-                                        <div style={{ display: 'grid', gridTemplateColumns: '50px 2fr 1.5fr 1fr 30px', padding: '0 15px 12px', color: '#666', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>
+                                        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' as any }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '50px 2fr 1.5fr 1fr 30px', padding: '0 15px 12px', color: '#666', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold', minWidth: '380px' }}>
                                             <div style={{ textAlign: 'center' }}>Ранг</div>
                                             <div>Студент</div>
                                             <div>Прогресс курса</div>
@@ -183,10 +193,10 @@ export const AnalyticsPage = () => {
                                             <div></div>
                                         </div>
 
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '550px', overflowY: 'auto', paddingRight: '5px' }} className="custom-scrollbar">
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '550px', overflowY: 'auto', paddingRight: '5px', minWidth: '380px' }} className="custom-scrollbar">
                                             {(() => {
-                                                const filteredStudents = analytics.studentsProgress.filter((s: any) => 
-                                                    s.name.toLowerCase().includes(studentSearch.toLowerCase()) || 
+                                                const filteredStudents = analytics.studentsProgress.filter((s: any) =>
+                                                    s.name.toLowerCase().includes(studentSearch.toLowerCase()) ||
                                                     s.email.toLowerCase().includes(studentSearch.toLowerCase())
                                                 );
 
@@ -197,20 +207,20 @@ export const AnalyticsPage = () => {
                                                     const isTop1 = index === 0;
                                                     const isTop2 = index === 1;
                                                     const isTop3 = index === 2;
-                                                    
+
                                                     let rankBadge = <span style={{ color: '#555', fontWeight: 'bold', fontSize: '15px' }}>{index + 1}</span>;
                                                     if (isTop1) rankBadge = <span style={{ fontSize: '22px', filter: 'drop-shadow(0 0 10px rgba(255, 215, 0, 0.4))' }}>🥇</span>;
                                                     if (isTop2) rankBadge = <span style={{ fontSize: '22px', filter: 'drop-shadow(0 0 10px rgba(192, 192, 192, 0.2))' }}>🥈</span>;
                                                     if (isTop3) rankBadge = <span style={{ fontSize: '22px', filter: 'drop-shadow(0 0 10px rgba(205, 127, 50, 0.2))' }}>🥉</span>;
 
                                                     return (
-                                                        <div 
-                                                            key={student.id} 
-                                                            style={{ 
-                                                                display: 'grid', gridTemplateColumns: '50px 2fr 1.5fr 1fr 30px', alignItems: 'center', 
-                                                                background: isTop1 ? 'linear-gradient(90deg, rgba(255, 215, 0, 0.05) 0%, #161616 100%)' : '#161616', 
-                                                                padding: '12px 15px', borderRadius: '12px', border: isTop1 ? '1px solid rgba(255,215,0,0.2)' : '1px solid transparent', 
-                                                                cursor: 'pointer', transition: 'all 0.2s' 
+                                                        <div
+                                                            key={student.id}
+                                                            style={{
+                                                                display: 'grid', gridTemplateColumns: '50px 2fr 1.5fr 1fr 30px', alignItems: 'center',
+                                                                background: isTop1 ? 'linear-gradient(90deg, rgba(255, 215, 0, 0.05) 0%, #161616 100%)' : '#161616',
+                                                                padding: '12px 15px', borderRadius: '12px', border: isTop1 ? '1px solid rgba(255,215,0,0.2)' : '1px solid transparent',
+                                                                cursor: 'pointer', transition: 'all 0.2s'
                                                             }}
                                                             onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.01)'; e.currentTarget.style.background = '#1a1a1a'; e.currentTarget.style.borderColor = isTop1 ? 'rgba(255,215,0,0.5)' : '#333'; }}
                                                             onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.background = isTop1 ? 'linear-gradient(90deg, rgba(255, 215, 0, 0.05) 0%, #161616 100%)' : '#161616'; e.currentTarget.style.borderColor = isTop1 ? 'rgba(255,215,0,0.2)' : 'transparent'; }}
@@ -246,6 +256,7 @@ export const AnalyticsPage = () => {
                                                 });
                                             })()}
                                         </div>
+                                        </div>{/* end overflow-x wrapper */}
                                     </div>
 
                                     {/* ПРАВАЯ КОЛОНКА: ВОРОНКА */}

@@ -4,6 +4,9 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider } from './context/ToastContext';
+import { SearchProvider } from './context/SearchContext';
+import { GlobalSearch } from './components/GlobalSearch';
+const DashboardPage = lazy(() => import('./pages/DashboardPage').then(m => ({ default: m.DashboardPage })));
 
 import { AuthPage } from './pages/AuthPage';
 import { CoursesPage } from './pages/CoursesPage';
@@ -43,6 +46,8 @@ function App() {
         <ThemeProvider>
         <AuthProvider>
             <BrowserRouter>
+                <SearchProvider>
+                <GlobalSearch />
                 <Suspense fallback={null}>
                 <Routes>
                     <Route path="/auth" element={<PublicRoute><AuthPage /></PublicRoute>} />
@@ -51,6 +56,7 @@ function App() {
                     <Route path="/" element={<ProtectedRoute><CoursesPage /></ProtectedRoute>} />
                     <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
                     <Route path="/history" element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} />
+                    <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
                     <Route path="/course/:courseId" element={<ProtectedRoute><UserPage /></ProtectedRoute>} />
                     <Route path="/course/:courseId/lesson/:videoId" element={<ProtectedRoute><UserPage /></ProtectedRoute>} />
 
@@ -76,6 +82,7 @@ function App() {
                     <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
                 </Suspense>
+                </SearchProvider>
             </BrowserRouter>
         </AuthProvider>
         </ThemeProvider>

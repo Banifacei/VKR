@@ -24,7 +24,7 @@ export const TestCards = ({ events, videoId, userId, onAllSolved }: TestCardsPro
         const fetchProgress = async () => {
             try {
                 // api сам подставит порт из .env и токен
-                const res = await api.get(`/videos/progress/${videoId}/${userId}`);
+                const res = await api.get(`/videos/progress/${videoId}`);
                 const data = res.data;
                 
                 if (data.sessionResults) {

@@ -1858,7 +1858,11 @@ video.controls-visible::-webkit-media-text-track-container { transform: translat
 /* ── Кнопки: минимальный размер для касания на тачскрине ── */
 @media (max-width: 768px) {
   .btn { min-height: 40px; }
-  .btn-icon { min-width: 36px; min-height: 36px; }
+  .btn-icon { min-width: 40px; min-height: 40px; }
+}
+@media (max-width: 480px) {
+  .btn { min-height: 44px; }
+  .btn-icon { min-width: 44px; min-height: 44px; }
 }
 
 /* ── Dropdown: на мобиле на всю доступную ширину ── */

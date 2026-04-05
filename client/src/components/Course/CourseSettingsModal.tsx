@@ -150,7 +150,7 @@ export const CourseSettingsModal = ({
 
     return (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(5px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }}>
-            <div style={{ background: '#111', borderRadius: '24px', border: '1px solid #333', width: '100%', maxWidth: '700px', height: '600px', margin: '0 20px', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.5)', animation: 'fadeIn 0.2s ease', display: 'flex', flexDirection: 'column'}}>
+            <div style={{ background: '#111', borderRadius: 'clamp(12px, 3vw, 24px)', border: '1px solid #333', width: '100%', maxWidth: '700px', height: 'min(600px, calc(100dvh - 40px))', margin: '0 16px', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.5)', animation: 'fadeIn 0.2s ease', display: 'flex', flexDirection: 'column'}}>
                 
                 <div style={{ padding: '20px 25px', background: '#1a1a1a', borderBottom: '1px solid #333', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <h3 style={{margin: 0, color: '#fff'}}>Настройки курса</h3>

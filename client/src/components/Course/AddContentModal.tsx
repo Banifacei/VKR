@@ -52,7 +52,7 @@ export const AddContentModal = ({ isOpen, onClose, courseId, nextOrderIndex, onS
         }} onClick={handleClose}>
             
             <div 
-                style={{ background: '#111', padding: '30px', borderRadius: '16px', border: '1px solid #333', width: '400px', animation: 'fadeIn 0.2s ease' }}
+                style={{ background: '#111', padding: 'clamp(20px, 4vw, 30px)', borderRadius: '16px', border: '1px solid #333', width: 'calc(100% - 32px)', maxWidth: '400px', animation: 'fadeIn 0.2s ease' }}
                 onClick={(e) => e.stopPropagation()} 
             >
                 {/* ЭКРАН 1: ВЫБОР */}

@@ -7,6 +7,7 @@ import { Video } from '../models/Video.js';
 import { Course } from '../models/Course.js';
 import { UserTestResult } from '../models/UserTestResult.js';
 import { CourseTest } from '../models/CourseTest.js';
+import { CourseEnrollment } from '../models/CourseEnrollment.js';
 import { addSystemLog } from './adminController.js';
 import { Op } from 'sequelize';
 import * as xlsx from 'xlsx';
@@ -265,7 +266,8 @@ export const createUserByAdmin = async (req: Request, res: Response) => {
             lastName,
             email,
             role,
-            password: hashedPassword
+            password: hashedPassword,
+            authProvider: 'local',
         });
         addSystemLog(`Админ создал пользователя: ${email}`, 'success');
         res.status(201).json(newUser);
@@ -582,5 +584,63 @@ export const getAvailableUsers = async (req: Request, res: Response) => {
     } catch (error) {
         console.error('Ошибка получения списка:', error);
         res.status(500).json({ message: 'Ошибка загрузки пользователей' });
+    }
+};
+
+// GET /api/users/:id/overview — профиль + прогресс по курсам (для препода/админа)
+export const getUserOverview = async (req: Request, res: Response) => {
+    const targetId = Number(req.params.id);
+    try {
+        const user = await User.findByPk(targetId, {
+            attributes: ['id', 'firstName', 'lastName', 'email', 'role', 'avatarUrl', 'createdAt'],
+        });
+        if (!user) return res.status(404).json({ message: 'Пользователь не найден' });
+
+        // Все зачисления со статусом approved
+        const enrollments = await CourseEnrollment.findAll({
+            where: { userId: targetId },
+            include: [{ model: Course, as: 'course', attributes: ['id', 'title', 'instructor'] }],
+        });
+
+        // Прогресс по каждому курсу
+        const courses = await Promise.all(enrollments.map(async (enroll) => {
+            const course = enroll.course as any;
+            if (!course) return null;
+
+            // Всего видео в курсе
+            const totalVideos = await Video.count({ where: { courseId: course.id } });
+            // Просмотренных (completed = true)
+            const completedVideos = await UserVideoProgress.count({
+                where: { userId: targetId, completed: true },
+                include: [{ model: Video, as: 'video', where: { courseId: course.id }, attributes: [] }],
+            });
+            // Тестов в курсе
+            const totalTests = await CourseTest.count({ where: { courseId: course.id } });
+            // Пройденных тестов
+            const completedTests = await UserTestResult.count({
+                where: { userId: targetId, courseId: course.id },
+            });
+
+            const totalItems = totalVideos + totalTests;
+            const completedItems = completedVideos + completedTests;
+            const progress = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
+
+            return {
+                id: course.id,
+                title: course.title,
+                instructor: course.instructor,
+                status: enroll.status,
+                progress,
+                totalVideos,
+                completedVideos,
+                totalTests,
+                completedTests,
+            };
+        }));
+
+        res.json({ user, courses: courses.filter(Boolean) });
+    } catch (e) {
+        console.error('getUserOverview error:', e);
+        res.status(500).json({ message: 'Ошибка загрузки профиля' });
     }
 };

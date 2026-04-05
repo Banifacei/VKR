@@ -17,6 +17,7 @@ import { pathToFileURL } from 'url';
 import { transformSync } from 'esbuild';
 import { CourseTest } from '../models/CourseTest.js';
 import { addSystemLog } from './adminController.js';
+import { sendNotification } from './notificationController.js';
 import fsPromises from 'fs/promises';
 import { TestQuestion } from '../models/TestQuestion.js';
 import { UserTestResult } from '../models/UserTestResult.js';
@@ -723,8 +724,14 @@ const transcodeVideoInBackground = (videoId: number, videoUrl: string, courseId:
         console.error('[Transcode] transcoderWorker.ts не найден');
         return;
     }
-    const tsCode = fs.readFileSync(workerPath, 'utf8');
-    const { code: jsCode } = transformSync(tsCode, { loader: 'ts', target: 'es2022', format: 'cjs' });
+    let jsCode: string;
+    try {
+        const tsCode = fs.readFileSync(workerPath, 'utf8');
+        jsCode = transformSync(tsCode, { loader: 'ts', target: 'es2022', format: 'cjs' }).code;
+    } catch (err) {
+        console.error('[Transcode] Ошибка компиляции worker:', err);
+        return;
+    }
 
     addSystemLog(`Запущено авто-транскодирование для видео (ID: ${videoId})`, 'info');
 
@@ -827,10 +834,31 @@ export const deleteEvent = async (req: Request, res: Response) => {
 export const reorderVideos = async (req: Request, res: Response) => {
     try {
         const { orderedIds } = req.body; // Ожидаем массив ID: [5, 2, 8, 1]
+        const userId = (req as any).user.id;
+        const userRole = (req as any).user.role;
 
-        // Проходимся по всем переданным ID и обновляем им индекс
+        if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
+            return res.status(400).json({ message: 'orderedIds должен быть непустым массивом' });
+        }
+
+        // Проверяем что все видео принадлежат курсу, где у пользователя есть права
+        if (userRole !== 'admin') {
+            const videos = await Video.findAll({ where: { id: orderedIds } });
+            const courseIds = [...new Set(videos.map((v: any) => v.courseId))];
+
+            for (const courseId of courseIds) {
+                const course = await Course.findByPk(courseId);
+                if (!course) continue;
+                const isOwner = course.ownerId === userId;
+                const isCollab = isOwner ? false : !!(await CourseCollaborator.findOne({ where: { courseId, userId } }));
+                if (!isOwner && !isCollab) {
+                    return res.status(403).json({ message: 'Нет прав на изменение порядка в этом курсе' });
+                }
+            }
+        }
+
         await Promise.all(
-            orderedIds.map((id: number, index: number) => 
+            orderedIds.map((id: number, index: number) =>
                 Video.update({ orderIndex: index }, { where: { id } })
             )
         );
@@ -845,12 +873,15 @@ export const reorderVideos = async (req: Request, res: Response) => {
 // Получить ответы юзера для конкретного видео (для компонента TestCards)
 export const getUserVideoAnswers = async (req: Request, res: Response) => {
     try {
-        const { videoId, userId } = req.params;
+        const { videoId } = req.params;
+        // userId берём исключительно из JWT-токена — не из URL-параметра,
+        // чтобы исключить IDOR: один студент не может читать ответы другого.
+        const userId = (req as any).user.id;
         const responses = await UserResponse.findAll({
             where: { videoId, userId },
             include: [{ model: InteractiveEvent }]
         });
-        
+
         // Отдаем в том формате, который ждет TestCards (sessionResults)
         res.json({ sessionResults: responses });
     } catch (error) {
@@ -1081,6 +1112,50 @@ export const applyForCourse = async (req: Request, res: Response) => {
     }
 };
 
+// Дашборд: все записи текущего студента с данными курса
+export const getMyEnrollments = async (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    try {
+        const enrollments = await CourseEnrollment.findAll({
+            where: { userId },
+            include: [{ model: Course, as: 'course', attributes: ['id', 'title', 'instructor', 'description', 'coverImage'] }],
+        });
+        res.json(enrollments);
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ message: 'Ошибка' });
+    }
+};
+
+// Дашборд: прогресс по всем курсам студента (процент)
+export const getMyProgressAll = async (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    try {
+        const enrollments = await CourseEnrollment.findAll({ where: { userId, status: 'approved' }, attributes: ['courseId'] });
+        const courseIds = enrollments.map((e: any) => e.courseId);
+
+        const result = await Promise.all(courseIds.map(async (courseId: number) => {
+            const [videos, tests, completedVideos, completedTests] = await Promise.all([
+                Video.count({ where: { courseId, isHidden: false } }),
+                CourseTest.count({ where: { courseId } }),
+                UserVideoProgress.count({ where: { userId, courseId, completed: true } }),
+                (await import('../models/UserTestResult.js')).UserTestResult.count({
+                    where: { userId },
+                    include: [{ model: CourseTest, as: 'test', where: { courseId }, required: true }] as any,
+                }).catch(() => 0),
+            ]);
+            const total = videos + tests;
+            const done  = completedVideos + completedTests;
+            return { courseId, percent: total > 0 ? Math.round((done / total) * 100) : 0 };
+        }));
+
+        res.json(result);
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ message: 'Ошибка' });
+    }
+};
+
 // 2. Студент/Фронт: Проверить статус зачисления на конкретный курс
 export const checkEnrollmentStatus = async (req: Request, res: Response) => {
     try {
@@ -1178,6 +1253,24 @@ export const updateEnrollmentStatus = async (req: Request, res: Response) => {
             courseId: enrollment.courseId,
             status,
         });
+
+        // Пуш-уведомление в базу + SSE
+        if (status === 'approved') {
+            sendNotification(
+                enrollment.userId,
+                'enrollment_approved',
+                'Заявка одобрена',
+                `Вас записали на курс «${course.title}»`,
+                `/course/${course.id}`,
+            );
+        } else if (status === 'rejected') {
+            sendNotification(
+                enrollment.userId,
+                'enrollment_rejected',
+                'Заявка отклонена',
+                `Ваша заявка на курс «${course.title}» была отклонена`,
+            );
+        }
 
         res.json({ success: true, message: `Заявка ${status === 'approved' ? 'одобрена' : 'отклонена'}`, enrollment });
     } catch (e) {

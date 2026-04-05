@@ -1,0 +1,17 @@
+import { Router } from 'express';
+import { checkAuth, checkAuthSse } from '../middleware/authMiddleware.js';
+import {
+    getNotifications,
+    markAsRead,
+    markAllRead,
+    deleteNotification,
+    sseNotifications,
+} from '../controllers/notificationController.js';
+
+const router = Router();
+router.get('/stream', checkAuthSse, sseNotifications);
+router.get('/', checkAuth, getNotifications);
+router.patch('/read-all', checkAuth, markAllRead);
+router.patch('/:id/read', checkAuth, markAsRead);
+router.delete('/:id', checkAuth, deleteNotification);
+export default router;

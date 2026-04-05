@@ -3,6 +3,7 @@ import { Course } from '../models/Course.js';
 import { CourseCollaborator } from '../models/CourseCollaborator.js';
 import { Video } from '../models/Video.js';
 import { CourseTest } from '../models/CourseTest.js';
+import { InteractiveEvent } from '../models/InteractiveEvent.js';
 
 export const checkCourseAccess = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -28,6 +29,15 @@ export const checkCourseAccess = async (req: Request, res: Response, next: NextF
         if (!courseId && req.params.testId) {
             const test = await CourseTest.findByPk(req.params.testId);
             if (test) courseId = test.courseId;
+        }
+
+        // Если это запрос к интерактивному событию (редактирование/удаление)
+        if (!courseId && req.params.eventId) {
+            const event = await InteractiveEvent.findByPk(req.params.eventId);
+            if (event) {
+                const video = await Video.findByPk(event.videoId);
+                if (video) courseId = video.courseId;
+            }
         }
 
         if (!courseId) {

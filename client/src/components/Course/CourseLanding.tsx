@@ -11,18 +11,18 @@ interface CourseLandingProps {
 
 export const CourseLanding = ({ course, enrollStatus, isEnrolling, onEnroll }: CourseLandingProps) => {
     return (
-        <main className="main-content" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 'calc(100vh - 60px)' }}>
-            <div style={{ maxWidth: '600px', width: '100%', textAlign: 'center', background: '#111', padding: '50px', borderRadius: '24px', border: '1px solid #333', boxShadow: '0 20px 50px rgba(0,0,0,0.5)', animation: 'fadeIn 0.4s ease' }}>
+        <main className="main-content" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 'calc(100vh - 60px)', padding: '20px 16px', overflowY: 'auto' }}>
+            <div style={{ maxWidth: '600px', width: '100%', textAlign: 'center', background: '#111', padding: 'clamp(20px, 5vw, 50px)', borderRadius: 'clamp(16px, 3vw, 24px)', border: '1px solid #333', boxShadow: '0 20px 50px rgba(0,0,0,0.5)', animation: 'fadeIn 0.4s ease' }}>
                 <div style={{ width: '80px', height: '80px', background: 'linear-gradient(135deg, var(--primary), var(--primary-hover))', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', boxShadow: '0 10px 20px rgba(var(--primary-rgb), 0.3)', color: '#fff' }}>
                     <Icons.Test />
                 </div>
-                
-                <h1 style={{ fontSize: '32px', marginBottom: '15px', color: '#fff' }}>{course?.title || 'Загрузка...'}</h1>
-                <p style={{ color: '#888', fontSize: '16px', lineHeight: '1.6', marginBottom: '30px' }}>
+
+                <h1 style={{ fontSize: 'clamp(22px, 6vw, 32px)', marginBottom: '15px', color: '#fff' }}>{course?.title || 'Загрузка...'}</h1>
+                <p style={{ color: '#888', fontSize: 'clamp(14px, 3.5vw, 16px)', lineHeight: '1.6', marginBottom: '30px' }}>
                     {course?.description || 'Описание курса скоро появится. Здесь вы узнаете много нового и интересного.'}
                 </p>
-                
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '15px', marginBottom: '40px', color: '#aaa', fontSize: '14px' }}>
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '15px', marginBottom: 'clamp(20px, 4vw, 40px)', color: '#aaa', fontSize: '14px' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Icons.Teacher size={14}/> Преподаватель: <strong style={{color: '#fff'}}>{course?.instructor}</strong></span>
                 </div>
 

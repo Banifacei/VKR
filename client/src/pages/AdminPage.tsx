@@ -10,6 +10,10 @@ import type { IAdminUser } from '../api/userApi';
 import api from '../api/axiosInstance';
 import { useToast } from '../context/ToastContext';
 import { Icons } from '../components/Icons';
+import { useSearch } from '../context/SearchContext';
+import { NotificationBell } from '../components/NotificationBell';
+import '../components/GlobalSearch.css';
+import '../components/NotificationBell.css';
 
 interface ISystemLog { id: number; time: string; msg: string; type: 'info' | 'success' | 'error' | 'warning'; }
 
@@ -17,9 +21,15 @@ export const AdminPage = () => {
   const { showToast } = useToast();
   const { user, logout, updateUser: updateContextUser } = useAuth();
   const { globalTheme } = useTheme();
+  const { openSearch } = useSearch();
   const [showSamlModal, setShowSamlModal] = useState(false);
   const [samlForm, setSamlForm] = useState({ enabled: false, entryPoint: '', cert: '' });
-  const [activeTab, setActiveTab] = useState<'system' | 'users' | 'requests' | 'integrations' | 'branding'>('system');
+  const [activeTab, setActiveTab] = useState<'system' | 'users' | 'requests' | 'integrations' | 'branding' | 'moderation'>('system');
+  const [bannedWords, setBannedWords] = useState<{ id: number; word: string }[]>([]);
+  const [offenders, setOffenders] = useState<any[]>([]);
+  const [newWord, setNewWord] = useState('');
+  const [importText, setImportText] = useState('');
+  const [wordLoading, setWordLoading] = useState(false);
   const [usersList, setUsersList] = useState<IAdminUser[]>([]);
   const [usersTotal, setUsersTotal] = useState(0);
   const [usersPage, setUsersPage] = useState(1);
@@ -362,9 +372,48 @@ export const AdminPage = () => {
       catch (e) { showToast('Ошибка при удалении пользователя', 'error'); }
   };
 
-  const storageTotal = storageData.total || 1; 
+  const storageTotal = storageData.total || 1;
   const storageUsed = storageData.video + storageData.db + storageData.cache;
   const filteredLogs = systemLogs.filter(log => logFilter === 'all' || log.type === logFilter);
+
+  const loadBannedWords = async () => {
+    try {
+      const [words, offs] = await Promise.all([
+        api.get('/banned-words'),
+        api.get('/banned-words/offenders'),
+      ]);
+      setBannedWords(words.data);
+      setOffenders(offs.data);
+    } catch { /* */ }
+  };
+  const addWord = async () => {
+    if (!newWord.trim()) return;
+    setWordLoading(true);
+    try {
+      await api.post('/banned-words', { word: newWord.trim() });
+      setNewWord('');
+      await loadBannedWords();
+      showToast('Слово добавлено', 'success');
+    } catch (e: any) {
+      showToast(e?.response?.data?.message || 'Ошибка', 'error');
+    } finally { setWordLoading(false); }
+  };
+  const removeWord = async (id: number) => {
+    await api.delete(`/banned-words/${id}`);
+    setBannedWords(prev => prev.filter(w => w.id !== id));
+  };
+  const importWords = async () => {
+    const words = importText.split(/[\n,;]+/).map(w => w.trim()).filter(Boolean);
+    if (!words.length) return;
+    setWordLoading(true);
+    try {
+      const r = await api.post('/banned-words/import', { words });
+      setImportText('');
+      await loadBannedWords();
+      showToast(`Добавлено ${r.data.added} из ${r.data.total}`, 'success');
+    } catch { showToast('Ошибка импорта', 'error'); }
+    finally { setWordLoading(false); }
+  };
 
   return (
     <div className="lumeo-layout">
@@ -585,8 +634,12 @@ export const AdminPage = () => {
             </div>
             <span className="admin-badge">ROOT ACCESS</span>
           </div>
-          <div style={{display: 'flex', alignItems: 'center', gap: '24px'}}>
+          <div style={{display: 'flex', alignItems: 'center', gap: '16px'}}>
+              <button className="gs-trigger" onClick={openSearch}>
+                  <Icons.Search size={14} /><span>Поиск...</span><kbd>Ctrl+/</kbd>
+              </button>
               <Link to="/" className="nav-link">Выход на сайт →</Link>
+              <NotificationBell />
               {user && <UserProfile user={user} onUpdate={handleAvatarUpdate} onLogout={handleLogout} />}
           </div>
       </header>
@@ -625,6 +678,9 @@ export const AdminPage = () => {
                 </button>
                 <button className={`admin-tab ${activeTab === 'branding' ? 'active' : ''}`} onClick={() => setActiveTab('branding')}>
                     <Icons.Palette /> Брендинг
+                </button>
+                <button className={`admin-tab ${activeTab === 'moderation' ? 'active' : ''}`} onClick={() => { setActiveTab('moderation'); loadBannedWords(); }}>
+                    <Icons.Shield /> Модерация
                 </button>
                 {/* Вкладка заявок появляется ТОЛЬКО если модерация включена */}
                 {requiresApproval && (
@@ -904,7 +960,7 @@ export const AdminPage = () => {
                                                     <span style={{fontWeight: '600', color: '#fff', fontSize: '14px'}}>
                                                         {u.firstName} {u.lastName}
                                                     </span>
-                                                    {u.authProvider && u.authProvider !== 'local' && (
+                                                    {u.authProvider && (
                                                         <span style={{
                                                             fontSize: '10px',
                                                             fontWeight: '600',
@@ -915,15 +971,18 @@ export const AdminPage = () => {
                                                             background: u.authProvider === 'yandex' ? 'rgba(255,51,51,0.15)'
                                                                       : u.authProvider === 'google' ? 'rgba(66,133,244,0.15)'
                                                                       : u.authProvider === 'ldap'   ? 'rgba(0,255,136,0.15)'
+                                                                      : u.authProvider === 'local'  ? 'rgba(100,100,100,0.2)'
                                                                       : 'rgba(155,89,182,0.15)',
                                                             color: u.authProvider === 'yandex' ? '#ff5555'
                                                                  : u.authProvider === 'google' ? '#4285f4'
                                                                  : u.authProvider === 'ldap'   ? '#00ff88'
+                                                                 : u.authProvider === 'local'  ? '#888'
                                                                  : '#c39bd3',
                                                             border: `1px solid ${
                                                                 u.authProvider === 'yandex' ? 'rgba(255,51,51,0.3)'
                                                               : u.authProvider === 'google' ? 'rgba(66,133,244,0.3)'
                                                               : u.authProvider === 'ldap'   ? 'rgba(0,255,136,0.3)'
+                                                              : u.authProvider === 'local'  ? 'rgba(100,100,100,0.3)'
                                                               : 'rgba(155,89,182,0.3)'
                                                             }`,
                                                         }}>
@@ -1134,6 +1193,104 @@ export const AdminPage = () => {
                                     </button>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* ==================== ВКЛАДКА: МОДЕРАЦИЯ ==================== */}
+            {activeTab === 'moderation' && (
+                <div className="admin-section">
+                    <div className="section-header">
+                        <h2>Фильтр слов</h2>
+                        <span style={{ color: '#888', fontSize: 13 }}>Запрещённые слова заменяются на *** в комментариях</span>
+                    </div>
+                    <div className="section-body">
+                        {/* Добавить одно слово */}
+                        <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+                            <input
+                                className="modern-input"
+                                style={{ flex: 1, maxWidth: 320 }}
+                                placeholder="Добавить слово..."
+                                value={newWord}
+                                onChange={e => setNewWord(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter') addWord(); }}
+                            />
+                            <button className="btn btn-primary" onClick={addWord} disabled={wordLoading || !newWord.trim()}>
+                                <Icons.Plus /> Добавить
+                            </button>
+                        </div>
+
+                        {/* Массовый импорт */}
+                        <div style={{ marginBottom: 24, background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 12, padding: '16px 20px' }}>
+                            <div style={{ fontSize: 13, color: '#888', marginBottom: 8 }}>Массовый импорт — вставьте слова через запятую, пробел или каждое с новой строки:</div>
+                            <textarea
+                                className="modern-textarea"
+                                style={{ minHeight: 80, marginBottom: 10 }}
+                                placeholder="мат, грубость, спам..."
+                                value={importText}
+                                onChange={e => setImportText(e.target.value)}
+                            />
+                            <button className="btn btn-secondary" onClick={importWords} disabled={wordLoading || !importText.trim()}>
+                                Импортировать
+                            </button>
+                        </div>
+
+                        {/* Топ нарушителей */}
+                        {offenders.length > 0 && (
+                            <div style={{ marginBottom: 28 }}>
+                                <div style={{ fontSize: 13, color: '#888', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
+                                    Топ нарушителей
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                    {offenders.map((o: any, i) => {
+                                        const u = o.user;
+                                        const initials = u ? `${u.firstName?.[0] ?? ''}${u.lastName?.[0] ?? ''}`.toUpperCase() : '?';
+                                        const lastSeen = o.lastSeen ? new Date(o.lastSeen).toLocaleDateString('ru-RU') : '—';
+                                        return (
+                                            <div key={o.userId} style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 10, padding: '10px 16px' }}>
+                                                <span style={{ fontSize: 13, color: '#555', width: 20, flexShrink: 0 }}>#{i + 1}</span>
+                                                {u?.avatarUrl
+                                                    ? <img src={u.avatarUrl} style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                                                    : <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#fff', flexShrink: 0 }}>{initials}</div>
+                                                }
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ fontSize: 14, fontWeight: 600, color: '#fff' }}>{u?.firstName} {u?.lastName}</div>
+                                                    <div style={{ fontSize: 12, color: '#666' }}>{u?.email}</div>
+                                                </div>
+                                                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                                                    <div style={{ fontSize: 18, fontWeight: 700, color: '#ff4b4b' }}>{o.count}</div>
+                                                    <div style={{ fontSize: 11, color: '#555' }}>нарушений</div>
+                                                </div>
+                                                <div style={{ textAlign: 'right', flexShrink: 0, minWidth: 70 }}>
+                                                    <div style={{ fontSize: 11, color: '#555' }}>последнее</div>
+                                                    <div style={{ fontSize: 12, color: '#888' }}>{lastSeen}</div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Список слов */}
+                        <div style={{ fontSize: 13, color: '#666', marginBottom: 10 }}>
+                            Всего в списке: <strong style={{ color: '#fff' }}>{bannedWords.length}</strong>
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                            {bannedWords.map(w => (
+                                <div key={w.id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 8, padding: '4px 10px 4px 12px', fontSize: 13 }}>
+                                    <span style={{ color: '#ccc' }}>{w.word}</span>
+                                    <button
+                                        onClick={() => removeWord(w.id)}
+                                        style={{ background: 'none', border: 'none', color: '#ff4b4b', cursor: 'pointer', padding: '0 0 0 4px', display: 'flex', alignItems: 'center' }}
+                                    >
+                                        <Icons.Close size={12} />
+                                    </button>
+                                </div>
+                            ))}
+                            {bannedWords.length === 0 && (
+                                <div style={{ color: '#555', fontSize: 13 }}>Список пуст — все слова разрешены</div>
+                            )}
                         </div>
                     </div>
                 </div>

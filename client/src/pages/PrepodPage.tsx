@@ -33,6 +33,10 @@ import {
 } from '../api/testApi';
 import * as XLSX from 'xlsx';
 import { Icons } from '../components/Icons';
+import { useSearch } from '../context/SearchContext';
+import { NotificationBell } from '../components/NotificationBell';
+import '../components/GlobalSearch.css';
+import '../components/NotificationBell.css';
 export const PrepodPage = () => {
   const { showToast } = useToast();
   const { globalTheme } = useTheme();
@@ -43,6 +47,7 @@ export const PrepodPage = () => {
       return saved ? Number(saved) : null;
   });
   const { user, logout, updateUser } = useAuth();
+  const { openSearch } = useSearch();
 
   const handleAvatarUpdate = (newUrl: string) => {
       updateUser({ avatarUrl: newUrl });
@@ -599,8 +604,12 @@ export const PrepodPage = () => {
                 <div style={{display: 'flex', alignItems: 'center', gap: '20px'}}>
                 <span style={{fontSize: '14px', color: '#888', fontWeight: 600, marginRight: '10px'}}>Панель преподавателя</span>
             </div>
-            <div style={{display: 'flex', alignItems: 'center', gap: '24px'}}>
+            <div style={{display: 'flex', alignItems: 'center', gap: '16px'}}>
+              <button className="gs-trigger" onClick={openSearch}>
+                  <Icons.Search size={14} /><span>Поиск...</span><kbd>Ctrl+/</kbd>
+              </button>
               <Link to="/" className="nav-link">Выход на сайт →</Link>
+              <NotificationBell />
               {user && <UserProfile user={user} onUpdate={handleAvatarUpdate} onLogout={logout} />}
             </div>
             </header>
@@ -883,8 +892,12 @@ export const PrepodPage = () => {
                     </button>
                  </div>
              </div>
-             <div style={{display: 'flex', alignItems: 'center', gap: '24px'}}>
+             <div style={{display: 'flex', alignItems: 'center', gap: '16px'}}>
+              <button className="gs-trigger" onClick={openSearch}>
+                  <Icons.Search size={14} /><span>Поиск...</span><kbd>Ctrl+/</kbd>
+              </button>
               <Link to="/" className="nav-link">Выход на сайт →</Link>
+              <NotificationBell />
               {user && <UserProfile user={user} onUpdate={handleAvatarUpdate} onLogout={logout} />}
             </div>
         </header>
@@ -1104,7 +1117,7 @@ export const PrepodPage = () => {
                                             <input
                                                 type="datetime-local"
                                                 className="deck-input"
-                                                value={selectedVideo.unlockDate ? new Date(selectedVideo.unlockDate).toISOString().slice(0, 16) : ''}
+                                                value={selectedVideo.unlockDate ? (() => { const d = new Date(selectedVideo.unlockDate); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); })() : ''}
                                                 onChange={(e) => handleUpdateSettings({ unlockDate: e.target.value || null })}
                                                 style={{ marginBottom: 0 }}
                                             />

@@ -12,6 +12,12 @@ import { UserTestResult } from '../models/UserTestResult.js';
 import { SystemSetting } from '../models/SystemSetting.js';
 import { CourseCollaborator } from '../models/CourseCollaborator.js';
 import { CourseEnrollment } from '../models/CourseEnrollment.js';
+import { Notification } from '../models/Notification.js';
+import { VideoComment } from '../models/VideoComment.js';
+import { CourseRating } from '../models/CourseRating.js';
+import { VideoBookmark } from '../models/VideoBookmark.js';
+import { BannedWord } from '../models/BannedWord.js';
+import { ModerationLog } from '../models/ModerationLog.js';
 dotenv.config();
 
 const requiredEnvVars = ['DB_NAME', 'DB_USER', 'DB_PASSWORD', 'DB_HOST'];
@@ -39,7 +45,13 @@ const sequelize = new Sequelize({
      UserTestResult,
      SystemSetting,
      CourseCollaborator,
-     CourseEnrollment
+     CourseEnrollment,
+     Notification,
+     VideoComment,
+     CourseRating,
+     VideoBookmark,
+     BannedWord,
+     ModerationLog,
     ],
   
   logging: false,

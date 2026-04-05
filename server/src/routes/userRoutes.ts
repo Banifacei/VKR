@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { 
+import {
     getAllUsers,
     updateUserRole,
     updateUserByAdmin,
@@ -14,20 +14,22 @@ import {
     exportUsersToExcel,
     downloadTemplate,
     searchUsers,
-    getAvailableUsers
+    getAvailableUsers,
+    getUserOverview
 } from '../controllers/userController.js';
-import { checkAuth, isAdmin, checkAuthSse } from '../middleware/authMiddleware.js';
+import { checkAuth, isAdmin, isTeacherOrAdmin, checkAuthSse } from '../middleware/authMiddleware.js';
 import { validateId } from '../middleware/validateId.js';
 import { sseAdminEvents } from '../controllers/userController.js';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
+const uid = validateId('id');
 router.get('/stats', checkAuth, getUserStats);
-router.get('/search', checkAuth, searchUsers);
-router.get('/available', checkAuth, getAvailableUsers);
+router.get('/search', checkAuth, isTeacherOrAdmin, searchUsers);
+router.get('/available', checkAuth, isTeacherOrAdmin, getAvailableUsers);
+router.get('/:id/overview', checkAuth, isTeacherOrAdmin, uid, getUserOverview);
 router.get('/', checkAuth, isAdmin, getAllUsers);
 router.post('/', checkAuth, isAdmin, createUserByAdmin);
-const uid = validateId('id');
 router.put('/:id/role', checkAuth, isAdmin, uid, updateUserRole);
 router.put('/:id', checkAuth, isAdmin, uid, updateUserByAdmin);
 router.delete('/:id', checkAuth, isAdmin, uid, deleteUserByAdmin);

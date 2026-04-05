@@ -17,6 +17,12 @@ import userRoutes from './src/routes/userRoutes.js';
 import testRoutes from './src/routes/testRoutes.js';
 import adminRoutes from './src/routes/adminRoutes.js';
 import themeRoutes from './src/routes/themeRoutes.js';
+import searchRoutes from './src/routes/searchRoutes.js';
+import notificationRoutes from './src/routes/notificationRoutes.js';
+import commentRoutes from './src/routes/commentRoutes.js';
+import ratingRoutes from './src/routes/ratingRoutes.js';
+import bookmarkRoutes from './src/routes/bookmarkRoutes.js';
+import bannedWordRoutes from './src/routes/bannedWordRoutes.js';
 import { trackActivityMiddleware, addSystemLog } from './src/controllers/adminController.js';
 import { createDefaultAdmin } from './src/models/initAdmin.js';
 import { cleanupOrphanFiles } from './src/utils/cleanup.js';
@@ -56,11 +62,13 @@ const videoUpload = multer({
     storage,
     limits: { fileSize: 500 * 1024 * 1024 }, // 500 MB
     fileFilter: (_req, file, cb) => {
-        const allowed = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'];
-        if (allowed.includes(file.mimetype)) {
+        const allowedVideoTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'];
+        const ext = path.extname(file.originalname).toLowerCase();
+        // Разрешаем видео и файлы субтитров (.vtt)
+        if (allowedVideoTypes.includes(file.mimetype) || ext === '.vtt') {
             cb(null, true);
         } else {
-            cb(new Error('Только видеофайлы разрешены (mp4, webm, ogg, mov).'));
+            cb(new Error('Разрешены видеофайлы (mp4, webm, ogg, mov) и файлы субтитров (.vtt).'));
         }
     }
 });
@@ -84,7 +92,20 @@ const logoUpload = multer({
 });
 app.use(helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' }, // разрешаем отдавать /uploads фронту
-    contentSecurityPolicy: false, // SPA управляет своим CSP сама
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc:     ["'self'"],
+            scriptSrc:      ["'self'"],
+            styleSrc:       ["'self'", "'unsafe-inline'"], // inline-стили нужны React
+            imgSrc:         ["'self'", 'data:', 'blob:'],
+            mediaSrc:       ["'self'", 'blob:', 'https://rutube.ru', 'https://www.youtube.com'],
+            frameSrc:       ["'self'", 'https://rutube.ru', 'https://www.youtube.com', 'https://www.youtube-nocookie.com'],
+            connectSrc:     ["'self'"],
+            fontSrc:        ["'self'", 'data:'],
+            objectSrc:      ["'none'"],
+            upgradeInsecureRequests: [],
+        },
+    },
 }));
 app.use(passport.initialize());
 app.use(cors({ origin: CLIENT_URL, credentials: true }));
@@ -138,6 +159,12 @@ app.post('/api/auth/avatar', checkAuth, avatarUpload.single('avatar'), async (re
         res.status(500).json({ message: 'Ошибка сервера' });
     }
 });
+app.use('/api/search', searchRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/comments', commentRoutes);
+app.use('/api/ratings', ratingRoutes);
+app.use('/api/bookmarks', bookmarkRoutes);
+app.use('/api/banned-words', bannedWordRoutes);
 app.use('/api/videos', videoRoutes);
 
 // Глобальный обработчик ошибок (multer и прочие middleware)
@@ -153,7 +180,13 @@ let server: ReturnType<typeof app.listen>;
 async function start() {
     try {
         await sequelize.authenticate();
-        await sequelize.sync({ alter: true });
+        try {
+            await sequelize.sync({ alter: true });
+        } catch (syncErr: any) {
+            // Sequelize генерирует невалидный SQL при ALTER self-referential FK в PostgreSQL.
+            // Таблицы уже созданы корректно через CREATE — игнорируем ошибку ALTER и продолжаем.
+            console.warn('⚠️  sequelize.sync alter warning (non-fatal):', syncErr?.message ?? syncErr);
+        }
         // force: true — удаляет таблицы (DROP) и создает их заново (CREATE) что бы бд очистить
         //await sequelize.sync({ force: true });
         // Миграция: исправляем типы колонок, которые alter:true не меняет автоматически

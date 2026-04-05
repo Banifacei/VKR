@@ -55,6 +55,16 @@ export const checkAuth = (req: Request, res: Response, next: NextFunction) => {
     }
 };
 
+/** Проверяет что пользователь имеет роль teacher или admin (из JWT).
+ *  Используется для эндпоинтов, недоступных студентам. */
+export const isTeacherOrAdmin = (req: Request, res: Response, next: NextFunction) => {
+    const user = (req as any).user;
+    if (user && (user.role === 'teacher' || user.role === 'admin')) {
+        return next();
+    }
+    res.status(403).json({ message: 'Доступ запрещён. Требуется роль преподавателя или администратора.' });
+};
+
 /** Вариант checkAuth для SSE-эндпоинтов: принимает токен из ?token= query param,
  *  т.к. EventSource API не поддерживает кастомные заголовки. */
 export const checkAuthSse = (req: Request, res: Response, next: NextFunction) => {

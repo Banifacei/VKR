@@ -139,7 +139,7 @@
     margin-bottom: 12px;
 }
 .deck-input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(0,174,239,0.1); }
-.deck-row         { display: flex; gap: 12px; margin-bottom: 12px; }
+.deck-row         { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
 
 /* Переключатель типа (Tabs) */
 .type-switch {
@@ -278,6 +278,7 @@
     .courses-grid { grid-template-columns: 1fr; }
     .deck-header { flex-direction: column; align-items: flex-start; gap: 12px; }
     .create-course-panel > div { flex-direction: column; }
+    .courses-container { padding: 40px 16px; }
 }
 
 @media (max-width: 500px) {
@@ -312,4 +313,6 @@
     .prepod-layout .lumeo-header > div { gap: 8px !important; }
     .sidebar-header h3 { font-size: 11px; }
     .control-deck { padding: 16px; }
+    .ai-toast { right: 12px; left: 12px; bottom: 16px; }
+    .deck-row .btn { flex: 1; justify-content: center; }
 }

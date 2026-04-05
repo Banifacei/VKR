@@ -125,7 +125,7 @@ export const ExportModal = ({ isOpen, onClose, course, analytics, exportType }: 
 
     return (
         <div className="test-overlay" onClick={onClose} style={{ zIndex: 99999 }}>
-            <div className="test-modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '450px', padding: '30px' }}>
+            <div className="test-modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '450px', padding: 'clamp(16px, 5vw, 30px)' }}>
                 <h2 style={{ marginTop: 0, marginBottom: '20px', fontSize: '22px' }}>
                     {exportType === 'gost' ? <><Icons.Printer size={20}/> Настройка ведомости</> : <><Icons.Download size={20}/> Детальный отчет</>}
                 </h2>

@@ -253,12 +253,18 @@ export const getSystemModules = async (_req: Request, res: Response) => {
     // 2. Node.js
     modules.push({ name: 'Node.js Runtime', version: process.version, status: 'active' });
 
-    // 3. FFmpeg
+    // 3. FFmpeg — проверяем через ffmpeg-static (встроенный бинарник), а не системный
     try {
-        const ffmpegVer = execSync('ffmpeg -version 2>&1', { timeout: 3000 })
-            .toString()
-            .match(/ffmpeg version ([^\s]+)/)?.[1] ?? 'installed';
-        modules.push({ name: 'Video Transcoder (FFmpeg)', version: `v${ffmpegVer}`, status: 'active' });
+        const { default: ffmpegPath } = await import('ffmpeg-static');
+        if (ffmpegPath && fss.existsSync(ffmpegPath)) {
+            // Получаем версию из бинарника
+            const ffmpegVer = execSync(`"${ffmpegPath}" -version 2>&1`, { timeout: 3000 })
+                .toString()
+                .match(/ffmpeg version ([^\s]+)/)?.[1] ?? 'static';
+            modules.push({ name: 'Video Transcoder (FFmpeg)', version: `v${ffmpegVer}`, status: 'active' });
+        } else {
+            modules.push({ name: 'Video Transcoder (FFmpeg)', version: 'не найден', status: 'inactive' });
+        }
     } catch {
         modules.push({ name: 'Video Transcoder (FFmpeg)', version: 'не найден', status: 'inactive' });
     }
