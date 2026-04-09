@@ -8,6 +8,7 @@ import * as XLSX from 'xlsx';
 import api from '../api/axiosInstance';
 import { useToast } from '../context/ToastContext';
 import { Icons } from './Icons';
+import { DateTimePicker } from './DateTimePicker';
 
 // Drag & Drop
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
@@ -112,16 +113,22 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
         hideResults: item.hideResults || false,
         passingScore: item.passingScore ?? 80,
         allowExternalTest: item.allowExternalTest || false,
+        isHidden: item.isHidden || false,
+        unlockDate: item.unlockDate || null,
+        shuffleQuestions: (item as any).shuffleQuestions || false,
     });
     const [isSavingSettings, setIsSavingSettings] = useState(false);
 
-    const isChanged = 
+    const isChanged =
         settingsData.title !== (item.title || '') ||
         settingsData.description !== (item.description || '') ||
         Number(settingsData.maxAttempts) !== (item.maxAttempts ?? 3) ||
         settingsData.hideResults !== (item.hideResults || false) ||
         Number(settingsData.passingScore) !== (item.passingScore ?? 80) ||
-        settingsData.allowExternalTest !== (item.allowExternalTest || false);
+        settingsData.allowExternalTest !== (item.allowExternalTest || false) ||
+        settingsData.isHidden !== (item.isHidden || false) ||
+        settingsData.unlockDate !== (item.unlockDate || null) ||
+        settingsData.shuffleQuestions !== ((item as any).shuffleQuestions || false);
 
     const handleSaveSettings = async () => {
         setIsSavingSettings(true);
@@ -883,7 +890,9 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                                 key={selectedVideo.id}
                                                 sources={[
                                                     { quality: 'Оригинал', url: selectedVideo.url, subtitles: selectedVideo.subtitles },
-                                                    ...(selectedVideo.qualityUrls || []).map((q: any) => ({ quality: q.quality, url: q.url, subtitles: selectedVideo.subtitles }))
+                                                    ...[...(selectedVideo.qualityUrls || [])]
+                                                        .sort((a: any, b: any) => parseInt(b.quality) - parseInt(a.quality))
+                                                        .map((q: any) => ({ quality: q.quality, url: q.url, subtitles: selectedVideo.subtitles }))
                                                 ]}
                                                 title={selectedVideo.title} events={selectedVideo.events || []} hideResults={selectedVideo.hideResults}
                                                 userId={userData?.id} userRole={userData?.role}
@@ -1042,7 +1051,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                             <span className="toggle-label" style={{color: '#fff', marginLeft: '12px', fontSize: '14px', fontWeight: 500}}>Скрыть работу над ошибками</span>
                                         </label>
                                         
-                                        {/* 👇 ЭТОТ ПЕРЕКЛЮЧАТЕЛЬ ТОЛЬКО ДЛЯ ВИДЕО */}
+                                        {/* Только для видео */}
                                         {isVideo && (
                                             <label className="toggle-wrapper" style={{ marginTop: '10px', display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.2)', padding: '15px', borderRadius: '12px', cursor: 'pointer' }}>
                                                 <input type="checkbox" className="toggle-input" checked={settingsData.allowExternalTest} onChange={e => setSettingsData({...settingsData, allowExternalTest: e.target.checked})} />
@@ -1050,6 +1059,29 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                                 <span className="toggle-label" style={{color: '#fff', marginLeft: '12px', fontSize: '14px', fontWeight: 500}}>Разрешить решать без видео</span>
                                             </label>
                                         )}
+
+                                        {/* Для видео и тестов */}
+                                        <label className="toggle-wrapper" style={{ marginTop: '10px', display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.2)', padding: '15px', borderRadius: '12px', cursor: 'pointer' }}>
+                                            <input type="checkbox" className="toggle-input" checked={settingsData.isHidden} onChange={e => setSettingsData({...settingsData, isHidden: e.target.checked})} />
+                                            <div className="toggle-track"><div className="toggle-thumb"></div></div>
+                                            <span className="toggle-label" style={{color: '#fff', marginLeft: '12px', fontSize: '14px', fontWeight: 500}}>Скрыть от студентов</span>
+                                        </label>
+
+                                        {/* Только для тестов */}
+                                        {!isVideo && (
+                                            <label className="toggle-wrapper" style={{ marginTop: '10px', display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.2)', padding: '15px', borderRadius: '12px', cursor: 'pointer' }}>
+                                                <input type="checkbox" className="toggle-input" checked={settingsData.shuffleQuestions} onChange={e => setSettingsData({...settingsData, shuffleQuestions: e.target.checked})} />
+                                                <div className="toggle-track"><div className="toggle-thumb"></div></div>
+                                                <span className="toggle-label" style={{color: '#fff', marginLeft: '12px', fontSize: '14px', fontWeight: 500}}>Перемешивать вопросы случайно</span>
+                                            </label>
+                                        )}
+                                        <div style={{ marginTop: '10px' }}>
+                                            <label style={{ fontSize: '12px', color: '#888', display: 'block', marginBottom: '6px' }}>Открыть с даты (пусто — доступно сразу):</label>
+                                            <DateTimePicker
+                                                value={settingsData.unlockDate}
+                                                onChange={val => setSettingsData({...settingsData, unlockDate: val})}
+                                            />
+                                        </div>
 
                                         <button 
                                             className="btn btn-primary" 

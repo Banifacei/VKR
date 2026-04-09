@@ -39,11 +39,15 @@ export const getPlaybackProgress = async (videoId: number) => {
     return response.data;
 };
 
-export const uploadVideoFile = async (file: File) => {
+export const uploadVideoFile = async (file: File, onProgress?: (percent: number) => void) => {
     const formData = new FormData();
     formData.append('video', file);
     const response = await api.post<{ url: string }>('/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: onProgress ? (e) => {
+            const percent = e.total ? Math.round((e.loaded * 100) / e.total) : 0;
+            onProgress(percent);
+        } : undefined,
     });
     return response.data;
 };
@@ -74,6 +78,11 @@ export const deleteEvent = async (eventId: number) => {
 
 export const reorderVideos = async (orderedIds: number[]) => {
     const response = await api.put('/videos/reorder', { orderedIds });
+    return response.data;
+};
+
+export const reorderCourses = async (orderedIds: number[]) => {
+    const response = await api.put('/videos/courses/reorder', { orderedIds });
     return response.data;
 };
 

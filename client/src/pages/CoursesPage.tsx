@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { getCourses } from '../api/videoApi';
+import { getCourses, reorderCourses } from '../api/videoApi';
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
+import { arrayMove, SortableContext, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { getUserCourseProgress } from '../api/testApi';
 import type { ICourse } from '../types';
 import './UserPage.css';
@@ -34,6 +37,47 @@ const getGradient = (id: number) => {
     return gradients[id % gradients.length];
 };
 
+const SortableCourseCard = ({ course, rating, onClick }: {
+    course: ICourse; rating?: { avg: number; total: number };
+    onClick: () => void;
+}) => {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: course.id });
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.7 : 1,
+        cursor: 'grab',
+        position: 'relative' as const,
+    };
+    return (
+        <div ref={setNodeRef} style={style} className="course-card-modern">
+            <div
+                {...attributes} {...listeners}
+                style={{ position: 'absolute', top: 10, right: 10, zIndex: 10, background: 'rgba(0,0,0,0.5)', borderRadius: 6, padding: '4px 6px', color: '#666', cursor: 'grab', fontSize: 12 }}
+                title="Перетащите для изменения порядка"
+            >⠿</div>
+            <div onClick={onClick} style={{ display: 'contents' }}>
+                <div className="course-cover" style={{ background: getGradient(course.id) }}>
+                    <div className="course-badge">Курс</div>
+                </div>
+                <div className="course-body">
+                    <h2 className="course-title">{course.title}</h2>
+                    <p className="course-desc">{course.description || 'Описание отсутствует. Нажмите, чтобы узнать подробности о курсе внутри.'}</p>
+                    <div className="course-tags">
+                        <div className="course-tag"><CorsesIcons.Teacher /> {course.instructor}</div>
+                        <div className="course-tag"><CorsesIcons.Video /> {course.videos?.length || 0} уроков</div>
+                    </div>
+                    {rating !== undefined && (
+                        <div style={{ marginTop: 8 }}>
+                            <StarDisplay avg={rating.avg} total={rating.total} />
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export const CoursesPage = () => {
     const [courses, setCourses] = useState<ICourse[]>([]);
     const [loading, setLoading] = useState(true); // Стейт для скелетонов
@@ -50,6 +94,22 @@ export const CoursesPage = () => {
     const [showAddModal, setShowAddModal] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
     const [newCourseData, setNewCourseData] = useState({ title: '', description: '', instructor: '' });
+
+    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+
+    const handleCourseDragEnd = async (event: DragEndEvent) => {
+        const { active, over } = event;
+        if (!over || active.id === over.id) return;
+        const oldIndex = courses.findIndex(c => c.id === Number(active.id));
+        const newIndex = courses.findIndex(c => c.id === Number(over.id));
+        const reordered = arrayMove(courses, oldIndex, newIndex);
+        setCourses(reordered);
+        try {
+            await reorderCourses(reordered.map(c => c.id));
+        } catch {
+            showToast('Ошибка сохранения порядка', 'error');
+        }
+    };
 
     const handleLogout = () => {
         localStorage.removeItem('lumeo_user');
@@ -215,60 +275,62 @@ export const CoursesPage = () => {
                     ))}
 
                     {/* РЕАЛЬНЫЕ КУРСЫ */}
-                    {!loading && courses.map(course => {
-                        const progress = progressMap[course.id] || 0;
-                        const isFinished = progress >= 100;
-
-                        return (
-                            <div 
-                                key={course.id} 
-                                onClick={() => navigate(`/course/${course.id}`)}
-                                className="course-card-modern"
-                            >
-                                {/* Обложка с градиентом */}
-                                <div className="course-cover" style={{ background: getGradient(course.id) }}>
-                                    <div className="course-badge">Курс</div>
-                                </div>
-
-                                <div className="course-body">
-                                    <h2 className="course-title">{course.title}</h2>
-                                    <p className="course-desc">{course.description || 'Описание отсутствует. Нажмите, чтобы узнать подробности о курсе внутри.'}</p>
-                                    
-                                    <div className="course-tags">
-                                        <div className="course-tag"><CorsesIcons.Teacher /> {course.instructor}</div>
-                                        <div className="course-tag"><CorsesIcons.Video /> {course.videos?.length || 0} уроков</div>
+                    {!loading && user?.role === 'admin' ? (
+                        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleCourseDragEnd}>
+                            <SortableContext items={courses.map(c => c.id)} strategy={rectSortingStrategy}>
+                                {courses.map(course => (
+                                    <SortableCourseCard
+                                        key={course.id}
+                                        course={course}
+                                        rating={ratingsMap[course.id]}
+                                        onClick={() => navigate(`/course/${course.id}`)}
+                                    />
+                                ))}
+                            </SortableContext>
+                        </DndContext>
+                    ) : (
+                        !loading && courses.map(course => {
+                            const progress = progressMap[course.id] || 0;
+                            const isFinished = progress >= 100;
+                            return (
+                                <div
+                                    key={course.id}
+                                    onClick={() => navigate(`/course/${course.id}`)}
+                                    className="course-card-modern"
+                                >
+                                    <div className="course-cover" style={{ background: getGradient(course.id) }}>
+                                        <div className="course-badge">Курс</div>
                                     </div>
-
-                                    {ratingsMap[course.id] !== undefined && (
-                                        <div style={{ marginTop: 8 }} onClick={e => e.stopPropagation()}>
-                                            <StarDisplay avg={ratingsMap[course.id].avg} total={ratingsMap[course.id].total} />
+                                    <div className="course-body">
+                                        <h2 className="course-title">{course.title}</h2>
+                                        <p className="course-desc">{course.description || 'Описание отсутствует. Нажмите, чтобы узнать подробности о курсе внутри.'}</p>
+                                        <div className="course-tags">
+                                            <div className="course-tag"><CorsesIcons.Teacher /> {course.instructor}</div>
+                                            <div className="course-tag"><CorsesIcons.Video /> {course.videos?.length || 0} уроков</div>
                                         </div>
-                                    )}
-
-                                    {/* Прогресс-бар для студентов */}
-                                    {user?.role === 'student' && (
-                                        <div className="course-progress-wrapper">
-                                            <div className="course-progress-header">
-                                                <span>Прогресс</span>
-                                                <span style={{ color: isFinished ? '#00ff88' : '#fff', fontWeight: 'bold' }}>
-                                                    {isFinished ? <><Icons.LogSuccess size={13}/> Завершен</> : `${progress}%`}
-                                                </span>
+                                        {ratingsMap[course.id] !== undefined && (
+                                            <div style={{ marginTop: 8 }} onClick={e => e.stopPropagation()}>
+                                                <StarDisplay avg={ratingsMap[course.id].avg} total={ratingsMap[course.id].total} />
                                             </div>
-                                            <div className="course-progress-track">
-                                                <div 
-                                                    className="course-progress-fill" 
-                                                    style={{ 
-                                                        width: `${progress}%`, 
-                                                        background: isFinished ? '#00ff88' : 'var(--primary)' 
-                                                    }}
-                                                ></div>
+                                        )}
+                                        {user?.role === 'student' && (
+                                            <div className="course-progress-wrapper">
+                                                <div className="course-progress-header">
+                                                    <span>Прогресс</span>
+                                                    <span style={{ color: isFinished ? '#00ff88' : '#fff', fontWeight: 'bold' }}>
+                                                        {isFinished ? <><Icons.LogSuccess size={13}/> Завершен</> : `${progress}%`}
+                                                    </span>
+                                                </div>
+                                                <div className="course-progress-track">
+                                                    <div className="course-progress-fill" style={{ width: `${progress}%`, background: isFinished ? '#00ff88' : 'var(--primary)' }}></div>
+                                                </div>
                                             </div>
-                                        </div>
-                                    )}
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        );
-                    })}
+                            );
+                        })
+                    )}
                 </div>
             </div>
 

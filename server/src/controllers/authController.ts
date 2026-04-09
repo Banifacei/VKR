@@ -194,6 +194,9 @@ export const login = async (req: Request, res: Response) => {
             if (user.status === 'rejected') {
                 return res.status(403).json({ message: 'Доступ запрещен' });
             }
+            if (user.status === 'banned') {
+                return res.status(403).json({ message: 'Ваш аккаунт заблокирован администратором.' });
+            }
 
             const isValid = await bcrypt.compare(password, user.password);
             if (!isValid) {

@@ -39,4 +39,7 @@ export class Course extends Model {
 
   @Column({ type: DataType.BOOLEAN, defaultValue: false })
   declare allowTeachersFreeAccess: boolean;
+
+  @Column({ type: DataType.INTEGER, defaultValue: 0 })
+  declare orderIndex: number;
 }

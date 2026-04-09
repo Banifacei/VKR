@@ -41,4 +41,7 @@ export class CourseTest extends Model {
 
   @Column({ type: DataType.DATE, allowNull: true })
   declare unlockDate: Date | null; // Отложенный релиз
+
+  @Column({ type: DataType.BOOLEAN, defaultValue: false })
+  declare shuffleQuestions: boolean; // Перемешивать вопросы для каждого студента
 }

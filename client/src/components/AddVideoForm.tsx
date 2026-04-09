@@ -26,6 +26,7 @@ export const AddVideoForm = ({ onVideoAdded, courseId }: AddVideoFormProps) => {
   const [selectedVideoFile, setSelectedVideoFile] = useState<File | null>(null);
   const [selectedSubFile, setSelectedSubFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
   const linkType = newUrl.trim() ? detectLinkType(newUrl.trim()) : '';
 
@@ -41,11 +42,14 @@ export const AddVideoForm = ({ onVideoAdded, courseId }: AddVideoFormProps) => {
     }
 
     setUploading(true);
+    setUploadProgress(null);
     try {
       let finalUrl = newUrl.trim();
 
       if (inputMode === 'file' && selectedVideoFile) {
-        const { url } = await uploadVideoFile(selectedVideoFile);
+        setUploadProgress(0);
+        const { url } = await uploadVideoFile(selectedVideoFile, setUploadProgress);
+        setUploadProgress(null);
         finalUrl = url;
       }
 
@@ -73,6 +77,7 @@ export const AddVideoForm = ({ onVideoAdded, courseId }: AddVideoFormProps) => {
       showToast('Ошибка при сохранении урока', 'error');
     } finally {
       setUploading(false);
+      setUploadProgress(null);
     }
   };
 
@@ -177,8 +182,18 @@ export const AddVideoForm = ({ onVideoAdded, courseId }: AddVideoFormProps) => {
         </div>
       )}
 
+      {uploadProgress !== null && (
+        <div className="upload-progress-wrap">
+          <div className="upload-progress-bar" style={{ width: `${uploadProgress}%` }} />
+          <span className="upload-progress-label">{uploadProgress}%</span>
+        </div>
+      )}
       <button className="primary-button" onClick={handleSaveVideo} disabled={uploading}>
-        {uploading ? 'Загрузка...' : 'Опубликовать урок'}
+        {uploading
+          ? uploadProgress !== null
+            ? `Загрузка видео... ${uploadProgress}%`
+            : 'Сохранение...'
+          : 'Опубликовать урок'}
       </button>
     </div>
   );

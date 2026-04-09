@@ -1,12 +1,12 @@
 import { Router } from 'express';
-import { 
-    createVideo, 
-    getVideosByCourse, 
-    createEvent, 
-    saveProgress, 
-    getVideoStats, 
-    updateVideoSettings, 
-    getAllCourses, 
+import {
+    createVideo,
+    getVideosByCourse,
+    createEvent,
+    saveProgress,
+    getVideoStats,
+    updateVideoSettings,
+    getAllCourses,
     createCourse,
     generateSubtitles,
     getAllVideos,
@@ -15,7 +15,7 @@ import {
     getVideoProgress,
     reorderVideos,
     deleteVideo,
-    updateCourse, 
+    updateCourse,
     deleteCourse,
     getUserVideoAnswers,
     updateCourseContentOrder,
@@ -34,9 +34,12 @@ import {
     transcodeVideo,
     getMyEnrollments,
     getMyProgressAll,
-
+    reorderCourses,
+    banFromCourse,
+    unbanFromCourse,
+    getCourseBans,
 } from '../controllers/videoController.js';
-import { checkCourseAccess } from '../middleware/courseAuthMiddleware.js';
+import { checkCourseAccess, checkCourseBan } from '../middleware/courseAuthMiddleware.js';
 import { checkAuth, checkAuthSse } from '../middleware/authMiddleware.js';
 import { validateId } from '../middleware/validateId.js';
 import { updateEvent, deleteEvent, sseVideoEvents, sseEnrollStudentEvents, sseEnrollCourseEvents, sseSubtitleEvents } from '../controllers/videoController.js';
@@ -59,9 +62,10 @@ router.post('/:videoId/transcode', checkAuth, vId, checkCourseAccess, transcodeV
 router.post('/', checkAuth, createVideo);
 router.get('/courses', checkAuth, getAllCourses);
 router.post('/courses', checkAuth, createCourse);
+router.put('/courses/reorder', checkAuth, reorderCourses);
 router.put('/courses/:courseId', checkAuth, cId, checkCourseAccess, updateCourse);
 router.delete('/courses/:courseId', checkAuth, cId, checkCourseAccess, deleteCourse);
-router.get('/courses/:courseId/videos', checkAuth, cId, getVideosByCourse);
+router.get('/courses/:courseId/videos', checkAuth, cId, checkCourseBan, getVideosByCourse);
 router.put('/courses/:courseId/transfer', checkAuth, cId, checkCourseAccess, transferCourseOwnership);
 router.post('/course/:courseId/reorder', checkAuth, cId, checkCourseAccess, updateCourseContentOrder);
 router.post('/courses/:courseId/enroll', checkAuth, cId, applyForCourse);
@@ -75,6 +79,9 @@ router.post('/courses/:courseId/generate-demo', checkAuth, cId, checkCourseAcces
 router.put('/courses/enrollments/:enrollmentId', checkAuth, enId, updateEnrollmentStatus);
 router.post('/courses/:courseId/collaborators', checkAuth, cId, checkCourseAccess, addCourseCollaborator);
 router.delete('/courses/:courseId/collaborators/:userId', checkAuth, cId, uId, checkCourseAccess, removeCourseCollaborator);
+router.get('/courses/:courseId/bans', checkAuth, cId, checkCourseAccess, getCourseBans);
+router.post('/courses/:courseId/bans/:userId', checkAuth, cId, uId, checkCourseAccess, banFromCourse);
+router.delete('/courses/:courseId/bans/:userId', checkAuth, cId, uId, checkCourseAccess, unbanFromCourse);
 // --- РОУТЫ ДЛЯ ТЕСТОВ (UserResponse) ---
 router.post('/progress', checkAuth, saveProgress);
 router.delete('/:videoId/progress', checkAuth, vId, resetVideoProgress);

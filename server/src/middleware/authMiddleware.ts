@@ -2,6 +2,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { User } from '../models/User.js';
 import jwt from 'jsonwebtoken';
+import { Op } from 'sequelize';
 
 if (!process.env.JWT_SECRET) {
     throw new Error('JWT_SECRET не задан в .env. Установите переменную окружения перед запуском сервера.');
@@ -32,7 +33,7 @@ export const isAdmin = async (req: Request, res: Response, next: NextFunction) =
     }
 };
 
-export const checkAuth = (req: Request, res: Response, next: NextFunction) => {
+export const checkAuth = async (req: Request, res: Response, next: NextFunction) => {
     if (req.method === 'OPTIONS') {
         next();
         return;
@@ -46,6 +47,12 @@ export const checkAuth = (req: Request, res: Response, next: NextFunction) => {
         }
 
         const decoded = jwt.verify(token, JWT_SECRET) as { id: number; role: string; email: string };
+
+        // Проверяем, не заблокирован ли пользователь
+        const dbUser = await User.findOne({ where: { id: decoded.id, status: 'banned' }, attributes: ['id'] });
+        if (dbUser) {
+            return res.status(403).json({ message: 'Ваш аккаунт заблокирован администратором.' });
+        }
 
         (req as any).user = decoded;
 

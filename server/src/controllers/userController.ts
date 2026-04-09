@@ -240,7 +240,7 @@ export const createUserByAdmin = async (req: Request, res: Response) => {
     try {
         const { firstName, lastName, email, role, password } = req.body;
 
-        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        if (!email || !/^[^\s@]+@[^\s@]+$/.test(email)) {
             return res.status(400).json({ message: 'Некорректный адрес email' });
         }
         if (!password || password.length < 8) {
@@ -642,5 +642,38 @@ export const getUserOverview = async (req: Request, res: Response) => {
     } catch (e) {
         console.error('getUserOverview error:', e);
         res.status(500).json({ message: 'Ошибка загрузки профиля' });
+    }
+};
+
+// POST /api/admin/users/:id/ban
+export const banUser = async (req: Request, res: Response) => {
+    try {
+        const adminId = (req as any).user?.id;
+        const targetId = Number(req.params.id);
+        if (targetId === adminId) return res.status(400).json({ message: 'Нельзя заблокировать себя' });
+        const user = await User.findByPk(targetId);
+        if (!user) return res.status(404).json({ message: 'Пользователь не найден' });
+        if (user.role === 'admin') return res.status(403).json({ message: 'Нельзя заблокировать администратора' });
+        user.status = 'banned';
+        await user.save();
+        addSystemLog(`Пользователь (ID: ${targetId}) заблокирован администратором (ID: ${adminId})`, 'warning');
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ message: 'Ошибка блокировки' });
+    }
+};
+
+// POST /api/admin/users/:id/unban
+export const unbanUser = async (req: Request, res: Response) => {
+    try {
+        const targetId = Number(req.params.id);
+        const user = await User.findByPk(targetId);
+        if (!user) return res.status(404).json({ message: 'Пользователь не найден' });
+        user.status = 'active';
+        await user.save();
+        addSystemLog(`Пользователь (ID: ${targetId}) разблокирован`, 'info');
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ message: 'Ошибка разблокировки' });
     }
 };

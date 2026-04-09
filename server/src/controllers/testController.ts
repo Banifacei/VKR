@@ -36,14 +36,26 @@ export const getCourseTests = async (req: Request, res: Response) => {
             ]
         });
 
+        const isStudent = user.role === 'student';
+
         // Добавляем счетчик попыток для фронта
-        const formattedTests = tests.map(test => {
-            const data = test.get({ plain: true }) as any;
-            return {
-                ...data,
-                attemptsUsed: data.results ? data.results.length : 0
-            };
-        });
+        const formattedTests = tests
+            .filter(test => !isStudent || !test.isHidden) // isHidden — полностью скрываем
+            .map(test => {
+                const data = test.get({ plain: true }) as any;
+                return {
+                    ...data,
+                    attemptsUsed: data.results ? data.results.length : 0,
+                };
+            });
+
+        if (isStudent) {
+            formattedTests.forEach((test: any) => {
+                if (test.shuffleQuestions && test.questions) {
+                    test.questions = [...test.questions].sort(() => Math.random() - 0.5);
+                }
+            });
+        }
 
         res.json(formattedTests);
     } catch (e) {
@@ -52,6 +64,20 @@ export const getCourseTests = async (req: Request, res: Response) => {
     }
 };
 
+const EN_TO_RU: Record<string, string> = {
+    'q':'й','w':'ц','e':'у','r':'к','t':'е','y':'н','u':'г','i':'ш','o':'щ','p':'з','[':'х',']':'ъ',
+    'a':'ф','s':'ы','d':'в','f':'а','g':'п','h':'р','j':'о','k':'л','l':'д',';':'ж',"'":'э',
+    'z':'я','x':'ч','c':'с','v':'м','b':'и','n':'т','m':'ь',',':'б','.':'ю',
+    'Q':'Й','W':'Ц','E':'У','R':'К','T':'Е','Y':'Н','U':'Г','I':'Ш','O':'Щ','P':'З','{':'Х','}':'Ъ',
+    'A':'Ф','S':'Ы','D':'В','F':'А','G':'П','H':'Р','J':'О','K':'Л','L':'Д',':':'Ж','"':'Э',
+    'Z':'Я','X':'Ч','C':'С','V':'М','B':'И','N':'Т','M':'Ь','<':'Б','>':'Ю',
+};
+const RU_TO_EN: Record<string, string> = Object.fromEntries(
+    Object.entries(EN_TO_RU).map(([k, v]) => [v, k])
+);
+const translateLayout = (text: string, map: Record<string, string>) =>
+    text.split('').map(c => map[c] ?? c).join('');
+
 let semanticExtractor: any = null;
 export const calculateSemanticSimilarity = async (studentAnswer: string, correctAnswer: string) => {
     if (!studentAnswer || !correctAnswer) return 0;
@@ -59,14 +85,13 @@ export const calculateSemanticSimilarity = async (studentAnswer: string, correct
         if (!semanticExtractor) {
             semanticExtractor = await pipeline('feature-extraction', 'Xenova/paraphrase-multilingual-MiniLM-L12-v2');
         }
-        const output1 = await semanticExtractor(studentAnswer, { pooling: 'mean', normalize: true });
         const output2 = await semanticExtractor(correctAnswer, { pooling: 'mean', normalize: true });
-        
-        const v1 = Array.from(output1.data as Float32Array);
         const v2 = Array.from(output2.data as Float32Array);
-        
-        const dotProduct = v1.reduce((sum, val, i) => sum + val * (v2[i] || 0), 0);
-        return Math.max(0, Math.min(100, Math.round(dotProduct * 100)));
+
+        const output1 = await semanticExtractor(studentAnswer, { pooling: 'mean', normalize: true });
+        const v1 = Array.from(output1.data as Float32Array);
+        const dot = v1.reduce((sum: number, val: number, i: number) => sum + val * (v2[i] || 0), 0);
+        return Math.max(0, Math.min(100, Math.round(dot * 100)));
     } catch (e) {
         console.error("Ошибка ИИ:", e);
         return 0;
@@ -76,7 +101,7 @@ export const updateCourseTest = async (req: Request, res: Response) => {
     try {
         const { testId } = req.params;
         // Сразу добавляем hideResults для нашей следующей фичи!
-        const { title, description, passingScore, maxAttempts, isHidden, hideResults } = req.body;
+        const { title, description, passingScore, maxAttempts, isHidden, hideResults, unlockDate, shuffleQuestions } = req.body;
 
         const test = await CourseTest.findByPk(testId);
         if (!test) return res.status(404).json({ message: 'Тест не найден' });
@@ -86,7 +111,9 @@ export const updateCourseTest = async (req: Request, res: Response) => {
         if (passingScore !== undefined) test.passingScore = passingScore;
         if (maxAttempts !== undefined) test.maxAttempts = maxAttempts;
         if (isHidden !== undefined) test.isHidden = isHidden;
-        if (hideResults !== undefined) test.hideResults = hideResults; // Сохраняем переключатель результатов
+        if (hideResults !== undefined) test.hideResults = hideResults;
+        if (unlockDate !== undefined) test.unlockDate = unlockDate || null; // Сохраняем переключатель результатов
+        if (shuffleQuestions !== undefined) test.shuffleQuestions = shuffleQuestions;
 
         await test.save();
         addSystemLog(`Обновлены настройки теста (ID: ${testId})`, 'info');

@@ -23,6 +23,10 @@ import { TestQuestion } from '../models/TestQuestion.js';
 import { UserTestResult } from '../models/UserTestResult.js';
 import { CourseEnrollment } from '../models/CourseEnrollment.js';
 import { CourseCollaborator } from '../models/CourseCollaborator.js';
+import { VideoComment } from '../models/VideoComment.js';
+import { VideoBookmark } from '../models/VideoBookmark.js';
+import { CourseRating } from '../models/CourseRating.js';
+import { CourseBan } from '../models/CourseBan.js';
 import bcrypt from 'bcrypt';
 import sequelize from '../config/db.js';
 import { createChannel } from '../utils/sseHub.js';
@@ -52,33 +56,46 @@ export const sseSubtitleEvents = (req: Request, res: Response) =>
     subtitleDoneSse.subscribe(Number(req.params.courseId), req, res);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const EN_TO_RU_VC: Record<string, string> = {
+    'q':'й','w':'ц','e':'у','r':'к','t':'е','y':'н','u':'г','i':'ш','o':'щ','p':'з','[':'х',']':'ъ',
+    'a':'ф','s':'ы','d':'в','f':'а','g':'п','h':'р','j':'о','k':'л','l':'д',';':'ж',"'":'э',
+    'z':'я','x':'ч','c':'с','v':'м','b':'и','n':'т','m':'ь',',':'б','.':'ю',
+    'Q':'Й','W':'Ц','E':'У','R':'К','T':'Е','Y':'Н','U':'Г','I':'Ш','O':'Щ','P':'З','{':'Х','}':'Ъ',
+    'A':'Ф','S':'Ы','D':'В','F':'А','G':'П','H':'Р','J':'О','K':'Л','L':'Д',':':'Ж','"':'Э',
+    'Z':'Я','X':'Ч','C':'С','V':'М','B':'И','N':'Т','M':'Ь','<':'Б','>':'Ю',
+};
+const RU_TO_EN_VC: Record<string, string> = Object.fromEntries(
+    Object.entries(EN_TO_RU_VC).map(([k, v]) => [v, k])
+);
+const translateLayoutVC = (text: string, map: Record<string, string>) =>
+    text.split('').map(c => map[c] ?? c).join('');
+
 let semanticExtractor: any = null;
 
 // Функция вычисления смыслового сходства текста
 const calculateSemanticSimilarity = async (studentAnswer: string, correctAnswer: string) => {
     if (!studentAnswer || !correctAnswer) return 0;
-    
+
     try {
         if (!semanticExtractor) {
             console.log('[AI] Загрузка модели семантического анализа (это займет немного времени при первом запуске)...');
-            // Используем мультиязычную модель, которая отлично понимает русский
             semanticExtractor = await pipeline('feature-extraction', 'Xenova/paraphrase-multilingual-MiniLM-L12-v2', { quantized: true });
         }
 
-        // 1. Получаем векторы (эмбеддинги) для обоих текстов
-        const out1 = await semanticExtractor(studentAnswer.toLowerCase(), { pooling: 'mean', normalize: true });
-        const out2 = await semanticExtractor(correctAnswer.toLowerCase(), { pooling: 'mean', normalize: true });
+        const out2 = await semanticExtractor(correctAnswer, { pooling: 'mean', normalize: true });
+        const v2 = Array.from(out2.data as Float32Array);
 
-        // 2. Считаем косинусное сходство (dot product)
-        let similarity = 0;
-        for (let i = 0; i < out1.data.length; i++) {
-            similarity += out1.data[i] * out2.data[i];
+        const out1 = await semanticExtractor(studentAnswer, { pooling: 'mean', normalize: true });
+        const v1 = Array.from(out1.data as Float32Array);
+        let maxSim = 0;
+        for (let i = 0; i < v1.length; i++) {
+            maxSim += (v1[i] ?? 0) * (v2[i] ?? 0);
         }
-        
-        return similarity;
+        maxSim = Math.max(0, maxSim);
+
+        return maxSim;
     } catch (e) {
         console.error('[AI] Ошибка семантического анализа:', e);
-        // Фолбэк: если ИИ упал, проверяем просто вхождение ключевых слов
         return studentAnswer.toLowerCase().includes(correctAnswer.toLowerCase()) ? 1 : 0;
     }
 };
@@ -209,6 +226,8 @@ export const deleteCourse = async (req: Request, res: Response) => {
         // Каскадное удаление из БД в транзакции
         await sequelize.transaction(async (tx) => {
             if (videoIds.length > 0) {
+                await VideoComment.destroy({ where: { videoId: videoIds }, transaction: tx });
+                await VideoBookmark.destroy({ where: { videoId: videoIds }, transaction: tx });
                 await UserResponse.destroy({ where: { videoId: videoIds }, transaction: tx });
                 await UserVideoProgress.destroy({ where: { videoId: videoIds }, transaction: tx });
                 await InteractiveEvent.destroy({ where: { videoId: videoIds }, transaction: tx });
@@ -223,6 +242,9 @@ export const deleteCourse = async (req: Request, res: Response) => {
                 await CourseTest.destroy({ where: { courseId }, transaction: tx });
             }
 
+            await CourseRating.destroy({ where: { courseId }, transaction: tx });
+            await CourseEnrollment.destroy({ where: { courseId }, transaction: tx });
+            await CourseCollaborator.destroy({ where: { courseId }, transaction: tx });
             await course.destroy({ transaction: tx });
         });
 
@@ -242,12 +264,27 @@ export const getAllCourses = async (req: Request, res: Response) => {
     try {
         const courses = await Course.findAll({
             include: [Video],
-            order: [['createdAt', 'ASC']],
+            order: [['orderIndex', 'ASC'], ['createdAt', 'ASC']],
             limit: 500,
         });
         res.json(courses);
     } catch (e) {
         res.status(500).json({ message: 'Ошибка получения курсов' });
+    }
+};
+
+export const reorderCourses = async (req: Request, res: Response) => {
+    try {
+        const user = (req as any).user;
+        if (user?.role !== 'admin') return res.status(403).json({ message: 'Только администратор может менять порядок курсов' });
+        const { orderedIds } = req.body;
+        if (!Array.isArray(orderedIds)) return res.status(400).json({ message: 'Неверный формат' });
+        for (let i = 0; i < orderedIds.length; i++) {
+            await Course.update({ orderIndex: i }, { where: { id: orderedIds[i] } });
+        }
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ message: 'Ошибка сортировки курсов' });
     }
 };
 export const createVideo = async (req: Request, res: Response) => {
@@ -300,13 +337,9 @@ export const getVideosByCourse = async (req: Request, res: Response) => {
     });
 
     if (isStudent) {
-      const now = new Date();
-      const visible = videos.filter(v => {
-        if (v.isHidden) return false;
-        if (v.unlockDate && new Date(v.unlockDate) > now) return false;
-        return true;
-      });
-      return res.json(visible);
+      // isHidden — полностью скрыто, не показываем вообще
+      // unlockDate в будущем — показываем как заблокированный "анонс"
+      return res.json(videos.filter(v => !v.isHidden));
     }
 
     res.json(videos);
@@ -1594,7 +1627,49 @@ export const generateDemoData = async (req: Request, res: Response) => {
         res.json({ message: 'Демо-студенты успешно сгенерированы! Перезагрузите страницу.' });
     } catch (e: any) {
         console.error('Ошибка генерации демо-данных:', e);
-        // Теперь если сервер упадет, он отправит точную причину на фронт
-        res.status(500).json({ message: 'Ошибка генерации' }); 
+        res.status(500).json({ message: 'Ошибка генерации' });
+    }
+};
+
+// ─── Баны в курсе ─────────────────────────────────────────────────────────────
+
+export const banFromCourse = async (req: Request, res: Response) => {
+    try {
+        const { courseId, userId } = req.params;
+        const bannedBy = (req as any).user?.id;
+        const { reason } = req.body;
+        const existing = await CourseBan.findOne({ where: { courseId, userId } });
+        if (existing) return res.status(409).json({ message: 'Пользователь уже заблокирован в этом курсе' });
+        // Удаляем запись о зачислении, если есть
+        await CourseEnrollment.destroy({ where: { courseId, userId } });
+        await CourseBan.create({ courseId: Number(courseId), userId: Number(userId), reason: reason || null, bannedBy });
+        addSystemLog(`Пользователь (ID: ${userId}) заблокирован в курсе (ID: ${courseId})`, 'warning');
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ message: 'Ошибка бана в курсе' });
+    }
+};
+
+export const unbanFromCourse = async (req: Request, res: Response) => {
+    try {
+        const { courseId, userId } = req.params;
+        await CourseBan.destroy({ where: { courseId, userId } });
+        addSystemLog(`Пользователь (ID: ${userId}) разблокирован в курсе (ID: ${courseId})`, 'info');
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ message: 'Ошибка разблокировки' });
+    }
+};
+
+export const getCourseBans = async (req: Request, res: Response) => {
+    try {
+        const { courseId } = req.params;
+        const bans = await CourseBan.findAll({
+            where: { courseId },
+            include: [{ model: User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'email', 'avatarUrl'] }],
+        });
+        res.json(bans);
+    } catch (e) {
+        res.status(500).json({ message: 'Ошибка загрузки банов' });
     }
 };

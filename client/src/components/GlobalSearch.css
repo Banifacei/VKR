@@ -24,7 +24,7 @@
 
 /* ── Modal ───────────────────────────────────────────────────────────────── */
 .gs-modal {
-    width: min(640px, calc(100vw - 32px));
+    width: min(1140px, calc(100vw - 32px));
     background: #161616;
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 16px;

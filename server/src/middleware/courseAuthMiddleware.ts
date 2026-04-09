@@ -4,6 +4,26 @@ import { CourseCollaborator } from '../models/CourseCollaborator.js';
 import { Video } from '../models/Video.js';
 import { CourseTest } from '../models/CourseTest.js';
 import { InteractiveEvent } from '../models/InteractiveEvent.js';
+import { CourseBan } from '../models/CourseBan.js';
+
+// Проверяет что текущий студент НЕ заблокирован в курсе
+export const checkCourseBan = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const user = (req as any).user;
+        if (!user) return res.status(401).json({ message: 'Не авторизован' });
+        if (user.role !== 'student') return next(); // не применяем к преподам/админам
+
+        const courseId = req.params.courseId;
+        if (!courseId) return next();
+
+        const ban = await CourseBan.findOne({ where: { courseId, userId: user.id } });
+        if (ban) return res.status(403).json({ message: 'Вы заблокированы в этом курсе.' });
+
+        next();
+    } catch (e) {
+        next(); // не блокируем при ошибке
+    }
+};
 
 export const checkCourseAccess = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -17,7 +37,7 @@ export const checkCourseAccess = async (req: Request, res: Response, next: NextF
         }
 
         // 2. ИЩЕМ ID КУРСА (РАССЛЕДОВАНИЕ)
-        let courseId = req.params.courseId || req.body.courseId || req.query.courseId;
+        let courseId = req.params.courseId || req.body?.courseId || req.query.courseId;
 
         // Если это запрос к видео (например, удаление урока)
         if (!courseId && req.params.videoId) {

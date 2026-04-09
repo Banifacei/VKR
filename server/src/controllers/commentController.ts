@@ -2,6 +2,9 @@ import { Request, Response } from 'express';
 import { VideoComment } from '../models/VideoComment.js';
 import { User } from '../models/User.js';
 import { filterText } from './bannedWordController.js';
+import { createChannel } from '../utils/sseHub.js';
+
+export const commentChannel = createChannel<number>();
 
 // GET /api/comments/video/:videoId
 export const getComments = async (req: Request, res: Response) => {
@@ -56,11 +59,22 @@ export const addComment = async (req: Request, res: Response) => {
         const full = await VideoComment.findByPk(comment.id, {
             include: [{ model: User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'avatarUrl', 'role'] }],
         });
+        commentChannel.broadcast(Number(videoId), {
+            type: 'new_comment',
+            comment: (full as any).toJSON(),
+            parentId: parentId || null,
+        });
         res.status(201).json(full);
     } catch (e) {
         console.error(e);
         res.status(500).json({ message: 'Ошибка добавления комментария' });
     }
+};
+
+// GET /api/comments/video/:videoId/stream  (SSE)
+export const streamComments = (req: Request, res: Response) => {
+    const videoId = Number(req.params.videoId);
+    commentChannel.subscribe(videoId, req, res);
 };
 
 // DELETE /api/comments/:id
@@ -73,9 +87,21 @@ export const deleteComment = async (req: Request, res: Response) => {
         if (comment.userId !== userId && userRole === 'student')
             return res.status(403).json({ message: 'Нет доступа' });
 
+        const videoId = comment.videoId;
+        const parentId = comment.parentId;
+        const commentId = comment.id;
+
         // Удаляем ответы и сам комментарий
         await VideoComment.destroy({ where: { parentId: comment.id } });
         await comment.destroy();
+
+        // Уведомляем всех через SSE
+        commentChannel.broadcast(videoId, {
+            type: 'delete_comment',
+            commentId,
+            parentId: parentId || null,
+        });
+
         res.json({ ok: true });
     } catch (e) {
         console.error(e);

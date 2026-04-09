@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { UserProfile } from '../components/UserProfile';
 import { BrandingTab } from '../components/Admin/BrandingTab';
 import { Link } from 'react-router-dom';
 import './AdminPage.css';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { getAllUsers, changeUserRole, updateUser, createUser, deleteUser } from '../api/userApi';
+import { getAllUsers, changeUserRole, updateUser, createUser, deleteUser, banUser, unbanUser } from '../api/userApi';
 import type { IAdminUser } from '../api/userApi';
 import api from '../api/axiosInstance';
 import { useToast } from '../context/ToastContext';
@@ -340,10 +340,9 @@ export const AdminPage = () => {
       setIsSaving(true);
       try {
           if (modalMode === 'add') {
-              if (!userForm.password || !userForm.email) {
-                  showToast('Email и пароль обязательны!', 'error');
-                  return;
-              }
+              if (!userForm.email) { showToast('Email обязателен', 'error'); return; }
+              if (!userForm.password) { showToast('Пароль обязателен', 'error'); return; }
+              if (userForm.password.length < 8) { showToast('Пароль должен быть минимум 8 символов', 'error'); return; }
               const newUser = await createUser(userForm);
               setUsersList([newUser, ...usersList]);
               showToast('Пользователь успешно создан!', 'success');
@@ -354,8 +353,10 @@ export const AdminPage = () => {
               showToast('Данные пользователя обновлены', 'success');
           }
           closeModal();
-      } catch (e) { showToast('Ошибка при сохранении пользователя', 'error'); } 
-      finally { setIsSaving(false); }
+      } catch (e: any) {
+          const msg = e?.response?.data?.message || 'Ошибка при сохранении пользователя';
+          showToast(msg, 'error');
+      } finally { setIsSaving(false); }
   };
 
   const handleDeleteUser = async (userId: number, userName: string) => {
@@ -375,6 +376,57 @@ export const AdminPage = () => {
   const storageTotal = storageData.total || 1;
   const storageUsed = storageData.video + storageData.db + storageData.cache;
   const filteredLogs = systemLogs.filter(log => logFilter === 'all' || log.type === logFilter);
+
+  type AlertSeverity = 'critical' | 'warning' | 'info';
+  interface SystemAlert { id: string; severity: AlertSeverity; title: string; message: string; action?: { label: string; onClick: () => void }; }
+
+  const systemAlerts = useMemo<SystemAlert[]>(() => {
+    if (systemLoading) return [];
+    const alerts: SystemAlert[] = [];
+
+    // CPU
+    if (serverStats.cpu >= 90)
+      alerts.push({ id: 'cpu-critical', severity: 'critical', title: 'Критическая нагрузка CPU', message: `CPU загружен на ${serverStats.cpu.toFixed(1)}%. Возможно зависание сервера.` });
+    else if (serverStats.cpu >= 75)
+      alerts.push({ id: 'cpu-warn', severity: 'warning', title: 'Высокая нагрузка CPU', message: `CPU загружен на ${serverStats.cpu.toFixed(1)}%. Рекомендуется проверить фоновые задачи.` });
+
+    // RAM
+    if (serverStats.ram >= 90)
+      alerts.push({ id: 'ram-critical', severity: 'critical', title: 'Критическое использование RAM', message: `RAM занята на ${serverStats.ram.toFixed(1)}%. Риск нехватки памяти.` });
+    else if (serverStats.ram >= 80)
+      alerts.push({ id: 'ram-warn', severity: 'warning', title: 'Высокое использование RAM', message: `RAM занята на ${serverStats.ram.toFixed(1)}%. Рекомендуется мониторинг.` });
+
+    // Disk
+    const diskPct = storageTotal > 0 ? (storageUsed / storageTotal) * 100 : 0;
+    if (diskPct >= 90)
+      alerts.push({ id: 'disk-critical', severity: 'critical', title: 'Хранилище почти заполнено', message: `Использовано ${diskPct.toFixed(0)}% дискового пространства (${storageUsed.toFixed(1)} GB из ${storageTotal} GB).` });
+    else if (diskPct >= 75)
+      alerts.push({ id: 'disk-warn', severity: 'warning', title: 'Заканчивается место на диске', message: `Использовано ${diskPct.toFixed(0)}% хранилища. Рассмотрите очистку видеоархива.` });
+
+    // Pending user approvals
+    if (pendingUsers.length > 0)
+      alerts.push({ id: 'pending', severity: 'info', title: `${pendingUsers.length} заявок на вступление`, message: `Пользователи ожидают подтверждения регистрации.`, action: { label: 'Перейти', onClick: () => setActiveTab('requests') } });
+
+    // Error spike in logs
+    const recentErrors = systemLogs.filter(l => l.type === 'error').length;
+    if (recentErrors >= 5)
+      alerts.push({ id: 'errors', severity: 'warning', title: `${recentErrors} ошибок в журнале`, message: 'Зафиксировано повышенное количество ошибок. Проверьте журнал событий.', action: { label: 'Смотреть', onClick: () => setLogFilter('error') } });
+
+    // Too many admins
+    if (usersByRole.admin > 3)
+      alerts.push({ id: 'admins', severity: 'warning', title: 'Много администраторов', message: `В системе ${usersByRole.admin} администраторов. Рекомендуется минимизировать число привилегированных аккаунтов.`, action: { label: 'Управлять', onClick: () => setActiveTab('users') } });
+
+    // No external auth configured
+    const hasExternalAuth =
+      systemSettings.google_enabled === 'true' ||
+      systemSettings.yandex_enabled === 'true' ||
+      systemSettings.ldap_enabled === 'true' ||
+      systemSettings.saml_enabled === 'true';
+    if (!hasExternalAuth)
+      alerts.push({ id: 'auth', severity: 'info', title: 'Используется только локальная аутентификация', message: 'Внешние провайдеры (Google, Яндекс, LDAP, SAML) не настроены. Рекомендуется для корпоративных развёртываний.', action: { label: 'Настроить', onClick: () => setActiveTab('integrations') } });
+
+    return alerts;
+  }, [systemLoading, serverStats, storageUsed, storageTotal, pendingUsers, systemLogs, usersByRole, systemSettings]);
 
   const loadBannedWords = async () => {
     try {
@@ -715,6 +767,37 @@ export const AdminPage = () => {
 
             {/* ==================== ВКЛАДКА 1: ОБЗОР СИСТЕМЫ ==================== */}
             {activeTab === 'system' && (
+              <>
+                {/* СИСТЕМНЫЕ УВЕДОМЛЕНИЯ */}
+                {!systemLoading && (
+                  <div className="system-alerts-panel">
+                    {systemAlerts.length === 0 ? (
+                      <div className="system-alert alert-ok">
+                        <span className="alert-icon">✓</span>
+                        <span className="alert-text">Все системы работают в штатном режиме</span>
+                      </div>
+                    ) : (
+                      systemAlerts.map(alert => (
+                        <div key={alert.id} className={`system-alert alert-${alert.severity}`}>
+                          <span className="alert-icon">
+                            {alert.severity === 'critical' && '✕'}
+                            {alert.severity === 'warning' && '⚠'}
+                            {alert.severity === 'info' && 'i'}
+                          </span>
+                          <div className="alert-body">
+                            <span className="alert-title">{alert.title}</span>
+                            <span className="alert-message">{alert.message}</span>
+                          </div>
+                          {alert.action && (
+                            <button className="alert-action-btn" onClick={alert.action.onClick}>
+                              {alert.action.label}
+                            </button>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
                 <div className="dashboard-columns">
                     <div className="dashboard-main">
                         <div className="admin-section log-section">
@@ -825,6 +908,7 @@ export const AdminPage = () => {
                         </div>
                     </aside>
                 </div>
+              </>
             )}
 
             {/* ==================== ВКЛАДКА 2: УПРАВЛЕНИЕ ПОЛЬЗОВАТЕЛЯМИ ==================== */}
@@ -1000,8 +1084,16 @@ export const AdminPage = () => {
                                                 </select>
                                             </td>
                                             <td style={{textAlign: 'right'}}>
-                                                <div style={{display: 'flex', justifyContent: 'flex-end', gap: '8px'}}>
+                                                <div style={{display: 'flex', justifyContent: 'flex-end', gap: '8px', alignItems: 'center'}}>
+                                                    {u.status === 'banned' && (
+                                                        <span style={{ fontSize: '10px', color: '#ff4d4d', background: 'rgba(255,77,77,0.15)', border: '1px solid rgba(255,77,77,0.3)', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>БАН</span>
+                                                    )}
                                                     <button className="btn-icon" onClick={() => openEditModal(u)} title="Настроить"><Icons.Edit /></button>
+                                                    {u.status === 'banned' ? (
+                                                        <button className="btn-icon" style={{ color: '#00ff88', borderColor: 'rgba(0,255,136,0.3)' }} title="Разблокировать" onClick={async () => { await unbanUser(u.id); setUsersList(prev => prev.map(x => x.id === u.id ? {...x, status: 'active'} : x)); showToast('Пользователь разблокирован', 'success'); }}>✓</button>
+                                                    ) : (
+                                                        <button className="btn-icon" style={{ color: '#ff9900', borderColor: 'rgba(255,153,0,0.3)' }} title="Заблокировать" onClick={async () => { if (!confirm(`Заблокировать ${u.firstName} ${u.lastName}?`)) return; await banUser(u.id); setUsersList(prev => prev.map(x => x.id === u.id ? {...x, status: 'banned'} : x)); showToast('Пользователь заблокирован', 'success'); }}>🚫</button>
+                                                    )}
                                                     <button className="btn-icon delete-icon" onClick={() => handleDeleteUser(u.id, u.firstName)} title="Удалить"><Icons.Trash /></button>
                                                 </div>
                                             </td>

@@ -114,6 +114,8 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   };
 
   // States
+  const [isBuffering, setIsBuffering] = useState(false);
+  const [bufferedPercent, setBufferedPercent] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -137,6 +139,9 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   const [isZoomFill, setIsZoomFill] = useState(false);
   const [currentMenu, setCurrentMenu] = useState<'main' | 'speed' | 'quality' | 'captions' | 'chapters'>('main');
   const [activeSubtitle, setActiveSubtitle] = useState<string>('off');
+  const [subtitleSize, setSubtitleSize] = useState<number>(16);
+  const [subtitlePos, setSubtitlePos] = useState({ x: 50, y: 88 }); // % от размеров плеера
+  const [currentCueText, setCurrentCueText] = useState<string>('');
 
   // Logic States
   const [activeEvent, setActiveEvent] = useState<IInteractiveEvent | null>(null);
@@ -181,6 +186,7 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
     }, [events]);
     
   const pendingSeekRef = useRef<number | null>(null);
+  const subtitleDragRef = useRef<{ pointerId: number; startX: number; startY: number; startPosX: number; startPosY: number } | null>(null);
   // Ref для античита — не залежить від циклу рендерів React
   const anticheatTimeRef = useRef<number>(0);
   const progressLoadedRef = useRef<boolean>(false);
@@ -304,40 +310,61 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
         return () => es.close();
     }, [videoId, onRefreshEvents]);
 
+  // videoIdentityRef хранит sources[0].url при последнем реальном переключении видео.
+  // Это позволяет отличить "другое видео" от "тот же видео, родитель перерендерился".
+  const videoIdentityRef = useRef(safeSource.url);
+
   useEffect(() => {
-      if (sources && sources.length > 0) {
+      if (!sources || sources.length === 0) return;
+      const newIdentity = sources[0].url;
+      if (newIdentity === videoIdentityRef.current) {
+          // Тот же видео (или смена качества) — обновляем только субтитры текущего источника
           setCurrentSource(prev => {
-              if (prev.url === sources[0].url) {
-                  if (JSON.stringify(prev.subtitles) !== JSON.stringify(sources[0].subtitles)) {
-                      return { ...prev, subtitles: sources[0].subtitles };
-                  }
-                  return prev;
+              const matchInSources = sources.find(s => s.url === prev.url) ?? sources[0];
+              if (JSON.stringify(prev.subtitles) !== JSON.stringify(matchInSources.subtitles)) {
+                  return { ...prev, subtitles: matchInSources.subtitles };
               }
-              // Другое видео → сбрасываем авто-режим
-              setIsAutoMode(true);
-              autoIdxRef.current = 0;
-              return sources[0];
+              return prev;
           });
+      } else {
+          // Новое видео → сброс авто-режима
+          videoIdentityRef.current = newIdentity;
+          setIsAutoMode(true);
+          isAutoModeRef.current = true;
+          autoIdxRef.current = 0;
+          setCurrentSource(sources[0]);
       }
   }, [sources]);
 
   useEffect(() => {
-        if (videoRef.current) {
-            const tracks = videoRef.current.textTracks;
-            
-            // 1. Сначала принудительно переводим ВСЕ дорожки в disabled
-            for (let i = 0; i < tracks.length; i++) {
-                tracks[i].mode = 'disabled';
-            }
+        if (!videoRef.current) return;
+        const tracks = videoRef.current.textTracks;
 
-            // 2. Только если мы не в режиме "off", включаем конкретную
-            if (activeSubtitle !== 'off') {
-                const trackToShow = Array.from(tracks).find(t => t.language === activeSubtitle);
-                if (trackToShow) {
-                    trackToShow.mode = 'showing';
-                }
-            }
+        // Отключаем все треки
+        for (let i = 0; i < tracks.length; i++) {
+            tracks[i].mode = 'disabled';
         }
+        setCurrentCueText('');
+
+        if (activeSubtitle === 'off') return;
+
+        const track = Array.from(tracks).find(t => t.language === activeSubtitle);
+        if (!track) return;
+
+        // hidden — браузер парсит кью, но не отображает нативно
+        track.mode = 'hidden';
+
+        const onCueChange = () => {
+            const cues = track.activeCues;
+            if (!cues || cues.length === 0) { setCurrentCueText(''); return; }
+            const text = Array.from(cues)
+                .map(c => (c as VTTCue).text.replace(/<[^>]+>/g, ''))
+                .join('\n');
+            setCurrentCueText(text);
+        };
+
+        track.addEventListener('cuechange', onCueChange);
+        return () => { track.removeEventListener('cuechange', onCueChange); };
     }, [activeSubtitle, currentSource]);
 
   useEffect(() => {
@@ -731,6 +758,14 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
     anticheatTimeRef.current = time;
     setCurrentTime(time);
 
+    // Обновляем буфер
+    if (videoRef.current) {
+        const vid = videoRef.current;
+        if (vid.buffered.length > 0 && vid.duration > 0) {
+            setBufferedPercent((vid.buffered.end(vid.buffered.length - 1) / vid.duration) * 100);
+        }
+    }
+
     if (onTimeUpdate) onTimeUpdate(time);
 
     // НОВАЯ ЛОГИКА: Сохраняем каждые 30 секунд (не чаще)
@@ -1094,6 +1129,36 @@ useEffect(() => {
   };
 }, [activeEvent, isSpeedingUp, volume, showEndScreen, localEvents, isPlaying]);
   
+  const handleSubtitlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+      e.stopPropagation();
+      e.preventDefault();
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      subtitleDragRef.current = {
+          pointerId: e.pointerId,
+          startX: e.clientX,
+          startY: e.clientY,
+          startPosX: subtitlePos.x,
+          startPosY: subtitlePos.y,
+      };
+  };
+
+  const handleSubtitlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!subtitleDragRef.current) return;
+      const container = containerRef.current;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      const dx = ((e.clientX - subtitleDragRef.current.startX) / rect.width) * 100;
+      const dy = ((e.clientY - subtitleDragRef.current.startY) / rect.height) * 100;
+      setSubtitlePos({
+          x: Math.max(5, Math.min(95, subtitleDragRef.current.startPosX + dx)),
+          y: Math.max(5, Math.min(95, subtitleDragRef.current.startPosY + dy)),
+      });
+  };
+
+  const handleSubtitlePointerUp = () => {
+      subtitleDragRef.current = null;
+  };
+
   const hasSubtitles = currentSource.subtitles && currentSource.subtitles.length > 0;
   const hasChapters = chapters.length > 0;
   const hasQualities = sources && sources.length > 1;
@@ -1110,23 +1175,26 @@ useEffect(() => {
   const switchQuality = (newSource: typeof safeSource, auto = false) => {
       const savedTime = videoRef.current?.currentTime || 0;
       const wasPlaying = !videoRef.current?.paused;
-      if (!auto) setIsAutoMode(false); // ручной выбор отключает авто
+      if (!auto) {
+          setIsAutoMode(false);
+          isAutoModeRef.current = false; // сразу, чтобы onWaiting не переключил обратно
+      }
+      setIsBuffering(true);
       setCurrentSource(newSource);
       setShowSettings(false);
-      requestAnimationFrame(() => {
-          setTimeout(() => {
-              if (videoRef.current) {
-                  videoRef.current.currentTime = savedTime;
-                  anticheatTimeRef.current = savedTime;
-                  if (wasPlaying) safePlay();
-              }
-          }, 200);
-      });
+      // Используем pendingSeekRef — восстановим время в onLoadedMetadata, надёжнее чем setTimeout
+      pendingSeekRef.current = savedTime;
+      if (wasPlaying) {
+          // После loadedmetadata safePlay будет вызван через pendingPlay
+          pendingPlayRef.current = true;
+      }
   };
+  const pendingPlayRef = useRef(false);
 
   // Авто-снижение качества при буферизации (с защитой от seek и частых переключений)
   const handleVideoWaiting = () => {
-      if (!isAutoMode || !hasQualities) return;
+      setIsBuffering(true);
+      if (!isAutoModeRef.current || !hasQualities) return;
       if (isSeekingRef.current) return; // при перемотке не переключаем
       if (Date.now() - lastQualitySwitchRef.current < 5000) return; // cooldown 5 секунд
       const currentIdx = sources.findIndex(s => s.url === currentSource.url);
@@ -1509,8 +1577,17 @@ const renderMainMenu = () => (
                 anticheatTimeRef.current = pendingSeekRef.current;
                 pendingSeekRef.current = null;
             }
+            if (pendingPlayRef.current) {
+                pendingPlayRef.current = false;
+                safePlay();
+            }
         }}
+        onLoadStart={() => setIsBuffering(true)}
+        onLoadedData={() => setIsBuffering(false)}
         onPlay={() => setIsPlaying(true)}
+        onPlaying={() => setIsBuffering(false)}
+        onCanPlay={() => setIsBuffering(false)}
+        onStalled={() => setIsBuffering(true)}
         onPause={() => {
             setIsPlaying(false);
             if (videoId && videoRef.current) {
@@ -1541,13 +1618,81 @@ const renderMainMenu = () => (
           ))}
       </video>
 
+      {isBuffering && !currentEmbedUrl && (
+          <div style={{
+              position: 'absolute', inset: 0, zIndex: 20,
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+              gap: '12px', pointerEvents: 'none',
+          }}>
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: '5px', height: '36px' }}>
+                  {[0, 1, 2, 3, 4].map(i => (
+                      <div key={i} style={{
+                          width: '5px',
+                          borderRadius: '3px',
+                          background: 'var(--primary)',
+                          boxShadow: '0 0 8px var(--primary)',
+                          animation: `lumeo-bar 0.9s ease-in-out infinite`,
+                          animationDelay: `${i * 0.15}s`,
+                      }} />
+                  ))}
+              </div>
+              <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                  загрузка
+              </span>
+              <style>{`
+                  @keyframes lumeo-bar {
+                      0%, 100% { height: 6px; opacity: 0.4; }
+                      50%       { height: 32px; opacity: 1; }
+                  }
+              `}</style>
+          </div>
+      )}
+
       {isSpeedingUp && (
           <div className="speed-overlay" style={{ position: 'absolute', zIndex: 10 }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Icons.Rocket size={16}/> 2x Скорость</span>
           </div>
       )}
 
-      {!isPlaying && showControls && !activeEvent && !showEndScreen && (<div className="center-play-overlay-static" onClick={togglePlay}><VideoPlayeIcons.Play /></div>)}
+      {/* Кастомные субтитры с позиционированием */}
+      {currentCueText && (
+          <div
+              style={{
+                  position: 'absolute',
+                  left: `${subtitlePos.x}%`,
+                  top: `${subtitlePos.y}%`,
+                  transform: 'translate(-50%, -50%)',
+                  zIndex: 30,
+                  pointerEvents: 'auto',
+                  maxWidth: '80%',
+                  textAlign: 'center',
+                  cursor: 'move',
+                  userSelect: 'none',
+                  touchAction: 'none',
+              }}
+              onPointerDown={handleSubtitlePointerDown}
+              onPointerMove={handleSubtitlePointerMove}
+              onPointerUp={handleSubtitlePointerUp}
+              onPointerCancel={handleSubtitlePointerUp}
+          >
+              {currentCueText.split('\n').map((line, i) => (
+                  <div key={i} style={{
+                      display: 'inline-block',
+                      background: 'rgba(0,0,0,0.75)',
+                      color: '#fff',
+                      fontSize: `${subtitleSize}px`,
+                      lineHeight: 1.4,
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      marginBottom: '2px',
+                      whiteSpace: 'pre-wrap',
+                      width: '100%',
+                  }}>{line}</div>
+              ))}
+          </div>
+      )}
+
+      {!isPlaying && !isBuffering && showControls && !activeEvent && !showEndScreen && (<div className="center-play-overlay-static" onClick={togglePlay}><VideoPlayeIcons.Play /></div>)}
 
       <div className={`yt-controls ${showControls && !activeEvent ? 'show' : ''}`} style={{ zIndex: 100 }}>
         
@@ -1569,6 +1714,10 @@ const renderMainMenu = () => (
                     {hoverChapter && <div className="tooltip-chapter-title">{hoverChapter.question}</div>}
                     <span className="tooltip-time">{formatTime(hoverTime)}</span>
                 </div>
+            )}
+
+            {!currentEmbedUrl && bufferedPercent > 0 && (
+                <div className="yt-buffer-bar" style={{ width: `${bufferedPercent}%` }} />
             )}
 
               <div className="yt-progress-track">
@@ -1685,17 +1834,22 @@ const renderMainMenu = () => (
                   {currentMenu === 'quality' && (
                       <div className="menu-list">
                         <div className="menu-header" onClick={() => setCurrentMenu('main')}>‹ Качество</div>
-                        {/* Авто — всегда первым */}
-                        <div className="menu-item" onClick={() => {
-                            setIsAutoMode(true);
-                            autoIdxRef.current = 0;
-                            switchQuality(sources[0], true);
+                        {/* Авто — тумблер */}
+                        <div className="menu-item" onClick={e => {
+                            e.stopPropagation();
+                            const next = !isAutoMode;
+                            setIsAutoMode(next);
+                            isAutoModeRef.current = next;
+                            if (next) { autoIdxRef.current = 0; switchQuality(sources[0], true); }
                         }}>
-                            <span>Авто</span>
-                            {isAutoMode && <span className="check-mark">●</span>}
+                            <span className="menu-label">Авто</span>
+                            <div className={`quality-auto-toggle ${isAutoMode ? 'on' : ''}`}>
+                                <div className="quality-auto-toggle-knob" />
+                            </div>
                         </div>
+                        <div className="menu-divider" />
                         {sources.map(src => (
-                            <div key={src.quality} className="menu-item" onClick={() => switchQuality(src)}>
+                            <div key={src.quality} className={`menu-item ${isAutoMode ? 'menu-item-disabled' : ''}`} onClick={() => !isAutoMode && switchQuality(src)}>
                                 <span>{src.quality}</span>
                                 {!isAutoMode && currentSource.quality === src.quality && <span className="check-mark">●</span>}
                             </div>
@@ -1715,6 +1869,28 @@ const renderMainMenu = () => (
                                 {activeSubtitle === sub.lang && <span className="check-mark">●</span>}
                             </div>
                         ))}
+                        <div className="menu-divider" />
+                        <div className="menu-item" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '6px' }} onClick={e => e.stopPropagation()}>
+                            <span className="menu-label" style={{ fontSize: '11px', color: '#888' }}>Размер: {subtitleSize}px</span>
+                            <input type="range" min={10} max={36} step={1} value={subtitleSize}
+                                onChange={e => setSubtitleSize(Number(e.target.value))}
+                                style={{ width: '100%', accentColor: 'var(--primary)', cursor: 'pointer' }} />
+                        </div>
+                        <div className="menu-item" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '6px' }} onClick={e => e.stopPropagation()}>
+                            <span className="menu-label" style={{ fontSize: '11px', color: '#888' }}>По вертикали: {subtitlePos.y}%</span>
+                            <input type="range" min={5} max={95} step={1} value={subtitlePos.y}
+                                onChange={e => setSubtitlePos(p => ({ ...p, y: Number(e.target.value) }))}
+                                style={{ width: '100%', accentColor: 'var(--primary)', cursor: 'pointer' }} />
+                        </div>
+                        <div className="menu-item" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '6px' }} onClick={e => e.stopPropagation()}>
+                            <span className="menu-label" style={{ fontSize: '11px', color: '#888' }}>По горизонтали: {subtitlePos.x}%</span>
+                            <input type="range" min={5} max={95} step={1} value={subtitlePos.x}
+                                onChange={e => setSubtitlePos(p => ({ ...p, x: Number(e.target.value) }))}
+                                style={{ width: '100%', accentColor: 'var(--primary)', cursor: 'pointer' }} />
+                        </div>
+                        <div className="menu-item" onClick={() => setSubtitlePos({ x: 50, y: 88 })} style={{ justifyContent: 'center' }}>
+                            <span style={{ fontSize: '11px', color: '#666' }}>Сбросить позицию</span>
+                        </div>
                       </div>
                   )}
                   {currentMenu === 'chapters' && (

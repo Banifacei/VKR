@@ -12,7 +12,6 @@ import { AuthPage } from './pages/AuthPage';
 import { CoursesPage } from './pages/CoursesPage';
 
 const UserPage      = lazy(() => import('./pages/UserPage').then(m => ({ default: m.UserPage })));
-const PrepodPage    = lazy(() => import('./pages/PrepodPage').then(m => ({ default: m.PrepodPage })));
 const AdminPage     = lazy(() => import('./pages/AdminPage').then(m => ({ default: m.AdminPage })));
 const ProfilePage   = lazy(() => import('./pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
 const HistoryPage   = lazy(() => import('./pages/HistoryPage').then(m => ({ default: m.HistoryPage })));
@@ -61,11 +60,7 @@ function App() {
                     <Route path="/course/:courseId/lesson/:videoId" element={<ProtectedRoute><UserPage /></ProtectedRoute>} />
 
                     {/* --- ПРЕПОДАВАТЕЛЬСКАЯ (Только для teacher и admin) --- */}
-                    <Route path="/prepod" element={
-                        <ProtectedRoute allowedRoles={['teacher', 'admin']}>
-                            <PrepodPage />
-                        </ProtectedRoute>
-                    } />
+                    <Route path="/prepod" element={<Navigate to="/" replace />} />
                     <Route path="/analytics" element={
                         <ProtectedRoute allowedRoles={['teacher', 'admin']}>
                             <AnalyticsPage />

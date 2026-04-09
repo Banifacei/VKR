@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../api/axiosInstance';
 import { Icons } from './Icons';
 import './VideoComments.css';
@@ -45,17 +45,54 @@ export const VideoComments = ({ videoId, currentUserId, currentUserRole }: Props
 
     useEffect(() => { load(); }, [load]);
 
+    // SSE: получаем новые комментарии в реальном времени
+    const sseRef = useRef<EventSource | null>(null);
+    useEffect(() => {
+        const token = localStorage.getItem('lumeo_token');
+        const es = new EventSource(`/api/comments/video/${videoId}/stream?token=${token}`);
+        sseRef.current = es;
+        es.onmessage = (e) => {
+            try {
+                const d = JSON.parse(e.data);
+                if (d.type === 'new_comment') {
+                    const newComment: IComment = d.comment;
+                    const parentId: number | null = d.parentId;
+                    if (parentId === null) {
+                        setComments(prev => prev.some(c => c.id === newComment.id) ? prev : [newComment, ...prev]);
+                    } else {
+                        setComments(prev => prev.map(c => {
+                            if (c.id !== parentId) return c;
+                            if ((c.replies || []).some(r => r.id === newComment.id)) return c;
+                            return { ...c, replies: [...(c.replies || []), newComment] };
+                        }));
+                    }
+                } else if (d.type === 'delete_comment') {
+                    const { commentId, parentId } = d;
+                    if (parentId === null) {
+                        setComments(prev => prev.filter(c => c.id !== commentId));
+                    } else {
+                        setComments(prev => prev.map(c => {
+                            if (c.id !== parentId) return c;
+                            return { ...c, replies: (c.replies || []).filter(r => r.id !== commentId) };
+                        }));
+                    }
+                }
+            } catch { /* */ }
+        };
+        return () => { es.close(); sseRef.current = null; };
+    }, [videoId]);
+
     const submit = async () => {
         if (!text.trim()) return;
         setSending(true);
         try {
+            // SSE доставит комментарий в реальном времени (включая текущему пользователю)
             await api.post(`/comments/video/${videoId}`, {
                 text: text.trim(),
                 parentId: replyTo?.id || null,
             });
             setText('');
             setReplyTo(null);
-            await load();
         } catch { /* */ }
         finally { setSending(false); }
     };
@@ -63,7 +100,7 @@ export const VideoComments = ({ videoId, currentUserId, currentUserRole }: Props
     const remove = async (id: number) => {
         if (!confirm('Удалить комментарий?')) return;
         await api.delete(`/comments/${id}`);
-        await load();
+        // SSE доставит delete_comment всем зрителям автоматически
     };
 
     const canDelete = (c: IComment) =>

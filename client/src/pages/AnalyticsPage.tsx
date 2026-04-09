@@ -91,7 +91,7 @@ export const AnalyticsPage = () => {
                     </button>
                     <NotificationBell />
                     <span style={{color: '#888', fontSize: '14px'}}>{user?.firstName} {user?.lastName}</span>
-                    <button className="btn btn-ghost" onClick={() => navigate('/prepod')}>В панель управления</button>
+                    <button className="btn btn-ghost" onClick={() => navigate('/')}>Мои курсы</button>
                 </div>
             </header>
 

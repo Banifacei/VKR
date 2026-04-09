@@ -30,8 +30,16 @@ export const CourseSettingsModal = ({
     const [editCourseData, setEditCourseData] = useState({ title: '', description: '', instructor: '', enrollmentType: 'open', allowTeachersFreeAccess: false });
     
     // 🔥 НОВЫЕ СТЕЙТЫ ДЛЯ ЗАЯВОК
-    const [enrollmentFilter, setEnrollmentFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+    const [enrollmentFilter, setEnrollmentFilter] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'banned'>('all');
     const [isMassApproving, setIsMassApproving] = useState(false);
+    const [courseBans, setCourseBans] = useState<any[]>([]);
+
+    const loadCourseBans = async () => {
+        try {
+            const res = await api.get(`/videos/courses/${course.id}/bans`);
+            setCourseBans(res.data);
+        } catch { /* */ }
+    };
 
     // Стейты команды
     const [collaborators, setCollaborators] = useState<any[]>([]);
@@ -141,10 +149,12 @@ export const CourseSettingsModal = ({
     };
 
     // 🔥 ФИЛЬТРАЦИЯ ЗАЯВОК
-    const filteredEnrollments = enrollmentsList.filter(req => {
-        if (enrollmentFilter === 'all') return true;
-        return req.status === enrollmentFilter;
-    });
+    const filteredEnrollments = enrollmentFilter === 'banned'
+        ? []
+        : enrollmentsList.filter(req => {
+            if (enrollmentFilter === 'all') return true;
+            return req.status === enrollmentFilter;
+        });
 
     if (!isOpen) return null;
 
@@ -159,7 +169,7 @@ export const CourseSettingsModal = ({
 
                 <div style={{ display: 'flex', borderBottom: '1px solid #333', background: '#0a0a0a' }}>
                     <button onClick={() => setSettingsTab('info')} style={{ flex: 1, padding: '15px', background: 'none', border: 'none', borderBottom: settingsTab === 'info' ? '2px solid var(--primary)' : '2px solid transparent', color: settingsTab === 'info' ? 'var(--primary)' : '#888', fontWeight: 'bold', cursor: 'pointer' }}>Основное</button>
-                    <button onClick={() => { setSettingsTab('enrollments'); fetchEnrollments(); }} style={{ flex: 1, padding: '15px', background: 'none', border: 'none', borderBottom: settingsTab === 'enrollments' ? '2px solid var(--primary)' : '2px solid transparent', color: settingsTab === 'enrollments' ? 'var(--primary)' : '#888', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                    <button onClick={() => { setSettingsTab('enrollments'); fetchEnrollments(); loadCourseBans(); }} style={{ flex: 1, padding: '15px', background: 'none', border: 'none', borderBottom: settingsTab === 'enrollments' ? '2px solid var(--primary)' : '2px solid transparent', color: settingsTab === 'enrollments' ? 'var(--primary)' : '#888', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                         Заявки
                         {pendingCount > 0 && (
                             <span style={{ background: '#ff4d4d', color: '#fff', fontSize: '11px', padding: '2px 6px', borderRadius: '10px', lineHeight: 1 }}>{pendingCount}</span>
@@ -342,6 +352,7 @@ export const CourseSettingsModal = ({
                                     <button onClick={() => setEnrollmentFilter('pending')} style={{ padding: '6px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', background: enrollmentFilter === 'pending' ? 'rgba(255, 215, 0, 0.15)' : 'transparent', color: enrollmentFilter === 'pending' ? '#ffd700' : '#888', fontSize: '12px', fontWeight: 'bold', transition: '0.2s' }}>Новые ({pendingCount})</button>
                                     <button onClick={() => setEnrollmentFilter('approved')} style={{ padding: '6px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', background: enrollmentFilter === 'approved' ? 'rgba(0, 255, 136, 0.15)' : 'transparent', color: enrollmentFilter === 'approved' ? '#00ff88' : '#888', fontSize: '12px', fontWeight: 'bold', transition: '0.2s' }}>Одобрены</button>
                                     <button onClick={() => setEnrollmentFilter('rejected')} style={{ padding: '6px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', background: enrollmentFilter === 'rejected' ? 'rgba(255, 77, 77, 0.15)' : 'transparent', color: enrollmentFilter === 'rejected' ? '#ff4d4d' : '#888', fontSize: '12px', fontWeight: 'bold', transition: '0.2s' }}>Отклонены</button>
+                                    <button onClick={() => setEnrollmentFilter('banned')} style={{ padding: '6px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', background: enrollmentFilter === 'banned' ? 'rgba(255,100,0,0.15)' : 'transparent', color: enrollmentFilter === 'banned' ? '#ff6400' : '#888', fontSize: '12px', fontWeight: 'bold', transition: '0.2s' }}>Заблокированы ({courseBans.length})</button>
                                 </div>
 
                                 {/* Кнопка "Принять всех" появляется только если есть заявки в ожидании */}
@@ -370,8 +381,39 @@ export const CourseSettingsModal = ({
                                 )}
                             </div>
 
+                            {/* Список заблокированных */}
+                            {enrollmentFilter === 'banned' && (
+                                courseBans.length === 0 ? (
+                                    <div style={{ padding: '30px', textAlign: 'center', color: '#666' }}>
+                                        <div style={{ fontSize: '40px', marginBottom: '10px' }}>✅</div>
+                                        Нет заблокированных пользователей
+                                    </div>
+                                ) : courseBans.map(ban => (
+                                    <div key={ban.id} style={{ background: '#1a1a1a', borderRadius: '12px', border: '1px solid rgba(255,100,0,0.3)', padding: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                {ban.user?.avatarUrl ? <img src={ban.user.avatarUrl} style={{width:'100%', height:'100%', objectFit:'cover', borderRadius:'50%'}} alt=""/> : <span style={{color:'#fff', fontWeight: 'bold'}}>{ban.user?.firstName?.[0] || '?'}</span>}
+                                            </div>
+                                            <div>
+                                                <div style={{ color: '#fff', fontSize: '15px', fontWeight: 'bold' }}>{ban.user?.firstName} {ban.user?.lastName}</div>
+                                                <div style={{ color: '#888', fontSize: '12px' }}>{ban.user?.email}</div>
+                                                {ban.reason && <div style={{ fontSize: '11px', color: '#ff6400', marginTop: '4px' }}>Причина: {ban.reason}</div>}
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={async () => {
+                                                await api.delete(`/videos/courses/${course.id}/bans/${ban.userId}`);
+                                                setCourseBans(prev => prev.filter(b => b.id !== ban.id));
+                                                showToast('Пользователь разблокирован', 'success');
+                                            }}
+                                            style={{ background: 'transparent', color: '#00ff88', border: '1px solid rgba(0,255,136,0.3)', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
+                                        >Разблокировать</button>
+                                    </div>
+                                ))
+                            )}
+
                             {/* 🔥 ОБНОВЛЕННЫЙ СПИСОК ЗАЯВОК (С ФИЛЬТРОМ И ИСКЛЮЧЕНИЕМ) */}
-                            {filteredEnrollments.length === 0 ? (
+                            {enrollmentFilter !== 'banned' && (filteredEnrollments.length === 0 ? (
                                 <div style={{ padding: '30px', textAlign: 'center', color: '#666' }}>
                                     <div style={{ fontSize: '40px', marginBottom: '10px' }}>📭</div>
                                     Ничего не найдено
@@ -403,24 +445,26 @@ export const CourseSettingsModal = ({
                                                     </button>
                                                 </div>
                                             ) : req.status === 'approved' ? (
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                     <span style={{ fontSize: '13px', fontWeight: 'bold', padding: '6px 12px', borderRadius: '8px', background: 'rgba(0, 255, 136, 0.1)', color: '#00ff88', border: '1px solid rgba(0, 255, 136, 0.3)' }}>
                                                         Одобрено
                                                     </span>
-                                                    {/* Кнопка отзыва доступа */}
-                                                    <button 
-                                                        onClick={() => {
-                                                            if (window.confirm('Отозвать доступ к курсу у этого пользователя?')) {
-                                                                onEnrollmentAction(req.id, 'rejected');
-                                                            }
-                                                        }}
-                                                        style={{ background: 'transparent', color: '#ff4d4d', border: '1px solid rgba(255, 77, 77, 0.3)', padding: '6px 10px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', transition: '0.2s' }}
-                                                        onMouseEnter={e=>e.currentTarget.style.background='rgba(255, 77, 77, 0.1)'} 
-                                                        onMouseLeave={e=>e.currentTarget.style.background='transparent'}
+                                                    <button
+                                                        onClick={() => { if (window.confirm('Отозвать доступ к курсу?')) onEnrollmentAction(req.id, 'rejected'); }}
+                                                        style={{ background: 'transparent', color: '#ff4d4d', border: '1px solid rgba(255,77,77,0.3)', padding: '6px 10px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', transition: '0.2s' }}
                                                         title="Исключить студента"
-                                                    >
-                                                        🚫 Исключить
-                                                    </button>
+                                                    >Исключить</button>
+                                                    <button
+                                                        onClick={async () => {
+                                                            if (!window.confirm(`Заблокировать ${req.user?.firstName} в этом курсе?`)) return;
+                                                            await api.post(`/videos/courses/${course.id}/bans/${req.user?.id}`, { reason: '' });
+                                                            onEnrollmentAction(req.id, 'rejected');
+                                                            await loadCourseBans();
+                                                            showToast('Пользователь заблокирован в курсе', 'success');
+                                                        }}
+                                                        style={{ background: 'transparent', color: '#ff6400', border: '1px solid rgba(255,100,0,0.3)', padding: '6px 10px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', transition: '0.2s' }}
+                                                        title="Заблокировать в курсе"
+                                                    >Заблокировать</button>
                                                 </div>
                                             ) : (
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -442,7 +486,7 @@ export const CourseSettingsModal = ({
                                         </div>
                                     </div>
                                 ))
-                            )}
+                            ))}
                         </div>
                     )}
                 </div>

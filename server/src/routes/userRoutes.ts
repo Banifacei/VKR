@@ -15,7 +15,9 @@ import {
     downloadTemplate,
     searchUsers,
     getAvailableUsers,
-    getUserOverview
+    getUserOverview,
+    banUser,
+    unbanUser,
 } from '../controllers/userController.js';
 import { checkAuth, isAdmin, isTeacherOrAdmin, checkAuthSse } from '../middleware/authMiddleware.js';
 import { validateId } from '../middleware/validateId.js';
@@ -38,6 +40,8 @@ router.get('/export', checkAuth, isAdmin, exportUsersToExcel);
 router.get('/template', checkAuth, isAdmin, downloadTemplate);
 router.post('/:id/approve', checkAuth, isAdmin, uid, approveUser);
 router.post('/:id/reject', checkAuth, isAdmin, uid, rejectUser);
+router.post('/:id/ban', checkAuth, isAdmin, uid, banUser);
+router.post('/:id/unban', checkAuth, isAdmin, uid, unbanUser);
 router.post('/import', checkAuth, isAdmin, upload.single('file'), importUsersFromExcel);
 // SSE: администратор получает live-уведомления о новых заявках
 router.get('/admin/stream', checkAuthSse, isAdmin, sseAdminEvents);

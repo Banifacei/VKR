@@ -345,8 +345,30 @@ export const UserPage = () => {
             setIsEnrolling(false);
         }
     };
-    const totalItems = items.length;
-    const completedItemsCount = items.filter(item => {
+    // Для студентов и в режиме "глазами студента":
+    // — isHidden скрыты полностью
+    // — доступные идут первыми (по orderIndex)
+    // — предстоящие (unlockDate в будущем) — в конце, по дате релиза
+    const sortForStudent = (src: typeof items) => {
+        const now = new Date();
+        const visible = src.filter(item => !(item as any).isHidden);
+        const available = visible.filter(item => {
+            const ud = (item as any).unlockDate;
+            return !ud || new Date(ud) <= now;
+        });
+        const upcoming = visible
+            .filter(item => {
+                const ud = (item as any).unlockDate;
+                return ud && new Date(ud) > now;
+            })
+            .sort((a, b) => new Date((a as any).unlockDate).getTime() - new Date((b as any).unlockDate).getTime());
+        return [...available, ...upcoming];
+    };
+
+    const displayItems = isEditMode ? items : sortForStudent(items);
+
+    const totalItems = displayItems.length;
+    const completedItemsCount = displayItems.filter(item => {
         if (item.type === 'video') return completedVideoIds.includes(item.id);
         if (item.type === 'test') return testResults[item.id]?.passed;
         return false;
@@ -378,8 +400,10 @@ export const UserPage = () => {
                                     videoId={activeItem.id}
                                     title={activeItem.title}
                                     sources={[
-                                        ...(activeItem.qualityUrls || []).map(q => ({ quality: q.quality, url: q.url, subtitles: activeItem.subtitles })),
                                         { quality: 'Оригинал', url: activeItem.url, subtitles: activeItem.subtitles },
+                                        ...[...(activeItem.qualityUrls || [])]
+                                            .sort((a, b) => parseInt(b.quality) - parseInt(a.quality))
+                                            .map(q => ({ quality: q.quality, url: q.url, subtitles: activeItem.subtitles })),
                                     ]}
                                     events={activeItem.events || []}
                                     hideResults={activeItem.hideResults}
@@ -571,9 +595,9 @@ export const UserPage = () => {
                                     </div>
                                     <span><Icons.Teacher size={14}/> {course?.instructor}</span>
                                     <span>•</span>
-                                    <span>{items.filter(i => i.type === 'video').length} уроков</span>
+                                    <span>{displayItems.filter(i => i.type === 'video').length} уроков</span>
                                     <span>•</span>
-                                    <span>{items.filter(i => i.type === 'test').length} тестов</span>
+                                    <span>{displayItems.filter(i => i.type === 'test').length} тестов</span>
                                 </div>
                             </div>
                             <p style={{ color: '#ccc', marginTop: '15px', maxWidth: '800px', lineHeight: '1.5' }}>
@@ -613,9 +637,9 @@ export const UserPage = () => {
                             onDragEnd={handleDragEnd}
                             onDragCancel={() => setActiveDragId(null)}
                         >
-                            <SortableContext items={items.map(i => `${i.type}-${i.id}`)} strategy={rectSortingStrategy}>
+                            <SortableContext items={displayItems.map(i => `${i.type}-${i.id}`)} strategy={rectSortingStrategy}>
                                 <div className={`content-grid ${activeDragId ? 'is-global-dragging' : ''}`}>
-                                    {items.map((item, idx) => (
+                                    {displayItems.map((item, idx) => (
                                         <SortableCard 
                                             key={`${item.type}-${item.id}`}
                                             item={item}
@@ -638,7 +662,7 @@ export const UserPage = () => {
                                 </div>
                             </SortableContext>
                         </DndContext>
-                        {items.length === 0 && <div style={{ textAlign: 'center', padding: '50px', color: '#666' }}>В этом курсе пока нет материалов.</div>}
+                        {displayItems.length === 0 && <div style={{ textAlign: 'center', padding: '50px', color: '#666' }}>{isEditMode ? 'В этом курсе пока нет материалов.' : 'Нет доступных материалов.'}</div>}
                     </>
                 )}
             </div>
@@ -651,7 +675,6 @@ export const UserPage = () => {
                 nextOrderIndex={items.length > 0 ? Math.max(...items.map((i: any) => i.orderIndex || 0)) + 1 : 0}
                 onSuccess={fetchCourseData} 
             />
-            {/* МОДАЛКА РЕДАКТОРА КОНТЕНТА (Твой код из PrepodPage) */}
             {editorItem && (
                 <ContentEditorModal 
                     item={editorItem}
