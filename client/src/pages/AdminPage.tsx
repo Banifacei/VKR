@@ -1,27 +1,20 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { UserProfile } from '../components/UserProfile';
 import { BrandingTab } from '../components/Admin/BrandingTab';
-import { Link } from 'react-router-dom';
 import './AdminPage.css';
 import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../context/ThemeContext';
 import { getAllUsers, changeUserRole, updateUser, createUser, deleteUser, banUser, unbanUser } from '../api/userApi';
 import type { IAdminUser } from '../api/userApi';
 import api from '../api/axiosInstance';
 import { useToast } from '../context/ToastContext';
 import { Icons } from '../components/Icons';
-import { useSearch } from '../context/SearchContext';
-import { NotificationBell } from '../components/NotificationBell';
+import { AppHeader } from '../components/AppHeader';
 import '../components/GlobalSearch.css';
-import '../components/NotificationBell.css';
 
 interface ISystemLog { id: number; time: string; msg: string; type: 'info' | 'success' | 'error' | 'warning'; }
 
 export const AdminPage = () => {
   const { showToast } = useToast();
-  const { user, logout, updateUser: updateContextUser } = useAuth();
-  const { globalTheme } = useTheme();
-  const { openSearch } = useSearch();
+  const { user, updateUser: updateContextUser } = useAuth();
   const [showSamlModal, setShowSamlModal] = useState(false);
   const [samlForm, setSamlForm] = useState({ enabled: false, entryPoint: '', cert: '' });
   const [activeTab, setActiveTab] = useState<'system' | 'users' | 'requests' | 'integrations' | 'branding' | 'moderation'>('system');
@@ -57,6 +50,8 @@ export const AdminPage = () => {
   const [userForm, setUserForm] = useState({ firstName: '', lastName: '', email: '', role: 'student', password: '' });
   const [isSaving, setIsSaving] = useState(false);
   const [systemSettings, setSystemSettings] = useState<any>({});
+  const [banModalUser, setBanModalUser] = useState<IAdminUser | null>(null);
+  const [banReasonInput, setBanReasonInput] = useState('');
   const [showYandexModal, setShowYandexModal] = useState(false);
   const [yandexForm, setYandexForm] = useState({ enabled: false, clientId: '', clientSecret: '' });
   const [showLdapModal, setShowLdapModal] = useState(false);
@@ -300,14 +295,6 @@ export const AdminPage = () => {
       finally { setIsActionExecuting(false); }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('lumeo_user');
-    localStorage.removeItem('lumeo_token');
-    logout();
-    window.location.href = '/auth';
-  };
-
-  const handleAvatarUpdate = (newUrl: string) => updateContextUser({ avatarUrl: newUrl });
 
   const fetchUsers = async (page = usersPage, search = usersSearch, role = usersRoleFilter, provider = usersProviderFilter) => {
       setLoading(true);
@@ -417,11 +404,12 @@ export const AdminPage = () => {
       alerts.push({ id: 'admins', severity: 'warning', title: 'Много администраторов', message: `В системе ${usersByRole.admin} администраторов. Рекомендуется минимизировать число привилегированных аккаунтов.`, action: { label: 'Управлять', onClick: () => setActiveTab('users') } });
 
     // No external auth configured
+    const isEnabled = (v: any) => v === true || v === 'true';
     const hasExternalAuth =
-      systemSettings.google_enabled === 'true' ||
-      systemSettings.yandex_enabled === 'true' ||
-      systemSettings.ldap_enabled === 'true' ||
-      systemSettings.saml_enabled === 'true';
+      isEnabled(systemSettings.google_enabled) ||
+      isEnabled(systemSettings.yandex_enabled) ||
+      isEnabled(systemSettings.ldap_enabled) ||
+      isEnabled(systemSettings.saml_enabled);
     if (!hasExternalAuth)
       alerts.push({ id: 'auth', severity: 'info', title: 'Используется только локальная аутентификация', message: 'Внешние провайдеры (Google, Яндекс, LDAP, SAML) не настроены. Рекомендуется для корпоративных развёртываний.', action: { label: 'Настроить', onClick: () => setActiveTab('integrations') } });
 
@@ -469,6 +457,40 @@ export const AdminPage = () => {
 
   return (
     <div className="lumeo-layout">
+      {/* Модалка бана пользователя */}
+      {banModalUser && (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+              <div style={{ background: '#1a1a1a', border: '1px solid #333', borderRadius: 16, padding: 28, maxWidth: 420, width: '100%' }}>
+                  <h3 style={{ margin: '0 0 8px', color: '#fff' }}>Заблокировать пользователя</h3>
+                  <p style={{ color: '#888', fontSize: 14, margin: '0 0 16px' }}>
+                      {banModalUser.firstName} {banModalUser.lastName} ({banModalUser.email})
+                  </p>
+                  <label style={{ display: 'block', color: '#aaa', fontSize: 13, marginBottom: 6 }}>Причина блокировки (необязательно)</label>
+                  <textarea
+                      style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1px solid #333', borderRadius: 8, color: '#fff', padding: '8px 12px', fontSize: 13, fontFamily: 'inherit', resize: 'vertical', minHeight: 80, outline: 'none' }}
+                      placeholder="Например: нарушение правил платформы..."
+                      value={banReasonInput}
+                      onChange={e => setBanReasonInput(e.target.value)}
+                      maxLength={500}
+                  />
+                  <div style={{ display: 'flex', gap: 10, marginTop: 16, justifyContent: 'flex-end' }}>
+                      <button className="btn btn-ghost" onClick={() => setBanModalUser(null)}>Отмена</button>
+                      <button
+                          className="btn btn-primary"
+                          style={{ background: '#ff4444', borderColor: '#ff4444' }}
+                          onClick={async () => {
+                              await banUser(banModalUser.id, banReasonInput.trim() || undefined);
+                              setUsersList(prev => prev.map(x => x.id === banModalUser.id ? { ...x, status: 'banned' } : x));
+                              showToast('Пользователь заблокирован', 'success');
+                              setBanModalUser(null);
+                          }}
+                      >
+                          Заблокировать
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
       {/* Скрытый input для Excel */}
       <input 
           type="file" 
@@ -678,23 +700,7 @@ export const AdminPage = () => {
           </div>
       )}
       {/* ШАПКА */}
-      <header className="lumeo-header">
-          <div className="logo-group">
-            <div className="logo">
-              {globalTheme.platform_logo && <img src={globalTheme.platform_logo} alt="logo" style={{ height: 28, marginRight: 8, verticalAlign: 'middle' }} />}
-              {globalTheme.platform_name}<span className="dot">.</span>
-            </div>
-            <span className="admin-badge">ROOT ACCESS</span>
-          </div>
-          <div style={{display: 'flex', alignItems: 'center', gap: '16px'}}>
-              <button className="gs-trigger" onClick={openSearch}>
-                  <Icons.Search size={14} /><span>Поиск...</span><kbd>Ctrl+/</kbd>
-              </button>
-              <Link to="/" className="nav-link">Выход на сайт →</Link>
-              <NotificationBell />
-              {user && <UserProfile user={user} onUpdate={handleAvatarUpdate} onLogout={handleLogout} />}
-          </div>
-      </header>
+      <AppHeader badge="ROOT ACCESS" badgeColor="danger" />
 
       <div className="lumeo-container">
         <main className="admin-layout">
@@ -1092,7 +1098,7 @@ export const AdminPage = () => {
                                                     {u.status === 'banned' ? (
                                                         <button className="btn-icon" style={{ color: '#00ff88', borderColor: 'rgba(0,255,136,0.3)' }} title="Разблокировать" onClick={async () => { await unbanUser(u.id); setUsersList(prev => prev.map(x => x.id === u.id ? {...x, status: 'active'} : x)); showToast('Пользователь разблокирован', 'success'); }}>✓</button>
                                                     ) : (
-                                                        <button className="btn-icon" style={{ color: '#ff9900', borderColor: 'rgba(255,153,0,0.3)' }} title="Заблокировать" onClick={async () => { if (!confirm(`Заблокировать ${u.firstName} ${u.lastName}?`)) return; await banUser(u.id); setUsersList(prev => prev.map(x => x.id === u.id ? {...x, status: 'banned'} : x)); showToast('Пользователь заблокирован', 'success'); }}>🚫</button>
+                                                        <button className="btn-icon" style={{ color: '#ff9900', borderColor: 'rgba(255,153,0,0.3)' }} title="Заблокировать" onClick={() => { setBanModalUser(u); setBanReasonInput(''); }}>🚫</button>
                                                     )}
                                                     <button className="btn-icon delete-icon" onClick={() => handleDeleteUser(u.id, u.firstName)} title="Удалить"><Icons.Trash /></button>
                                                 </div>

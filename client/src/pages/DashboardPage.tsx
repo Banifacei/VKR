@@ -1,15 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../context/ThemeContext';
-import { useSearch } from '../context/SearchContext';
 import api from '../api/axiosInstance';
 import { Icons } from '../components/Icons';
-import { NotificationBell } from '../components/NotificationBell';
-import { UserProfile } from '../components/UserProfile';
+import { AppHeader } from '../components/AppHeader';
 import './DashboardPage.css';
 import '../components/GlobalSearch.css';
-import '../components/NotificationBell.css';
 
 interface ICourse {
     id: number; title: string; instructor: string;
@@ -19,17 +15,13 @@ interface IEnrollment { courseId: number; status: string; course: ICourse }
 interface IProgress   { courseId: number; percent: number }
 
 export const DashboardPage = () => {
-    const { user, logout, updateUser } = useAuth();
-    const { globalTheme } = useTheme();
-    const { openSearch }  = useSearch();
-    const navigate        = useNavigate();
+    const { user } = useAuth();
 
     const [enrollments, setEnrollments] = useState<IEnrollment[]>([]);
     const [progress, setProgress]       = useState<Record<number, number>>({});
     const [loading, setLoading]         = useState(true);
 
-    const handleAvatarUpdate = (url: string) => updateUser({ avatarUrl: url });
-    const handleLogout = () => { logout(); navigate('/auth'); };
+
 
     useEffect(() => {
         const load = async () => {
@@ -66,21 +58,7 @@ export const DashboardPage = () => {
 
     return (
         <div className="lumeo-layout">
-            <header className="lumeo-header">
-                <div className="logo">
-                    <Link to="/" className="logo-link">
-                        {globalTheme.platform_logo && <img src={globalTheme.platform_logo} alt="logo" style={{ height: 28, marginRight: 8, verticalAlign: 'middle' }} />}
-                        {globalTheme.platform_name}<span className="dot">.</span>
-                    </Link>
-                </div>
-                <button className="gs-trigger" onClick={openSearch}>
-                    <Icons.Search size={14} /><span>Поиск...</span><kbd>Ctrl+/</kbd>
-                </button>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <NotificationBell />
-                    {user && <UserProfile user={user} onUpdate={handleAvatarUpdate} onLogout={handleLogout} />}
-                </div>
-            </header>
+            <AppHeader />
 
             <main style={{ maxWidth: 1100, margin: '0 auto', padding: 'clamp(20px,4vw,48px) clamp(16px,3vw,24px)' }}>
 

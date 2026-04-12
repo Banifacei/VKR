@@ -33,7 +33,10 @@ export class User extends Model {
 
     // 🔥 НОВОЕ ПОЛЕ: Статус аккаунта
     @Column({ type: DataType.STRING, defaultValue: 'active' })
-    declare status: string; // 'pending' | 'active' | 'rejected'
+    declare status: string; // 'pending' | 'active' | 'rejected' | 'banned'
+
+    @Column({ type: DataType.TEXT, allowNull: true })
+    declare banReason: string | null;
 
     @Column({ type: DataType.DATE })
     declare lastLogin: Date;

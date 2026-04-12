@@ -50,6 +50,7 @@ interface VideoPlayerProps {
   onRefreshEvents?: () => Promise<IInteractiveEvent[]>;
   isExternalTestMode?: boolean;
   onToggleTestMode?: () => void;
+  seekRef?: React.MutableRefObject<((t: number) => void) | null>;
 }
 
 interface IAnswerResult {
@@ -59,7 +60,7 @@ interface IAnswerResult {
     similarity?: number | null;
 }
 
-export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'guest', userRole = 'student', hideResults = false, maxAttempts, onResetTest, onTimeUpdate, onRefreshEvents,isExternalTestMode = false,onToggleTestMode }: VideoPlayerProps) => {
+export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'guest', userRole = 'student', hideResults = false, maxAttempts, onResetTest, onTimeUpdate, onRefreshEvents,isExternalTestMode = false,onToggleTestMode, seekRef }: VideoPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
@@ -186,7 +187,8 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
     }, [events]);
     
   const pendingSeekRef = useRef<number | null>(null);
-  const subtitleDragRef = useRef<{ pointerId: number; startX: number; startY: number; startPosX: number; startPosY: number } | null>(null);
+  const subtitleRef = useRef<HTMLDivElement>(null);
+  const subtitleDragRef = useRef<{ pointerId: number; startX: number; startY: number; startPosX: number; startPosY: number; curX: number; curY: number } | null>(null);
   // Ref для античита — не залежить від циклу рендерів React
   const anticheatTimeRef = useRef<number>(0);
   const progressLoadedRef = useRef<boolean>(false);
@@ -387,6 +389,22 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
             }
         };
     }, [videoId]);
+
+  // Экспортируем функцию seek для внешнего управления (например, из закладок)
+  useEffect(() => {
+      if (!seekRef) return;
+      seekRef.current = (t: number) => {
+          if (currentEmbedUrl) {
+              seekExternal(t);
+          } else if (videoRef.current) {
+              videoRef.current.currentTime = t;
+              anticheatTimeRef.current = t;
+              setCurrentTime(t);
+          }
+      };
+      return () => { seekRef.current = null; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentEmbedUrl, seekRef]);
 
   // --- YouTube IFrame API: инициализация ---
   useEffect(() => {
@@ -1139,6 +1157,8 @@ useEffect(() => {
           startY: e.clientY,
           startPosX: subtitlePos.x,
           startPosY: subtitlePos.y,
+          curX: subtitlePos.x,
+          curY: subtitlePos.y,
       };
   };
 
@@ -1149,13 +1169,22 @@ useEffect(() => {
       const rect = container.getBoundingClientRect();
       const dx = ((e.clientX - subtitleDragRef.current.startX) / rect.width) * 100;
       const dy = ((e.clientY - subtitleDragRef.current.startY) / rect.height) * 100;
-      setSubtitlePos({
-          x: Math.max(5, Math.min(95, subtitleDragRef.current.startPosX + dx)),
-          y: Math.max(5, Math.min(95, subtitleDragRef.current.startPosY + dy)),
-      });
+      const newX = Math.max(5, Math.min(95, subtitleDragRef.current.startPosX + dx));
+      const newY = Math.max(5, Math.min(95, subtitleDragRef.current.startPosY + dy));
+      subtitleDragRef.current.curX = newX;
+      subtitleDragRef.current.curY = newY;
+      // Двигаем DOM напрямую — без ре-рендера React → идеально плавно
+      if (subtitleRef.current) {
+          subtitleRef.current.style.left = `${newX}%`;
+          subtitleRef.current.style.top = `${newY}%`;
+      }
   };
 
   const handleSubtitlePointerUp = () => {
+      if (subtitleDragRef.current) {
+          // Фиксируем финальную позицию в state после отпускания
+          setSubtitlePos({ x: subtitleDragRef.current.curX, y: subtitleDragRef.current.curY });
+      }
       subtitleDragRef.current = null;
   };
 
@@ -1657,6 +1686,7 @@ const renderMainMenu = () => (
       {/* Кастомные субтитры с позиционированием */}
       {currentCueText && (
           <div
+              ref={subtitleRef}
               style={{
                   position: 'absolute',
                   left: `${subtitlePos.x}%`,

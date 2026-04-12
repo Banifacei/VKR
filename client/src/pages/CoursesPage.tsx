@@ -8,19 +8,15 @@ import { getUserCourseProgress } from '../api/testApi';
 import type { ICourse } from '../types';
 import './UserPage.css';
 import './CoursesPage.css';
-import { UserProfile } from '../components/UserProfile';
 import { Icons } from '../components/Icons';
 import { PreviewBar } from '../components/PreviewBar';
 import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../context/ThemeContext';
 import api from '../api/axiosInstance';
 import { useToast } from '../context/ToastContext';
 import { CorsesIcons } from '../components/Icons';
-import { useSearch } from '../context/SearchContext';
-import { NotificationBell } from '../components/NotificationBell';
 import { StarDisplay } from '../components/StarRating';
+import { AppHeader } from '../components/AppHeader';
 import '../components/GlobalSearch.css';
-import '../components/NotificationBell.css';
 // 🔥 КАСТОМНЫЕ ИКОНКИ (БЕЗ ЭМОДЗИ)
 
 
@@ -84,10 +80,8 @@ export const CoursesPage = () => {
     const [progressMap, setProgressMap] = useState<Record<number, number>>({}); // Стейт для прогресс-баров
     const [ratingsMap, setRatingsMap] = useState<Record<number, { avg: number; total: number }>>({});
     const navigate = useNavigate();
-    const { user, logout, updateUser } = useAuth();
-    const { globalTheme } = useTheme();
+    const { user } = useAuth();
     const { showToast } = useToast();
-    const { openSearch } = useSearch();
     const [searchParams] = useSearchParams();
     const isPreview = searchParams.get('preview') === '1';
 
@@ -111,16 +105,6 @@ export const CoursesPage = () => {
         }
     };
 
-    const handleLogout = () => {
-        localStorage.removeItem('lumeo_user');
-        localStorage.removeItem('lumeo_token');
-        logout();
-        window.location.href = '/auth';
-    };
-
-    const handleAvatarUpdate = (newUrl: string) => {
-        updateUser({ avatarUrl: newUrl });
-    };
 
     // Загрузка курсов и расчет прогресса для студентов
     const loadData = async (isBackground = false) => {
@@ -214,30 +198,13 @@ export const CoursesPage = () => {
     return (
         <div className="lumeo-layout" style={isPreview ? { paddingTop: 44 } : undefined}>
             {isPreview && <PreviewBar />}
-            <header className="lumeo-header">
-                <div className="logo">
-                    {globalTheme.platform_logo && <img src={globalTheme.platform_logo} alt="logo" style={{ height: 28, marginRight: 8, verticalAlign: 'middle' }} />}
-                    {globalTheme.platform_name}<span className="dot">.</span>
-                </div>
-                <button className="gs-trigger" onClick={openSearch}>
-                    <Icons.Search size={14} /><span>Поиск...</span><kbd>Ctrl+/</kbd>
-                </button>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    {user?.role === 'student' && (
-                        <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={() => navigate('/dashboard')}>
-                            <Icons.BarChart2 size={14} /> Мой прогресс
-                        </button>
-                    )}
-                    <NotificationBell />
-                    {user && (
-                        <UserProfile
-                            user={user}
-                            onUpdate={handleAvatarUpdate}
-                            onLogout={handleLogout}
-                        />
-                    )}
-                </div>
-            </header>
+            <AppHeader>
+                {user?.role === 'student' && (
+                    <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={() => navigate('/dashboard')}>
+                        <Icons.BarChart2 size={14} /> Мой прогресс
+                    </button>
+                )}
+            </AppHeader>
 
             <div className="courses-content">
                 <h1 className="courses-page-title">Витрина курсов</h1>

@@ -49,9 +49,9 @@ export const checkAuth = async (req: Request, res: Response, next: NextFunction)
         const decoded = jwt.verify(token, JWT_SECRET) as { id: number; role: string; email: string };
 
         // Проверяем, не заблокирован ли пользователь
-        const dbUser = await User.findOne({ where: { id: decoded.id, status: 'banned' }, attributes: ['id'] });
+        const dbUser = await User.findOne({ where: { id: decoded.id, status: 'banned' }, attributes: ['id', 'banReason'] });
         if (dbUser) {
-            return res.status(403).json({ message: 'Ваш аккаунт заблокирован администратором.' });
+            return res.status(403).json({ banned: true, message: 'Ваш аккаунт заблокирован администратором.', banReason: (dbUser as any).banReason ?? null });
         }
 
         (req as any).user = decoded;

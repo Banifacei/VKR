@@ -6,6 +6,7 @@ import { useTheme } from '../context/ThemeContext';
 import api from '../api/axiosInstance';
 import { useToast } from '../context/ToastContext';
 import { Icons } from '../components/Icons';
+import { BannedModal } from '../components/BannedModal';
 
 export const AuthPage = () => {
     const { globalTheme } = useTheme();
@@ -34,6 +35,7 @@ export const AuthPage = () => {
     const [password, setPassword] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
+    const [loginBanReason, setLoginBanReason] = useState<string | null | undefined>(undefined);
     const navigate = useNavigate();
 
     // OAuth code exchange — получаем одноразовый код и меняем на JWT
@@ -111,8 +113,11 @@ export const AuthPage = () => {
                 setIsLogin(true);
             }
         } catch (err: any) {
-            // axios умно обрабатывает ошибки с бэкенда
-            setError(err.response?.data?.message || 'Ошибка сервера');
+            if (err.response?.data?.banned) {
+                setLoginBanReason(err.response.data.banReason ?? null);
+            } else {
+                setError(err.response?.data?.message || 'Ошибка сервера');
+            }
         } finally {
             setIsSubmitting(false);
         }
@@ -120,6 +125,9 @@ export const AuthPage = () => {
 
     return (
         <div className="auth-page">
+            {loginBanReason !== undefined && (
+                <BannedModal reason={loginBanReason} onClose={() => setLoginBanReason(undefined)} />
+            )}
             <div className="auth-background">
                 <div className="blob blob-1"></div><div className="blob blob-2"></div>
             </div>

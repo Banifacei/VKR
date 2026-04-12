@@ -1,11 +1,10 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { useParams, Link, useSearchParams, useNavigate } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { getVideosByCourse, getCourses } from '../api/videoApi';
 import { getCourseTests, getUserCourseProgress, type ICourseTest } from '../api/testApi';
 import type { IVideo, ICourse } from '../types';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { TestRunner } from '../components/TestRunner';
-import { UserProfile } from '../components/UserProfile';
 import { AuthModal } from '../components/AuthModal';
 import { TestCards } from '../components/TestCards';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
@@ -14,7 +13,6 @@ import { ContentEditorModal } from '../components/ContentEditorModal';
 import './UserPage.css';
 import './CoursesPage.css';
 import api from '../api/axiosInstance';
-import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../context/ToastContext';
 import { checkEnrollment, enrollInCourse, getCourseEnrollments, updateEnrollmentStatus} from '../api/videoApi';
 import { CourseLanding } from '../components/Course/CourseLanding';
@@ -22,13 +20,11 @@ import { SortableCard } from '../components/Course/SortableCard';
 import { AddContentModal } from '../components/Course/AddContentModal';
 import { CourseSettingsModal } from '../components/Course/CourseSettingsModal';
 import { Icons } from '../components/Icons';
-import { useSearch } from '../context/SearchContext';
-import { NotificationBell } from '../components/NotificationBell';
 import { VideoComments } from '../components/VideoComments';
 import { VideoBookmarks } from '../components/VideoBookmarks';
 import { StarRating } from '../components/StarRating';
+import { AppHeader } from '../components/AppHeader';
 import '../components/GlobalSearch.css';
-import '../components/NotificationBell.css';
 import '../components/VideoComments.css';
 
 type DashboardItem = 
@@ -40,9 +36,7 @@ export const UserPage = () => {
     const { courseId } = useParams();
     const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
-    const { globalTheme } = useTheme();
     const { showToast } = useToast();
-    const { openSearch } = useSearch();
     const [activeDragId, setActiveDragId] = useState<string | null>(null);
     const [showAddModal, setShowAddModal] = useState(false);
     const [editorItem, setEditorItem] = useState<DashboardItem | null>(null);
@@ -112,6 +106,7 @@ export const UserPage = () => {
 
     // 👇 2. ЛОГИКА TEST CARDS
     const testCardsRef = useRef<HTMLDivElement>(null);
+    const videoSeekRef = useRef<((t: number) => void) | null>(null);
     const [testModeState, setTestModeState] = useState<Record<number, boolean>>(() => {
         try {
             const saved = localStorage.getItem('lumeo_test_modes');
@@ -125,31 +120,32 @@ export const UserPage = () => {
 
     const handleToggleTestMode = () => {
         if (!activeItem || activeItem.type !== 'video') return;
-        
-        setTestModeState(prev => {
-            const isNowExternal = !prev[activeItem.id];
-            if (isNowExternal) {
-                setTimeout(() => {
-                    testCardsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }, 100);
+
+        const isNowExternal = !testModeState[activeItem.id];
+
+        if (isNowExternal) {
+            // Выходим из полноэкранного режима если активен
+            if (document.fullscreenElement) {
+                document.exitFullscreen().catch(() => {});
+            } else if ((document as any).webkitFullscreenElement) {
+                (document as any).webkitExitFullscreen?.();
             }
-            return { ...prev, [activeItem.id]: isNowExternal };
-        });
+        }
+
+        setTestModeState(prev => ({ ...prev, [activeItem.id]: isNowExternal }));
     };
+
+    // Скролл к тесту после рендера — через useEffect, надёжнее чем setTimeout
+    const isExternalTestActive = activeItem?.type === 'video' ? !!testModeState[activeItem.id] : false;
+    useEffect(() => {
+        if (!isExternalTestActive) return;
+        const timer = setTimeout(() => {
+            testCardsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
+        return () => clearTimeout(timer);
+    }, [isExternalTestActive]);
     // -----------------------------------------------------
 
-    const handleAvatarUpdate = (newUrl: string) => {
-        const updatedUser = { ...userData, avatarUrl: newUrl };
-        setUserData(updatedUser);
-        localStorage.setItem('lumeo_user', JSON.stringify(updatedUser));
-    };
-
-    const handleLogout = () => {
-        localStorage.removeItem('lumeo_user');
-        localStorage.removeItem('lumeo_token');
-        setUserData(null);
-        window.location.reload(); 
-    };
 
     const handleLoginSuccess = (data: any) => {
         localStorage.setItem('lumeo_user', JSON.stringify(data));
@@ -376,7 +372,7 @@ export const UserPage = () => {
     const progressPercent = totalItems > 0 ? Math.round((completedItemsCount / totalItems) * 100) : 0;
     // --- Рендер ПЛЕЕРА или ТЕСТА (Focus Mode) ---
     if (activeItem) {
-        const isExternalTest = activeItem.type === 'video' ? !!testModeState[activeItem.id] : false;
+        const isExternalTest = isExternalTestActive;
 
         return (
             <div className="focus-mode-layout" style={{ background: '#000', minHeight: '100vh', overflowY: 'auto' }}>
@@ -419,6 +415,7 @@ export const UserPage = () => {
                                     onResetTest={() => showToast('Прогресс сброшен', 'info')}
                                     onRefreshEvents={handleRefreshEvents}
                                     onTimeUpdate={setVideoCurrentTime}
+                                    seekRef={videoSeekRef}
                                 />
                             </div>
                             
@@ -444,11 +441,12 @@ export const UserPage = () => {
                                     videoId={activeItem.id}
                                     currentTime={videoCurrentTime}
                                     visible={showBookmarks}
+                                    onSeek={t => videoSeekRef.current?.(t)}
                                 />
                             )}
 
                             {/* 👇 4. БЛОК С КАРТОЧКАМИ ВОПРОСОВ */}
-                            {isExternalTest && activeItem.events && activeItem.events.some(e => ['single_choice', 'multiple_choice', 'free_text', 'question'].includes(e.type)) && userData?.role === 'student' && (
+                            {isExternalTest && activeItem.events && activeItem.events.some(e => ['single_choice', 'multiple_choice', 'free_text', 'question'].includes(e.type)) && (
                                 <div ref={testCardsRef} style={{ marginTop: '30px', animation: 'fadeIn 0.4s ease' }}>
                                     <div style={{ background: '#111', padding: '20px', borderRadius: '12px', border: '1px solid #333', marginBottom: '20px' }}>
                                         <h3 style={{marginTop: 0, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px'}}><Icons.FileText size={16}/> Вопросы к уроку</h3>
@@ -475,12 +473,14 @@ export const UserPage = () => {
                                 </div>
                             )}
 
-                            {/* Комментарии к уроку */}
-                            <VideoComments
-                                videoId={activeItem.id}
-                                currentUserId={userData?.id}
-                                currentUserRole={userData?.role}
-                            />
+                            {/* Комментарии к уроку — скрываются в режиме теста */}
+                            {!isExternalTest && (
+                                <VideoComments
+                                    videoId={activeItem.id}
+                                    currentUserId={userData?.id}
+                                    currentUserRole={userData?.role}
+                                />
+                            )}
                         </div>
                     ) : (
                         <TestRunner 
@@ -499,27 +499,7 @@ export const UserPage = () => {
         <div className="lumeo-layout">
             {showAuthModal && <AuthModal onLoginSuccess={handleLoginSuccess} />}
 
-            <header className="lumeo-header">
-                <div className="logo">
-                    <Link to="/courses" className="logo-link">
-                        {globalTheme.platform_logo && <img src={globalTheme.platform_logo} alt="logo" style={{ height: 28, marginRight: 8, verticalAlign: 'middle' }} />}
-                        {globalTheme.platform_name}<span className="dot">.</span>
-                    </Link>
-                </div>
-                <button className="gs-trigger" onClick={openSearch}>
-                    <Icons.Search size={14} /><span>Поиск...</span><kbd>Ctrl+/</kbd>
-                </button>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <NotificationBell />
-                    {userData && (
-                        <UserProfile
-                            user={userData}
-                            onUpdate={handleAvatarUpdate}
-                            onLogout={handleLogout}
-                        />
-                    )}
-                </div>
-            </header>
+            <AppHeader logoTo="/courses" />
             {/* 🔥 ЕСЛИ СТАТУС ГРУЗИТСЯ */}
             {enrollStatus === 'loading' ? (
                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1, color: '#888', height: 'calc(100vh - 60px)' }}>

@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { UserProfile } from '../components/UserProfile';
 import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../context/ThemeContext';
+import { AppHeader } from '../components/AppHeader';
 import './ProfilePage.css'; // Общий макет и сайдбар
 import './HistoryPage.css'; // Стили конкретно истории
 import api from '../api/axiosInstance';
@@ -12,11 +11,10 @@ import { Icons } from '../components/Icons';
 export const HistoryPage = () => {
     const navigate = useNavigate();
     const location = useLocation();
-    const { updateUser } = useAuth();
-    const { globalTheme } = useTheme();
+    useAuth();
     const { showToast } = useToast();
 
-    const [userData, setUserData] = useState<any>(() => {
+    const [userData] = useState<any>(() => {
         const saved = localStorage.getItem('lumeo_user');
         try { return saved ? JSON.parse(saved) : {}; } catch (e) { return {}; }
     });
@@ -38,33 +36,10 @@ export const HistoryPage = () => {
         if (userData.role === 'student') fetchStats();
     }, [userData.role]);
 
-    const handleLogout = () => {
-        localStorage.removeItem('lumeo_user');
-        localStorage.removeItem('lumeo_token');
-        window.location.href = '/auth';
-    };
-
-    const handleAvatarUpdate = (newUrl: string) => {
-        const updated = { ...userData, avatarUrl: newUrl };
-        setUserData(updated);
-        localStorage.setItem('lumeo_user', JSON.stringify(updated));
-        updateUser({ avatarUrl: newUrl });
-    };
 
     return (
         <div className="lumeo-layout">
-            <header className="lumeo-header">
-                <div className="logo" onClick={() => navigate('/')} style={{cursor: 'pointer'}}>
-                    {globalTheme.platform_logo && <img src={globalTheme.platform_logo} alt="logo" style={{ height: 28, marginRight: 8, verticalAlign: 'middle' }} />}
-                    {globalTheme.platform_name}<span className="dot">.</span>
-                </div>
-                <div style={{display: 'flex', alignItems: 'center', gap: '20px'}}>
-                    <button onClick={() => navigate(-1)} className="nav-link" style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'inherit', fontSize: 'inherit', fontFamily: 'inherit', padding: 0 }}>
-                        ← Назад
-                    </button>
-                    {userData.id && <UserProfile user={userData} onUpdate={handleAvatarUpdate} onLogout={handleLogout} />}
-                </div>
-            </header>
+            <AppHeader showSearch={false} showNotifications={false} backButton />
 
             <div className="lumeo-container profile-wrapper">
                 <div className="profile-dashboard">

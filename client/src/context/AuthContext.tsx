@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react'; // Импортируем тип отдельно
 import api from '../api/axiosInstance';
 import { normalizeUploadUrl } from '../utils/uploadUrl';
+import { BannedModal } from '../components/BannedModal';
 
 // Тип данных пользователя
 interface User {
@@ -31,6 +32,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [loading, setLoading] = useState(true);
+    const [banReason, setBanReason] = useState<string | null | undefined>(undefined); // undefined = не забанен
     // Инициализация из localStorage (ленивая)
     const [user, setUser] = useState<User | null>(() => {
         try {
@@ -100,14 +102,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 }
             } catch (error: any) {
                 console.error("Ошибка при проверке сессии:", error);
-                
-                // 🔥 ИСПРАВЛЕНИЕ СЕССИИ:
-                // Выкидываем пользователя ТОЛЬКО если сервер явно сказал, что токен протух (401, 403, 404)
-                if (error.response && [401, 403, 404].includes(error.response.status)) {
-                    logout(); 
+
+                if (error.response?.data?.banned) {
+                    // Показываем модалку бана, не редиректим сразу
+                    setBanReason(error.response.data.banReason ?? null);
+                    localStorage.removeItem('lumeo_token');
+                    localStorage.removeItem('lumeo_user');
+                    setToken(null);
+                    setUser(null);
+                } else if (error.response && [401, 403, 404].includes(error.response.status)) {
+                    logout();
                 }
-                // Если error.response НЕТ (сервер выключен через ctrl+c),
-                // мы просто ничего не делаем. Токен остается в браузере!
+                // Если error.response НЕТ (сервер выключен) — ничего не делаем
             } finally {
                 setLoading(false);
             }
@@ -123,16 +129,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     return (
-        <AuthContext.Provider value={{ 
-            user, 
-            token, 
-            login, 
-            logout, 
+        <AuthContext.Provider value={{
+            user,
+            token,
+            login,
+            logout,
             updateUser,
             isAuthenticated: !!token,
             loading
         }}>
             {children}
+            {banReason !== undefined && (
+                <BannedModal
+                    reason={banReason}
+                    onClose={() => { setBanReason(undefined); window.location.href = '/auth'; }}
+                />
+            )}
         </AuthContext.Provider>
     );
 };

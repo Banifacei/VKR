@@ -654,9 +654,11 @@ export const banUser = async (req: Request, res: Response) => {
         const user = await User.findByPk(targetId);
         if (!user) return res.status(404).json({ message: 'Пользователь не найден' });
         if (user.role === 'admin') return res.status(403).json({ message: 'Нельзя заблокировать администратора' });
+        const { reason } = req.body;
         user.status = 'banned';
+        user.banReason = reason?.trim() || null;
         await user.save();
-        addSystemLog(`Пользователь (ID: ${targetId}) заблокирован администратором (ID: ${adminId})`, 'warning');
+        addSystemLog(`Пользователь (ID: ${targetId}) заблокирован администратором (ID: ${adminId})${reason ? `: ${reason}` : ''}`, 'warning');
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ message: 'Ошибка блокировки' });
@@ -670,6 +672,7 @@ export const unbanUser = async (req: Request, res: Response) => {
         const user = await User.findByPk(targetId);
         if (!user) return res.status(404).json({ message: 'Пользователь не найден' });
         user.status = 'active';
+        user.banReason = null;
         await user.save();
         addSystemLog(`Пользователь (ID: ${targetId}) разблокирован`, 'info');
         res.json({ success: true });

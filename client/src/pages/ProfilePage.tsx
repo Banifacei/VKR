@@ -1,9 +1,8 @@
 import { useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { UserProfile } from '../components/UserProfile';
+import { AppHeader } from '../components/AppHeader';
 import { AppearanceTab } from '../components/Profile/AppearanceTab';
 import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../context/ThemeContext';
 import './ProfilePage.css';
 import api from '../api/axiosInstance';
 import { useToast } from '../context/ToastContext';
@@ -13,7 +12,6 @@ export const ProfilePage = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { updateUser } = useAuth();
-    const { globalTheme } = useTheme();
     const { showToast } = useToast();
     const [userData, setUserData] = useState<any>(() => {
         const saved = localStorage.getItem('lumeo_user');
@@ -31,12 +29,6 @@ export const ProfilePage = () => {
     const [isSaving, setIsSaving] = useState(false);
 
     const initial = userData.firstName ? userData.firstName.charAt(0).toUpperCase() : '?';
-
-    const handleLogout = () => {
-        localStorage.removeItem('lumeo_user');
-        localStorage.removeItem('lumeo_token');
-        window.location.href = '/auth';
-    };
 
     const handleAvatarUpdate = (newUrl: string) => {
         const updated = { ...userData, avatarUrl: newUrl };
@@ -102,31 +94,7 @@ export const ProfilePage = () => {
         <div className="lumeo-layout">
             <input type="file" ref={fileInputRef} style={{display: 'none'}} accept="image/*" onChange={handleFileChange} />
             
-            <header className="lumeo-header">
-                <div className="logo" onClick={() => navigate('/')} style={{cursor: 'pointer'}}>
-                    {globalTheme.platform_logo && <img src={globalTheme.platform_logo} alt="logo" style={{ height: 28, marginRight: 8, verticalAlign: 'middle' }} />}
-                    {globalTheme.platform_name}<span className="dot">.</span>
-                </div>
-                <div style={{display: 'flex', alignItems: 'center', gap: '20px'}}>
-                    {/* 3. Кнопка "Назад" с navigate(-1) */}
-                    <button 
-                        onClick={() => navigate(-1)} 
-                        className="nav-link" 
-                        style={{
-                            background: 'transparent', 
-                            border: 'none', 
-                            cursor: 'pointer', 
-                            color: 'inherit',
-                            fontSize: 'inherit',
-                            fontFamily: 'inherit',
-                            padding: 0
-                        }}
-                    >
-                        ← Назад
-                    </button>
-                    {userData.id && <UserProfile user={userData} onUpdate={handleAvatarUpdate} onLogout={handleLogout} />}
-                </div>
-            </header>
+            <AppHeader showSearch={false} showNotifications={false} backButton />
 
             <div className="lumeo-container profile-wrapper">
                 <div className="profile-dashboard">

@@ -1,14 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../context/ToastContext';
 import api from '../api/axiosInstance';
 import { Icons } from '../components/Icons';
-import { useSearch } from '../context/SearchContext';
-import { NotificationBell } from '../components/NotificationBell';
+import { AppHeader } from '../components/AppHeader';
 import '../components/GlobalSearch.css';
-import '../components/NotificationBell.css';
 import { ExportModal } from '../components/Analytics/ExportModal';
 import { AnalyticsDrillDownModal } from '../components/Analytics/AnalyticsDrillDownModal';
 
@@ -17,9 +14,7 @@ import './CoursesPage.css';
 
 export const AnalyticsPage = () => {
     const { user } = useAuth();
-    const { globalTheme } = useTheme();
     const navigate = useNavigate();
-    const { openSearch } = useSearch();
     const { showToast } = useToast();
     
     // Стейты Уровня 1
@@ -78,22 +73,9 @@ export const AnalyticsPage = () => {
 
     return (
         <div className="lumeo-layout">
-            <header className="lumeo-header">
-                <div className="logo">
-                    <span className="logo-link" onClick={() => navigate('/')} style={{cursor: 'pointer'}}>
-                        {globalTheme.platform_logo && <img src={globalTheme.platform_logo} alt="logo" style={{ height: 28, marginRight: 8, verticalAlign: 'middle' }} />}
-                        {globalTheme.platform_name}<span className="dot">.</span> <span style={{fontSize: '14px', color: '#888', fontWeight: 'normal'}}>Аналитика Intelligence</span>
-                    </span>
-                </div>
-                <div className="user-profile" style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
-                    <button className="gs-trigger" onClick={openSearch}>
-                        <Icons.Search size={14} /><span>Поиск...</span><kbd>Ctrl+/</kbd>
-                    </button>
-                    <NotificationBell />
-                    <span style={{color: '#888', fontSize: '14px'}}>{user?.firstName} {user?.lastName}</span>
-                    <button className="btn btn-ghost" onClick={() => navigate('/')}>Мои курсы</button>
-                </div>
-            </header>
+            <AppHeader subtitle="Аналитика">
+                <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={() => navigate('/')}>Мои курсы</button>
+            </AppHeader>
 
             <main className="main-content" style={{ padding: 'clamp(16px, 4vw, 40px) clamp(12px, 3vw, 20px)', maxWidth: '1600px', margin: '0 auto', width: '95%' }}>
                 

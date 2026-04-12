@@ -62,8 +62,8 @@ export const deleteUser = async (userId: number) => {
     return response.data;
 };
 
-export const banUser = async (userId: number) => {
-    const response = await api.post(`/users/${userId}/ban`);
+export const banUser = async (userId: number, reason?: string) => {
+    const response = await api.post(`/users/${userId}/ban`, { reason });
     return response.data;
 };
 
