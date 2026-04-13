@@ -54,7 +54,7 @@ export const AppHeader = ({
     return (
         <header className="lumeo-header">
             {/* Левая часть: логотип + бейдж/подпись */}
-            <div className="logo-group">
+            <div className="logo-group" style={{ flex: 1 }}>
                 <Link to={logoTo} className="logo" style={{ textDecoration: 'none' }}>
                     {globalTheme.platform_logo && (
                         <img
@@ -84,14 +84,17 @@ export const AppHeader = ({
                 )}
             </div>
 
-            {/* Правая часть */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                {showSearch && (
+            {/* Центр: поиск */}
+            {showSearch && (
+                <div className="header-search-center">
                     <button className="gs-trigger" onClick={openSearch}>
                         <Icons.Search size={14} /><span>Поиск...</span><kbd>Ctrl+/</kbd>
                     </button>
-                )}
+                </div>
+            )}
 
+            {/* Правая часть: действия */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, justifyContent: 'flex-end' }}>
                 {backButton && (
                     <button
                         onClick={() => navigate(-1)}

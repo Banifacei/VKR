@@ -23,7 +23,7 @@ import commentRoutes from './src/routes/commentRoutes.js';
 import ratingRoutes from './src/routes/ratingRoutes.js';
 import bookmarkRoutes from './src/routes/bookmarkRoutes.js';
 import bannedWordRoutes from './src/routes/bannedWordRoutes.js';
-import { trackActivityMiddleware, addSystemLog } from './src/controllers/adminController.js';
+import { trackActivityMiddleware, addSystemLog, heartbeatHandler } from './src/controllers/adminController.js';
 import { createDefaultAdmin } from './src/models/initAdmin.js';
 import { cleanupOrphanFiles } from './src/utils/cleanup.js';
 import { checkAuth } from './src/middleware/authMiddleware.js';
@@ -159,6 +159,7 @@ app.post('/api/auth/avatar', checkAuth, avatarUpload.single('avatar'), async (re
         res.status(500).json({ message: 'Ошибка сервера' });
     }
 });
+app.post('/api/heartbeat', checkAuth, heartbeatHandler);
 app.use('/api/search', searchRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/comments', commentRoutes);

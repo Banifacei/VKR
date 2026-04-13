@@ -24,6 +24,7 @@ interface AuthContextType {
     login: (token: string, userData: User) => void;
     logout: () => void;
     updateUser: (updates: Partial<User>) => void;
+    forceBan: (reason: string | null) => void;
     isAuthenticated: boolean;
     loading: boolean;
 }
@@ -74,6 +75,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const updatedUser = { ...user, ...updates };
         setUser(updatedUser);
         localStorage.setItem('lumeo_user', JSON.stringify(updatedUser));
+    };
+
+    const forceBan = (reason: string | null) => {
+        localStorage.removeItem('lumeo_token');
+        localStorage.removeItem('lumeo_user');
+        setToken(null);
+        setUser(null);
+        setBanReason(reason);
     };
 
 // 2. ГЛАВНОЕ ИЗМЕНЕНИЕ: Проверка сессии при старте
@@ -135,6 +144,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             login,
             logout,
             updateUser,
+            forceBan,
             isAuthenticated: !!token,
             loading
         }}>

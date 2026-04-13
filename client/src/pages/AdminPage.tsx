@@ -12,6 +12,40 @@ import '../components/GlobalSearch.css';
 
 interface ISystemLog { id: number; time: string; msg: string; type: 'info' | 'success' | 'error' | 'warning'; }
 
+interface IOnlineUser {
+  userId?: number;
+  firstName?: string;
+  lastName?: string;
+  role?: string;
+  page?: string;
+  avatarUrl?: string;
+  lastSeen?: number;
+}
+
+function formatPage(page?: string): string {
+  if (!page) return '—';
+  if (page === '/') return 'Каталог курсов';
+  if (page === '/dashboard') return 'Дашборд';
+  if (page === '/history') return 'История';
+  if (page === '/profile') return 'Профиль';
+  if (page === '/analytics') return 'Аналитика';
+  if (page === '/adminpanel') return 'Панель администратора';
+  if (/^\/course\/\d+\/lesson\/\d+/.test(page)) return 'Просмотр урока';
+  if (/^\/course\/\d+/.test(page)) return 'Страница курса';
+  return page;
+}
+
+function formatLastSeen(lastSeen?: number): string {
+  if (!lastSeen) return '';
+  const diff = Math.floor((Date.now() - lastSeen) / 1000);
+  if (diff < 60) return 'сейчас';
+  if (diff < 3600) return `${Math.floor(diff / 60)} мин назад`;
+  return `${Math.floor(diff / 3600)} ч назад`;
+}
+
+const ROLE_LABELS: Record<string, string> = { student: 'Студент', teacher: 'Преподаватель', admin: 'Админ' };
+const ROLE_COLORS: Record<string, string> = { student: '#4a9eff', teacher: '#ffd700', admin: '#ff4d4d' };
+
 export const AdminPage = () => {
   const { showToast } = useToast();
   const { user, updateUser: updateContextUser } = useAuth();
@@ -33,6 +67,9 @@ export const AdminPage = () => {
   const [usersProviderFilter, setUsersProviderFilter] = useState('');
   const [pendingUsers, setPendingUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showOnlineModal, setShowOnlineModal] = useState(false);
+  const [onlineUsers, setOnlineUsers] = useState<IOnlineUser[]>([]);
+  const [onlineRoleFilter, setOnlineRoleFilter] = useState<string>('all');
   const [systemLoading, setSystemLoading] = useState(true);
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
   const [storageData, setStorageData] = useState({ total: 100, video: 0, db: 0, cache: 0 });
@@ -217,6 +254,18 @@ export const AdminPage = () => {
 
       return () => { clearInterval(liveInterval); es?.close(); };
   }, []);
+
+  // SSE онлайн-пользователей — подключаемся когда открыта модалка
+  useEffect(() => {
+    if (!showOnlineModal) return;
+    const token = localStorage.getItem('lumeo_token');
+    if (!token) return;
+    const es = new EventSource(`/api/admin/online-users/stream?token=${token}`);
+    es.onmessage = ({ data }) => {
+      try { setOnlineUsers(JSON.parse(data).users ?? []); } catch {}
+    };
+    return () => es.close();
+  }, [showOnlineModal]);
 
   const handleToggleSetting = async () => {
       const newValue = !requiresApproval;
@@ -764,7 +813,7 @@ export const AdminPage = () => {
                         <div className="stat-icon" style={{color: '#ff4d4d'}}><Icons.Shield /></div>
                         <div className="stat-info"><div className="stat-label">Администраторов</div><div className="stat-value">{usersByRole.admin}</div></div>
                     </div>
-                    <div className="stat-card mini">
+                    <div className="stat-card mini" style={{cursor: 'pointer'}} onClick={() => setShowOnlineModal(true)} title="Посмотреть кто онлайн">
                         <div className="stat-icon" style={{color: '#00ff88'}}><Icons.Activity /></div>
                         <div className="stat-info"><div className="stat-label">Активных сессий</div><div className="stat-value">{serverStats.connections}</div></div>
                     </div>
@@ -1395,6 +1444,81 @@ export const AdminPage = () => {
             )}
         </main>
       </div>
+
+    {/* ===== МОДАЛКА ОНЛАЙН ПОЛЬЗОВАТЕЛЕЙ ===== */}
+    {showOnlineModal && (
+      <div className="modal-overlay" onClick={() => setShowOnlineModal(false)}>
+        <div className="modal-content" style={{ maxWidth: 560, maxHeight: '80vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 17 }}>Онлайн сейчас</h3>
+              <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{onlineUsers.length} активных сессий</span>
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {(['all', 'student', 'teacher', 'admin'] as const).map(r => (
+                <button
+                  key={r}
+                  onClick={() => setOnlineRoleFilter(r)}
+                  style={{
+                    padding: '3px 10px', borderRadius: 12, border: 'none', cursor: 'pointer', fontSize: 12,
+                    background: onlineRoleFilter === r ? 'var(--primary)' : 'var(--card-bg)',
+                    color: onlineRoleFilter === r ? '#fff' : 'var(--text-secondary)',
+                  }}
+                >{r === 'all' ? 'Все' : ROLE_LABELS[r]}</button>
+              ))}
+            </div>
+            <button onClick={() => setShowOnlineModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: 4 }}>
+              <Icons.Close size={18} />
+            </button>
+          </div>
+          <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {onlineUsers.filter(u => onlineRoleFilter === 'all' || u.role === onlineRoleFilter).length === 0 ? (
+              <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '30px 0', fontSize: 14 }}>
+                Нет активных пользователей
+              </div>
+            ) : (
+              onlineUsers
+                .filter(u => onlineRoleFilter === 'all' || u.role === onlineRoleFilter)
+                .sort((a, b) => (b.lastSeen ?? 0) - (a.lastSeen ?? 0))
+                .map((u, i) => {
+                  const initials = `${u.firstName?.[0] ?? ''}${u.lastName?.[0] ?? ''}`.toUpperCase() || '?';
+                  const roleColor = ROLE_COLORS[u.role ?? ''] ?? '#888';
+                  return (
+                    <div key={u.userId ?? i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 10, background: 'var(--card-bg)' }}>
+                      {u.avatarUrl ? (
+                        <img src={u.avatarUrl} alt="" style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                      ) : (
+                        <div style={{ width: 38, height: 38, borderRadius: '50%', background: roleColor + '33', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 600, color: roleColor, flexShrink: 0 }}>
+                          {initials}
+                        </div>
+                      )}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : `Пользователь #${u.userId}`}
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+                          {formatPage(u.page)}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: roleColor + '22', color: roleColor, fontWeight: 500 }}>
+                          {ROLE_LABELS[u.role ?? ''] ?? u.role}
+                        </span>
+                        <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                          {formatLastSeen(u.lastSeen)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
+            )}
+          </div>
+          <div style={{ marginTop: 12, fontSize: 11, color: 'var(--text-secondary)', textAlign: 'center' }}>
+            Обновляется автоматически каждые 10 сек
+          </div>
+        </div>
+      </div>
+    )}
     </div>
   );
 };

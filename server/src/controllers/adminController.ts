@@ -6,30 +6,113 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
 import { SystemSetting } from '../models/SystemSetting.js';
-// --- НОВОЕ: Трекер реальных сессий ---
-// Ключ: userId (если авторизован) или IP (гость). Так два устройства одного юзера = 1 сессия,
-// а два разных юзера за одним роутером = 2 сессии.
-export const activeSessions = new Map<string, number>();
+import { User } from '../models/User.js';
+import { createBroadcast } from '../utils/sseHub.js';
+
+// --- Трекер сессий ---
+type SessionData = {
+    lastSeen: number;
+    userId?: number;
+    firstName?: string;
+    lastName?: string;
+    role?: string;
+    page?: string;
+    avatarUrl?: string;
+};
+export const activeSessions = new Map<string, SessionData>();
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 import jwt from 'jsonwebtoken';
+
 export const trackActivityMiddleware = (req: Request, res: Response, next: NextFunction) => {
     let key: string;
     try {
         const token = (req.headers.authorization?.split(' ')[1]) || (req.query.token as string);
         if (token && process.env.JWT_SECRET) {
-            const decoded = jwt.verify(token, process.env.JWT_SECRET) as { id: number };
+            const decoded = jwt.verify(token, process.env.JWT_SECRET) as { id: number; role: string };
             key = `user:${decoded.id}`;
+            const existing = activeSessions.get(key);
+            if (existing) {
+                existing.lastSeen = Date.now();
+            } else {
+                activeSessions.set(key, { lastSeen: Date.now(), userId: decoded.id, role: decoded.role });
+            }
         } else {
             const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown') as string;
             key = `ip:${ip}`;
+            activeSessions.set(key, { lastSeen: Date.now() });
         }
     } catch {
         const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown') as string;
         key = `ip:${ip}`;
+        activeSessions.set(key, { lastSeen: Date.now() });
     }
-    activeSessions.set(key, Date.now());
     next();
+};
+
+// SSE-канал для трансляции онлайн-пользователей (только для админа)
+export const onlineUsersBroadcast = createBroadcast();
+
+const FIVE_MINUTES = 5 * 60 * 1000;
+
+function getCurrentOnlineUsers(): SessionData[] {
+    const now = Date.now();
+    const result: SessionData[] = [];
+    for (const [key, data] of activeSessions.entries()) {
+        if (!key.startsWith('user:')) continue;
+        if (now - data.lastSeen < FIVE_MINUTES) {
+            result.push(data);
+        } else {
+            activeSessions.delete(key);
+        }
+    }
+    return result;
+}
+
+// Трансляция онлайн-пользователей каждые 10 секунд
+setInterval(() => {
+    onlineUsersBroadcast.broadcast({ users: getCurrentOnlineUsers() });
+}, 10_000);
+
+export const heartbeatHandler = async (req: Request, res: Response) => {
+    const { page } = req.body as { page?: string };
+    const userId = (req as any).user?.id;
+    if (!userId) return res.status(401).end();
+
+    const key = `user:${userId}`;
+    const existing = activeSessions.get(key);
+
+    if (existing && existing.firstName) {
+        existing.lastSeen = Date.now();
+        if (page) existing.page = page;
+    } else {
+        const dbUser = await User.findByPk(userId, { attributes: ['firstName', 'lastName', 'role', 'avatarUrl'] });
+        const data: SessionData = {
+            lastSeen: Date.now(),
+            userId,
+            firstName: (dbUser as any)?.firstName,
+            lastName: (dbUser as any)?.lastName,
+            role: (dbUser as any)?.role,
+            page: page || existing?.page || '/',
+            avatarUrl: (dbUser as any)?.avatarUrl,
+        };
+        activeSessions.set(key, data);
+    }
+
+    res.json({ ok: true });
+};
+
+export const getOnlineUsers = (_req: Request, res: Response) => {
+    res.json(getCurrentOnlineUsers());
+};
+
+export const streamOnlineUsers = (req: Request, res: Response) => {
+    const user = (req as any).user;
+    if (!user || user.role !== 'admin') return res.status(403).end();
+    onlineUsersBroadcast.subscribe(req, res);
+    // Сразу отправляем текущий список
+    res.write(`data: ${JSON.stringify({ users: getCurrentOnlineUsers() })}\n\n`);
 };
 // -------------------------------------
 
@@ -141,12 +224,11 @@ export const getServerStats = async (req: Request, res: Response) => {
         const now = Date.now();
         let realOnlineCount = 0;
 
-        for (const [ip, lastSeen] of activeSessions.entries()) {
-            if (now - lastSeen < FIVE_MINUTES) {
+        for (const [key, data] of activeSessions.entries()) {
+            if (now - data.lastSeen < FIVE_MINUTES) {
                 realOnlineCount++;
             } else {
-                // Если юзер давно ничего не делал — удаляем его из памяти (очистка)
-                activeSessions.delete(ip);
+                activeSessions.delete(key);
             }
         }
 

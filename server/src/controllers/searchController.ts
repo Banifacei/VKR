@@ -37,12 +37,20 @@ export const globalSearch = async (req: Request, res: Response) => {
 
         let users: any[] = [];
         if (userRole === 'teacher' || userRole === 'admin') {
+            const roleWhere = userRole === 'teacher'
+                ? { role: { [Op.in]: ['student', 'teacher'] } }  // препод не видит админов
+                : {};
             users = await User.findAll({
                 where: {
-                    [Op.or]: [
-                        { firstName: pattern },
-                        { lastName: pattern },
-                        { email: pattern },
+                    [Op.and]: [
+                        {
+                            [Op.or]: [
+                                { firstName: pattern },
+                                { lastName: pattern },
+                                { email: pattern },
+                            ],
+                        },
+                        roleWhere,
                     ],
                 },
                 attributes: ['id', 'firstName', 'lastName', 'email', 'role', 'avatarUrl'],

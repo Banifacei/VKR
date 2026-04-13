@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api/axiosInstance';
 import { Icons } from './Icons';
 import './NotificationBell.css';
+import { useAuth } from '../context/AuthContext';
 
 interface INotification {
     id: number;
@@ -24,6 +25,7 @@ const typeIcon: Record<string, React.ReactNode> = {
 
 export const NotificationBell = () => {
     const navigate = useNavigate();
+    const { forceBan } = useAuth();
     const [open, setOpen]                 = useState(false);
     const [items, setItems]               = useState<INotification[]>([]);
     const [unread, setUnread]             = useState(0);
@@ -45,8 +47,13 @@ export const NotificationBell = () => {
         const es = new EventSource(`/api/notifications/stream?token=${token}`);
         es.onmessage = (e) => {
             try {
-                const n: INotification = JSON.parse(e.data);
-                setItems(prev => [n, ...prev]);
+                const n = JSON.parse(e.data);
+                if (n.type === 'force_ban') {
+                    es.close();
+                    forceBan(n.banReason ?? null);
+                    return;
+                }
+                setItems(prev => [n as INotification, ...prev]);
                 setUnread(u => u + 1);
             } catch { /* */ }
         };

@@ -200,6 +200,17 @@
     font-size: 10px;
 }
 
+/* ── Центральный блок поиска в шапке ─────────────────────────────────────── */
+.header-search-center {
+    display: flex;
+    justify-content: center;
+    width: 460px;
+}
+
+.header-search-center .gs-trigger {
+    width: 100%;
+}
+
 /* ── Search trigger button (in headers) ──────────────────────────────────── */
 .gs-trigger {
     display: flex;

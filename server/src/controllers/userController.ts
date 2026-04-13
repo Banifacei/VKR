@@ -9,6 +9,8 @@ import { UserTestResult } from '../models/UserTestResult.js';
 import { CourseTest } from '../models/CourseTest.js';
 import { CourseEnrollment } from '../models/CourseEnrollment.js';
 import { addSystemLog } from './adminController.js';
+import { CourseCollaborator } from '../models/CourseCollaborator.js';
+import { notificationSse } from './notificationController.js';
 import { Op } from 'sequelize';
 import * as xlsx from 'xlsx';
 import { createBroadcast } from '../utils/sseHub.js';
@@ -589,56 +591,108 @@ export const getAvailableUsers = async (req: Request, res: Response) => {
 
 // GET /api/users/:id/overview — профиль + прогресс по курсам (для препода/админа)
 export const getUserOverview = async (req: Request, res: Response) => {
-    const targetId = Number(req.params.id);
+    const targetId  = Number(req.params.id);
+    const viewerId  = (req as any).user?.id as number;
+    const viewerRole = (req as any).user?.role as string;
+
     try {
-        const user = await User.findByPk(targetId, {
-            attributes: ['id', 'firstName', 'lastName', 'email', 'role', 'avatarUrl', 'createdAt'],
-        });
+        // Атрибуты пользователя зависят от роли смотрящего
+        const userAttrs = viewerRole === 'admin'
+            ? ['id', 'firstName', 'lastName', 'email', 'role', 'avatarUrl', 'createdAt', 'status', 'banReason', 'lastLogin']
+            : ['id', 'firstName', 'lastName', 'email', 'role', 'avatarUrl', 'createdAt'];
+
+        const user = await User.findByPk(targetId, { attributes: userAttrs });
         if (!user) return res.status(404).json({ message: 'Пользователь не найден' });
 
-        // Все зачисления со статусом approved
+        const targetRole = (user as any).role as string;
+
+        // Препод не должен открывать профиль админа
+        if (viewerRole === 'teacher' && targetRole === 'admin') {
+            return res.status(403).json({ message: 'Недостаточно прав' });
+        }
+
+        // ── Если просматриваемый — ПРЕПОДАВАТЕЛЬ/АДМИН: возвращаем его курсы (owned + colab) ──
+        if (targetRole === 'teacher' || targetRole === 'admin') {
+            try {
+                const ownedCourses = await Course.findAll({
+                    where: { ownerId: targetId },
+                    attributes: ['id', 'title', 'instructor'],
+                });
+                const collabIds = await CourseCollaborator.findAll({
+                    where: { userId: targetId },
+                    attributes: ['courseId'],
+                });
+                const collabCourses = collabIds.length
+                    ? await Course.findAll({
+                        where: { id: (collabIds as any[]).map(c => c.courseId) },
+                        attributes: ['id', 'title', 'instructor'],
+                    })
+                    : [];
+
+                return res.json({
+                    user,
+                    viewerRole,
+                    mode: 'teacher_profile',
+                    ownedCourses: (ownedCourses as any[]).map(c => ({ id: c.id, title: c.title, instructor: c.instructor })),
+                    collabCourses: (collabCourses as any[]).map(c => ({ id: c.id, title: c.title, instructor: c.instructor })),
+                });
+            } catch {
+                return res.json({ user, viewerRole, mode: 'teacher_profile', ownedCourses: [], collabCourses: [] });
+            }
+        }
+
+        // ── Если просматриваемый — СТУДЕНТ: возвращаем прогресс ──
+        // Для преподавателя — только его курсы; для админа — все курсы
+        let courseFilter: number[] | null = null;
+        if (viewerRole === 'teacher') {
+            const ownedIds = await Course.findAll({ where: { ownerId: viewerId }, attributes: ['id'] });
+            const collabIds = await CourseCollaborator.findAll({ where: { userId: viewerId }, attributes: ['courseId'] });
+            courseFilter = [
+                ...ownedIds.map((c: any) => c.id),
+                ...collabIds.map((c: any) => c.courseId),
+            ];
+        }
+
+        const enrollmentWhere: any = { userId: targetId };
+        const courseIncludeWhere: any = courseFilter ? { id: courseFilter } : {};
+
         const enrollments = await CourseEnrollment.findAll({
-            where: { userId: targetId },
-            include: [{ model: Course, as: 'course', attributes: ['id', 'title', 'instructor'] }],
+            where: enrollmentWhere,
+            include: [{
+                model: Course,
+                as: 'course',
+                attributes: ['id', 'title', 'instructor'],
+                where: Object.keys(courseIncludeWhere).length ? courseIncludeWhere : undefined,
+                required: !!courseFilter,
+            }],
         });
 
-        // Прогресс по каждому курсу
         const courses = await Promise.all(enrollments.map(async (enroll) => {
-            const course = enroll.course as any;
+            const course = (enroll as any).course;
             if (!course) return null;
 
-            // Всего видео в курсе
-            const totalVideos = await Video.count({ where: { courseId: course.id } });
-            // Просмотренных (completed = true)
-            const completedVideos = await UserVideoProgress.count({
-                where: { userId: targetId, completed: true },
-                include: [{ model: Video, as: 'video', where: { courseId: course.id }, attributes: [] }],
-            });
-            // Тестов в курсе
-            const totalTests = await CourseTest.count({ where: { courseId: course.id } });
-            // Пройденных тестов
-            const completedTests = await UserTestResult.count({
-                where: { userId: targetId, courseId: course.id },
-            });
+            try {
+                const totalVideos     = await Video.count({ where: { courseId: course.id } });
+                const completedVideos = await UserVideoProgress.count({
+                    where: { userId: targetId, isWatched: true },
+                    include: [{ model: Video, as: 'video', where: { courseId: course.id }, attributes: [] }],
+                });
+                const totalTests     = await CourseTest.count({ where: { courseId: course.id } });
+                const completedTests = await UserTestResult.count({
+                    where: { userId: targetId },
+                    include: [{ model: CourseTest, as: 'test', where: { courseId: course.id }, attributes: [], required: true }],
+                });
 
-            const totalItems = totalVideos + totalTests;
-            const completedItems = completedVideos + completedTests;
-            const progress = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
+                const totalItems = totalVideos + totalTests;
+                const progress   = totalItems > 0 ? Math.round(((completedVideos + completedTests) / totalItems) * 100) : 0;
 
-            return {
-                id: course.id,
-                title: course.title,
-                instructor: course.instructor,
-                status: enroll.status,
-                progress,
-                totalVideos,
-                completedVideos,
-                totalTests,
-                completedTests,
-            };
+                return { id: course.id, title: course.title, instructor: course.instructor, status: enroll.status, progress, totalVideos, completedVideos, totalTests, completedTests };
+            } catch {
+                return { id: course.id, title: course.title, instructor: course.instructor, status: enroll.status, progress: 0, totalVideos: 0, completedVideos: 0, totalTests: 0, completedTests: 0 };
+            }
         }));
 
-        res.json({ user, courses: courses.filter(Boolean) });
+        res.json({ user, viewerRole, mode: 'student_profile', courses: courses.filter(Boolean) });
     } catch (e) {
         console.error('getUserOverview error:', e);
         res.status(500).json({ message: 'Ошибка загрузки профиля' });
@@ -659,6 +713,8 @@ export const banUser = async (req: Request, res: Response) => {
         user.banReason = reason?.trim() || null;
         await user.save();
         addSystemLog(`Пользователь (ID: ${targetId}) заблокирован администратором (ID: ${adminId})${reason ? `: ${reason}` : ''}`, 'warning');
+        // Мгновенно уведомляем активную сессию пользователя
+        notificationSse.broadcast(targetId, { type: 'force_ban', banReason: user.banReason });
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ message: 'Ошибка блокировки' });

@@ -1,11 +1,27 @@
 
-import { lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { lazy, Suspense, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider } from './context/ToastContext';
 import { SearchProvider } from './context/SearchContext';
 import { GlobalSearch } from './components/GlobalSearch';
+import api from './api/axiosInstance';
+
+function HeartbeatSender() {
+    const { isAuthenticated } = useAuth();
+    const location = useLocation();
+
+    useEffect(() => {
+        if (!isAuthenticated) return;
+        const send = () => api.post('/heartbeat', { page: location.pathname }).catch(() => {});
+        send();
+        const id = setInterval(send, 30_000);
+        return () => clearInterval(id);
+    }, [isAuthenticated, location.pathname]);
+
+    return null;
+}
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then(m => ({ default: m.DashboardPage })));
 
 import { AuthPage } from './pages/AuthPage';
@@ -45,6 +61,7 @@ function App() {
         <ThemeProvider>
         <AuthProvider>
             <BrowserRouter>
+                <HeartbeatSender />
                 <SearchProvider>
                 <GlobalSearch />
                 <Suspense fallback={null}>
