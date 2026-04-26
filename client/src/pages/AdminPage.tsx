@@ -9,6 +9,7 @@ import { useToast } from '../context/ToastContext';
 import { Icons } from '../components/Icons';
 import { AppHeader } from '../components/AppHeader';
 import '../components/GlobalSearch.css';
+import { sseQuery } from '../utils/sseTicket';
 
 interface ISystemLog { id: number; time: string; msg: string; type: 'info' | 'success' | 'error' | 'warning'; }
 
@@ -232,9 +233,11 @@ export const AdminPage = () => {
       const liveInterval = setInterval(fetchLiveServerStats, 1500);
 
       // SSE: мгновенные уведомления о новых заявках и одобрениях/отклонениях
-      const token = localStorage.getItem('lumeo_token');
-      const es = token ? new EventSource(`/api/users/admin/stream?token=${token}`) : null;
-      if (es) {
+      let es: EventSource | null = null;
+      let active = true;
+      sseQuery().then(q => {
+          if (!active || !q) return;
+          es = new EventSource(`/api/users/admin/stream?${q}`);
           es.onmessage = ({ data }) => {
               try {
                   const d = JSON.parse(data);
@@ -249,22 +252,26 @@ export const AdminPage = () => {
                   }
               } catch { /* игнорируем */ }
           };
-          es.onerror = () => es.close();
-      }
+          es.onerror = () => es?.close();
+      });
 
-      return () => { clearInterval(liveInterval); es?.close(); };
+      return () => { active = false; clearInterval(liveInterval); es?.close(); };
   }, []);
 
   // SSE онлайн-пользователей — подключаемся когда открыта модалка
   useEffect(() => {
     if (!showOnlineModal) return;
-    const token = localStorage.getItem('lumeo_token');
-    if (!token) return;
-    const es = new EventSource(`/api/admin/online-users/stream?token=${token}`);
-    es.onmessage = ({ data }) => {
-      try { setOnlineUsers(JSON.parse(data).users ?? []); } catch {}
-    };
-    return () => es.close();
+    let es: EventSource | null = null;
+    let active = true;
+    sseQuery().then(q => {
+        if (!active || !q) return;
+        es = new EventSource(`/api/admin/online-users/stream?${q}`);
+        es.onmessage = ({ data }) => {
+            try { setOnlineUsers(JSON.parse(data).users ?? []); } catch {}
+        };
+        es.onerror = () => es?.close();
+    });
+    return () => { active = false; es?.close(); };
   }, [showOnlineModal]);
 
   const handleToggleSetting = async () => {
@@ -749,7 +756,7 @@ export const AdminPage = () => {
           </div>
       )}
       {/* ШАПКА */}
-      <AppHeader badge="ROOT ACCESS" badgeColor="danger" />
+      <AppHeader badge="Администратор" badgeColor="danger" />
 
       <div className="lumeo-container">
         <main className="admin-layout">

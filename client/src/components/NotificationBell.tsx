@@ -4,6 +4,7 @@ import api from '../api/axiosInstance';
 import { Icons } from './Icons';
 import './NotificationBell.css';
 import { useAuth } from '../context/AuthContext';
+import { sseQuery } from '../utils/sseTicket';
 
 interface INotification {
     id: number;
@@ -42,23 +43,22 @@ export const NotificationBell = () => {
     // SSE — мгновенные уведомления
     useEffect(() => {
         load();
-        const token = localStorage.getItem('lumeo_token');
-        if (!token) return;
-        const es = new EventSource(`/api/notifications/stream?token=${token}`);
-        es.onmessage = (e) => {
-            try {
-                const n = JSON.parse(e.data);
-                if (n.type === 'force_ban') {
-                    es.close();
-                    forceBan(n.banReason ?? null);
-                    return;
-                }
-                setItems(prev => [n as INotification, ...prev]);
-                setUnread(u => u + 1);
-            } catch { /* */ }
-        };
-        es.onerror = () => es.close();
-        return () => es.close();
+        let es: EventSource | null = null;
+        let active = true;
+        sseQuery().then(q => {
+            if (!active || !q) return;
+            es = new EventSource(`/api/notifications/stream?${q}`);
+            es.onmessage = (e) => {
+                try {
+                    const n = JSON.parse(e.data);
+                    if (n.type === 'force_ban') { es?.close(); forceBan(n.banReason ?? null); return; }
+                    setItems(prev => [n as INotification, ...prev]);
+                    setUnread(u => u + 1);
+                } catch { /* */ }
+            };
+            es.onerror = () => es?.close();
+        });
+        return () => { active = false; es?.close(); };
     }, []);
 
     // Закрываем при клике вне

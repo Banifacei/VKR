@@ -295,24 +295,25 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   // SSE: мгновенное обновление событий видео когда препод вносит изменения
   useEffect(() => {
         if (!videoId || !onRefreshEvents) return;
-
-        const token = localStorage.getItem('lumeo_token');
-        const es = new EventSource(`/api/videos/${videoId}/events/stream?token=${token}`);
-
-        es.onmessage = async ({ data }) => {
-            try {
-                const d = JSON.parse(data);
-                if (d.type !== 'events_updated') return;
-                const freshEvents = await onRefreshEvents();
-                setLocalEvents(prev => {
-                    if (JSON.stringify(prev) === JSON.stringify(freshEvents)) return prev;
-                    return freshEvents;
-                });
-            } catch { /* игнорируем */ }
-        };
-
-        es.onerror = () => es.close();
-        return () => es.close();
+        let es: EventSource | null = null;
+        let active = true;
+        import('../utils/sseTicket').then(({ sseQuery }) => sseQuery()).then(q => {
+            if (!active || !q) return;
+            es = new EventSource(`/api/videos/${videoId}/events/stream?${q}`);
+            es.onmessage = async ({ data }) => {
+                try {
+                    const d = JSON.parse(data);
+                    if (d.type !== 'events_updated') return;
+                    const freshEvents = await onRefreshEvents();
+                    setLocalEvents(prev => {
+                        if (JSON.stringify(prev) === JSON.stringify(freshEvents)) return prev;
+                        return freshEvents;
+                    });
+                } catch { /* игнорируем */ }
+            };
+            es.onerror = () => es?.close();
+        });
+        return () => { active = false; es?.close(); };
     }, [videoId, onRefreshEvents]);
 
   // videoIdentityRef хранит sources[0].url при последнем реальном переключении видео.

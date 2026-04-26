@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import { sseQuery } from '../utils/sseTicket';
 import './ContentEditorModal.css';
 import { VideoPlayer } from './VideoPlayer';
 import { addEvent, updateEvent, deleteEvent, generateAutoSubtitles, updateVideo, getVideosByCourse, getVideoStats, transcodeVideo } from '../api/videoApi';
@@ -668,30 +669,33 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
     // SSE: обновление когда транскодирование завершилось
     useEffect(() => {
         if (!selectedVideo?.courseId) return;
-        const token = localStorage.getItem('lumeo_token');
-        if (!token) return;
-        const es = new EventSource(`/api/videos/courses/${selectedVideo.courseId}/processing/stream?token=${token}`);
-        es.onmessage = async ({ data }) => {
-            try {
-                const d = JSON.parse(data);
-                if (d.type === 'subtitle_done' && d.videoId === selectedVideo.id) {
-                    setGeneratingVideos((prev: number[]) => prev.filter((id: number) => id !== selectedVideo.id));
-                    const fresh = await getVideosByCourse(selectedVideo.courseId!);
-                    const updated = fresh.find((v: IVideo) => v.id === selectedVideo.id);
-                    if (updated) setSelectedVideo(updated);
-                    onSuccess();
-                } else if (d.type === 'quality_ready' && d.videoId === selectedVideo.id) {
-                    setTranscodingVideos(prev => prev.filter(id => id !== selectedVideo.id));
-                    showToast(`Версии качества готовы!`, 'success');
-                    const fresh = await getVideosByCourse(selectedVideo.courseId!);
-                    const updated = fresh.find((v: IVideo) => v.id === selectedVideo.id);
-                    if (updated) setSelectedVideo(updated);
-                    onSuccess();
-                }
-            } catch { /* игнорируем */ }
-        };
-        es.onerror = () => es.close();
-        return () => es.close();
+        let es: EventSource | null = null;
+        let active = true;
+        sseQuery().then(q => {
+            if (!active || !q) return;
+            es = new EventSource(`/api/videos/courses/${selectedVideo.courseId}/processing/stream?${q}`);
+            es.onmessage = async ({ data }) => {
+                try {
+                    const d = JSON.parse(data);
+                    if (d.type === 'subtitle_done' && d.videoId === selectedVideo.id) {
+                        setGeneratingVideos((prev: number[]) => prev.filter((id: number) => id !== selectedVideo.id));
+                        const fresh = await getVideosByCourse(selectedVideo.courseId!);
+                        const updated = fresh.find((v: IVideo) => v.id === selectedVideo.id);
+                        if (updated) setSelectedVideo(updated);
+                        onSuccess();
+                    } else if (d.type === 'quality_ready' && d.videoId === selectedVideo.id) {
+                        setTranscodingVideos(prev => prev.filter(id => id !== selectedVideo.id));
+                        showToast(`Версии качества готовы!`, 'success');
+                        const fresh = await getVideosByCourse(selectedVideo.courseId!);
+                        const updated = fresh.find((v: IVideo) => v.id === selectedVideo.id);
+                        if (updated) setSelectedVideo(updated);
+                        onSuccess();
+                    }
+                } catch { /* игнорируем */ }
+            };
+            es.onerror = () => es?.close();
+        });
+        return () => { active = false; es?.close(); };
     }, [selectedVideo?.id, selectedVideo?.courseId]);
 
     // --- Drag and Drop ---

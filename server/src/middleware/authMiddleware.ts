@@ -2,6 +2,21 @@
 import { Request, Response, NextFunction } from 'express';
 import { User } from '../models/User.js';
 import jwt from 'jsonwebtoken';
+import { randomUUID } from 'crypto';
+
+// Краткосрочные SSE-тикеты (TTL 5 мин, выдаются через POST /auth/sse-ticket)
+const sseTickets = new Map<string, { id: number; role: string; email: string; exp: number }>();
+setInterval(() => {
+    const now = Date.now();
+    for (const [k, v] of sseTickets) if (v.exp < now) sseTickets.delete(k);
+}, 60_000);
+
+export const createSseTicket = (req: Request, res: Response): void => {
+    const user = (req as any).user as { id: number; role: string; email: string };
+    const ticket = randomUUID();
+    sseTickets.set(ticket, { ...user, exp: Date.now() + 5 * 60 * 1000 });
+    res.json({ ticket });
+};
 import { Op } from 'sequelize';
 
 if (!process.env.JWT_SECRET) {
@@ -72,10 +87,18 @@ export const isTeacherOrAdmin = (req: Request, res: Response, next: NextFunction
     res.status(403).json({ message: 'Доступ запрещён. Требуется роль преподавателя или администратора.' });
 };
 
-/** Вариант checkAuth для SSE-эндпоинтов: принимает токен из ?token= query param,
- *  т.к. EventSource API не поддерживает кастомные заголовки. */
+/** Вариант checkAuth для SSE-эндпоинтов.
+ *  Приоритет: ?ticket= (краткосрочный UUID) > ?token= (полный JWT, legacy) > Authorization header.
+ *  Используй ?ticket= — JWT не попадает в URL-логи прокси. */
 export const checkAuthSse = (req: Request, res: Response, next: NextFunction) => {
     try {
+        const ticket = req.query.ticket as string | undefined;
+        if (ticket) {
+            const data = sseTickets.get(ticket);
+            if (!data || data.exp < Date.now()) { sseTickets.delete(ticket ?? ''); return res.status(401).end(); }
+            (req as any).user = data;
+            return next();
+        }
         const token = (req.query.token as string) || req.headers.authorization?.split(' ')[1];
         if (!token) return res.status(401).end();
         const decoded = jwt.verify(token, JWT_SECRET) as { id: number; role: string; email: string };

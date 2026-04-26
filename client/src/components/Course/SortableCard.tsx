@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Icons } from '../Icons';
+import { pluralizeRu } from '../../utils/pluralize';
 
 // Форматирует дату на русском: "15 апреля в 12:00"
 function formatReleaseDate(iso: string): string {
@@ -178,7 +179,7 @@ export const SortableCard = ({ item, idx, isEditMode, completedVideoIds, testRes
                     ) : (
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                                {isVideo ? 'Учебный материал' : `${item.questions?.length || 0} вопросов`}
+                                {isVideo ? 'Учебный материал' : (() => { const n = item.questions?.length || 0; return `${n} ${pluralizeRu(n, 'вопрос', 'вопроса', 'вопросов')}`; })()}
                             </span>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 {isVideo ? (

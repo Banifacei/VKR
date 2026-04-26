@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../api/axiosInstance';
 import { Icons } from './Icons';
 
@@ -28,6 +28,7 @@ export const VideoBookmarks = ({ videoId, currentTime, onSeek, visible }: Props)
     const [saving, setSaving]       = useState(false);
     const [editId, setEditId]       = useState<number | null>(null);
     const [editNote, setEditNote]   = useState('');
+    const containerRef              = useRef<HTMLDivElement>(null);
 
     const load = useCallback(async () => {
         try {
@@ -37,6 +38,10 @@ export const VideoBookmarks = ({ videoId, currentTime, onSeek, visible }: Props)
     }, [videoId]);
 
     useEffect(() => { load(); }, [load]);
+
+    useEffect(() => {
+        if (visible) containerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, [visible]);
 
     if (!visible) return null;
 
@@ -65,7 +70,7 @@ export const VideoBookmarks = ({ videoId, currentTime, onSeek, visible }: Props)
     };
 
     return (
-        <div style={{ background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: 12, padding: 16, marginTop: 16 }}>
+        <div ref={containerRef} style={{ background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: 12, padding: 16, marginTop: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
                 <Icons.Time size={15} />
                 <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-main)' }}>Закладки</span>

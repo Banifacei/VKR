@@ -18,7 +18,12 @@ export function createChannel<K = number>() {
             sseInit(res);
             if (!map.has(key)) map.set(key, new Set());
             map.get(key)!.add(res);
+            const hb = setInterval(() => {
+                if ((res as any).writableEnded) { clearInterval(hb); return; }
+                res.write(':\n\n');
+            }, 25000);
             req.on('close', () => {
+                clearInterval(hb);
                 map.get(key)?.delete(res);
                 if (map.get(key)?.size === 0) map.delete(key);
             });
@@ -40,7 +45,11 @@ export function createBroadcast() {
         subscribe(req: Request, res: Response) {
             sseInit(res);
             set.add(res);
-            req.on('close', () => set.delete(res));
+            const hb = setInterval(() => {
+                if ((res as any).writableEnded) { clearInterval(hb); return; }
+                res.write(':\n\n');
+            }, 25000);
+            req.on('close', () => { clearInterval(hb); set.delete(res); });
         },
         broadcast(data: Record<string, unknown>) {
             const payload = `data: ${JSON.stringify(data)}\n\n`;

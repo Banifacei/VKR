@@ -17,7 +17,7 @@ export const globalSearch = async (req: Request, res: Response) => {
     try {
         const [courses, videos, tests] = await Promise.all([
             Course.findAll({
-                where: { title: pattern },
+                where: { [Op.or]: [{ title: pattern }, { description: pattern }, { instructor: pattern }] },
                 attributes: ['id', 'title', 'description', 'instructor', 'coverImage'],
                 limit: 6,
             }),

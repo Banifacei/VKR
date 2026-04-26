@@ -64,6 +64,16 @@ export const TestRunner = ({ test, onExit, onSuccess }: TestRunnerProps) => {
         if (currentQIndex < questions.length - 1) {
             setCurrentQIndex(prev => prev + 1);
         } else {
+            const unanswered = questions.filter(q => {
+                const a = answers[q.id];
+                if (q.type === 'multiple_choice') return !a || (Array.isArray(a) && a.length === 0);
+                return a === undefined || a === null || a === '';
+            });
+            if (unanswered.length > 0) {
+                const n = unanswered.length;
+                const word = n === 1 ? 'вопрос' : n < 5 ? 'вопроса' : 'вопросов';
+                if (!confirm(`Вы не ответили на ${n} ${word}. Завершить тест?`)) return;
+            }
             finishTest();
         }
     };
@@ -105,16 +115,15 @@ export const TestRunner = ({ test, onExit, onSuccess }: TestRunnerProps) => {
                     
                     <div className="test-meta-info">
                         <div className="meta-item">
-                            <span>Вопросов:</span>
+                            <span>Вопросов: </span>
                             <strong>{test.questions?.length || 0}</strong>
                         </div>
                         <div className="meta-item">
-                            <span>Проходной балл:</span>
+                            <span>Проходной балл: </span>
                             <strong>{test.passingScore}%</strong>
                         </div>
-                        {/* Добавляем информацию о попытках в инфо-блок */}
                         <div className="meta-item">
-                            <span>Попытки:</span>
+                            <span>Попытки: </span>
                             <strong style={{ color: isExhausted ? '#ff4d4d' : 'var(--primary)' }}>
                                 {attemptsUsed} / {test.maxAttempts === 0 ? '∞' : test.maxAttempts}
                             </strong>

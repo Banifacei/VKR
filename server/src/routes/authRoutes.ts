@@ -2,7 +2,7 @@ import express, { Router } from 'express';
 import passport from 'passport';
 import rateLimit from 'express-rate-limit';
 import { register, login, updateProfile, getMe, yandexLoginRedirect, yandexCallback, getAuthSettings, googleLoginRedirect, googleCallback, samlLoginRedirect, samlCallback, exchangeOAuthCode } from '../controllers/authController.js';
-import { checkAuth } from '../middleware/authMiddleware.js';
+import { checkAuth, createSseTicket } from '../middleware/authMiddleware.js';
 
 const router = Router();
 
@@ -21,6 +21,7 @@ router.post('/login', authLimiter, login);
 router.post('/exchange', authLimiter, exchangeOAuthCode);
 router.put('/update', checkAuth, updateProfile);
 router.get('/me', checkAuth, getMe);
+router.post('/sse-ticket', checkAuth, createSseTicket);
 router.get('/yandex', yandexLoginRedirect);
 router.get('/yandex/callback', yandexCallback);
 router.get('/google', googleLoginRedirect);

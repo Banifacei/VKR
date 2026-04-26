@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../api/axiosInstance';
 import { Icons } from './Icons';
 import './VideoComments.css';
+import { sseQuery } from '../utils/sseTicket';
 
 interface IUser { id: number; firstName: string; lastName: string; avatarUrl?: string; role: string }
 interface IComment {
@@ -48,38 +49,41 @@ export const VideoComments = ({ videoId, currentUserId, currentUserRole }: Props
     // SSE: получаем новые комментарии в реальном времени
     const sseRef = useRef<EventSource | null>(null);
     useEffect(() => {
-        const token = localStorage.getItem('lumeo_token');
-        const es = new EventSource(`/api/comments/video/${videoId}/stream?token=${token}`);
-        sseRef.current = es;
-        es.onmessage = (e) => {
-            try {
-                const d = JSON.parse(e.data);
-                if (d.type === 'new_comment') {
-                    const newComment: IComment = d.comment;
-                    const parentId: number | null = d.parentId;
-                    if (parentId === null) {
-                        setComments(prev => prev.some(c => c.id === newComment.id) ? prev : [newComment, ...prev]);
-                    } else {
-                        setComments(prev => prev.map(c => {
-                            if (c.id !== parentId) return c;
-                            if ((c.replies || []).some(r => r.id === newComment.id)) return c;
-                            return { ...c, replies: [...(c.replies || []), newComment] };
-                        }));
+        let active = true;
+        sseQuery().then(q => {
+            if (!active || !q) return;
+            const es = new EventSource(`/api/comments/video/${videoId}/stream?${q}`);
+            sseRef.current = es;
+            es.onmessage = (e) => {
+                try {
+                    const d = JSON.parse(e.data);
+                    if (d.type === 'new_comment') {
+                        const newComment: IComment = d.comment;
+                        const parentId: number | null = d.parentId;
+                        if (parentId === null) {
+                            setComments(prev => prev.some(c => c.id === newComment.id) ? prev : [newComment, ...prev]);
+                        } else {
+                            setComments(prev => prev.map(c => {
+                                if (c.id !== parentId) return c;
+                                if ((c.replies || []).some(r => r.id === newComment.id)) return c;
+                                return { ...c, replies: [...(c.replies || []), newComment] };
+                            }));
+                        }
+                    } else if (d.type === 'delete_comment') {
+                        const { commentId, parentId } = d;
+                        if (parentId === null) {
+                            setComments(prev => prev.filter(c => c.id !== commentId));
+                        } else {
+                            setComments(prev => prev.map(c => {
+                                if (c.id !== parentId) return c;
+                                return { ...c, replies: (c.replies || []).filter(r => r.id !== commentId) };
+                            }));
+                        }
                     }
-                } else if (d.type === 'delete_comment') {
-                    const { commentId, parentId } = d;
-                    if (parentId === null) {
-                        setComments(prev => prev.filter(c => c.id !== commentId));
-                    } else {
-                        setComments(prev => prev.map(c => {
-                            if (c.id !== parentId) return c;
-                            return { ...c, replies: (c.replies || []).filter(r => r.id !== commentId) };
-                        }));
-                    }
-                }
-            } catch { /* */ }
-        };
-        return () => { es.close(); sseRef.current = null; };
+                } catch { /* */ }
+            };
+        });
+        return () => { active = false; sseRef.current?.close(); sseRef.current = null; };
     }, [videoId]);
 
     const submit = async () => {

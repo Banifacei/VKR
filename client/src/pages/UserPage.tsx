@@ -26,6 +26,8 @@ import { StarRating } from '../components/StarRating';
 import { AppHeader } from '../components/AppHeader';
 import '../components/GlobalSearch.css';
 import '../components/VideoComments.css';
+import { sseQuery } from '../utils/sseTicket';
+import { pluralizeRu } from '../utils/pluralize';
 
 type DashboardItem = 
     | ({ type: 'video' } & IVideo) 
@@ -283,44 +285,45 @@ export const UserPage = () => {
     // --- SSE: мгновенное обновление статуса записи на курс ---
     useEffect(() => {
         if (!courseId) return;
-        const token = localStorage.getItem('lumeo_token');
-        if (!token) return;
-
-        const es = new EventSource(`/api/videos/enrollment/stream?token=${token}`);
-
-        es.onmessage = async ({ data }) => {
-            try {
-                const d = JSON.parse(data);
-                if (d.type !== 'enrollment_updated' || d.courseId !== Number(courseId)) return;
-
-                if (prevStatusRef.current === 'pending' && d.status === 'approved') {
-                    showToast('Ваша заявка одобрена! Добро пожаловать на курс', 'success');
-                    fetchCourseData();
-                } else if (prevStatusRef.current === 'pending' && d.status === 'rejected') {
-                    showToast('Преподаватель отклонил вашу заявку', 'error');
-                }
-                setEnrollStatus(d.status);
-                prevStatusRef.current = d.status;
-            } catch { /* игнорируем */ }
-        };
-
-        // SSE для преподавателя — новые заявки на курс (бейджик)
+        let es: EventSource | null = null;
         let esCourse: EventSource | null = null;
-        if (canEdit) {
-            esCourse = new EventSource(`/api/videos/courses/${courseId}/enrollment/stream?token=${token}`);
-            esCourse.onmessage = async ({ data }) => {
+        let active = true;
+
+        sseQuery().then(q => {
+            if (!active || !q) return;
+
+            es = new EventSource(`/api/videos/enrollment/stream?${q}`);
+            es.onmessage = async ({ data }) => {
                 try {
                     const d = JSON.parse(data);
-                    if (d.type !== 'new_request') return;
-                    const enrolls = await getCourseEnrollments(Number(courseId));
-                    setEnrollmentsList(enrolls);
+                    if (d.type !== 'enrollment_updated' || d.courseId !== Number(courseId)) return;
+                    if (prevStatusRef.current === 'pending' && d.status === 'approved') {
+                        showToast('Ваша заявка одобрена! Добро пожаловать на курс', 'success');
+                        fetchCourseData();
+                    } else if (prevStatusRef.current === 'pending' && d.status === 'rejected') {
+                        showToast('Преподаватель отклонил вашу заявку', 'error');
+                    }
+                    setEnrollStatus(d.status);
+                    prevStatusRef.current = d.status;
                 } catch { /* игнорируем */ }
             };
-            esCourse.onerror = () => esCourse?.close();
-        }
+            es.onerror = () => es?.close();
 
-        es.onerror = () => es.close();
-        return () => { es.close(); esCourse?.close(); };
+            if (canEdit) {
+                esCourse = new EventSource(`/api/videos/courses/${courseId}/enrollment/stream?${q}`);
+                esCourse.onmessage = async ({ data }) => {
+                    try {
+                        const d = JSON.parse(data);
+                        if (d.type !== 'new_request') return;
+                        const enrolls = await getCourseEnrollments(Number(courseId));
+                        setEnrollmentsList(enrolls);
+                    } catch { /* игнорируем */ }
+                };
+                esCourse.onerror = () => esCourse?.close();
+            }
+        });
+
+        return () => { active = false; es?.close(); esCourse?.close(); };
     }, [courseId, canEdit]);
     // --- РАСЧЕТ ПРОГРЕССА КУРСА ---
     // 🔥 ФУНКЦИЯ ДЛЯ КНОПКИ "ЗАПИСАТЬСЯ"
@@ -341,25 +344,9 @@ export const UserPage = () => {
             setIsEnrolling(false);
         }
     };
-    // Для студентов и в режиме "глазами студента":
-    // — isHidden скрыты полностью
-    // — доступные идут первыми (по orderIndex)
-    // — предстоящие (unlockDate в будущем) — в конце, по дате релиза
-    const sortForStudent = (src: typeof items) => {
-        const now = new Date();
-        const visible = src.filter(item => !(item as any).isHidden);
-        const available = visible.filter(item => {
-            const ud = (item as any).unlockDate;
-            return !ud || new Date(ud) <= now;
-        });
-        const upcoming = visible
-            .filter(item => {
-                const ud = (item as any).unlockDate;
-                return ud && new Date(ud) > now;
-            })
-            .sort((a, b) => new Date((a as any).unlockDate).getTime() - new Date((b as any).unlockDate).getTime());
-        return [...available, ...upcoming];
-    };
+    // Для студентов: скрываем isHidden, сохраняем orderIndex-порядок преподавателя
+    const sortForStudent = (src: typeof items) =>
+        src.filter(item => !(item as any).isHidden);
 
     const displayItems = isEditMode ? items : sortForStudent(items);
 
@@ -576,9 +563,9 @@ export const UserPage = () => {
                                     </div>
                                     <span><Icons.Teacher size={14}/> {course?.instructor}</span>
                                     <span>•</span>
-                                    <span>{displayItems.filter(i => i.type === 'video').length} уроков</span>
+                                    <span>{(() => { const n = displayItems.filter(i => i.type === 'video').length; return `${n} ${pluralizeRu(n, 'урок', 'урока', 'уроков')}`; })()}</span>
                                     <span>•</span>
-                                    <span>{displayItems.filter(i => i.type === 'test').length} тестов</span>
+                                    <span>{(() => { const n = displayItems.filter(i => i.type === 'test').length; return `${n} ${pluralizeRu(n, 'тест', 'теста', 'тестов')}`; })()}</span>
                                 </div>
                             </div>
                             <p style={{ color: 'var(--text-main)', marginTop: '15px', maxWidth: '800px', lineHeight: '1.5' }}>

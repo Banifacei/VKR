@@ -17,6 +17,7 @@ import { CorsesIcons } from '../components/Icons';
 import { StarDisplay } from '../components/StarRating';
 import { AppHeader } from '../components/AppHeader';
 import '../components/GlobalSearch.css';
+import { pluralizeRu } from '../utils/pluralize';
 // 🔥 КАСТОМНЫЕ ИКОНКИ (БЕЗ ЭМОДЗИ)
 
 
@@ -61,7 +62,7 @@ const SortableCourseCard = ({ course, rating, onClick }: {
                     <p className="course-desc">{course.description || 'Описание отсутствует. Нажмите, чтобы узнать подробности о курсе внутри.'}</p>
                     <div className="course-tags">
                         <div className="course-tag"><CorsesIcons.Teacher /> {course.instructor}</div>
-                        <div className="course-tag"><CorsesIcons.Video /> {course.videos?.length || 0} уроков</div>
+                        <div className="course-tag"><CorsesIcons.Video /> {course.videos?.length || 0} {pluralizeRu(course.videos?.length || 0, 'урок', 'урока', 'уроков')}</div>
                     </div>
                     {rating !== undefined && (
                         <div style={{ marginTop: 8 }}>
@@ -273,7 +274,7 @@ export const CoursesPage = () => {
                                         <p className="course-desc">{course.description || 'Описание отсутствует. Нажмите, чтобы узнать подробности о курсе внутри.'}</p>
                                         <div className="course-tags">
                                             <div className="course-tag"><CorsesIcons.Teacher /> {course.instructor}</div>
-                                            <div className="course-tag"><CorsesIcons.Video /> {course.videos?.length || 0} уроков</div>
+                                            <div className="course-tag"><CorsesIcons.Video /> {course.videos?.length || 0} {pluralizeRu(course.videos?.length || 0, 'урок', 'урока', 'уроков')}</div>
                                         </div>
                                         {ratingsMap[course.id] !== undefined && (
                                             <div style={{ marginTop: 8 }} onClick={e => e.stopPropagation()}>
