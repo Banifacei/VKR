@@ -37,8 +37,8 @@ export class ErrorBoundary extends Component<Props, State> {
                     alignItems: 'center',
                     justifyContent: 'center',
                     height: '100vh',
-                    background: '#0a0a0a',
-                    color: '#fff',
+                    background: 'var(--bg-main)',
+                    color: 'var(--text-main)',
                     fontFamily: 'Inter, sans-serif',
                     padding: '40px',
                     textAlign: 'center',
@@ -51,7 +51,7 @@ export class ErrorBoundary extends Component<Props, State> {
                     <h1 style={{ fontSize: '24px', fontWeight: 700, marginBottom: '12px' }}>
                         Что-то пошло не так
                     </h1>
-                    <p style={{ color: '#888', maxWidth: '420px', lineHeight: 1.6, marginBottom: '32px', fontSize: '14px' }}>
+                    <p style={{ color: 'var(--text-muted)', maxWidth: '420px', lineHeight: 1.6, marginBottom: '32px', fontSize: '14px' }}>
                         Произошла непредвиденная ошибка. Попробуйте вернуться на главную страницу.
                         Если проблема повторяется — обратитесь к администратору.
                     </p>

@@ -21,6 +21,7 @@ interface Overview {
     courses?: CourseRow[];
     ownedCourses?: SimpleCourse[];
     collabCourses?: SimpleCourse[];
+    neverActive?: boolean;
 }
 
 interface Props {
@@ -106,16 +107,16 @@ export const UserOverviewPanel = ({ userId, onClose }: Props) => {
                 style={{
                     position: 'fixed', top: 0, right: 0, bottom: 0,
                     width: 'clamp(320px, 40vw, 480px)',
-                    background: '#111', borderLeft: '1px solid #2a2a2a',
+                    background: 'var(--bg-panel)', borderLeft: '1px solid var(--border-color)',
                     zIndex: 10002, display: 'flex', flexDirection: 'column',
                     animation: 'slideInRight 0.22s ease', overflowY: 'auto',
                 }}
                 onClick={e => e.stopPropagation()}
             >
                 {/* Заголовок */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 16px', borderBottom: '1px solid #1e1e1e' }}>
-                    <span style={{ color: '#888', fontSize: 13 }}>{panelTitle}</span>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', padding: 4, display: 'flex' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 16px', borderBottom: '1px solid var(--border-color)' }}>
+                    <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>{panelTitle}</span>
+                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4, display: 'flex' }}>
                         <Icons.Close size={18} />
                     </button>
                 </div>
@@ -141,15 +142,15 @@ export const UserOverviewPanel = ({ userId, onClose }: Props) => {
                         {/* Аватар + инфо */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                             {u.avatarUrl ? (
-                                <img src={u.avatarUrl} alt="avatar" style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', border: '2px solid #2a2a2a', flexShrink: 0 }} />
+                                <img src={u.avatarUrl} alt="avatar" style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border-color)', flexShrink: 0 }} />
                             ) : (
                                 <div style={{ width: 64, height: 64, borderRadius: '50%', flexShrink: 0, background: roleColor + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 700, color: roleColor }}>
                                     {initials}
                                 </div>
                             )}
                             <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontSize: 18, fontWeight: 700, color: '#fff' }}>{u.firstName} {u.lastName}</div>
-                                <div style={{ fontSize: 13, color: '#888', marginTop: 2 }}>{u.email}</div>
+                                <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-main)' }}>{u.firstName} {u.lastName}</div>
+                                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>{u.email}</div>
                                 <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                                     <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: roleColor + '22', color: roleColor, border: `1px solid ${roleColor}44` }}>
                                         {ROLE_LABELS[u.role] ?? u.role}
@@ -159,7 +160,7 @@ export const UserOverviewPanel = ({ userId, onClose }: Props) => {
                                             {isBanned ? 'Заблокирован' : 'Активен'}
                                         </span>
                                     )}
-                                    <span style={{ fontSize: 11, color: '#555' }}>с {joinDate}</span>
+                                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>с {joinDate}</span>
                                 </div>
                             </div>
                         </div>
@@ -168,18 +169,24 @@ export const UserOverviewPanel = ({ userId, onClose }: Props) => {
                         {isAdmin && isBanned && u.banReason && (
                             <div style={{ background: '#ff4d4d11', border: '1px solid #ff4d4d33', borderRadius: 10, padding: '12px 14px' }}>
                                 <div style={{ fontSize: 11, color: '#ff4d4d', marginBottom: 4, fontWeight: 600 }}>Причина блокировки</div>
-                                <div style={{ fontSize: 13, color: '#ccc' }}>{u.banReason}</div>
+                                <div style={{ fontSize: 13, color: 'var(--text-main)' }}>{u.banReason}</div>
                             </div>
                         )}
 
                         {/* Последний вход (только для админа) */}
                         {isAdmin && lastLogin && (
-                            <div style={{ fontSize: 12, color: '#555' }}>Последний вход: {lastLogin}</div>
+                            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Последний вход: {lastLogin}</div>
                         )}
 
                         {/* ── Режим СТУДЕНТА: прогресс по курсам ── */}
                         {data.mode === 'student_profile' && (
                             <>
+                                {data.neverActive && (
+                                    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <span style={{ fontSize: 16 }}>👤</span>
+                                        Пользователь ещё не заходил на платформу
+                                    </div>
+                                )}
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                                     {[
                                         { label: 'Курсов',          value: data.courses?.length ?? 0 },
@@ -187,32 +194,32 @@ export const UserOverviewPanel = ({ userId, onClose }: Props) => {
                                         { label: 'Видео пройдено',  value: data.courses?.reduce((s, c) => s + c.completedVideos, 0) ?? 0 },
                                         { label: 'Тестов сдано',    value: data.courses?.reduce((s, c) => s + c.completedTests, 0) ?? 0 },
                                     ].map(({ label, value }) => (
-                                        <div key={label} style={{ background: '#1a1a1a', border: '1px solid #222', borderRadius: 10, padding: '12px 14px' }}>
+                                        <div key={label} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 10, padding: '12px 14px' }}>
                                             <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--primary)' }}>{value}</div>
-                                            <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>{label}</div>
+                                            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{label}</div>
                                         </div>
                                     ))}
                                 </div>
 
                                 {data.courses && data.courses.length > 0 ? (
                                     <div>
-                                        <div style={{ fontSize: 12, color: '#555', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
+                                        <div style={{ fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
                                             {viewer?.role === 'teacher' ? 'Ваши курсы' : 'Курсы'}
                                         </div>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                                             {data.courses.map(c => {
-                                                const st = STATUS_LABELS[c.status] ?? { label: c.status, color: '#888' };
+                                                const st = STATUS_LABELS[c.status] ?? { label: c.status, color: 'var(--text-muted)' };
                                                 return (
-                                                    <div key={c.id} style={{ background: '#1a1a1a', border: '1px solid #222', borderRadius: 10, padding: '14px 16px' }}>
+                                                    <div key={c.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 10, padding: '14px 16px' }}>
                                                         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 10 }}>
-                                                            <span style={{ fontSize: 14, fontWeight: 600, color: '#fff', lineHeight: 1.3 }}>{c.title}</span>
+                                                            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-main)', lineHeight: 1.3 }}>{c.title}</span>
                                                             <span style={{ fontSize: 11, color: st.color, flexShrink: 0, marginTop: 2 }}>{st.label}</span>
                                                         </div>
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#666', marginBottom: 5 }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text-muted)', marginBottom: 5 }}>
                                                             <span>{c.completedVideos}/{c.totalVideos} видео · {c.completedTests}/{c.totalTests} тестов</span>
                                                             <span style={{ color: c.progress >= 100 ? '#4dff88' : 'var(--primary)', fontWeight: 700 }}>{c.progress}%</span>
                                                         </div>
-                                                        <div style={{ background: '#111', borderRadius: 6, height: 6, overflow: 'hidden' }}>
+                                                        <div style={{ background: 'var(--bg-deep)', borderRadius: 6, height: 6, overflow: 'hidden' }}>
                                                             <div style={{ width: `${c.progress}%`, height: '100%', background: c.progress >= 100 ? '#4dff88' : 'var(--primary)', transition: 'width 0.6s ease' }} />
                                                         </div>
                                                     </div>
@@ -221,7 +228,7 @@ export const UserOverviewPanel = ({ userId, onClose }: Props) => {
                                         </div>
                                     </div>
                                 ) : (
-                                    <div style={{ textAlign: 'center', color: '#555', fontSize: 14, padding: '20px 0' }}>
+                                    <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 14, padding: '20px 0' }}>
                                         {viewer?.role === 'teacher' ? 'Студент не записан ни на один ваш курс' : 'Нет зачислений на курсы'}
                                     </div>
                                 )}
@@ -233,12 +240,12 @@ export const UserOverviewPanel = ({ userId, onClose }: Props) => {
                             <>
                                 {(data.ownedCourses?.length ?? 0) > 0 && (
                                     <div>
-                                        <div style={{ fontSize: 12, color: '#555', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>Авторские курсы</div>
+                                        <div style={{ fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>Авторские курсы</div>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                             {data.ownedCourses!.map(c => (
-                                                <div key={c.id} style={{ background: '#1a1a1a', border: '1px solid #222', borderRadius: 10, padding: '12px 16px', fontSize: 14, color: '#fff', fontWeight: 500 }}>
+                                                <div key={c.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 10, padding: '12px 16px', fontSize: 14, color: 'var(--text-main)', fontWeight: 500 }}>
                                                     {c.title}
-                                                    {c.instructor && <div style={{ fontSize: 12, color: '#555', marginTop: 3 }}>{c.instructor}</div>}
+                                                    {c.instructor && <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>{c.instructor}</div>}
                                                 </div>
                                             ))}
                                         </div>
@@ -246,10 +253,10 @@ export const UserOverviewPanel = ({ userId, onClose }: Props) => {
                                 )}
                                 {(data.collabCourses?.length ?? 0) > 0 && (
                                     <div>
-                                        <div style={{ fontSize: 12, color: '#555', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>Соавтор в курсах</div>
+                                        <div style={{ fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>Соавтор в курсах</div>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                             {data.collabCourses!.map(c => (
-                                                <div key={c.id} style={{ background: '#1a1a1a', border: '1px solid #222', borderRadius: 10, padding: '12px 16px', fontSize: 14, color: '#ccc' }}>
+                                                <div key={c.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 10, padding: '12px 16px', fontSize: 14, color: 'var(--text-main)' }}>
                                                     {c.title}
                                                 </div>
                                             ))}
@@ -257,14 +264,14 @@ export const UserOverviewPanel = ({ userId, onClose }: Props) => {
                                     </div>
                                 )}
                                 {!(data.ownedCourses?.length) && !(data.collabCourses?.length) && (
-                                    <div style={{ textAlign: 'center', color: '#555', fontSize: 14, padding: '20px 0' }}>Нет курсов</div>
+                                    <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 14, padding: '20px 0' }}>Нет курсов</div>
                                 )}
                             </>
                         )}
 
                         {/* ── Кнопки бана/разбана (только для админа, не для самого себя) ── */}
                         {isAdmin && viewer?.id !== u.id && (
-                            <div style={{ borderTop: '1px solid #1e1e1e', paddingTop: 16, marginTop: 4 }}>
+                            <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: 16, marginTop: 4 }}>
                                 {!isBanned ? (
                                     <>
                                         {!showBanForm ? (
@@ -281,10 +288,10 @@ export const UserOverviewPanel = ({ userId, onClose }: Props) => {
                                                     value={banReason}
                                                     onChange={e => setBanReason(e.target.value)}
                                                     rows={3}
-                                                    style={{ width: '100%', borderRadius: 10, background: '#1a1a1a', border: '1px solid #333', color: '#fff', padding: '10px 12px', fontSize: 13, resize: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
+                                                    style={{ width: '100%', borderRadius: 10, background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '10px 12px', fontSize: 13, resize: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
                                                 />
                                                 <div style={{ display: 'flex', gap: 8 }}>
-                                                    <button onClick={() => setShowBanForm(false)} style={{ flex: 1, padding: '9px 0', borderRadius: 10, background: 'transparent', border: '1px solid #333', color: '#888', cursor: 'pointer', fontSize: 13 }}>
+                                                    <button onClick={() => setShowBanForm(false)} style={{ flex: 1, padding: '9px 0', borderRadius: 10, background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13 }}>
                                                         Отмена
                                                     </button>
                                                     <button onClick={handleBan} disabled={banning} style={{ flex: 1, padding: '9px 0', borderRadius: 10, background: '#ff4d4d', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600, opacity: banning ? 0.6 : 1 }}>
@@ -308,7 +315,7 @@ export const UserOverviewPanel = ({ userId, onClose }: Props) => {
                 )}
 
                 {!loading && !data && (
-                    <div style={{ padding: 32, textAlign: 'center', color: '#555', fontSize: 14 }}>
+                    <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)', fontSize: 14 }}>
                         {neverLoggedIn
                             ? 'Этот пользователь ещё не заходил на платформу'
                             : 'Не удалось загрузить данные'}

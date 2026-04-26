@@ -35,6 +35,7 @@ export const AuthPage = () => {
     const [password, setPassword] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
+    const [pdConsent, setPdConsent] = useState(false);
     const [loginBanReason, setLoginBanReason] = useState<string | null | undefined>(undefined);
     const navigate = useNavigate();
 
@@ -81,6 +82,9 @@ export const AuthPage = () => {
         }
         if (!isLogin && (!email || !firstName || !lastName)) {
             setError('Заполните обязательные поля'); return;
+        }
+        if (!isLogin && !pdConsent) {
+            setError('Необходимо согласие на обработку персональных данных'); return;
         }
         
         setIsSubmitting(true);
@@ -187,6 +191,25 @@ export const AuthPage = () => {
                         <div className="input-icon"><Icons.Lock /></div>
                     </div>
 
+                    {/* Согласие на обработку персональных данных (152-ФЗ) */}
+                    {!isLogin && (
+                        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 12, cursor: 'pointer' }}>
+                            <input
+                                type="checkbox"
+                                checked={pdConsent}
+                                onChange={e => setPdConsent(e.target.checked)}
+                                style={{ marginTop: 2, width: 16, height: 16, flexShrink: 0, cursor: 'pointer', accentColor: 'var(--primary)' }}
+                            />
+                            <span style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                                Я согласен(а) на обработку персональных данных в соответствии с{' '}
+                                <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', textDecoration: 'underline' }}>
+                                    Политикой конфиденциальности
+                                </a>{' '}
+                                (152-ФЗ)
+                            </span>
+                        </label>
+                    )}
+
                     {error && <div style={{color: '#ff4d4d', marginBottom: '10px'}}>{error}</div>}
 
                     <button className="auth-submit-btn" onClick={handleSubmit} disabled={isSubmitting}>
@@ -243,11 +266,17 @@ export const AuthPage = () => {
                             )}
                         </div>
                     )}
-                    <div style={{marginTop: '20px', color: '#888', fontSize: '14px'}}>
+                    <div style={{marginTop: '20px', color: 'var(--text-muted)', fontSize: '14px'}}>
                         {isLogin ? 'Нет аккаунта? ' : 'Уже есть аккаунт? '}
-                        <span style={{color: 'var(--primary)', cursor: 'pointer', fontWeight: 'bold'}} onClick={() => { setIsLogin(!isLogin); setError(''); }}>
+                        <span style={{color: 'var(--primary)', cursor: 'pointer', fontWeight: 'bold'}} onClick={() => { setIsLogin(!isLogin); setError(''); setPdConsent(false); }}>
                             {isLogin ? 'Создать' : 'Войти'}
                         </span>
+                    </div>
+
+                    <div style={{ marginTop: 16, textAlign: 'center', fontSize: 12, color: 'var(--text-muted)' }}>
+                        <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-muted)', textDecoration: 'underline' }}>
+                            Политика конфиденциальности
+                        </a>
                     </div>
                 </div>
             </div>

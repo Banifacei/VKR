@@ -83,27 +83,27 @@ export const AnalyticsDrillDownModal = ({ config, courseId, onClose }: Analytics
                 
                 {/* 🔥 ЦЕНТРАЛЬНАЯ МОДАЛКА (AAA Класс) */}
                 <div 
-                    style={{ background: '#121212', width: '900px', maxWidth: '90%', maxHeight: '90vh', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 20px 60px rgba(0,0,0,0.5)', overflow: 'hidden', transform: modalVisible ? 'scale(1)' : 'scale(0.9)', transition: 'transform 0.3s ease-in-out', display: 'flex', flexDirection: 'column' }} 
+                    style={{ background: 'var(--bg-panel)', width: '900px', maxWidth: '90%', maxHeight: '90vh', borderRadius: '24px', border: '1px solid var(--border-color)', boxShadow: '0 20px 60px rgba(0,0,0,0.5)', overflow: 'hidden', transform: modalVisible ? 'scale(1)' : 'scale(0.9)', transition: 'transform 0.3s ease-in-out', display: 'flex', flexDirection: 'column' }}
                     onClick={e => e.stopPropagation()}
                 >
                     {loading ? (
-                        <div style={{ padding: '100px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', color: '#666' }}>
+                        <div style={{ padding: '100px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', color: 'var(--text-muted)' }}>
                             <Icons.Spinner /> <div style={{ marginTop: '20px' }}>Drilling down...</div>
                         </div>
                     ) : !data ? null : (
                         <>
                             {/* Красивый Header */}
-                            <div style={{ padding: '25px 30px', borderBottom: '1px solid #222', background: '#161616', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 2 }}>
+                            <div style={{ padding: '25px 30px', borderBottom: '1px solid var(--border-color)', background: 'var(--bg-card)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 2 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                                    <div style={{ width: '55px', height: '55px', borderRadius: '15px', background: 'linear-gradient(135deg, #1d1d1d, #111)', border: '1px solid #333', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', fontWeight: 'bold', color: '#fff' }}>
+                                    <div style={{ width: '55px', height: '55px', borderRadius: '15px', background: 'var(--bg-input)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', fontWeight: 'bold', color: 'var(--text-main)' }}>
                                         {header.icon}
                                     </div>
                                     <div>
-                                        <h2 style={{ margin: '0 0 4px 0', fontSize: '20px', color: '#fff' }}>{header.title}</h2>
-                                        <div style={{ fontSize: '12px', color: '#888' }}>{header.subTitle}</div>
+                                        <h2 style={{ margin: '0 0 4px 0', fontSize: '20px', color: 'var(--text-main)' }}>{header.title}</h2>
+                                        <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{header.subTitle}</div>
                                     </div>
                                 </div>
-                                <button className="btn btn-ghost" style={{ fontSize: '24px', color: '#555', padding: '0 10px' }} onClick={onClose}>×</button>
+                                <button className="btn btn-ghost" style={{ fontSize: '24px', color: 'var(--text-muted)', padding: '0 10px' }} onClick={onClose}>×</button>
                             </div>
 
                             {/* Скроллящийся контент */}

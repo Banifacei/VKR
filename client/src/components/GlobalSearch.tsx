@@ -105,7 +105,11 @@ export const GlobalSearch = () => {
         } else if (e.key === 'Enter' && allItems[activeIdx]) {
             goTo(allItems[activeIdx]);
         } else if (e.key === 'Escape') {
-            closeSearch();
+            if (overviewUserId !== null) {
+                setOverviewUserId(null);
+            } else {
+                closeSearch();
+            }
         }
     };
 
@@ -123,7 +127,8 @@ export const GlobalSearch = () => {
     };
 
     return (
-        <div className="gs-overlay" onClick={closeSearch}>
+        <>
+        <div className="gs-overlay" onClick={overviewUserId ? undefined : closeSearch}>
             <div className="gs-modal" onClick={e => e.stopPropagation()} onKeyDown={handleKeyDown}>
 
                 {/* ── Input row ── */}
@@ -230,12 +235,14 @@ export const GlobalSearch = () => {
                 </div>
             </div>
 
-            {/* Панель профиля студента — рендерится поверх поиска */}
+        </div>
+
+            {/* Панель профиля — рендерится ВНЕ gs-overlay, чтобы клик по бэкдропу не закрывал поиск */}
             <UserOverviewPanel
                 userId={overviewUserId}
                 onClose={() => setOverviewUserId(null)}
             />
-        </div>
+        </>
     );
 };
 

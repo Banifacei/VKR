@@ -2,7 +2,8 @@ import { useEffect, useState, useRef } from 'react';
 import './ContentEditorModal.css';
 import { VideoPlayer } from './VideoPlayer';
 import { addEvent, updateEvent, deleteEvent, generateAutoSubtitles, updateVideo, getVideosByCourse, getVideoStats, transcodeVideo } from '../api/videoApi';
-import { addTestQuestion, deleteTestQuestion, getCourseTests, getTestStats, type ICourseTest } from '../api/testApi';
+import { addTestQuestion, deleteTestQuestion, getCourseTests, getTestStats, uploadTestImage, type ICourseTest } from '../api/testApi';
+import { normalizeUploadUrl } from '../utils/uploadUrl';
 import type { IVideo } from '../types';
 import * as XLSX from 'xlsx';
 import api from '../api/axiosInstance';
@@ -30,17 +31,17 @@ const SortableQuestion = ({ q, i, onEdit, onDelete }: any) => {
         <div ref={setNodeRef} style={style} className={`question-row`}>
             <div style={{ 
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
-                background: isDragging ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.02)', 
-                border: '1px solid rgba(255,255,255,0.05)', padding: '12px 15px', borderRadius: '12px', 
-                borderLeft: `4px solid #ffd700`, gap: '15px', transition: 'background 0.2s ease' 
+                background: isDragging ? 'var(--bg-input)' : 'var(--bg-card)',
+                border: '1px solid var(--border-color)', padding: '12px 15px', borderRadius: '12px',
+                borderLeft: `4px solid #ffd700`, gap: '15px', transition: 'background 0.2s ease'
             }}>
-                <div {...attributes} {...listeners} style={{ cursor: 'grab', color: '#666', padding: '5px' }}>
+                <div {...attributes} {...listeners} style={{ cursor: 'grab', color: 'var(--text-muted)', padding: '5px' }}>
                     <Icons.Drag />
                 </div>
                 <div style={{ flex: 1 }}>
-                    <strong style={{ color: '#888', marginRight: '10px' }}>Вопрос {i + 1}.</strong>
-                    <span style={{ color: '#fff', fontSize: '15px', fontWeight: 500 }}>{q.text}</span>
-                    <span style={{ marginLeft: '10px', fontSize: '10px', color: '#aaa', background: 'rgba(255,255,255,0.1)', padding: '3px 8px', borderRadius: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{q.type.replace('_', ' ')}</span>
+                    <strong style={{ color: 'var(--text-muted)', marginRight: '10px' }}>Вопрос {i + 1}.</strong>
+                    <span style={{ color: 'var(--text-main)', fontSize: '15px', fontWeight: 500 }}>{q.text}</span>
+                    <span style={{ marginLeft: '10px', fontSize: '10px', color: 'var(--text-muted)', background: 'var(--bg-input)', padding: '3px 8px', borderRadius: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{q.type.replace('_', ' ')}</span>
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
                     <button className="btn btn-ghost" style={{ padding: '8px', background: 'rgba(var(--primary-rgb), 0.1)', color: 'var(--primary)', borderRadius: '8px' }} onClick={() => onEdit(q)}><Icons.Edit size={14}/></button>
@@ -51,45 +52,55 @@ const SortableQuestion = ({ q, i, onEdit, onDelete }: any) => {
     );
 };
 
-const SortableOption = ({ opt, idx, isCorrect, isDuplicate, accentColor, onChangeText, onToggleCorrect, onRemove }: any) => {
+const SortableOption = ({ opt, idx, isCorrect, isDuplicate, accentColor, onChangeText, onToggleCorrect, onRemove, onUploadImage }: any) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: `opt-${idx}` });
-    
+    const imgInputRef = useRef<HTMLInputElement>(null);
+
     const style = {
-        // Используем Translate вместо Transform (убирает дерганье)
         transform: CSS.Translate.toString(transform),
-        // 🛑 Жестко отключаем анимацию, пока элемент летит!
-        transition: isDragging ? 'none' : (transition || 'all 0.2s ease'), 
-        zIndex: isDragging ? 9999 : 1, // Z-index повыше
+        transition: isDragging ? 'none' : (transition || 'all 0.2s ease'),
+        zIndex: isDragging ? 9999 : 1,
         opacity: isDragging ? 0.9 : 1,
         scale: isDragging ? '1.02' : '1',
-        display: 'flex', 
-        alignItems: 'center', 
-        gap: '12px', 
-        background: isCorrect ? (accentColor === 'var(--primary)' ? 'rgba(var(--primary-rgb),0.1)' : 'rgba(255,215,0,0.1)') : 'rgba(0,0,0,0.3)', 
-        padding: '8px 12px', 
-        borderRadius: '12px', 
+        display: 'flex',
+        flexDirection: 'column' as const,
+        gap: '8px',
+        background: isCorrect ? (accentColor === 'var(--primary)' ? 'rgba(var(--primary-rgb),0.1)' : 'rgba(255,215,0,0.1)') : 'var(--bg-input)',
+        padding: '8px 12px',
+        borderRadius: '12px',
         border: isDuplicate ? '1px solid #ff4d4d' : `1px solid ${isCorrect ? accentColor : 'transparent'}`,
         boxShadow: isDragging ? '0 15px 30px rgba(0,0,0,0.5)' : 'none',
     };
 
     return (
         <div ref={setNodeRef} style={style}>
-            {/* Ручка для перетаскивания */}
-            <div {...attributes} {...listeners} style={{ cursor: 'grab', padding: '5px', color: '#666' }}>
-                <Icons.Drag />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div {...attributes} {...listeners} style={{ cursor: 'grab', padding: '5px', color: 'var(--text-muted)' }}>
+                    <Icons.Drag />
+                </div>
+                <input type="checkbox" checked={isCorrect} onChange={onToggleCorrect} style={{ width: '20px', height: '20px', cursor: 'pointer', accentColor: accentColor }} />
+                <input
+                    className="deck-input"
+                    value={opt.text}
+                    onChange={e => onChangeText(e.target.value)}
+                    placeholder={`Вариант ${idx + 1}`}
+                    style={{ marginBottom: 0, flex: 1, background: 'transparent', border: 'none', fontSize: '14px', padding: '5px', color: 'var(--text-main)' }}
+                />
+                <button
+                    type="button"
+                    title="Прикрепить изображение"
+                    onClick={() => imgInputRef.current?.click()}
+                    style={{ padding: '6px', color: opt.imageUrl ? accentColor : '#666', borderRadius: '8px', background: opt.imageUrl ? `rgba(${accentColor === 'var(--primary)' ? 'var(--primary-rgb)' : '255,215,0'},0.12)` : 'transparent', border: 'none', cursor: 'pointer', fontSize: 16 }}
+                >🖼</button>
+                <input ref={imgInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) onUploadImage(e.target.files[0]); e.target.value = ''; }} />
+                <button className="btn btn-ghost" onClick={onRemove} style={{ padding: '8px', color: 'var(--text-muted)', borderRadius: '8px' }} onMouseEnter={e => e.currentTarget.style.background='rgba(255,77,77,0.1)'} onMouseLeave={e => e.currentTarget.style.background='transparent'}>✕</button>
             </div>
-            
-            <input type="checkbox" checked={isCorrect} onChange={onToggleCorrect} style={{ width: '20px', height: '20px', cursor: 'pointer', accentColor: accentColor }} />
-            
-            <input 
-                className="deck-input" 
-                value={opt.text} 
-                onChange={e => onChangeText(e.target.value)} 
-                placeholder={`Вариант ${idx + 1}`} 
-                style={{ marginBottom: 0, flex: 1, background: 'transparent', border: 'none', fontSize: '14px', padding: '5px', color: '#fff' }}
-            />
-            
-            <button className="btn btn-ghost" onClick={onRemove} style={{ padding: '8px', color: '#666', borderRadius: '8px' }} onMouseEnter={e => e.currentTarget.style.background='rgba(255,77,77,0.1)'} onMouseLeave={e => e.currentTarget.style.background='transparent'}>✕</button>
+            {opt.imageUrl && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 44 }}>
+                    <img src={normalizeUploadUrl(opt.imageUrl)} alt="" style={{ maxHeight: 80, maxWidth: 160, borderRadius: 8, objectFit: 'contain', border: '1px solid var(--border-color)' }} />
+                    <button type="button" onClick={() => onUploadImage(null)} style={{ color: '#ff4d4d', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}>✕ убрать</button>
+                </div>
+            )}
         </div>
     );
 };
@@ -116,6 +127,8 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
         isHidden: item.isHidden || false,
         unlockDate: item.unlockDate || null,
         shuffleQuestions: (item as any).shuffleQuestions || false,
+        shuffleAnswers: (item as any).shuffleAnswers || false,
+        noForwardSeek: (item as any).noForwardSeek || false,
     });
     const [isSavingSettings, setIsSavingSettings] = useState(false);
 
@@ -128,7 +141,9 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
         settingsData.allowExternalTest !== (item.allowExternalTest || false) ||
         settingsData.isHidden !== (item.isHidden || false) ||
         settingsData.unlockDate !== (item.unlockDate || null) ||
-        settingsData.shuffleQuestions !== ((item as any).shuffleQuestions || false);
+        settingsData.shuffleQuestions !== ((item as any).shuffleQuestions || false) ||
+        settingsData.shuffleAnswers !== ((item as any).shuffleAnswers || false) ||
+        settingsData.noForwardSeek !== ((item as any).noForwardSeek || false);
 
     const handleSaveSettings = async () => {
         setIsSavingSettings(true);
@@ -156,7 +171,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
     const [currentTime, setCurrentTime] = useState(0);
     const [eventType, setEventType] = useState<'single_choice' | 'multiple_choice' | 'free_text' | 'info'>('single_choice');
     const [questionText, setQuestionText] = useState('');
-    const [options, setOptions] = useState([{ text: '', isCorrect: false }, { text: '', isCorrect: false }]);
+    const [options, setOptions] = useState<{ text: string; isCorrect: boolean; imageUrl?: string }[]>([{ text: '', isCorrect: false }, { text: '', isCorrect: false }]);
     const [freeTextAnswer, setFreeTextAnswer] = useState(''); 
     
     const [isStrict, setIsStrict] = useState(false);
@@ -166,6 +181,30 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
     const [aiThreshold, setAiThreshold] = useState<number | string>(50);
     const [explanation, setExplanation] = useState('');
     
+    const [questionImageUrl, setQuestionImageUrl] = useState<string | null>(null);
+    const [isUploadingImage, setIsUploadingImage] = useState(false);
+    const questionImgInputRef = useRef<HTMLInputElement>(null);
+
+    const handleUploadQuestionImage = async (file: File | null) => {
+        if (!file) { setQuestionImageUrl(null); return; }
+        setIsUploadingImage(true);
+        try {
+            const url = await uploadTestImage(file);
+            setQuestionImageUrl(url);
+        } catch { showToast('Ошибка загрузки изображения', 'error'); }
+        finally { setIsUploadingImage(false); }
+    };
+
+    const handleUploadOptionImage = async (idx: number, file: File | null) => {
+        const updated = [...options];
+        if (!file) { updated[idx] = { ...updated[idx], imageUrl: undefined }; setOptions(updated); return; }
+        try {
+            const url = await uploadTestImage(file);
+            updated[idx] = { ...updated[idx], imageUrl: url };
+            setOptions(updated);
+        } catch { showToast('Ошибка загрузки изображения', 'error'); }
+    };
+
     const [editingEventId, setEditingEventId] = useState<number | null>(null);
     const [isAddingEvent, setIsAddingEvent] = useState(false);
     
@@ -462,13 +501,14 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
 
     // --- ФУНКЦИИ КОНСТРУКТОРА ---
     const resetForm = () => {
-        setQuestionText(''); setOptions([{ text: '', isCorrect: false }, { text: '', isCorrect: false }]);
+        setQuestionText(''); setOptions([{ text: '', isCorrect: false } as { text: string; isCorrect: boolean; imageUrl?: string }, { text: '', isCorrect: false }]);
         setFreeTextAnswer(''); setExplanation(''); setRewindTo(''); setAiThreshold(50); setWeight(1);
         setIsStrict(false); setIsRequired(false); setDuplicateIndices([]);
+        setQuestionImageUrl(null);
         setEditingEventId(null);
     };
 
-    const handleAddOption = () => setOptions([...options, { text: '', isCorrect: false }]);
+    const handleAddOption = () => setOptions([...options, { text: '', isCorrect: false, imageUrl: undefined }]);
     const handleRemoveOption = (index: number) => {
         setOptions(options.filter((_, i) => i !== index));
         setDuplicateIndices([]);
@@ -531,7 +571,8 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                     type: eventType, text: questionText,
                     options: (eventType === 'single_choice' || eventType === 'multiple_choice') ? options : [],
                     correctAnswer: eventType === 'free_text' ? freeTextAnswer : '',
-                    weight: Number(weight) || 1, aiThreshold: Number(aiThreshold) || 50
+                    weight: Number(weight) || 1, aiThreshold: Number(aiThreshold) || 50,
+                    imageUrl: questionImageUrl || null,
                 };
                 
                 if (editingEventId) await deleteTestQuestion(editingEventId);
@@ -554,6 +595,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
         setQuestionText(ev.question || ev.text || '');
         if (ev.type === 'free_text') setFreeTextAnswer(ev.correctAnswer || '');
         if (ev.options && ev.options.length > 0) setOptions(ev.options);
+        setQuestionImageUrl(ev.imageUrl || null);
         setIsStrict(ev.isStrict || false);
         setIsRequired(ev.isRequired || false);
         setWeight(ev.weight || 1);
@@ -686,13 +728,13 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
         }} onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
             
             <div className="cem-container" style={{
-                background: '#0f0f11', border: `1px solid rgba(${accentRgb}, 0.2)`,
+                background: 'var(--bg-main)', border: `1px solid rgba(${accentRgb}, 0.2)`,
                 width: '100%', maxWidth: '1400px', height: '90vh', borderRadius: '24px',
                 display: 'flex', flexDirection: 'column', overflow: 'hidden', animation: 'fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
                 boxShadow: `0 30px 60px -12px rgba(${accentRgb}, 0.15)`
             }}>
                 
-                <div className="cem-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 30px', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.02)' }}>
+                <div className="cem-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 30px', borderBottom: '1px solid var(--border-color)', background: 'var(--bg-panel)' }}>
                     <div className="cem-header-left" style={{ display: 'flex', alignItems: 'center', gap: '20px', flex: 1, minWidth: 0 }}>
                         <div className="cem-header-icon" style={{
                             background: `linear-gradient(135deg, ${accentColor} 0%, transparent 150%)`,
@@ -710,7 +752,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                 placeholder="Введите название..."
                                 style={{
                                     background: 'transparent', border: 'none',
-                                    color: '#fff', fontSize: '28px', fontWeight: '800', outline: 'none', width: '100%',
+                                    color: 'var(--text-main)', fontSize: '28px', fontWeight: '800', outline: 'none', width: '100%',
                                     borderBottom: '2px dashed transparent', transition: '0.3s', paddingBottom: '4px', letterSpacing: '-0.5px'
                                 }}
                                 onFocus={e => e.target.style.borderBottom = `2px dashed ${accentColor}`}
@@ -719,27 +761,27 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                     </div>
 
                     <div className="cem-header-actions" style={{ display: 'flex', gap: '15px', flexShrink: 0 }}>
-                        <button className="btn btn-ghost" onClick={loadStats} style={{ background: 'rgba(255,255,255,0.05)', padding: '10px 20px', borderRadius: '12px', fontWeight: 'bold' }}>
+                        <button className="btn btn-ghost" onClick={loadStats} style={{ background: 'var(--bg-input)', padding: '10px 20px', borderRadius: '12px', fontWeight: 'bold' }}>
                             <Icons.Stats /> <span className="cem-btn-text">Статистика</span>
                         </button>
-                        <button className="btn btn-primary" onClick={onClose} style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', padding: '10px 20px', borderRadius: '12px', fontWeight: 'bold' }}>✕ <span className="cem-close-text">Закрыть</span></button>
+                        <button className="btn btn-primary" onClick={onClose} style={{ background: 'var(--bg-input)', color: 'var(--text-main)', padding: '10px 20px', borderRadius: '12px', fontWeight: 'bold', border: '1px solid var(--border-color)' }}>✕ <span className="cem-close-text">Закрыть</span></button>
                     </div>
                 </div>
 
                 <div className="cem-body" style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
                     {/* ЛЕВАЯ КОЛОНКА */}
-                    <div className="cem-left" style={{ flex: '6', display: 'flex', flexDirection: 'column', padding: '40px', overflowY: 'auto', background: 'radial-gradient(circle at 0% 0%, rgba(255,255,255,0.03) 0%, transparent 50%)' }}>
+                    <div className="cem-left" style={{ flex: '6', display: 'flex', flexDirection: 'column', padding: '40px', overflowY: 'auto' }}>
                         
                         {showStats ? (
                             <div className="stats-container" style={{ animation: 'fadeIn 0.4s ease' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
                                     <div>
-                                        <h3 style={{margin: 0, color: '#fff', fontSize: '24px'}}>Статистика успеваемости</h3>
+                                        <h3 style={{margin: 0, color: 'var(--text-main)', fontSize: '24px'}}>Статистика успеваемости</h3>
                                         {expandedStudent ? (
                                             <button className="btn btn-ghost" style={{ padding: 0, color: accentColor, marginTop: '10px', fontSize: '14px' }} onClick={() => setExpandedStudent(null)}>← Назад к списку группы</button>
                                         ) : (
-                                            <button className="btn btn-ghost" style={{ padding: 0, color: '#888', marginTop: '10px', fontSize: '14px' }} onClick={() => setShowStats(false)}>← Вернуться к плееру</button>
+                                            <button className="btn btn-ghost" style={{ padding: 0, color: 'var(--text-muted)', marginTop: '10px', fontSize: '14px' }} onClick={() => setShowStats(false)}>← Вернуться к плееру</button>
                                         )}
                                     </div>
                                     <button className="btn btn-primary" onClick={exportToExcel} style={{ display: 'flex', gap: '8px', background: '#217346', color: 'white', border: 'none', borderRadius: '12px', padding: '10px 20px' }}>
@@ -748,16 +790,16 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                 </div>
                                 
                                 {statsData.length === 0 ? (
-                                    <div style={{ textAlign: 'center', padding: '80px', color: '#666', background: 'rgba(255,255,255,0.02)', borderRadius: '20px', border: '1px dashed rgba(255,255,255,0.1)' }}>
+                                    <div style={{ textAlign: 'center', padding: '80px', color: 'var(--text-muted)', background: 'var(--bg-card)', borderRadius: '20px', border: '1px dashed var(--border-color)' }}>
                                         <div style={{ fontSize: '50px', marginBottom: '20px', opacity: 0.5 }}>📭</div>
                                         <p style={{ fontSize: '18px' }}>Пока никто не проходил этот материал.</p>
                                     </div>
                                 ) : (
                                     <>
                                         {!expandedStudent && (
-                                            <div className="cem-stats-table-wrap" style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+                                            <div className="cem-stats-table-wrap" style={{ background: 'var(--bg-card)', borderRadius: '20px', border: '1px solid var(--border-color)', overflow: 'hidden' }}>
                                                 <table className="stats-table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
-                                                    <thead><tr style={{ color: '#888', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(0,0,0,0.3)' }}><th style={{padding:'20px'}}>Студент</th><th style={{padding:'20px'}}>Успеваемость (Прогресс)</th><th style={{padding:'20px'}}>Ответы (В / О)</th><th></th></tr></thead>
+                                                    <thead><tr style={{ color: 'var(--text-muted)', borderBottom: '1px solid var(--border-color)', background: 'var(--bg-input)' }}><th style={{padding:'20px'}}>Студент</th><th style={{padding:'20px'}}>Успеваемость (Прогресс)</th><th style={{padding:'20px'}}>Ответы (В / О)</th><th></th></tr></thead>
                                                     <tbody>
                                                         {getGroupedStats().map((student) => {
                                                             // Умный расчет процента: для видео считаем долю верных, для тестов берем готовый балл
@@ -766,18 +808,18 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                                                 : (student.testScore || 0);
 
                                                             return (
-                                                                <tr key={student.userId} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)', transition: 'background 0.2s' }}>
-                                                                    <td style={{padding:'20px', color: '#fff', fontWeight: 500}}>{student.name}</td>
+                                                                <tr key={student.userId} style={{ borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s' }}>
+                                                                    <td style={{padding:'20px', color: 'var(--text-main)', fontWeight: 500}}>{student.name}</td>
                                                                     <td style={{padding:'20px', width: '40%'}}>
                                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                                                                            <div style={{ flex: 1, background: 'rgba(255,255,255,0.1)', height: '8px', borderRadius: '4px', overflow: 'hidden', display: 'flex' }}>
+                                                                            <div style={{ flex: 1, background: 'var(--bg-input)', height: '8px', borderRadius: '4px', overflow: 'hidden', display: 'flex' }}>
                                                                                 <div style={{ width: `${percent}%`, background: '#4dff88', height: '100%' }}></div>
                                                                                 <div style={{ width: `${100 - percent}%`, background: '#ff4d4d', height: '100%' }}></div>
                                                                             </div>
                                                                             <span style={{ color: percent >= 50 ? '#4dff88' : '#ff4d4d', fontWeight: 'bold', fontSize: '14px', width: '40px' }}>{percent}%</span>
                                                                         </div>
                                                                     </td>
-                                                                    <td style={{padding:'20px', color: '#aaa', fontSize: '14px'}}>
+                                                                    <td style={{padding:'20px', color: 'var(--text-muted)', fontSize: '14px'}}>
                                                                         {isVideo ? (
                                                                             <><span style={{ color: '#4dff88' }}>{student.correct}</span> / <span style={{ color: '#ff4d4d' }}>{student.incorrect}</span></>
                                                                         ) : (
@@ -796,24 +838,24 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                         )}
                                         {expandedStudent && (
                                             <div style={{ animation: 'fadeIn 0.3s ease', marginTop: '20px' }}>
-                                                <h4 style={{ color: '#aaa', marginBottom: '20px', fontWeight: 'normal', fontSize: '18px' }}>
-                                                    {isVideo ? 'Детализация ответов:' : 'История попыток:'} <span style={{color: '#fff', fontWeight: 'bold'}}>{expandedStudentName}</span>
+                                                <h4 style={{ color: 'var(--text-muted)', marginBottom: '20px', fontWeight: 'normal', fontSize: '18px' }}>
+                                                    {isVideo ? 'Детализация ответов:' : 'История попыток:'} <span style={{color: 'var(--text-main)', fontWeight: 'bold'}}>{expandedStudentName}</span>
                                                 </h4>
                                                 
                                                 {isVideo ? (
                                                     /* --- СТАРАЯ ТАБЛИЦА ДЛЯ ВИДЕО --- */
-                                                    <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+                                                    <div style={{ background: 'var(--bg-card)', borderRadius: '20px', border: '1px solid var(--border-color)', overflow: 'hidden' }}>
                                                         <table className="stats-table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
-                                                            <thead><tr style={{ color: '#888', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(0,0,0,0.3)' }}><th style={{padding:'20px'}}>Вопрос</th><th style={{padding:'20px'}}>Ответ студента</th><th style={{padding:'20px', textAlign:'center'}}>Оценка ИИ</th><th style={{padding:'20px', textAlign:'center'}}>Вердикт</th></tr></thead>
+                                                            <thead><tr style={{ color: 'var(--text-muted)', borderBottom: '1px solid var(--border-color)', background: 'var(--bg-input)' }}><th style={{padding:'20px'}}>Вопрос</th><th style={{padding:'20px'}}>Ответ студента</th><th style={{padding:'20px', textAlign:'center'}}>Оценка ИИ</th><th style={{padding:'20px', textAlign:'center'}}>Вердикт</th></tr></thead>
                                                             <tbody>
                                                                 {studentDetails.map((stat: any) => (
-                                                                    <tr key={stat.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
-                                                                        <td style={{padding:'20px', color: '#ccc', width: '40%', lineHeight: '1.5'}}>{stat.event?.question || 'Удален'}</td>
-                                                                        <td style={{padding:'20px', color: '#fff', fontWeight: '500'}}>{stat.answer}</td>
+                                                                    <tr key={stat.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                                                                        <td style={{padding:'20px', color: 'var(--text-main)', width: '40%', lineHeight: '1.5'}}>{stat.event?.question || 'Удален'}</td>
+                                                                        <td style={{padding:'20px', color: 'var(--text-main)', fontWeight: '500'}}>{stat.answer}</td>
                                                                         <td style={{padding:'20px', textAlign:'center'}}>
                                                                             {stat.event?.type === 'free_text' && stat.similarity !== null ? (
-                                                                                <span style={{ color: stat.isCorrect ? '#4dff88' : '#ff4d4d', fontSize: '13px', background: 'rgba(255,255,255,0.05)', padding: '4px 10px', borderRadius: '12px', fontWeight: 'bold' }}>{stat.similarity}%</span>
-                                                                            ) : (<span style={{ color: '#444' }}>—</span>)}
+                                                                                <span style={{ color: stat.isCorrect ? '#4dff88' : '#ff4d4d', fontSize: '13px', background: 'var(--bg-input)', padding: '4px 10px', borderRadius: '12px', fontWeight: 'bold' }}>{stat.similarity}%</span>
+                                                                            ) : (<span style={{ color: 'var(--text-muted)' }}>—</span>)}
                                                                         </td>
                                                                         <td style={{padding:'20px', textAlign:'center'}}>
                                                                             {stat.isCorrect ? (
@@ -834,15 +876,15 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                                             const answersObj = typeof attempt.answers === 'string' ? JSON.parse(attempt.answers) : (attempt.answers || {});
                                                             
                                                             return (
-                                                                <div key={attempt.id} style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', padding: '20px' }}>
-                                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '10px' }}>
-                                                                        <strong style={{ color: '#fff', fontSize: '16px' }}>Попытка {studentDetails.length - idx}</strong>
+                                                                <div key={attempt.id} style={{ background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-color)', padding: '20px' }}>
+                                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
+                                                                        <strong style={{ color: 'var(--text-main)', fontSize: '16px' }}>Попытка {studentDetails.length - idx}</strong>
                                                                         <span style={{ color: attempt.score >= (selectedTest?.passingScore || 0) ? '#4dff88' : '#ff4d4d', fontWeight: 'bold', background: 'rgba(0,0,0,0.3)', padding: '4px 12px', borderRadius: '8px', fontSize: '14px' }}>
                                                                             Результат: {attempt.score}%
                                                                         </span>
                                                                     </div>
                                                                     <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
-                                                                        <thead><tr style={{ color: '#888', fontSize: '13px' }}><th style={{padding:'8px 0'}}>Вопрос</th><th style={{padding:'8px 0'}}>Ответ студента</th><th style={{padding:'8px 0', textAlign: 'right'}}>Статус</th></tr></thead>
+                                                                        <thead><tr style={{ color: 'var(--text-muted)', fontSize: '13px' }}><th style={{padding:'8px 0'}}>Вопрос</th><th style={{padding:'8px 0'}}>Ответ студента</th><th style={{padding:'8px 0', textAlign: 'right'}}>Статус</th></tr></thead>
                                                                         <tbody>
                                                                             {selectedTest?.questions?.map((q: any) => {
                                                                                 // 👇 ДОСТАЕМ НОВУЮ СТРУКТУРУ ДАННЫХ
@@ -851,9 +893,9 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                                                                 const isCorrect = resData.isCorrect || false;
 
                                                                                 return (
-                                                                                    <tr key={q.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
-                                                                                        <td style={{padding:'12px 0', color: '#ccc', fontSize: '14px', width: '45%'}}>{q.text}</td>
-                                                                                        <td style={{padding:'12px 0', color: '#fff', fontSize: '14px', fontWeight: 500}}>
+                                                                                    <tr key={q.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                                                                                        <td style={{padding:'12px 0', color: 'var(--text-main)', fontSize: '14px', width: '45%'}}>{q.text}</td>
+                                                                                        <td style={{padding:'12px 0', color: 'var(--text-main)', fontSize: '14px', fontWeight: 500}}>
                                                                                             {userAns || <i style={{color:'#666'}}>Нет ответа</i>}
                                                                                             {/* Если есть оценка ИИ, покажем преподу! */}
                                                                                             {resData.similarity !== undefined && resData.similarity !== null && (
@@ -902,7 +944,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                         <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                             {/* Строка 1: заголовок + кнопка субтитров */}
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                                                <span style={{ color: '#888', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', fontSize: '12px' }}>Таймлайн интерактива:</span>
+                                                <span style={{ color: 'var(--text-muted)', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', fontSize: '12px' }}>Таймлайн интерактива:</span>
                                                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                                                     <button className={`btn ${generatingVideos.includes(selectedVideo.id) ? 'btn-ghost' : 'btn-primary'}`} style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '10px' }} onClick={handleGenerateSubs} disabled={generatingVideos.includes(selectedVideo.id)}>
                                                         {generatingVideos.includes(selectedVideo.id) ? <><Icons.Spinner /> Генерация ИИ...</> : <><Icons.AI /> ИИ Субтитры</>}
@@ -930,7 +972,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                                 </span>
                                                 <button
                                                     className="btn"
-                                                    style={{ padding: '6px 14px', fontSize: '12px', borderRadius: '8px', background: 'var(--primary)', color: '#fff', fontWeight: 'bold', flexShrink: 0, opacity: chapterName.trim() ? 1 : 0.4 }}
+                                                    style={{ padding: '6px 14px', fontSize: '12px', borderRadius: '8px', background: 'var(--primary)', color: 'var(--text-main)', fontWeight: 'bold', flexShrink: 0, opacity: chapterName.trim() ? 1 : 0.4 }}
                                                     onClick={handleAddChapter}
                                                     disabled={!chapterName.trim() || isAddingChapter}
                                                 >
@@ -944,11 +986,11 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                 {isVideo && selectedVideo?.events && (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                         {[...selectedVideo.events].sort((a, b) => a.time - b.time).map(ev => (
-                                            <div key={ev.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', padding: '15px 20px', borderRadius: '16px', borderLeft: `4px solid ${ev.type === 'chapter' ? 'var(--primary)' : ev.type === 'info' ? '#ffd700' : 'var(--primary)'}`, transition: 'all 0.2s ease', cursor: 'pointer' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}>
+                                            <div key={ev.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', border: '1px solid var(--border-color)', padding: '15px 20px', borderRadius: '16px', borderLeft: `4px solid ${ev.type === 'chapter' ? 'var(--primary)' : ev.type === 'info' ? '#ffd700' : 'var(--primary)'}`, transition: 'all 0.2s ease', cursor: 'pointer' }} onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-input)'} onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-card)'}>
                                                 <div>
                                                     <strong style={{ color: ev.type === 'chapter' ? 'var(--primary)' : ev.type === 'info' ? '#ffd700' : 'var(--primary)', marginRight: '15px', fontSize: '18px', fontFamily: 'monospace' }}>{Math.floor(ev.time / 60)}:{(Math.floor(ev.time % 60)).toString().padStart(2, '0')}</strong>
-                                                    <span style={{ color: '#fff', fontSize: '16px', fontWeight: 500 }}>{ev.question}</span>
-                                                    <span style={{ marginLeft: '12px', fontSize: '10px', color: '#888', background: 'rgba(255,255,255,0.1)', padding: '4px 8px', borderRadius: '8px', textTransform: 'uppercase' }}>{ev.type.replace('_', ' ')}</span>
+                                                    <span style={{ color: 'var(--text-main)', fontSize: '16px', fontWeight: 500 }}>{ev.question}</span>
+                                                    <span style={{ marginLeft: '12px', fontSize: '10px', color: 'var(--text-muted)', background: 'var(--bg-input)', padding: '4px 8px', borderRadius: '8px', textTransform: 'uppercase' }}>{ev.type.replace('_', ' ')}</span>
                                                 </div>
                                                 <div style={{ display: 'flex', gap: '8px' }}>
                                                     <button className="btn btn-ghost" style={{ padding: '8px', background: 'rgba(var(--primary-rgb), 0.1)', color: 'var(--primary)', borderRadius: '8px' }} onClick={() => handleEditClick(ev)}><Icons.Edit size={14}/></button>
@@ -962,8 +1004,8 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                 {!isVideo && selectedTest?.questions && (
                                     <div style={{ paddingBottom: '50px' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                                            <span style={{ color: '#888', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', fontSize: '13px' }}>Порядок вопросов:</span>
-                                            <span style={{ color: '#666', fontSize: '12px' }}>Перетащите ☰ для сортировки</span>
+                                            <span style={{ color: 'var(--text-muted)', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', fontSize: '13px' }}>Порядок вопросов:</span>
+                                            <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>Перетащите ☰ для сортировки</span>
                                         </div>
                                         <DndContext 
                                             sensors={sensors} 
@@ -981,7 +1023,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                                         <SortableQuestion key={q.id} q={q} i={i} onEdit={handleEditClick} onDelete={handleDeleteClick} />
                                                     ))}
                                                     {selectedTest.questions.length === 0 && (
-                                                        <div style={{ textAlign: 'center', color: '#666', padding: '80px', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '20px' }}>
+                                                        <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '80px', border: '1px dashed var(--border-color)', borderRadius: '20px' }}>
                                                             <div style={{ fontSize: '40px', marginBottom: '15px' }}>👇</div>
                                                             <div style={{ fontSize: '16px' }}>В тесте пока нет вопросов. Создайте первый в панели справа!</div>
                                                         </div>
@@ -996,18 +1038,18 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                     </div>
 
                     {/* ПРАВАЯ КОЛОНКА */}
-                    <div className="cem-right" style={{ flex: '4', minWidth: '400px', background: '#141416', borderLeft: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', zIndex: 10 }}>
+                    <div className="cem-right" style={{ flex: '4', minWidth: '400px', background: 'var(--bg-panel)', borderLeft: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', zIndex: 10 }}>
                         <div style={{ padding: '20px 20px 0 20px', flexShrink: 0 }}>
-                            <div style={{ display: 'flex', background: 'rgba(0,0,0,0.5)', padding: '6px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                <button 
-                                    onClick={() => { setRightTab('constructor'); setShowStats(false); }} 
-                                    style={{ flex: 1, background: rightTab === 'constructor' ? 'rgba(255,255,255,0.1)' : 'transparent', border: 'none', color: rightTab === 'constructor' ? '#fff' : '#666', padding: '12px 0', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.2s ease', boxShadow: rightTab === 'constructor' ? '0 4px 12px rgba(0,0,0,0.2)' : 'none' }}
+                            <div style={{ display: 'flex', background: 'var(--bg-input)', padding: '6px', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
+                                <button
+                                    onClick={() => { setRightTab('constructor'); setShowStats(false); }}
+                                    style={{ flex: 1, background: rightTab === 'constructor' ? 'rgba(var(--primary-rgb),0.15)' : 'transparent', border: 'none', color: rightTab === 'constructor' ? 'var(--text-main)' : 'var(--text-muted)', padding: '12px 0', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.2s ease', boxShadow: rightTab === 'constructor' ? '0 4px 12px rgba(0,0,0,0.1)' : 'none' }}
                                 >
                                     <Icons.Plus /> {editingEventId ? 'Редактирование' : 'Конструктор'}
                                 </button>
-                                <button 
-                                    onClick={() => { setRightTab('settings'); setShowStats(false); }} 
-                                    style={{ flex: 1, background: rightTab === 'settings' ? 'rgba(255,255,255,0.1)' : 'transparent', border: 'none', color: rightTab === 'settings' ? '#fff' : '#666', padding: '12px 0', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.2s ease', boxShadow: rightTab === 'settings' ? '0 4px 12px rgba(0,0,0,0.2)' : 'none' }}
+                                <button
+                                    onClick={() => { setRightTab('settings'); setShowStats(false); }}
+                                    style={{ flex: 1, background: rightTab === 'settings' ? 'rgba(var(--primary-rgb),0.15)' : 'transparent', border: 'none', color: rightTab === 'settings' ? 'var(--text-main)' : 'var(--text-muted)', padding: '12px 0', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.2s ease', boxShadow: rightTab === 'settings' ? '0 4px 12px rgba(0,0,0,0.1)' : 'none' }}
                                 >
                                     <Icons.Settings /> Настройки
                                 </button>
@@ -1020,16 +1062,16 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                             {/* --- ВКЛАДКА: НАСТРОЙКИ --- */}
                             {rightTab === 'settings' && (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', animation: 'fadeIn 0.2s ease' }}>
-                                    <div style={{ background: 'rgba(255,255,255,0.02)', padding: '20px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                        <h4 style={{ margin: '0 0 15px 0', color: '#fff', fontSize: '16px' }}>Правила прохождения</h4>
-                                        <label style={{ fontSize: '13px', color: '#aaa', display: 'block', marginBottom: '8px' }}>Попыток сдачи (0 = безлимит):</label>
-                                        <input type="number" className="deck-input" min="0" value={settingsData.maxAttempts} onChange={e => setSettingsData({...settingsData, maxAttempts: e.target.value === '' ? '' : Number(e.target.value)})} style={{ background: 'rgba(0,0,0,0.3)', width: '100%', fontSize: '16px', padding: '12px' }} />
+                                    <div style={{ background: 'var(--bg-card)', padding: '20px', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
+                                        <h4 style={{ margin: '0 0 15px 0', color: 'var(--text-main)', fontSize: '16px' }}>Правила прохождения</h4>
+                                        <label style={{ fontSize: '13px', color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>Попыток сдачи (0 = безлимит):</label>
+                                        <input type="number" className="deck-input" min="0" value={settingsData.maxAttempts} onChange={e => setSettingsData({...settingsData, maxAttempts: e.target.value === '' ? '' : Number(e.target.value)})} style={{ background: 'var(--bg-input)', width: '100%', fontSize: '16px', padding: '12px' }} />
                                         
                                         {!isVideo && (
                                             <div style={{ marginTop: '20px' }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                                                    <span style={{ fontSize: '13px', color: '#aaa', fontWeight: 500 }}>Проходной балл:</span>
-                                                    <span style={{ fontSize: '14px', color: '#fff', fontWeight: 'bold', background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '8px' }}>
+                                                    <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>Проходной балл:</span>
+                                                    <span style={{ fontSize: '14px', color: 'var(--text-main)', fontWeight: 'bold', background: 'var(--bg-input)', padding: '2px 8px', borderRadius: '8px' }}>
                                                         {settingsData.passingScore}%
                                                     </span>
                                                 </div>
@@ -1045,38 +1087,57 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                         )}
 
                                         {/* 👇 ЕДИНЫЙ ПЕРЕКЛЮЧАТЕЛЬ ДЛЯ ВСЕХ (и для видео, и для тестов) */}
-                                        <label className="toggle-wrapper" style={{ marginTop: '25px', display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.2)', padding: '15px', borderRadius: '12px', cursor: 'pointer' }}>
+                                        <label className="toggle-wrapper" style={{ marginTop: '25px', display: 'flex', alignItems: 'center', background: 'var(--bg-input)', padding: '15px', borderRadius: '12px', cursor: 'pointer' }}>
                                             <input type="checkbox" className="toggle-input" checked={settingsData.hideResults} onChange={e => setSettingsData({...settingsData, hideResults: e.target.checked})} />
                                             <div className="toggle-track"><div className="toggle-thumb"></div></div>
-                                            <span className="toggle-label" style={{color: '#fff', marginLeft: '12px', fontSize: '14px', fontWeight: 500}}>Скрыть работу над ошибками</span>
+                                            <span className="toggle-label" style={{color: 'var(--text-main)', marginLeft: '12px', fontSize: '14px', fontWeight: 500}}>Скрыть работу над ошибками</span>
                                         </label>
                                         
                                         {/* Только для видео */}
                                         {isVideo && (
-                                            <label className="toggle-wrapper" style={{ marginTop: '10px', display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.2)', padding: '15px', borderRadius: '12px', cursor: 'pointer' }}>
+                                            <label className="toggle-wrapper" style={{ marginTop: '10px', display: 'flex', alignItems: 'center', background: 'var(--bg-input)', padding: '15px', borderRadius: '12px', cursor: 'pointer' }}>
                                                 <input type="checkbox" className="toggle-input" checked={settingsData.allowExternalTest} onChange={e => setSettingsData({...settingsData, allowExternalTest: e.target.checked})} />
                                                 <div className="toggle-track"><div className="toggle-thumb"></div></div>
-                                                <span className="toggle-label" style={{color: '#fff', marginLeft: '12px', fontSize: '14px', fontWeight: 500}}>Разрешить решать без видео</span>
+                                                <span className="toggle-label" style={{color: 'var(--text-main)', marginLeft: '12px', fontSize: '14px', fontWeight: 500}}>Разрешить решать без видео</span>
                                             </label>
                                         )}
 
                                         {/* Для видео и тестов */}
-                                        <label className="toggle-wrapper" style={{ marginTop: '10px', display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.2)', padding: '15px', borderRadius: '12px', cursor: 'pointer' }}>
+                                        <label className="toggle-wrapper" style={{ marginTop: '10px', display: 'flex', alignItems: 'center', background: 'var(--bg-input)', padding: '15px', borderRadius: '12px', cursor: 'pointer' }}>
                                             <input type="checkbox" className="toggle-input" checked={settingsData.isHidden} onChange={e => setSettingsData({...settingsData, isHidden: e.target.checked})} />
                                             <div className="toggle-track"><div className="toggle-thumb"></div></div>
-                                            <span className="toggle-label" style={{color: '#fff', marginLeft: '12px', fontSize: '14px', fontWeight: 500}}>Скрыть от студентов</span>
+                                            <span className="toggle-label" style={{color: 'var(--text-main)', marginLeft: '12px', fontSize: '14px', fontWeight: 500}}>Скрыть от студентов</span>
                                         </label>
 
                                         {/* Только для тестов */}
                                         {!isVideo && (
-                                            <label className="toggle-wrapper" style={{ marginTop: '10px', display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.2)', padding: '15px', borderRadius: '12px', cursor: 'pointer' }}>
-                                                <input type="checkbox" className="toggle-input" checked={settingsData.shuffleQuestions} onChange={e => setSettingsData({...settingsData, shuffleQuestions: e.target.checked})} />
+                                            <>
+                                                <label className="toggle-wrapper" style={{ marginTop: '10px', display: 'flex', alignItems: 'center', background: 'var(--bg-input)', padding: '15px', borderRadius: '12px', cursor: 'pointer' }}>
+                                                    <input type="checkbox" className="toggle-input" checked={settingsData.shuffleQuestions} onChange={e => setSettingsData({...settingsData, shuffleQuestions: e.target.checked})} />
+                                                    <div className="toggle-track"><div className="toggle-thumb"></div></div>
+                                                    <span className="toggle-label" style={{color: 'var(--text-main)', marginLeft: '12px', fontSize: '14px', fontWeight: 500}}>Перемешивать вопросы случайно</span>
+                                                </label>
+                                                <label className="toggle-wrapper" style={{ marginTop: '10px', display: 'flex', alignItems: 'center', background: 'var(--bg-input)', padding: '15px', borderRadius: '12px', cursor: 'pointer' }}>
+                                                    <input type="checkbox" className="toggle-input" checked={settingsData.shuffleAnswers} onChange={e => setSettingsData({...settingsData, shuffleAnswers: e.target.checked})} />
+                                                    <div className="toggle-track"><div className="toggle-thumb"></div></div>
+                                                    <span className="toggle-label" style={{color: 'var(--text-main)', marginLeft: '12px', fontSize: '14px', fontWeight: 500}}>Перемешивать варианты ответов</span>
+                                                </label>
+                                            </>
+                                        )}
+
+                                        {/* Только для видео */}
+                                        {isVideo && (
+                                            <label className="toggle-wrapper" style={{ marginTop: '10px', display: 'flex', alignItems: 'center', background: 'var(--bg-input)', padding: '15px', borderRadius: '12px', cursor: 'pointer' }}>
+                                                <input type="checkbox" className="toggle-input" checked={settingsData.noForwardSeek} onChange={e => setSettingsData({...settingsData, noForwardSeek: e.target.checked})} />
                                                 <div className="toggle-track"><div className="toggle-thumb"></div></div>
-                                                <span className="toggle-label" style={{color: '#fff', marginLeft: '12px', fontSize: '14px', fontWeight: 500}}>Перемешивать вопросы случайно</span>
+                                                <div style={{ marginLeft: '12px' }}>
+                                                    <div style={{ color: 'var(--text-main)', fontSize: '14px', fontWeight: 500 }}>Запретить перемотку вперёд</div>
+                                                    <div style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: 2 }}>Студент может мотать только назад</div>
+                                                </div>
                                             </label>
                                         )}
                                         <div style={{ marginTop: '10px' }}>
-                                            <label style={{ fontSize: '12px', color: '#888', display: 'block', marginBottom: '6px' }}>Открыть с даты (пусто — доступно сразу):</label>
+                                            <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Открыть с даты (пусто — доступно сразу):</label>
                                             <DateTimePicker
                                                 value={settingsData.unlockDate}
                                                 onChange={val => setSettingsData({...settingsData, unlockDate: val})}
@@ -1094,9 +1155,9 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                     </div>
 
                                     {!isVideo && (
-                                        <div style={{ background: 'rgba(255,255,255,0.02)', padding: '20px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                            <h4 style={{ margin: '0 0 15px 0', color: '#fff', fontSize: '16px' }}>Описание материала</h4>
-                                            <textarea className="deck-input" placeholder="Напишите пару слов для студентов..." value={settingsData.description} onChange={e => setSettingsData({...settingsData, description: e.target.value})} onBlur={handleSaveSettings} style={{ background: 'rgba(0,0,0,0.3)', minHeight: '120px', resize: 'vertical', width: '100%', fontSize: '14px', lineHeight: 1.5 }} />
+                                        <div style={{ background: 'var(--bg-card)', padding: '20px', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
+                                            <h4 style={{ margin: '0 0 15px 0', color: 'var(--text-main)', fontSize: '16px' }}>Описание материала</h4>
+                                            <textarea className="deck-input" placeholder="Напишите пару слов для студентов..." value={settingsData.description} onChange={e => setSettingsData({...settingsData, description: e.target.value})} onBlur={handleSaveSettings} style={{ background: 'var(--bg-input)', minHeight: '120px', resize: 'vertical', width: '100%', fontSize: '14px', lineHeight: 1.5 }} />
                                         </div>
                                     )}
                                 </div>
@@ -1108,8 +1169,8 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                     
                                     <div style={{ display: 'flex', gap: '15px' }}>
                                         <div style={{ flex: 1 }}>
-                                            <label style={{ fontSize: '12px', color: '#888', display: 'block', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>Тип элемента</label>
-                                            <select className="deck-input" style={{ width: '100%', background: 'rgba(0,0,0,0.3)', padding: '12px', fontSize: '14px', border: '1px solid rgba(255,255,255,0.1)' }} value={eventType} onChange={(e) => setEventType(e.target.value as any)}>
+                                            <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>Тип элемента</label>
+                                            <select className="deck-input" style={{ width: '100%', background: 'var(--bg-input)', padding: '12px', fontSize: '14px', border: '1px solid var(--border-color)' }} value={eventType} onChange={(e) => setEventType(e.target.value as any)}>
                                                 <option value="single_choice">Один из списка</option>
                                                 <option value="multiple_choice">Несколько ответов</option>
                                                 <option value="free_text">ИИ Проверка текста</option>
@@ -1118,8 +1179,8 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                         </div>
                                         {isVideo && (
                                             <div style={{ width: '100px' }}>
-                                                <label style={{ fontSize: '12px', color: '#888', display: 'block', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>Время (сек)</label>
-                                                <div style={{ background: 'rgba(0,0,0,0.3)', padding: '12px', borderRadius: '12px', border: `1px solid ${accentColor}55`, color: accentColor, fontWeight: 'bold', textAlign: 'center', fontSize: '14px' }}>
+                                                <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>Время (сек)</label>
+                                                <div style={{ background: 'var(--bg-input)', padding: '12px', borderRadius: '12px', border: `1px solid ${accentColor}55`, color: accentColor, fontWeight: 'bold', textAlign: 'center', fontSize: '14px' }}>
                                                     {currentTime.toFixed(1)}
                                                 </div>
                                             </div>
@@ -1127,27 +1188,43 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                     </div>
 
                                     <div>
-                                        <label style={{ fontSize: '12px', color: '#888', display: 'block', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>{eventType === 'info' ? 'Текст инфо-карточки' : 'Формулировка вопроса'}</label>
-                                        <textarea className="deck-input" placeholder="Напишите здесь свой вопрос..." value={questionText} onChange={e => setQuestionText(e.target.value)} style={{ background: 'rgba(0,0,0,0.3)', minHeight: '100px', resize: 'vertical', fontSize: '15px', border: '1px solid rgba(255,255,255,0.1)' }} />
+                                        <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>{eventType === 'info' ? 'Текст инфо-карточки' : 'Формулировка вопроса'}</label>
+                                        <textarea className="deck-input" placeholder="Напишите здесь свой вопрос..." value={questionText} onChange={e => setQuestionText(e.target.value)} style={{ background: 'var(--bg-input)', minHeight: '100px', resize: 'vertical', fontSize: '15px', border: '1px solid var(--border-color)' }} />
+                                        {/* Изображение к вопросу (только для обычных тестов) */}
+                                        {!isVideo && (
+                                            <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                                                <input ref={questionImgInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleUploadQuestionImage(e.target.files[0]); e.target.value = ''; }} />
+                                                <button type="button" className="btn btn-ghost" style={{ fontSize: 13, padding: '6px 12px', color: questionImageUrl ? accentColor : '#666' }} onClick={() => questionImgInputRef.current?.click()} disabled={isUploadingImage}>
+                                                    {isUploadingImage ? '⏳ Загрузка...' : (questionImageUrl ? '🖼 Сменить картинку' : '🖼 Добавить картинку')}
+                                                </button>
+                                                {questionImageUrl && (
+                                                    <>
+                                                        <img src={normalizeUploadUrl(questionImageUrl)} alt="" style={{ maxHeight: 60, maxWidth: 120, borderRadius: 8, objectFit: 'contain', border: '1px solid var(--border-color)' }} />
+                                                        <button type="button" onClick={() => setQuestionImageUrl(null)} style={{ color: '#ff4d4d', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}>✕</button>
+                                                    </>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
 
                                     {(eventType === 'single_choice' || eventType === 'multiple_choice') && (
-                                        <div style={{ background: 'rgba(255,255,255,0.02)', padding: '20px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                            <label style={{ fontSize: '12px', color: '#888', display: 'block', marginBottom: '15px', textTransform: 'uppercase', letterSpacing: '1px' }}>Варианты ответа (отметьте верные):</label>
+                                        <div style={{ background: 'var(--bg-card)', padding: '20px', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
+                                            <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '15px', textTransform: 'uppercase', letterSpacing: '1px' }}>Варианты ответа (отметьте верные):</label>
                                             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndOption}>
                                                 <SortableContext items={options.map((_, idx) => `opt-${idx}`)} strategy={verticalListSortingStrategy}>
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                                         {options.map((opt, idx) => (
-                                                            <SortableOption 
-                                                                key={`opt-${idx}`} 
-                                                                opt={opt} 
-                                                                idx={idx} 
+                                                            <SortableOption
+                                                                key={`opt-${idx}`}
+                                                                opt={opt}
+                                                                idx={idx}
                                                                 isCorrect={opt.isCorrect}
                                                                 isDuplicate={duplicateIndices.includes(idx)}
                                                                 accentColor={accentColor}
                                                                 onChangeText={(val: string) => handleOptionChange(idx, 'text', val)}
                                                                 onToggleCorrect={(e: any) => handleOptionChange(idx, 'isCorrect', e.target.checked)}
                                                                 onRemove={() => handleRemoveOption(idx)}
+                                                                onUploadImage={(file: File | null) => handleUploadOptionImage(idx, file)}
                                                             />
                                                         ))}
                                                     </div>
@@ -1165,7 +1242,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                             <div style={{ marginTop: '20px' }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
                                                     <span style={{ fontSize: '13px', color: 'var(--primary)', fontWeight: 500 }}>Требуемая точность ответа:</span>
-                                                    <span style={{ fontSize: '14px', color: '#fff', fontWeight: 'bold', background: 'rgba(var(--primary-rgb),0.2)', padding: '2px 8px', borderRadius: '8px' }}>{aiThreshold}%</span>
+                                                    <span style={{ fontSize: '14px', color: 'var(--text-main)', fontWeight: 'bold', background: 'rgba(var(--primary-rgb),0.2)', padding: '2px 8px', borderRadius: '8px' }}>{aiThreshold}%</span>
                                                 </div>
                                                 <input type="range" min="10" max="100" value={aiThreshold} onChange={e => setAiThreshold(e.target.value === '' ? '' : Number(e.target.value))} style={{ width: '100%', accentColor: 'var(--primary)', height: '6px' }} />
                                             </div>
@@ -1173,18 +1250,18 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                     )}
 
                                     {eventType !== 'info' && (
-                                        <div style={{ padding: '20px', borderRadius: '16px', border: '1px dashed rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.01)' }}>
-                                            <h4 style={{ margin: '0 0 20px 0', fontSize: '13px', color: '#aaa', textTransform: 'uppercase', letterSpacing: '1px' }}>Логика и штрафы</h4>
+                                        <div style={{ padding: '20px', borderRadius: '16px', border: '1px dashed var(--border-color)', background: 'var(--bg-card)' }}>
+                                            <h4 style={{ margin: '0 0 20px 0', fontSize: '13px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>Логика и штрафы</h4>
                                             
                                             <div style={{ display: 'flex', gap: '15px', marginBottom: '20px' }}>
                                                 <div style={{ flex: 1 }}>
-                                                    <label style={{ fontSize: '12px', color: '#888', display: 'block', marginBottom: '8px' }}>Вес (баллов):</label>
-                                                    <input type="number" className="deck-input" min="1" value={weight} onChange={e => setWeight(e.target.value === '' ? '' : Number(e.target.value))} style={{ background: 'rgba(0,0,0,0.3)', width: '100%', margin: 0, fontSize: '15px', padding: '10px' }} />
+                                                    <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>Вес (баллов):</label>
+                                                    <input type="number" className="deck-input" min="1" value={weight} onChange={e => setWeight(e.target.value === '' ? '' : Number(e.target.value))} style={{ background: 'var(--bg-input)', width: '100%', margin: 0, fontSize: '15px', padding: '10px' }} />
                                                 </div>
                                                 {isVideo && (
                                                     <div style={{ flex: 1 }}>
-                                                        <label style={{ fontSize: '12px', color: '#888', display: 'block', marginBottom: '8px' }}>Откинуть назад (сек):</label>
-                                                        <input type="number" className="deck-input" placeholder="Напр. 120" value={rewindTo} onChange={e => setRewindTo(e.target.value === '' ? '' : Number(e.target.value))} style={{ background: 'rgba(0,0,0,0.3)', width: '100%', margin: 0, fontSize: '15px', padding: '10px' }} />
+                                                        <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>Откинуть назад (сек):</label>
+                                                        <input type="number" className="deck-input" placeholder="Напр. 120" value={rewindTo} onChange={e => setRewindTo(e.target.value === '' ? '' : Number(e.target.value))} style={{ background: 'var(--bg-input)', width: '100%', margin: 0, fontSize: '15px', padding: '10px' }} />
                                                     </div>
                                                 )}
                                             </div>
@@ -1192,20 +1269,20 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                             <label className="toggle-wrapper" style={{ display: 'flex', alignItems: 'center', marginBottom: '15px', background: 'rgba(0,0,0,0.2)', padding: '12px 15px', borderRadius: '12px' }}>
                                                 <input type="checkbox" className="toggle-input" checked={isStrict} onChange={e => setIsStrict(e.target.checked)} />
                                                 <div className="toggle-track"><div className="toggle-thumb"></div></div>
-                                                <span className="toggle-label" style={{color: '#fff', marginLeft: '12px', fontSize: '14px'}}>Строгий режим (1 ошибка = 0 баллов)</span>
+                                                <span className="toggle-label" style={{color: 'var(--text-main)', marginLeft: '12px', fontSize: '14px'}}>Строгий режим (1 ошибка = 0 баллов)</span>
                                             </label>
 
                                             {isVideo && (
                                                 <label className="toggle-wrapper" style={{ display: 'flex', alignItems: 'center', marginBottom: '20px', background: 'rgba(0,0,0,0.2)', padding: '12px 15px', borderRadius: '12px' }}>
                                                     <input type="checkbox" className="toggle-input" checked={isRequired} onChange={e => setIsRequired(e.target.checked)} />
                                                     <div className="toggle-track"><div className="toggle-thumb"></div></div>
-                                                    <span className="toggle-label" style={{color: '#fff', marginLeft: '12px', fontSize: '14px'}}>Обязательный вопрос (нельзя перемотать)</span>
+                                                    <span className="toggle-label" style={{color: 'var(--text-main)', marginLeft: '12px', fontSize: '14px'}}>Обязательный вопрос (нельзя перемотать)</span>
                                                 </label>
                                             )}
 
                                             <div>
-                                                <label style={{ fontSize: '12px', color: '#888', display: 'block', marginBottom: '8px' }}>Объяснение при ошибке (опционально):</label>
-                                                <textarea className="deck-input" placeholder="Неверно, потому что..." value={explanation} onChange={e => setExplanation(e.target.value)} style={{ background: 'rgba(0,0,0,0.3)', minHeight: '60px', resize: 'vertical', fontSize: '14px' }} />
+                                                <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>Объяснение при ошибке (опционально):</label>
+                                                <textarea className="deck-input" placeholder="Неверно, потому что..." value={explanation} onChange={e => setExplanation(e.target.value)} style={{ background: 'var(--bg-input)', minHeight: '60px', resize: 'vertical', fontSize: '14px' }} />
                                             </div>
                                         </div>
                                     )}
@@ -1216,9 +1293,9 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                         </div>
                         
                         {rightTab === 'constructor' && (
-                            <div style={{ padding: '20px 25px', background: '#141416', borderTop: '1px solid rgba(255,255,255,0.05)', flexShrink: 0, display: 'flex', gap: '15px' }}>
+                            <div style={{ padding: '20px 25px', background: 'var(--bg-panel)', borderTop: '1px solid var(--border-color)', flexShrink: 0, display: 'flex', gap: '15px' }}>
                                 {editingEventId && (
-                                    <button className="btn btn-ghost" style={{ flex: 1, background: 'rgba(255,255,255,0.05)', padding: '12px', borderRadius: '12px', fontWeight: 'bold' }} onClick={resetForm}>Отменить</button>
+                                    <button className="btn btn-ghost" style={{ flex: 1, background: 'var(--bg-input)', padding: '12px', borderRadius: '12px', fontWeight: 'bold' }} onClick={resetForm}>Отменить</button>
                                 )}
                                 <button className="btn btn-primary" style={{ flex: 2, background: accentColor, color: '#000', fontWeight: '900', padding: '12px', fontSize: '15px', borderRadius: '12px', boxShadow: `0 4px 15px ${accentColor}66` }} onClick={handleSaveItem} disabled={isAddingEvent}>
                                     {isAddingEvent ? 'Сохранение...' : (editingEventId ? <><Icons.Save size={14}/> Сохранить изменения</> : <><Icons.Plus size={14}/> Создать элемент</>)}

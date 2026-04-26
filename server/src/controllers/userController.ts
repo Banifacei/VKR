@@ -653,6 +653,11 @@ export const getUserOverview = async (req: Request, res: Response) => {
             ];
         }
 
+        // Если у преподавателя нет ни одного курса — студент не может быть записан
+        if (courseFilter !== null && courseFilter.length === 0) {
+            return res.json({ user, viewerRole, mode: 'student_profile', courses: [] });
+        }
+
         const enrollmentWhere: any = { userId: targetId };
         const courseIncludeWhere: any = courseFilter ? { id: courseFilter } : {};
 
@@ -695,6 +700,21 @@ export const getUserOverview = async (req: Request, res: Response) => {
         res.json({ user, viewerRole, mode: 'student_profile', courses: courses.filter(Boolean) });
     } catch (e) {
         console.error('getUserOverview error:', e);
+        // Вернём хотя бы базовую инфу о пользователе вместо 500
+        try {
+            const basicUser = await User.findByPk(targetId, {
+                attributes: ['id', 'firstName', 'lastName', 'email', 'role', 'avatarUrl', 'createdAt'],
+            });
+            if (basicUser) {
+                return res.json({
+                    user: basicUser,
+                    viewerRole,
+                    mode: 'student_profile',
+                    courses: [],
+                    neverActive: true,
+                });
+            }
+        } catch { /* ignore */ }
         res.status(500).json({ message: 'Ошибка загрузки профиля' });
     }
 };

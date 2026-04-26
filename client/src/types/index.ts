@@ -39,6 +39,7 @@ export interface IVideo {
     isHidden?: boolean;
     unlockDate?: string | null;
     qualityUrls?: { quality: string; url: string }[];
+    noForwardSeek?: boolean;
 }
 
 export interface ICourse {

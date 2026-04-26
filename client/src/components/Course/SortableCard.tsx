@@ -158,26 +158,26 @@ export const SortableCard = ({ item, idx, isEditMode, completedVideoIds, testRes
             <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', flex: 1 }}>
                 <h3 style={{
                     margin: '0 0 15px 0', fontSize: '16px', lineHeight: '1.4',
-                    color: isUpcoming ? 'rgba(255,255,255,0.4)' : '#fff',
+                    color: isUpcoming ? 'rgba(255,255,255,0.4)' : 'var(--text-main)',
                 }}>
-                    <span style={{ color: isUpcoming ? 'rgba(255,255,255,0.2)' : '#888', marginRight: '8px' }}>{idx + 1}.</span>
+                    <span style={{ color: isUpcoming ? 'rgba(255,255,255,0.2)' : 'var(--text-muted)', marginRight: '8px' }}>{idx + 1}.</span>
                     {item.title}
                 </h3>
 
                 <div style={{
                     marginTop: 'auto',
-                    borderTop: '1px solid rgba(255,255,255,0.05)',
+                    borderTop: '1px solid var(--border-color)',
                     paddingTop: '15px',
                 }}>
                     {isUpcoming ? (
                         // Дата релиза
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#555', fontSize: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '12px' }}>
                             <Icons.Time size={13} />
                             <span>Откроется {formatReleaseDate(item.unlockDate)}</span>
                         </div>
                     ) : (
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: '13px', color: '#666' }}>
+                            <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
                                 {isVideo ? 'Учебный материал' : `${item.questions?.length || 0} вопросов`}
                             </span>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>

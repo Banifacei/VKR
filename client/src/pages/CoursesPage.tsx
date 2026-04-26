@@ -49,7 +49,7 @@ const SortableCourseCard = ({ course, rating, onClick }: {
         <div ref={setNodeRef} style={style} className="course-card-modern">
             <div
                 {...attributes} {...listeners}
-                style={{ position: 'absolute', top: 10, right: 10, zIndex: 10, background: 'rgba(0,0,0,0.5)', borderRadius: 6, padding: '4px 6px', color: '#666', cursor: 'grab', fontSize: 12 }}
+                style={{ position: 'absolute', top: 10, right: 10, zIndex: 10, background: 'rgba(0,0,0,0.5)', borderRadius: 6, padding: '4px 6px', color: 'var(--text-muted)', cursor: 'grab', fontSize: 12 }}
                 title="Перетащите для изменения порядка"
             >⠿</div>
             <div onClick={onClick} style={{ display: 'contents' }}>
@@ -220,8 +220,8 @@ export const CoursesPage = () => {
                             style={{ border: '2px dashed #333', background: 'transparent', justifyContent: 'center', alignItems: 'center', minHeight: '300px' }}
                         >
                             <div style={{ color: 'var(--primary)', marginBottom: '15px' }}><CorsesIcons.Plus /></div>
-                            <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '18px' }}>Создать новый курс</div>
-                            <div style={{ color: '#666', fontSize: '13px', marginTop: '8px' }}>Нажмите, чтобы добавить программу</div>
+                            <div style={{ color: 'var(--text-main)', fontWeight: 'bold', fontSize: '18px' }}>Создать новый курс</div>
+                            <div style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '8px' }}>Нажмите, чтобы добавить программу</div>
                         </div>
                     )}
 
@@ -310,27 +310,27 @@ export const CoursesPage = () => {
                 }} onPointerDown={() => setShowAddModal(false)}>
                     
                     <div 
-                        style={{ background: '#111', padding: 'clamp(16px, 5vw, 30px)', borderRadius: 'clamp(16px, 3vw, 24px)', border: '1px solid #333', width: 'calc(100% - 32px)', maxWidth: '450px', animation: 'fadeIn 0.2s ease', boxShadow: '0 20px 40px rgba(0,0,0,0.5)' }}
+                        style={{ background: 'var(--bg-panel)', padding: 'clamp(16px, 5vw, 30px)', borderRadius: 'clamp(16px, 3vw, 24px)', border: '1px solid var(--border-color)', width: 'calc(100% - 32px)', maxWidth: '450px', animation: 'fadeIn 0.2s ease', boxShadow: '0 20px 40px rgba(0,0,0,0.5)' }}
                         onPointerDown={(e) => e.stopPropagation()} 
                     >
-                        <h2 style={{color: '#fff', marginBottom: '25px', marginTop: 0, fontSize: '22px'}}>Создание курса</h2>
+                        <h2 style={{color: 'var(--text-main)', marginBottom: '25px', marginTop: 0, fontSize: '22px'}}>Создание курса</h2>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                             <div className="form-group">
-                                <label style={{fontSize: '12px', color: '#888', marginBottom: '5px', display: 'block', textTransform: 'uppercase', letterSpacing: '1px'}}>Название курса</label>
+                                <label style={{fontSize: '12px', color: 'var(--text-muted)', marginBottom: '5px', display: 'block', textTransform: 'uppercase', letterSpacing: '1px'}}>Название курса</label>
                                 <input 
                                     type="text" placeholder="Например: Основы TypeScript" className="modern-input"
                                     value={newCourseData.title} onChange={e => setNewCourseData({...newCourseData, title: e.target.value})}
                                 />
                             </div>
                             <div className="form-group">
-                                <label style={{fontSize: '12px', color: '#888', marginBottom: '5px', display: 'block', textTransform: 'uppercase', letterSpacing: '1px'}}>Описание (необязательно)</label>
+                                <label style={{fontSize: '12px', color: 'var(--text-muted)', marginBottom: '5px', display: 'block', textTransform: 'uppercase', letterSpacing: '1px'}}>Описание (необязательно)</label>
                                 <textarea 
                                     placeholder="О чем этот курс? Чему научатся студенты?" className="modern-textarea" style={{ minHeight: '100px' }}
                                     value={newCourseData.description} onChange={e => setNewCourseData({...newCourseData, description: e.target.value})}
                                 />
                             </div>
                             <div className="form-group">
-                                <label style={{fontSize: '12px', color: '#888', marginBottom: '5px', display: 'block', textTransform: 'uppercase', letterSpacing: '1px'}}>Автор / Преподаватель</label>
+                                <label style={{fontSize: '12px', color: 'var(--text-muted)', marginBottom: '5px', display: 'block', textTransform: 'uppercase', letterSpacing: '1px'}}>Автор / Преподаватель</label>
                                 <input 
                                     type="text" className="modern-input"
                                     value={newCourseData.instructor} onChange={e => setNewCourseData({...newCourseData, instructor: e.target.value})}
@@ -346,7 +346,7 @@ export const CoursesPage = () => {
                                 {isCreating ? 'Создаем...' : 'Опубликовать курс'}
                             </button>
                             <button 
-                                className="btn btn-ghost" style={{ marginTop: '5px', color: '#888', width: '100%' }} 
+                                className="btn btn-ghost" style={{ marginTop: '5px', color: 'var(--text-muted)', width: '100%' }}
                                 onClick={() => setShowAddModal(false)}
                             >
                                 Отмена

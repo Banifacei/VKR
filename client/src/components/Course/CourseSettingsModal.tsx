@@ -160,22 +160,22 @@ export const CourseSettingsModal = ({
 
     return (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(5px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }}>
-            <div style={{ background: '#111', borderRadius: 'clamp(12px, 3vw, 24px)', border: '1px solid #333', width: '100%', maxWidth: '700px', height: 'min(600px, calc(100dvh - 40px))', margin: '0 16px', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.5)', animation: 'fadeIn 0.2s ease', display: 'flex', flexDirection: 'column'}}>
+            <div style={{ background: 'var(--bg-panel)', borderRadius: 'clamp(12px, 3vw, 24px)', border: '1px solid var(--border-color)', width: '100%', maxWidth: '700px', height: 'min(600px, calc(100dvh - 40px))', margin: '0 16px', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.5)', animation: 'fadeIn 0.2s ease', display: 'flex', flexDirection: 'column'}}>
                 
-                <div style={{ padding: '20px 25px', background: '#1a1a1a', borderBottom: '1px solid #333', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h3 style={{margin: 0, color: '#fff'}}>Настройки курса</h3>
-                    <button style={{background:'none', border:'none', color:'#888', cursor:'pointer', fontSize:'20px'}} onClick={handleCloseModal}>✕</button>
+                <div style={{ padding: '20px 25px', background: 'var(--bg-card)', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h3 style={{margin: 0, color: 'var(--text-main)'}}>Настройки курса</h3>
+                    <button style={{background:'none', border:'none', color:'var(--text-muted)', cursor:'pointer', fontSize:'20px'}} onClick={handleCloseModal}>✕</button>
                 </div>
 
-                <div style={{ display: 'flex', borderBottom: '1px solid #333', background: '#0a0a0a' }}>
-                    <button onClick={() => setSettingsTab('info')} style={{ flex: 1, padding: '15px', background: 'none', border: 'none', borderBottom: settingsTab === 'info' ? '2px solid var(--primary)' : '2px solid transparent', color: settingsTab === 'info' ? 'var(--primary)' : '#888', fontWeight: 'bold', cursor: 'pointer' }}>Основное</button>
-                    <button onClick={() => { setSettingsTab('enrollments'); fetchEnrollments(); loadCourseBans(); }} style={{ flex: 1, padding: '15px', background: 'none', border: 'none', borderBottom: settingsTab === 'enrollments' ? '2px solid var(--primary)' : '2px solid transparent', color: settingsTab === 'enrollments' ? 'var(--primary)' : '#888', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', background: 'var(--bg-deep)' }}>
+                    <button onClick={() => setSettingsTab('info')} style={{ flex: 1, padding: '15px', background: 'none', border: 'none', borderBottom: settingsTab === 'info' ? '2px solid var(--primary)' : '2px solid transparent', color: settingsTab === 'info' ? 'var(--primary)' : 'var(--text-muted)', fontWeight: 'bold', cursor: 'pointer' }}>Основное</button>
+                    <button onClick={() => { setSettingsTab('enrollments'); fetchEnrollments(); loadCourseBans(); }} style={{ flex: 1, padding: '15px', background: 'none', border: 'none', borderBottom: settingsTab === 'enrollments' ? '2px solid var(--primary)' : '2px solid transparent', color: settingsTab === 'enrollments' ? 'var(--primary)' : 'var(--text-muted)', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                         Заявки
                         {pendingCount > 0 && (
                             <span style={{ background: '#ff4d4d', color: '#fff', fontSize: '11px', padding: '2px 6px', borderRadius: '10px', lineHeight: 1 }}>{pendingCount}</span>
                         )}
                     </button>
-                    <button onClick={() => { setSettingsTab('team'); fetchCollaborators(); }} style={{ flex: 1, padding: '15px', background: 'none', border: 'none', borderBottom: settingsTab === 'team' ? '2px solid var(--primary)' : '2px solid transparent', color: settingsTab === 'team' ? 'var(--primary)' : '#888', fontWeight: 'bold', cursor: 'pointer' }}>Команда</button>
+                    <button onClick={() => { setSettingsTab('team'); fetchCollaborators(); }} style={{ flex: 1, padding: '15px', background: 'none', border: 'none', borderBottom: settingsTab === 'team' ? '2px solid var(--primary)' : '2px solid transparent', color: settingsTab === 'team' ? 'var(--primary)' : 'var(--text-muted)', fontWeight: 'bold', cursor: 'pointer' }}>Команда</button>
                 </div>
 
                 <div style={{ padding: '25px', overflowY: 'auto', flex: 1 }}>
@@ -183,9 +183,9 @@ export const CourseSettingsModal = ({
                     {/* --- ВКЛАДКА 1: ОСНОВНОЕ --- */}
                     {settingsTab === 'info' && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                            <div><label style={{ fontSize: '12px', color: '#888' }}>Название курса</label><input className="modern-input" value={editCourseData.title} onChange={e => setEditCourseData({...editCourseData, title: e.target.value})} /></div>
-                            <div><label style={{ fontSize: '12px', color: '#888' }}>ФИО Преподавателя</label><input className="modern-input" value={editCourseData.instructor} onChange={e => setEditCourseData({...editCourseData, instructor: e.target.value})} /></div>
-                            <div><label style={{ fontSize: '12px', color: '#888' }}>Описание</label><textarea className="modern-input" style={{ minHeight: '150px' }} value={editCourseData.description} onChange={e => setEditCourseData({...editCourseData, description: e.target.value})} /></div>
+                            <div><label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Название курса</label><input className="modern-input" value={editCourseData.title} onChange={e => setEditCourseData({...editCourseData, title: e.target.value})} /></div>
+                            <div><label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>ФИО Преподавателя</label><input className="modern-input" value={editCourseData.instructor} onChange={e => setEditCourseData({...editCourseData, instructor: e.target.value})} /></div>
+                            <div><label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Описание</label><textarea className="modern-input" style={{ minHeight: '150px' }} value={editCourseData.description} onChange={e => setEditCourseData({...editCourseData, description: e.target.value})} /></div>
                             
                             <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
                                 <button className="btn btn-primary" style={{ flex: 1, opacity: isChanged ? 1 : 0.5 }} disabled={!isChanged} onClick={async () => {
@@ -213,8 +213,8 @@ export const CourseSettingsModal = ({
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                             {isOwner ? (
                                 <div style={{ position: 'relative', marginBottom: '15px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', background: '#1a1a1a', borderRadius: '12px', padding: '0 15px', border: '1px solid #333', transition: 'border-color 0.2s', position: 'relative', zIndex: 101 }}>
-                                        <span style={{color: '#888'}}>🔍</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-card)', borderRadius: '12px', padding: '0 15px', border: '1px solid var(--border-color)', transition: 'border-color 0.2s', position: 'relative', zIndex: 101 }}>
+                                        <span>🔍</span>
                                         <input 
                                             className="modern-input" 
                                             style={{ marginBottom: 0, border: 'none', background: 'transparent', boxShadow: 'none', flex: 1, padding: '15px 10px' }} 
@@ -232,7 +232,7 @@ export const CourseSettingsModal = ({
                                     {showDropdown && searchResults.length > 0 && (
                                         <div style={{
                                             position: 'absolute', top: '55px', left: 0, right: 0,
-                                            background: '#161616', border: '1px solid #333', borderRadius: '12px',
+                                            background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px',
                                             boxShadow: '0 10px 40px rgba(0,0,0,0.8)', zIndex: 102, overflowY: 'auto', 
                                             maxHeight: '260px', animation: 'fadeIn 0.2s ease'
                                         }}>
@@ -241,16 +241,16 @@ export const CourseSettingsModal = ({
                                                 return (
                                                     <div key={userItem.id} 
                                                         onClick={() => handleInviteUser(userItem.email)}
-                                                        style={{ padding: '12px 15px', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', borderBottom: '1px solid #222', transition: 'background 0.2s' }}
-                                                        onMouseEnter={e => e.currentTarget.style.background = '#222'}
+                                                        style={{ padding: '12px 15px', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s' }}
+                                                        onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-input)'}
                                                         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                                                     >
-                                                        <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                                                            {userItem.avatarUrl ? <img src={userItem.avatarUrl} style={{width:'100%', height:'100%', objectFit:'cover'}} alt=""/> : <span style={{color:'#fff', fontSize:'14px'}}>{userItem.firstName?.[0] || '?'}</span>}
+                                                        <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--bg-input)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                                                            {userItem.avatarUrl ? <img src={userItem.avatarUrl} style={{width:'100%', height:'100%', objectFit:'cover'}} alt=""/> : <span style={{color:'var(--text-main)', fontSize:'14px'}}>{userItem.firstName?.[0] || '?'}</span>}
                                                         </div>
                                                         <div style={{ flex: 1 }}>
-                                                            <div style={{ color: '#fff', fontSize: '14px', fontWeight: 'bold' }}>{userItem.firstName} {userItem.lastName}</div>
-                                                            <div style={{ color: '#888', fontSize: '12px' }}>{userItem.email}</div>
+                                                            <div style={{ color: 'var(--text-main)', fontSize: '14px', fontWeight: 'bold' }}>{userItem.firstName} {userItem.lastName}</div>
+                                                            <div style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{userItem.email}</div>
                                                         </div>
                                                         <div style={{ fontSize: '11px', color: 'var(--primary)', background: 'rgba(var(--primary-rgb),0.1)', padding: '4px 8px', borderRadius: '6px' }}>
                                                             {userItem.role === 'teacher' ? 'Преподаватель' : 'Студент'}
@@ -266,12 +266,12 @@ export const CourseSettingsModal = ({
                                 <div style={{color: '#ff9900', fontSize: '13px', background: 'rgba(255,153,0,0.1)', padding: '10px', borderRadius: '8px'}}>Только Владелец курса может управлять командой.</div>
                             )}
 
-                            <div style={{ background: '#1a1a1a', borderRadius: '12px', border: '1px solid #333' }}>
-                                {collaborators.length === 0 ? <div style={{ padding: '20px', textAlign: 'center', color: '#666', fontSize: '13px' }}>Никого нет</div> : collaborators.map(col => (
-                                    <div key={col.userId} style={{ padding: '12px 15px', borderBottom: '1px solid #333', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                                {collaborators.length === 0 ? <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>Никого нет</div> : collaborators.map(col => (
+                                    <div key={col.userId} style={{ padding: '12px 15px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <div>
-                                            <div style={{ color: '#fff', fontSize: '14px', fontWeight: 'bold' }}>{col.user?.firstName} {col.user?.lastName}</div>
-                                            <div style={{ color: '#888', fontSize: '12px' }}>{col.user?.email}</div>
+                                            <div style={{ color: 'var(--text-main)', fontSize: '14px', fontWeight: 'bold' }}>{col.user?.firstName} {col.user?.lastName}</div>
+                                            <div style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{col.user?.email}</div>
                                         </div>
                                         {isOwner && (
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -296,8 +296,8 @@ export const CourseSettingsModal = ({
                     {/* --- ВКЛАДКА 3: ЗАЯВКИ --- */}
                     {settingsTab === 'enrollments' && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                            <div style={{ background: '#1a1a1a', padding: '15px', borderRadius: '12px', border: '1px solid #333' }}>
-                                <label style={{ fontSize: '12px', color: '#888', marginBottom: '8px', display: 'block' }}>Режим доступа к курсу</label>
+                            <div style={{ background: 'var(--bg-card)', padding: '15px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                                <label style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px', display: 'block' }}>Режим доступа к курсу</label>
                                 <select 
                                     className="modern-input" 
                                     value={editCourseData.enrollmentType} 
@@ -320,10 +320,10 @@ export const CourseSettingsModal = ({
                                 </select>
                             </div>
                             
-                            <div style={{ background: '#1a1a1a', padding: '15px', borderRadius: '12px', border: '1px solid #333', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div style={{ background: 'var(--bg-card)', padding: '15px', borderRadius: '12px', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <div>
-                                    <div style={{ color: '#fff', fontSize: '14px', fontWeight: 'bold' }}>Свободный доступ для коллег</div>
-                                    <div style={{ color: '#888', fontSize: '12px', marginTop: '4px' }}>Автоматически одобрять заявки от других преподавателей</div>
+                                    <div style={{ color: 'var(--text-main)', fontSize: '14px', fontWeight: 'bold' }}>Свободный доступ для коллег</div>
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: '4px' }}>Автоматически одобрять заявки от других преподавателей</div>
                                 </div>
                                 <label className="lumeo-toggle">
                                     <input 
@@ -343,16 +343,16 @@ export const CourseSettingsModal = ({
                                 </label>
                             </div>
 
-                            <hr style={{ border: 'none', borderTop: '1px solid #333', margin: '10px 0' }} />
+                            <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '10px 0' }} />
 
                             {/* 🔥 НОВОЕ: ПАНЕЛЬ ФИЛЬТРОВ И МАССОВЫХ ДЕЙСТВИЙ */}
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                                <div style={{ display: 'flex', gap: '8px', background: '#1a1a1a', padding: '4px', borderRadius: '12px', border: '1px solid #333' }}>
-                                    <button onClick={() => setEnrollmentFilter('all')} style={{ padding: '6px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', background: enrollmentFilter === 'all' ? '#333' : 'transparent', color: enrollmentFilter === 'all' ? '#fff' : '#888', fontSize: '12px', fontWeight: 'bold', transition: '0.2s' }}>Все ({enrollmentsList.length})</button>
-                                    <button onClick={() => setEnrollmentFilter('pending')} style={{ padding: '6px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', background: enrollmentFilter === 'pending' ? 'rgba(255, 215, 0, 0.15)' : 'transparent', color: enrollmentFilter === 'pending' ? '#ffd700' : '#888', fontSize: '12px', fontWeight: 'bold', transition: '0.2s' }}>Новые ({pendingCount})</button>
-                                    <button onClick={() => setEnrollmentFilter('approved')} style={{ padding: '6px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', background: enrollmentFilter === 'approved' ? 'rgba(0, 255, 136, 0.15)' : 'transparent', color: enrollmentFilter === 'approved' ? '#00ff88' : '#888', fontSize: '12px', fontWeight: 'bold', transition: '0.2s' }}>Одобрены</button>
-                                    <button onClick={() => setEnrollmentFilter('rejected')} style={{ padding: '6px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', background: enrollmentFilter === 'rejected' ? 'rgba(255, 77, 77, 0.15)' : 'transparent', color: enrollmentFilter === 'rejected' ? '#ff4d4d' : '#888', fontSize: '12px', fontWeight: 'bold', transition: '0.2s' }}>Отклонены</button>
-                                    <button onClick={() => setEnrollmentFilter('banned')} style={{ padding: '6px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', background: enrollmentFilter === 'banned' ? 'rgba(255,100,0,0.15)' : 'transparent', color: enrollmentFilter === 'banned' ? '#ff6400' : '#888', fontSize: '12px', fontWeight: 'bold', transition: '0.2s' }}>Заблокированы ({courseBans.length})</button>
+                                <div style={{ display: 'flex', gap: '8px', background: 'var(--bg-card)', padding: '4px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                                    <button onClick={() => setEnrollmentFilter('all')} style={{ padding: '6px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', background: enrollmentFilter === 'all' ? '#333' : 'transparent', color: enrollmentFilter === 'all' ? 'var(--text-main)' : 'var(--text-muted)', fontSize: '12px', fontWeight: 'bold', transition: '0.2s' }}>Все ({enrollmentsList.length})</button>
+                                    <button onClick={() => setEnrollmentFilter('pending')} style={{ padding: '6px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', background: enrollmentFilter === 'pending' ? 'rgba(255, 215, 0, 0.15)' : 'transparent', color: enrollmentFilter === 'pending' ? '#ffd700' : 'var(--text-muted)', fontSize: '12px', fontWeight: 'bold', transition: '0.2s' }}>Новые ({pendingCount})</button>
+                                    <button onClick={() => setEnrollmentFilter('approved')} style={{ padding: '6px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', background: enrollmentFilter === 'approved' ? 'rgba(0, 255, 136, 0.15)' : 'transparent', color: enrollmentFilter === 'approved' ? '#00ff88' : 'var(--text-muted)', fontSize: '12px', fontWeight: 'bold', transition: '0.2s' }}>Одобрены</button>
+                                    <button onClick={() => setEnrollmentFilter('rejected')} style={{ padding: '6px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', background: enrollmentFilter === 'rejected' ? 'rgba(255, 77, 77, 0.15)' : 'transparent', color: enrollmentFilter === 'rejected' ? '#ff4d4d' : 'var(--text-muted)', fontSize: '12px', fontWeight: 'bold', transition: '0.2s' }}>Отклонены</button>
+                                    <button onClick={() => setEnrollmentFilter('banned')} style={{ padding: '6px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', background: enrollmentFilter === 'banned' ? 'rgba(255,100,0,0.15)' : 'transparent', color: enrollmentFilter === 'banned' ? '#ff6400' : 'var(--text-muted)', fontSize: '12px', fontWeight: 'bold', transition: '0.2s' }}>Заблокированы ({courseBans.length})</button>
                                 </div>
 
                                 {/* Кнопка "Принять всех" появляется только если есть заявки в ожидании */}
@@ -384,19 +384,19 @@ export const CourseSettingsModal = ({
                             {/* Список заблокированных */}
                             {enrollmentFilter === 'banned' && (
                                 courseBans.length === 0 ? (
-                                    <div style={{ padding: '30px', textAlign: 'center', color: '#666' }}>
+                                    <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>
                                         <div style={{ fontSize: '40px', marginBottom: '10px' }}>✅</div>
                                         Нет заблокированных пользователей
                                     </div>
                                 ) : courseBans.map(ban => (
-                                    <div key={ban.id} style={{ background: '#1a1a1a', borderRadius: '12px', border: '1px solid rgba(255,100,0,0.3)', padding: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div key={ban.id} style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid rgba(255,100,0,0.3)', padding: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                            <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                {ban.user?.avatarUrl ? <img src={ban.user.avatarUrl} style={{width:'100%', height:'100%', objectFit:'cover', borderRadius:'50%'}} alt=""/> : <span style={{color:'#fff', fontWeight: 'bold'}}>{ban.user?.firstName?.[0] || '?'}</span>}
+                                            <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--bg-input)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                {ban.user?.avatarUrl ? <img src={ban.user.avatarUrl} style={{width:'100%', height:'100%', objectFit:'cover', borderRadius:'50%'}} alt=""/> : <span style={{color:'var(--text-main)', fontWeight: 'bold'}}>{ban.user?.firstName?.[0] || '?'}</span>}
                                             </div>
                                             <div>
-                                                <div style={{ color: '#fff', fontSize: '15px', fontWeight: 'bold' }}>{ban.user?.firstName} {ban.user?.lastName}</div>
-                                                <div style={{ color: '#888', fontSize: '12px' }}>{ban.user?.email}</div>
+                                                <div style={{ color: 'var(--text-main)', fontSize: '15px', fontWeight: 'bold' }}>{ban.user?.firstName} {ban.user?.lastName}</div>
+                                                <div style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{ban.user?.email}</div>
                                                 {ban.reason && <div style={{ fontSize: '11px', color: '#ff6400', marginTop: '4px' }}>Причина: {ban.reason}</div>}
                                             </div>
                                         </div>
@@ -414,21 +414,21 @@ export const CourseSettingsModal = ({
 
                             {/* 🔥 ОБНОВЛЕННЫЙ СПИСОК ЗАЯВОК (С ФИЛЬТРОМ И ИСКЛЮЧЕНИЕМ) */}
                             {enrollmentFilter !== 'banned' && (filteredEnrollments.length === 0 ? (
-                                <div style={{ padding: '30px', textAlign: 'center', color: '#666' }}>
+                                <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>
                                     <div style={{ fontSize: '40px', marginBottom: '10px' }}>📭</div>
                                     Ничего не найдено
                                 </div>
                             ) : (
                                 filteredEnrollments.map(req => (
-                                    <div key={req.id} style={{ background: '#1a1a1a', borderRadius: '12px', border: '1px solid #333', padding: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', animation: 'fadeIn 0.3s ease' }}>
+                                    <div key={req.id} style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-color)', padding: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', animation: 'fadeIn 0.3s ease' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                            <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                                                {req.user?.avatarUrl ? <img src={req.user.avatarUrl} style={{width:'100%', height:'100%', objectFit:'cover'}} alt=""/> : <span style={{color:'#fff', fontWeight: 'bold'}}>{req.user?.firstName?.[0] || '?'}</span>}
+                                            <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--bg-input)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                                                {req.user?.avatarUrl ? <img src={req.user.avatarUrl} style={{width:'100%', height:'100%', objectFit:'cover'}} alt=""/> : <span style={{color:'var(--text-main)', fontWeight: 'bold'}}>{req.user?.firstName?.[0] || '?'}</span>}
                                             </div>
                                             <div>
-                                                <div style={{ color: '#fff', fontSize: '15px', fontWeight: 'bold' }}>{req.user?.firstName} {req.user?.lastName}</div>
-                                                <div style={{ color: '#888', fontSize: '12px' }}>{req.user?.email}</div>
-                                                <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
+                                                <div style={{ color: 'var(--text-main)', fontSize: '15px', fontWeight: 'bold' }}>{req.user?.firstName} {req.user?.lastName}</div>
+                                                <div style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{req.user?.email}</div>
+                                                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
                                                     Заявка от: {new Date(req.createdAt).toLocaleDateString()}
                                                 </div>
                                             </div>
@@ -495,15 +495,15 @@ export const CourseSettingsModal = ({
             {/* Модалка передачи прав */}
             {transferUserId && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10000 }} onClick={() => setTransferUserId(null)}>
-                    <div style={{ background: '#111', padding: '30px', borderRadius: '20px', border: '1px solid #ff4d4d', width: '450px', animation: 'fadeIn 0.2s ease', textAlign: 'center', boxShadow: '0 20px 50px rgba(255, 77, 77, 0.15)' }} onClick={(e) => e.stopPropagation()} >
+                    <div style={{ background: 'var(--bg-panel)', padding: '30px', borderRadius: '20px', border: '1px solid #ff4d4d', width: '450px', animation: 'fadeIn 0.2s ease', textAlign: 'center', boxShadow: '0 20px 50px rgba(255, 77, 77, 0.15)' }} onClick={(e) => e.stopPropagation()} >
                         <div style={{ marginBottom: '15px' }}><Icons.AlertTriangle size={48}/></div>
-                        <h2 style={{color: '#fff', marginBottom: '15px', marginTop: 0}}>Передача прав</h2>
-                        <p style={{color: '#aaa', fontSize: '14px', lineHeight: '1.6', marginBottom: '25px'}}>
+                        <h2 style={{color: 'var(--text-main)', marginBottom: '15px', marginTop: 0}}>Передача прав</h2>
+                        <p style={{color: 'var(--text-muted)', fontSize: '14px', lineHeight: '1.6', marginBottom: '25px'}}>
                             Вы уверены, что хотите передать права Владельца этому пользователю? <br/><br/>
                             <span style={{color: '#ff4d4d', fontWeight: 'bold'}}>Вы станете обычным соавтором</span>, а ФИО преподавателя на обложке курса изменится. Отменить это действие самостоятельно будет невозможно.
                         </p>
                         <div style={{ display: 'flex', gap: '15px' }}>
-                            <button className="btn btn-ghost" style={{ flex: 1, color: '#888' }} onClick={() => setTransferUserId(null)} disabled={isTransferring}>
+                            <button className="btn btn-ghost" style={{ flex: 1, color: 'var(--text-muted)' }} onClick={() => setTransferUserId(null)} disabled={isTransferring}>
                                 Отмена
                             </button>
                             <button style={{ flex: 1, background: 'rgba(255, 77, 77, 0.2)', border: '1px solid rgba(255, 77, 77, 0.4)', color: '#ff4d4d', padding: '10px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', transition: '0.2s' }} onClick={handleTransferOwnership} disabled={isTransferring}>

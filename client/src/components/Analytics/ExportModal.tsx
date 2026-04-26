@@ -133,15 +133,15 @@ export const ExportModal = ({ isOpen, onClose, course, analytics, exportType }: 
                 {exportType === 'gost' && (
                     <>
                         <div style={{ marginBottom: '15px' }}>
-                            <label style={{ display: 'block', marginBottom: '8px', color: '#888', fontSize: '13px' }}>Учебная группа (необязательно)</label>
+                            <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)', fontSize: '13px' }}>Учебная группа (необязательно)</label>
                             <input className="modern-input" placeholder="Например: И-121" value={group} onChange={e => setGroup(e.target.value)} />
                         </div>
                         <div style={{ marginBottom: '15px' }}>
-                            <label style={{ display: 'block', marginBottom: '8px', color: '#888', fontSize: '13px' }}>Семестр (необязательно)</label>
+                            <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)', fontSize: '13px' }}>Семестр (необязательно)</label>
                             <input className="modern-input" placeholder="Например: Осенний 2026" value={semester} onChange={e => setSemester(e.target.value)} />
                         </div>
                         <div style={{ marginBottom: '25px' }}>
-                            <label style={{ display: 'block', marginBottom: '12px', color: '#888', fontSize: '13px' }}>Формат оценивания</label>
+                            <label style={{ display: 'block', marginBottom: '12px', color: 'var(--text-muted)', fontSize: '13px' }}>Формат оценивания</label>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                 <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
                                     <input type="radio" name="grading" checked={gradingType === '5-point'} onChange={() => setGradingType('5-point')} />
@@ -161,7 +161,7 @@ export const ExportModal = ({ isOpen, onClose, course, analytics, exportType }: 
                 )}
 
                 {exportType === 'detailed' && (
-                    <p style={{ color: '#aaa', fontSize: '14px', marginBottom: '25px', lineHeight: '1.5' }}>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '25px', lineHeight: '1.5' }}>
                         Будет сгенерирована таблица со списком всех студентов, их email-адресами, датой последнего входа и детальной успеваемостью. Подходит для работы в Excel.
                     </p>
                 )}

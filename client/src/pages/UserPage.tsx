@@ -375,10 +375,10 @@ export const UserPage = () => {
         const isExternalTest = isExternalTestActive;
 
         return (
-            <div className="focus-mode-layout" style={{ background: '#000', minHeight: '100vh', overflowY: 'auto' }}>
-                <div style={{ padding: '20px', borderBottom: '1px solid #222', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: '#000', zIndex: 10 }}>
+            <div className="focus-mode-layout" style={{ background: 'var(--bg-deep)', minHeight: '100vh', overflowY: 'auto' }}>
+                <div style={{ padding: '20px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: 'var(--bg-deep)', zIndex: 10 }}>
                     <button className="btn btn-ghost" onClick={() => setActiveItem(null)}>← Назад к курсу</button>
-                    <div style={{ color: '#888' }}>
+                    <div style={{ color: 'var(--text-muted)' }}>
                         {activeItem.type === 'video'
                             ? <><Icons.Monitor size={16}/> Просмотр видео</>
                             : <><Icons.FileText size={16}/> Прохождение теста</>
@@ -416,6 +416,7 @@ export const UserPage = () => {
                                     onRefreshEvents={handleRefreshEvents}
                                     onTimeUpdate={setVideoCurrentTime}
                                     seekRef={videoSeekRef}
+                                    noForwardSeek={activeItem.type === 'video' ? (activeItem as any).noForwardSeek || false : false}
                                 />
                             </div>
                             
@@ -448,9 +449,9 @@ export const UserPage = () => {
                             {/* 👇 4. БЛОК С КАРТОЧКАМИ ВОПРОСОВ */}
                             {isExternalTest && activeItem.events && activeItem.events.some(e => ['single_choice', 'multiple_choice', 'free_text', 'question'].includes(e.type)) && (
                                 <div ref={testCardsRef} style={{ marginTop: '30px', animation: 'fadeIn 0.4s ease' }}>
-                                    <div style={{ background: '#111', padding: '20px', borderRadius: '12px', border: '1px solid #333', marginBottom: '20px' }}>
+                                    <div style={{ background: 'var(--bg-panel)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-color)', marginBottom: '20px' }}>
                                         <h3 style={{marginTop: 0, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px'}}><Icons.FileText size={16}/> Вопросы к уроку</h3>
-                                        <p style={{color: '#666', fontSize: '14px'}}>Вы можете ответить на вопросы здесь, не просматривая видео целиком.</p>
+                                        <p style={{color: 'var(--text-muted)', fontSize: '14px'}}>Вы можете ответить на вопросы здесь, не просматривая видео целиком.</p>
                                     </div>
                                     
                                     <TestCards 
@@ -465,7 +466,7 @@ export const UserPage = () => {
                                     <div style={{ textAlign: 'center', marginTop: '20px' }}>
                                         <button 
                                             onClick={handleToggleTestMode}
-                                            style={{ background: 'transparent', border: 'none', color: '#888', cursor: 'pointer', textDecoration: 'underline', fontSize: '14px' }}
+                                            style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', textDecoration: 'underline', fontSize: '14px' }}
                                         >
                                             Скрыть вопросы (вернуться к режиму видео)
                                         </button>
@@ -502,7 +503,7 @@ export const UserPage = () => {
             <AppHeader logoTo="/courses" />
             {/* 🔥 ЕСЛИ СТАТУС ГРУЗИТСЯ */}
             {enrollStatus === 'loading' ? (
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1, color: '#888', height: 'calc(100vh - 60px)' }}>
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1, color: 'var(--text-muted)', height: 'calc(100vh - 60px)' }}>
                     <span className="loader-dots">Загрузка курса...</span>
                 </div>
             ) : enrollStatus !== 'approved' && !canEdit ? (
@@ -517,7 +518,7 @@ export const UserPage = () => {
             ) : (
             <div className="dashboard-container">
                 <div className="course-header-big">
-                    <button className="btn btn-ghost" onClick={() => navigate('/courses')} style={{marginBottom: '10px', paddingLeft: 0, color: '#666'}}>
+                    <button className="btn btn-ghost" onClick={() => navigate('/courses')} style={{marginBottom: '10px', paddingLeft: 0, color: 'var(--text-muted)'}}>
                         ← Все курсы
                     </button>
 
@@ -565,11 +566,11 @@ export const UserPage = () => {
                                 )}
                                 <div className="course-meta-row">
                                     <div className="course-progress-bar-wrap">
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '14px', color: '#888' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '14px', color: 'var(--text-muted)' }}>
                                             <span>Прогресс курса</span>
                                             <span style={{ color: progressPercent === 100 ? '#4dff88' : 'var(--primary)', fontWeight: 'bold' }}>{progressPercent}%</span>
                                         </div>
-                                        <div style={{ background: '#222', borderRadius: '10px', height: '8px', overflow: 'hidden' }}>
+                                        <div style={{ background: 'var(--bg-input)', borderRadius: '10px', height: '8px', overflow: 'hidden' }}>
                                             <div style={{ width: `${progressPercent}%`, background: progressPercent === 100 ? '#4dff88' : 'var(--primary)', height: '100%', transition: 'width 0.8s ease' }} />
                                         </div>
                                     </div>
@@ -580,7 +581,7 @@ export const UserPage = () => {
                                     <span>{displayItems.filter(i => i.type === 'test').length} тестов</span>
                                 </div>
                             </div>
-                            <p style={{ color: '#ccc', marginTop: '15px', maxWidth: '800px', lineHeight: '1.5' }}>
+                            <p style={{ color: 'var(--text-main)', marginTop: '15px', maxWidth: '800px', lineHeight: '1.5' }}>
                                 {course?.description}
                             </p>
                             {userData?.role === 'student' && course && (
@@ -635,14 +636,14 @@ export const UserPage = () => {
 
                                     {isEditMode && (
                                         <div className="content-card" onClick={() => setShowAddModal(true)} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', border: '2px dashed #444', background: 'rgba(255,255,255,0.02)', cursor: 'pointer', minHeight: '200px' }}>
-                                            <div style={{ fontSize: '50px', color: '#666', marginBottom: '10px' }}>+</div>
-                                            <div style={{ color: '#888', fontWeight: 'bold' }}>Добавить материал</div>
+                                            <div style={{ fontSize: '50px', color: 'var(--text-muted)', marginBottom: '10px' }}>+</div>
+                                            <div style={{ color: 'var(--text-muted)', fontWeight: 'bold' }}>Добавить материал</div>
                                         </div>
                                     )}
                                 </div>
                             </SortableContext>
                         </DndContext>
-                        {displayItems.length === 0 && <div style={{ textAlign: 'center', padding: '50px', color: '#666' }}>{isEditMode ? 'В этом курсе пока нет материалов.' : 'Нет доступных материалов.'}</div>}
+                        {displayItems.length === 0 && <div style={{ textAlign: 'center', padding: '50px', color: 'var(--text-muted)' }}>{isEditMode ? 'В этом курсе пока нет материалов.' : 'Нет доступных материалов.'}</div>}
                     </>
                 )}
             </div>

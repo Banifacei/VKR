@@ -82,32 +82,32 @@ export const AnalyticsPage = () => {
                 {!selectedCourse ? (
                     <div className="fade-in">
                         <h1 style={{ marginBottom: '10px', fontSize: 'clamp(22px, 5vw, 32px)', fontWeight: '800' }}>Центр аналитики</h1>
-                        <p style={{ color: '#666', marginBottom: '40px' }}>Обзор успеваемости по всем вашим курсам</p>
+                        <p style={{ color: 'var(--text-muted)', marginBottom: '40px' }}>Обзор успеваемости по всем вашим курсам</p>
                         <div className="course-showcase-grid">
                             {courses.map(course => (
                                 <div key={course.id} className="course-card-modern" onClick={() => handleSelectCourse(course)}>
                                     <div className="course-cover" style={{ background: 'linear-gradient(135deg, #111, #1a1a1a)', borderBottom: '1px solid #333' }}>
-                                        <h3 style={{ margin: 0, color: '#fff', fontSize: '18px', zIndex: 2 }}>{course.title}</h3>
+                                        <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '18px', zIndex: 2 }}>{course.title}</h3>
                                     </div>
                                     <div style={{ padding: '20px' }}>
-                                        <p style={{ color: '#888', fontSize: '14px', marginBottom: '15px', height: '40px', overflow: 'hidden' }}>{course.description || 'Нет описания'}</p>
+                                        <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '15px', height: '40px', overflow: 'hidden' }}>{course.description || 'Нет описания'}</p>
                                         <button className="btn btn-primary" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}><Icons.BarChart2 size={15}/> Глубокая аналитика</button>
                                     </div>
                                 </div>
                             ))}
-                            {courses.length === 0 && <p style={{ color: '#888' }}>У вас пока нет курсов для анализа.</p>}
+                            {courses.length === 0 && <p style={{ color: 'var(--text-muted)' }}>У вас пока нет курсов для анализа.</p>}
                         </div>
                     </div>
                 ) : (
                     <div className="fade-in">
-                        <button className="btn btn-ghost" onClick={handleBackToDashboard} style={{ marginBottom: '20px', color: '#888', padding: 0 }}>
+                        <button className="btn btn-ghost" onClick={handleBackToDashboard} style={{ marginBottom: '20px', color: 'var(--text-muted)', padding: 0 }}>
                             ← Вернуться к списку курсов
                         </button>
                         
                         <div className="analytics-course-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '30px' }}>
                             <div>
                                 <h1 style={{ margin: '0 0 10px 0', fontSize: 'clamp(22px, 5vw, 32px)', fontWeight: '800' }}>{selectedCourse.title}</h1>
-                                <p style={{ color: '#888', margin: 0 }}>Панель управления курсом</p>
+                                <p style={{ color: 'var(--text-muted)', margin: 0 }}>Панель управления курсом</p>
                             </div>
 
                             <div className="analytics-export-btns" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
@@ -121,24 +121,24 @@ export const AnalyticsPage = () => {
                         </div>
 
                         {isFetchingStats || !analytics ? (
-                            <div style={{ padding: '100px', textAlign: 'center', color: '#666', fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                            <div style={{ padding: '100px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
                                 <Icons.Spinner size={18}/> Сбор данных по курсу...
                             </div>
                         ) : (
                             <>
                                 {/* ВИДЖЕТЫ */}
                                 <div className="analytics-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '30px' }}>
-                                    <div style={{ background: '#111', padding: '25px', borderRadius: '20px', border: '1px solid #333', display: 'flex', alignItems: 'center', gap: '20px' }}>
+                                    <div style={{ background: 'var(--bg-card)', padding: '25px', borderRadius: '20px', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '20px' }}>
                                         <div style={{ fontSize: '30px', background: 'rgba(255,255,255,0.05)', width: '60px', height: '60px', borderRadius: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>👥</div>
-                                        <div><div style={{ fontSize: '13px', color: '#888' }}>Студентов на курсе</div><div style={{ fontSize: '28px', fontWeight: '800' }}>{analytics.totalStudents}</div></div>
+                                        <div><div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Студентов на курсе</div><div style={{ fontSize: '28px', fontWeight: '800' }}>{analytics.totalStudents}</div></div>
                                     </div>
-                                    <div style={{ background: '#111', padding: '25px', borderRadius: '20px', border: '1px solid #333', display: 'flex', alignItems: 'center', gap: '20px' }}>
+                                    <div style={{ background: 'var(--bg-card)', padding: '25px', borderRadius: '20px', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '20px' }}>
                                         <div style={{ background: 'rgba(var(--primary-rgb),0.1)', color: 'var(--primary)', width: '60px', height: '60px', borderRadius: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icons.TrendingUp size={28}/></div>
-                                        <div><div style={{ fontSize: '13px', color: '#888' }}>Средний прогресс</div><div style={{ fontSize: '28px', fontWeight: '800', color: 'var(--primary)' }}>{analytics.globalAvgProgress}%</div></div>
+                                        <div><div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Средний прогресс</div><div style={{ fontSize: '28px', fontWeight: '800', color: 'var(--primary)' }}>{analytics.globalAvgProgress}%</div></div>
                                     </div>
-                                    <div style={{ background: '#111', padding: '25px', borderRadius: '20px', border: '1px solid #333', display: 'flex', alignItems: 'center', gap: '20px' }}>
+                                    <div style={{ background: 'var(--bg-card)', padding: '25px', borderRadius: '20px', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '20px' }}>
                                         <div style={{ background: 'rgba(77,255,136,0.1)', color: '#4dff88', width: '60px', height: '60px', borderRadius: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icons.Star size={28}/></div>
-                                        <div><div style={{ fontSize: '13px', color: '#888' }}>Средний балл тестов</div><div style={{ fontSize: '28px', fontWeight: '800', color: '#4dff88' }}>{analytics.globalAvgScore}%</div></div>
+                                        <div><div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Средний балл тестов</div><div style={{ fontSize: '28px', fontWeight: '800', color: '#4dff88' }}>{analytics.globalAvgScore}%</div></div>
                                     </div>
                                 </div>
 
@@ -146,20 +146,20 @@ export const AnalyticsPage = () => {
                                 <div className="analytics-bento-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 420px', gap: '30px', alignItems: 'start' }}>
                                     
                                     {/* ЛЕВАЯ КОЛОНКА: РЕЙТИНГ */}
-                                    <div style={{ background: '#111', padding: 'clamp(16px, 3vw, 30px)', borderRadius: '20px', border: '1px solid #333' }}>
+                                    <div style={{ background: 'var(--bg-card)', padding: 'clamp(16px, 3vw, 30px)', borderRadius: '20px', border: '1px solid var(--border-color)' }}>
                                         <div className="analytics-ranking-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '25px', gap: '12px', flexWrap: 'wrap' }}>
                                             <div>
                                                 <h2 style={{ fontSize: 'clamp(16px, 3vw, 22px)', margin: '0 0 5px 0', display: 'flex', alignItems: 'center', gap: '10px' }}><Icons.Trophy size={20}/> Рейтинг потока</h2>
-                                                <div style={{ color: '#888', fontSize: '14px' }}>Общая успеваемость студентов</div>
+                                                <div style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Общая успеваемость студентов</div>
                                             </div>
                                             <div style={{ position: 'relative' }}>
-                                                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#555', display: 'flex', pointerEvents: 'none' }}>
+                                                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', display: 'flex', pointerEvents: 'none' }}>
                                                     <Icons.Search size={14} />
                                                 </span>
                                                 <input
                                                     type="text" placeholder="Поиск студента..."
                                                     value={studentSearch} onChange={e => setStudentSearch(e.target.value)}
-                                                    style={{ background: '#080808', border: '1px solid #222', color: '#fff', padding: '10px 16px 10px 38px', borderRadius: '12px', fontSize: '13px', width: 'clamp(150px, 30vw, 220px)', outline: 'none', transition: 'all 0.2s' }}
+                                                    style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '10px 16px 10px 38px', borderRadius: '12px', fontSize: '13px', width: 'clamp(150px, 30vw, 220px)', outline: 'none', transition: 'all 0.2s' }}
                                                     onFocus={e => { e.target.style.borderColor = 'var(--primary)'; }}
                                                     onBlur={e => { e.target.style.borderColor = '#222'; }}
                                                 />
@@ -167,7 +167,7 @@ export const AnalyticsPage = () => {
                                         </div>
 
                                         <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' as any }}>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '50px 2fr 1.5fr 1fr 30px', padding: '0 15px 12px', color: '#666', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold', minWidth: '380px' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '50px 2fr 1.5fr 1fr 30px', padding: '0 15px 12px', color: 'var(--text-muted)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold', minWidth: '380px' }}>
                                             <div style={{ textAlign: 'center' }}>Ранг</div>
                                             <div>Студент</div>
                                             <div>Прогресс курса</div>
@@ -182,15 +182,15 @@ export const AnalyticsPage = () => {
                                                     s.email.toLowerCase().includes(studentSearch.toLowerCase())
                                                 );
 
-                                                if (analytics.studentsProgress.length === 0) return <div style={{ padding: '40px', textAlign: 'center', color: '#666', border: '1px dashed #333', borderRadius: '12px' }}>Нет студентов</div>;
-                                                if (filteredStudents.length === 0) return <div style={{ padding: '40px', textAlign: 'center', color: '#666', border: '1px dashed #333', borderRadius: '12px' }}>По запросу ничего не найдено</div>;
+                                                if (analytics.studentsProgress.length === 0) return <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border-color)', borderRadius: '12px' }}>Нет студентов</div>;
+                                                if (filteredStudents.length === 0) return <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border-color)', borderRadius: '12px' }}>По запросу ничего не найдено</div>;
 
                                                 return filteredStudents.map((student: any, index: number) => {
                                                     const isTop1 = index === 0;
                                                     const isTop2 = index === 1;
                                                     const isTop3 = index === 2;
 
-                                                    let rankBadge = <span style={{ color: '#555', fontWeight: 'bold', fontSize: '15px' }}>{index + 1}</span>;
+                                                    let rankBadge = <span style={{ color: 'var(--text-muted)', fontWeight: 'bold', fontSize: '15px' }}>{index + 1}</span>;
                                                     if (isTop1) rankBadge = <span style={{ fontSize: '22px', filter: 'drop-shadow(0 0 10px rgba(255, 215, 0, 0.4))' }}>🥇</span>;
                                                     if (isTop2) rankBadge = <span style={{ fontSize: '22px', filter: 'drop-shadow(0 0 10px rgba(192, 192, 192, 0.2))' }}>🥈</span>;
                                                     if (isTop3) rankBadge = <span style={{ fontSize: '22px', filter: 'drop-shadow(0 0 10px rgba(205, 127, 50, 0.2))' }}>🥉</span>;
@@ -216,14 +216,14 @@ export const AnalyticsPage = () => {
                                                                 </div>
                                                                 <div style={{ overflow: 'hidden' }}>
                                                                     <div style={{ fontWeight: '600', color: isTop1 ? '#FFD700' : '#fff', fontSize: '14px', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{student.name}</div>
-                                                                    <div style={{ fontSize: '11px', color: '#666', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{student.email}</div>
+                                                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{student.email}</div>
                                                                 </div>
                                                             </div>
                                                             <div style={{ paddingRight: '20px' }}>
                                                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '4px' }}>
                                                                     <span style={{ color: 'var(--primary)', fontWeight: 'bold' }}>{student.progressPercent}%</span>
                                                                 </div>
-                                                                <div style={{ width: '100%', height: '4px', background: '#222', borderRadius: '2px', overflow: 'hidden' }}>
+                                                                <div style={{ width: '100%', height: '4px', background: 'var(--bg-input)', borderRadius: '2px', overflow: 'hidden' }}>
                                                                     <div style={{ width: `${student.progressPercent}%`, height: '100%', background: 'var(--primary)', borderRadius: '2px' }}></div>
                                                                 </div>
                                                             </div>
@@ -232,7 +232,7 @@ export const AnalyticsPage = () => {
                                                                     {student.avgScore}%
                                                                 </span>
                                                             </div>
-                                                            <div style={{ color: '#444', textAlign: 'center', fontSize: '18px', fontWeight: 'bold' }}>›</div>
+                                                            <div style={{ color: 'var(--text-muted)', textAlign: 'center', fontSize: '18px', fontWeight: 'bold' }}>›</div>
                                                         </div>
                                                     );
                                                 });
@@ -242,37 +242,37 @@ export const AnalyticsPage = () => {
                                     </div>
 
                                     {/* ПРАВАЯ КОЛОНКА: ВОРОНКА */}
-                                    <div style={{ background: '#111', padding: '30px', borderRadius: '20px', border: '1px solid #333' }}>
+                                    <div style={{ background: 'var(--bg-card)', padding: '30px', borderRadius: '20px', border: '1px solid var(--border-color)' }}>
                                         <h2 style={{ fontSize: '20px', margin: '0 0 5px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>📉 Воронка отсева</h2>
-                                        <div style={{ color: '#888', fontSize: '13px', marginBottom: '25px' }}>Конверсия: Начали / Закончили</div>
+                                        <div style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '25px' }}>Конверсия: Начали / Закончили</div>
                                         
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', maxHeight: '550px', overflowY: 'auto', paddingRight: '5px' }} className="custom-scrollbar">
                                             {analytics.funnel && analytics.funnel.length > 0 ? (
                                                 analytics.funnel.map((item: any, index: number) => (
                                                     <div 
                                                         key={item.id} 
-                                                        style={{ background: '#161616', padding: '15px', borderRadius: '12px', cursor: 'pointer', transition: 'all 0.2s', border: '1px solid transparent' }}
+                                                        style={{ background: 'var(--bg-card)', padding: '15px', borderRadius: '12px', cursor: 'pointer', transition: 'all 0.2s', border: '1px solid var(--border-color)' }}
                                                         onMouseEnter={e => { e.currentTarget.style.borderColor = '#333'; e.currentTarget.style.transform = 'translateX(4px)'; }}
                                                         onMouseLeave={e => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.transform = 'translateX(0)'; }}
                                                         onClick={() => setDrillDownConfig({ id: item.realId, type: item.type })}
                                                         title="Посмотреть аналитику материала"
                                                     >
                                                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '13px', alignItems: 'flex-start' }}>
-                                                            <div style={{ color: '#eee', fontWeight: '500', paddingRight: '10px', lineHeight: '1.4' }}>
+                                                            <div style={{ color: 'var(--text-main)', fontWeight: '500', paddingRight: '10px', lineHeight: '1.4' }}>
                                                                 {item.type === 'video' ? <Icons.Monitor size={13}/> : <Icons.FileText size={13}/>} {index + 1}. {item.title}
                                                             </div>
-                                                            <div style={{ color: '#777', flexShrink: 0, fontSize: '12px' }}>
+                                                            <div style={{ color: 'var(--text-muted)', flexShrink: 0, fontSize: '12px' }}>
                                                                 <strong style={{ color: item.completionRate < 30 ? '#ff4d4d' : '#fff', fontSize: '14px' }}>{item.completionRate}%</strong> / {item.startedRate}%
                                                             </div>
                                                         </div>
-                                                        <div style={{ height: '6px', background: '#222', borderRadius: '3px', position: 'relative' }}>
+                                                        <div style={{ height: '6px', background: 'var(--bg-input)', borderRadius: '3px', position: 'relative' }}>
                                                             <div style={{ width: `${item.startedRate}%`, height: '100%', background: 'rgba(255, 255, 255, 0.1)', position: 'absolute', left: 0, top: 0, borderRadius: '3px' }}></div>
                                                             <div style={{ width: `${item.completionRate}%`, height: '100%', background: item.type === 'video' ? 'var(--primary)' : '#b5179e', position: 'absolute', left: 0, top: 0, borderRadius: '3px', zIndex: 2 }}></div>
                                                         </div>
                                                     </div>
                                                 ))
                                             ) : (
-                                                <div style={{ color: '#666', textAlign: 'center', padding: '20px' }}>Нет материалов</div>
+                                                <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '20px' }}>Нет материалов</div>
                                             )}
                                         </div>
                                     </div>

@@ -509,14 +509,14 @@ export const AdminPage = () => {
       {/* Модалка бана пользователя */}
       {banModalUser && (
           <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-              <div style={{ background: '#1a1a1a', border: '1px solid #333', borderRadius: 16, padding: 28, maxWidth: 420, width: '100%' }}>
-                  <h3 style={{ margin: '0 0 8px', color: '#fff' }}>Заблокировать пользователя</h3>
-                  <p style={{ color: '#888', fontSize: 14, margin: '0 0 16px' }}>
+              <div style={{ background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: 16, padding: 28, maxWidth: 420, width: '100%' }}>
+                  <h3 style={{ margin: '0 0 8px', color: 'var(--text-main)' }}>Заблокировать пользователя</h3>
+                  <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: '0 0 16px' }}>
                       {banModalUser.firstName} {banModalUser.lastName} ({banModalUser.email})
                   </p>
-                  <label style={{ display: 'block', color: '#aaa', fontSize: 13, marginBottom: 6 }}>Причина блокировки (необязательно)</label>
+                  <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: 13, marginBottom: 6 }}>Причина блокировки (необязательно)</label>
                   <textarea
-                      style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1px solid #333', borderRadius: 8, color: '#fff', padding: '8px 12px', fontSize: 13, fontFamily: 'inherit', resize: 'vertical', minHeight: 80, outline: 'none' }}
+                      style={{ width: '100%', boxSizing: 'border-box', background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 8, color: 'var(--text-main)', padding: '8px 12px', fontSize: 13, fontFamily: 'inherit', resize: 'vertical', minHeight: 80, outline: 'none' }}
                       placeholder="Например: нарушение правил платформы..."
                       value={banReasonInput}
                       onChange={e => setBanReasonInput(e.target.value)}
@@ -628,7 +628,7 @@ export const AdminPage = () => {
                           <label>База поиска (Search Base)</label>
                           <input className="modern-input" placeholder="dc=example,dc=com" value={ldapForm.searchBase} onChange={e => setLdapForm({...ldapForm, searchBase: e.target.value})} />
                       </div>
-                      <p style={{fontSize: '12px', color: '#888', marginTop: '10px'}}>
+                      <p style={{fontSize: '12px', color: 'var(--text-muted)', marginTop: '10px'}}>
                           *Для тестирования по умолчанию подставлен публичный сервер Forumsys.
                       </p>
                   </div>
@@ -736,7 +736,7 @@ export const AdminPage = () => {
                           <label>Публичный сертификат (Public X.509 Cert)</label>
                           <textarea className="modern-input" style={{ minHeight: '120px', fontFamily: 'monospace', fontSize: '12px' }} placeholder="MIIC4jCCAcqgAwIBAgIQ..." value={samlForm.cert} onChange={e => setSamlForm({...samlForm, cert: e.target.value})} />
                       </div>
-                      <p style={{fontSize: '12px', color: '#888', marginTop: '10px'}}>
+                      <p style={{fontSize: '12px', color: 'var(--text-muted)', marginTop: '10px'}}>
                           *Укажите Entity ID (Issuer): <strong>lumeo-web</strong><br/>
                           *Callback URL (ACS): <strong>{apiUrl}/auth/saml/callback</strong>
                       </p>
@@ -903,7 +903,7 @@ export const AdminPage = () => {
                                 <div className="server-status small"><span className="pulse-dot"></span> Online</div>
                             </div>
                             <div className="section-body">
-                                <div style={{fontSize: '11px', color: '#666', marginBottom: '15px', textAlign: 'right'}}>Аптайм: {serverStats.uptime}</div>
+                                <div style={{fontSize: '11px', color: 'var(--text-muted)', marginBottom: '15px', textAlign: 'right'}}>Аптайм: {serverStats.uptime}</div>
                                 <div className="server-monitor">
                                     <div className="monitor-row"><span>CPU ({serverStats.cpu.toFixed(1)}%)</span><div className="progress-bar-bg"><div className="progress-bar-fill cpu" style={{width: `${serverStats.cpu}%`}}></div></div></div>
                                     <div className="monitor-row"><span>RAM ({serverStats.ram.toFixed(1)}%)</span><div className="progress-bar-bg"><div className="progress-bar-fill ram" style={{width: `${serverStats.ram}%`}}></div></div></div>
@@ -914,7 +914,7 @@ export const AdminPage = () => {
                         <div className="admin-section sidebar-section">
                             <div className="section-header compact"><h2 style={{display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px'}}><Icons.Database /> Хранилище (S3)</h2></div>
                             <div className="section-body">
-                                <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '12px'}}><span style={{color: '#fff', fontWeight: 'bold'}}>{storageUsed.toFixed(1)} GB</span><span style={{color: '#666'}}>из {storageTotal} GB</span></div>
+                                <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '12px'}}><span style={{color: 'var(--text-main)', fontWeight: 'bold'}}>{storageUsed.toFixed(1)} GB</span><span style={{color: 'var(--text-muted)'}}>из {storageTotal} GB</span></div>
                                 <div className="storage-bar">
                                     <div className="storage-segment video" style={{width: `${(storageData.video / storageTotal) * 100}%`}}></div>
                                     <div className="storage-segment db" style={{width: `${(storageData.db / storageTotal) * 100}%`}}></div>
@@ -932,16 +932,16 @@ export const AdminPage = () => {
                             </div>
                             <div className="section-body">
                                 {systemModules.length === 0 ? (
-                                    <div style={{ color: '#555', fontSize: '12px', textAlign: 'center', padding: '10px 0' }}>Загрузка...</div>
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '12px', textAlign: 'center', padding: '10px 0' }}>Загрузка...</div>
                                 ) : systemModules.map((mod, i) => {
                                     const isActive = mod.status === 'active';
                                     const isIdle = mod.status === 'idle';
                                     const color = isActive ? '#00ff88' : isIdle ? '#ffd700' : '#ff4d4d';
                                     return (
-                                        <div key={i} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', paddingBottom: '10px', borderBottom: '1px solid rgba(255,255,255,0.05)'}}>
+                                        <div key={i} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', paddingBottom: '10px', borderBottom: '1px solid var(--border-color)'}}>
                                             <div>
-                                                <div style={{color: '#fff', fontWeight: '500', fontSize: '12px'}}>{mod.name}</div>
-                                                <div style={{color: '#666', fontSize: '10px'}}>{mod.note || mod.version}</div>
+                                                <div style={{color: 'var(--text-main)', fontWeight: '500', fontSize: '12px'}}>{mod.name}</div>
+                                                <div style={{color: 'var(--text-muted)', fontSize: '10px'}}>{mod.note || mod.version}</div>
                                             </div>
                                             <div style={{color, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0}}>
                                                 <span className={isActive ? 'pulse-dot' : ''} style={{width: '6px', height: '6px', background: color, borderRadius: '50%', display: 'inline-block'}}></span>
@@ -993,7 +993,7 @@ export const AdminPage = () => {
                                         <button className="btn-icon" onClick={closeModal}><Icons.Close /></button>
                                     </div>
                                     <div className="modal-body">
-                                        <p style={{ color: '#888', fontSize: '13.5px', marginBottom: '24px', lineHeight: '1.5' }}>
+                                        <p style={{ color: 'var(--text-muted)', fontSize: '13.5px', marginBottom: '24px', lineHeight: '1.5' }}>
                                             Для массовой регистрации скачайте Excel-шаблон и заполните его, соблюдая следующие правила:
                                         </p>
                                         
@@ -1020,7 +1020,7 @@ export const AdminPage = () => {
                                     
                                     {/* Красивые кнопки */}
                                     <div className="modal-footer" style={{ borderTop: 'none', paddingTop: '10px', gap: '15px' }}>
-                                        <button className="btn btn-secondary" onClick={closeModal} style={{flex: 1, padding: '14px', background: '#1a1a1a'}}>
+                                        <button className="btn btn-secondary" onClick={closeModal} style={{flex: 1, padding: '14px', background: 'var(--bg-card)'}}>
                                             Закрыть
                                         </button>
                                         <button className="btn btn-primary" onClick={downloadExcelTemplate} style={{ backgroundColor: '#00ff88', color: '#000', flex: 2, padding: '14px', fontSize: '14px' }}>
@@ -1080,7 +1080,7 @@ export const AdminPage = () => {
                     </div>
 
                     {loading ? (
-                        <div style={{padding: '40px', textAlign: 'center', color: '#666'}}>Загрузка базы данных...</div>
+                        <div style={{padding: '40px', textAlign: 'center', color: 'var(--text-muted)'}}>Загрузка базы данных...</div>
                     ) : (
                         <div className="table-responsive">
                             <table className="data-table">
@@ -1096,7 +1096,7 @@ export const AdminPage = () => {
                                         <tr key={u.id}>
                                             <td>
                                                 <div style={{display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px'}}>
-                                                    <span style={{fontWeight: '600', color: '#fff', fontSize: '14px'}}>
+                                                    <span style={{fontWeight: '600', color: 'var(--text-main)', fontSize: '14px'}}>
                                                         {u.firstName} {u.lastName}
                                                     </span>
                                                     {u.authProvider && (
@@ -1129,7 +1129,7 @@ export const AdminPage = () => {
                                                         </span>
                                                     )}
                                                 </div>
-                                                <div style={{fontSize: '12px', color: '#666'}}>{u.email} &bull; ID: {u.id}</div>
+                                                <div style={{fontSize: '12px', color: 'var(--text-muted)'}}>{u.email} &bull; ID: {u.id}</div>
                                             </td>
                                             <td>
                                                 <select className={`role-select ${u.role}`} value={u.role} onChange={(e) => handleRoleChange(u.id, e.target.value)}>
@@ -1169,7 +1169,7 @@ export const AdminPage = () => {
                             >
                                 &lsaquo; Назад
                             </button>
-                            <span style={{ color: '#888', fontSize: '13px' }}>
+                            <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
                                 Стр. {usersPage} / {usersTotalPages} &nbsp;&bull;&nbsp; Всего: {usersTotal}
                             </span>
                             <button
@@ -1349,7 +1349,7 @@ export const AdminPage = () => {
                 <div className="admin-section">
                     <div className="section-header">
                         <h2>Фильтр слов</h2>
-                        <span style={{ color: '#888', fontSize: 13 }}>Запрещённые слова заменяются на *** в комментариях</span>
+                        <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>Запрещённые слова заменяются на *** в комментариях</span>
                     </div>
                     <div className="section-body">
                         {/* Добавить одно слово */}
@@ -1368,8 +1368,8 @@ export const AdminPage = () => {
                         </div>
 
                         {/* Массовый импорт */}
-                        <div style={{ marginBottom: 24, background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 12, padding: '16px 20px' }}>
-                            <div style={{ fontSize: 13, color: '#888', marginBottom: 8 }}>Массовый импорт — вставьте слова через запятую, пробел или каждое с новой строки:</div>
+                        <div style={{ marginBottom: 24, background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 12, padding: '16px 20px' }}>
+                            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 8 }}>Массовый импорт — вставьте слова через запятую, пробел или каждое с новой строки:</div>
                             <textarea
                                 className="modern-textarea"
                                 style={{ minHeight: 80, marginBottom: 10 }}
@@ -1385,7 +1385,7 @@ export const AdminPage = () => {
                         {/* Топ нарушителей */}
                         {offenders.length > 0 && (
                             <div style={{ marginBottom: 28 }}>
-                                <div style={{ fontSize: 13, color: '#888', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
+                                <div style={{ fontSize: 13, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
                                     Топ нарушителей
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -1394,23 +1394,23 @@ export const AdminPage = () => {
                                         const initials = u ? `${u.firstName?.[0] ?? ''}${u.lastName?.[0] ?? ''}`.toUpperCase() : '?';
                                         const lastSeen = o.lastSeen ? new Date(o.lastSeen).toLocaleDateString('ru-RU') : '—';
                                         return (
-                                            <div key={o.userId} style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 10, padding: '10px 16px' }}>
-                                                <span style={{ fontSize: 13, color: '#555', width: 20, flexShrink: 0 }}>#{i + 1}</span>
+                                            <div key={o.userId} style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 10, padding: '10px 16px' }}>
+                                                <span style={{ fontSize: 13, color: 'var(--text-muted)', width: 20, flexShrink: 0 }}>#{i + 1}</span>
                                                 {u?.avatarUrl
                                                     ? <img src={u.avatarUrl} style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
                                                     : <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#fff', flexShrink: 0 }}>{initials}</div>
                                                 }
                                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                                    <div style={{ fontSize: 14, fontWeight: 600, color: '#fff' }}>{u?.firstName} {u?.lastName}</div>
-                                                    <div style={{ fontSize: 12, color: '#666' }}>{u?.email}</div>
+                                                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-main)' }}>{u?.firstName} {u?.lastName}</div>
+                                                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{u?.email}</div>
                                                 </div>
                                                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
                                                     <div style={{ fontSize: 18, fontWeight: 700, color: '#ff4b4b' }}>{o.count}</div>
-                                                    <div style={{ fontSize: 11, color: '#555' }}>нарушений</div>
+                                                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>нарушений</div>
                                                 </div>
                                                 <div style={{ textAlign: 'right', flexShrink: 0, minWidth: 70 }}>
-                                                    <div style={{ fontSize: 11, color: '#555' }}>последнее</div>
-                                                    <div style={{ fontSize: 12, color: '#888' }}>{lastSeen}</div>
+                                                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>последнее</div>
+                                                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{lastSeen}</div>
                                                 </div>
                                             </div>
                                         );
@@ -1420,13 +1420,13 @@ export const AdminPage = () => {
                         )}
 
                         {/* Список слов */}
-                        <div style={{ fontSize: 13, color: '#666', marginBottom: 10 }}>
-                            Всего в списке: <strong style={{ color: '#fff' }}>{bannedWords.length}</strong>
+                        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 10 }}>
+                            Всего в списке: <strong style={{ color: 'var(--text-main)' }}>{bannedWords.length}</strong>
                         </div>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                             {bannedWords.map(w => (
-                                <div key={w.id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 8, padding: '4px 10px 4px 12px', fontSize: 13 }}>
-                                    <span style={{ color: '#ccc' }}>{w.word}</span>
+                                <div key={w.id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 8, padding: '4px 10px 4px 12px', fontSize: 13 }}>
+                                    <span style={{ color: 'var(--text-main)' }}>{w.word}</span>
                                     <button
                                         onClick={() => removeWord(w.id)}
                                         style={{ background: 'none', border: 'none', color: '#ff4b4b', cursor: 'pointer', padding: '0 0 0 4px', display: 'flex', alignItems: 'center' }}
@@ -1436,7 +1436,7 @@ export const AdminPage = () => {
                                 </div>
                             ))}
                             {bannedWords.length === 0 && (
-                                <div style={{ color: '#555', fontSize: 13 }}>Список пуст — все слова разрешены</div>
+                                <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Список пуст — все слова разрешены</div>
                             )}
                         </div>
                     </div>

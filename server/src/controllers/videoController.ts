@@ -468,7 +468,7 @@ export const getVideoStats = async (req: Request, res: Response) => {
 export const updateVideoSettings = async (req: Request, res: Response) => {
     try {
         const { videoId } = req.params;
-        const { hideResults, maxAttempts, title, isHidden, unlockDate } = req.body;
+        const { hideResults, maxAttempts, title, isHidden, unlockDate, allowExternalTest, noForwardSeek } = req.body;
         const video = await Video.findByPk(videoId);
         if (!video) return res.status(404).json({ message: 'Видео не найдено' });
 
@@ -477,6 +477,8 @@ export const updateVideoSettings = async (req: Request, res: Response) => {
         if (maxAttempts !== undefined) video.maxAttempts = Number(maxAttempts);
         if (isHidden !== undefined) video.isHidden = isHidden;
         if (unlockDate !== undefined) video.unlockDate = unlockDate ? new Date(unlockDate) : null;
+        if (allowExternalTest !== undefined) video.allowExternalTest = allowExternalTest;
+        if (noForwardSeek !== undefined) video.noForwardSeek = noForwardSeek;
         
         await video.save();
         res.json(video);

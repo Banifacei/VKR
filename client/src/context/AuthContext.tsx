@@ -134,7 +134,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // 3. Пока идет проверка — показываем загрузку или ничего
     // Это предотвращает "мигание" контента, если токен протух
     if (loading) {
-        return <div style={{height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#111', color: '#fff'}}>Загрузка...</div>;
+        return <div style={{height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-panel)', color: 'var(--text-main)'}}>Загрузка...</div>;
     }
 
     return (

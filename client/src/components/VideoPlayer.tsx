@@ -51,6 +51,7 @@ interface VideoPlayerProps {
   isExternalTestMode?: boolean;
   onToggleTestMode?: () => void;
   seekRef?: React.MutableRefObject<((t: number) => void) | null>;
+  noForwardSeek?: boolean;
 }
 
 interface IAnswerResult {
@@ -60,7 +61,7 @@ interface IAnswerResult {
     similarity?: number | null;
 }
 
-export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'guest', userRole = 'student', hideResults = false, maxAttempts, onResetTest, onTimeUpdate, onRefreshEvents,isExternalTestMode = false,onToggleTestMode, seekRef }: VideoPlayerProps) => {
+export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'guest', userRole = 'student', hideResults = false, maxAttempts, onResetTest, onTimeUpdate, onRefreshEvents, isExternalTestMode = false, onToggleTestMode, seekRef, noForwardSeek = false }: VideoPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
@@ -152,6 +153,7 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   const [score, setScore] = useState(0);
   const [showEndScreen, setShowEndScreen] = useState(false);
   const lastSavedTimeRef = useRef<number>(0);
+  const maxReachedTimeRef = useRef<number>(0); // Максимум просмотренного времени (для noForwardSeek)
   // --- HOVER STATE (Для тултипа и подсветки блоков) ---
   const [hoverTime, setHoverTime] = useState<number | null>(null);
   const [hoverX, setHoverX] = useState<number>(0);
@@ -204,6 +206,7 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
                 if (data.lastTime > 0) {
                     anticheatTimeRef.current = data.lastTime;
                     lastSavedTimeRef.current = data.lastTime;
+                    maxReachedTimeRef.current = data.lastTime; // Инициализируем предел перемотки
                     setCurrentTime(data.lastTime);
                     // Если метаданные видео уже загружены — сразу перематываем.
                     // Если нет — pendingSeekRef применится в onLoadedMetadata.
@@ -775,6 +778,7 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
 
     anticheatTimeRef.current = time;
     setCurrentTime(time);
+    if (time > maxReachedTimeRef.current) maxReachedTimeRef.current = time;
 
     // Обновляем буфер
     if (videoRef.current) {
@@ -915,6 +919,10 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
       let targetTime = currentVideoTime + amount;
 
       if (targetTime > currentVideoTime) {
+          if (noForwardSeek && targetTime > maxReachedTimeRef.current + 1) {
+              showToast('⏩ Преподаватель запретил перемотку вперёд');
+              return;
+          }
           const blockTime = getBlockingEventTime(currentVideoTime, targetTime);
           if (blockTime !== null) {
               targetTime = Math.max(currentVideoTime, blockTime - 0.2);
@@ -1035,6 +1043,11 @@ const handleVideoDoubleClick = (e: React.MouseEvent) => {
           : (videoRef.current?.currentTime ?? anticheatTimeRef.current);
 
       if (targetTime > actualNow) {
+          // Блокируем перемотку вперёд дальше просмотренного (если включен noForwardSeek)
+          if (noForwardSeek && targetTime > maxReachedTimeRef.current + 1) {
+              showToast('⏩ Преподаватель запретил перемотку вперёд');
+              return;
+          }
           const blockTime = getBlockingEventTime(actualNow, targetTime);
           if (blockTime !== null) {
               targetTime = Math.max(actualNow, blockTime - 0.2);
@@ -1368,7 +1381,7 @@ const renderMainMenu = () => (
                             ) : activeEvent.isStrict ? (
                                 <button className="primary-btn" onClick={handleRetry}>🔄 Попробовать снова</button>
                             ) : (
-                                <button className="primary-btn" style={{background: '#444'}} onClick={() => handleContinue(false)}>Пропустить ⏭</button>
+                                <button className="primary-btn" style={{background: 'var(--bg-input)'}} onClick={() => handleContinue(false)}>Пропустить ⏭</button>
                             )}
                         </div>
                     </div>
@@ -1495,7 +1508,7 @@ const renderMainMenu = () => (
                     {isCompactEndScreen ? (
                         /* МИНИ-ЭКРАН ДЛЯ ПЕРЕСМОТРА */
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                            <p style={{ color: '#aaa', marginBottom: '20px' }}>
+                            <p style={{ color: 'var(--text-muted)', marginBottom: '20px' }}>
                                 {!hasTestQuestions 
                                     ? 'Надеемся, лекция была полезной!' 
                                     : 'Вы уже успешно прошли тестирование к этому уроку.'}
@@ -1540,7 +1553,7 @@ const renderMainMenu = () => (
                         </div>
                     ) : (
                         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
-                            <p style={{marginTop: '20px', color: '#aaa'}}>Ваши ответы успешно сохранены и отправлены преподавателю.</p>
+                            <p style={{marginTop: '20px', color: 'var(--text-muted)'}}>Ваши ответы успешно сохранены и отправлены преподавателю.</p>
                             <button className="primary-btn" onClick={replayVideo} style={{marginTop: '20px'}}><VideoPlayeIcons.Refresh /> Смотреть заново</button>
                         </div>
                     )}
@@ -1901,25 +1914,25 @@ const renderMainMenu = () => (
                         ))}
                         <div className="menu-divider" />
                         <div className="menu-item" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '6px' }} onClick={e => e.stopPropagation()}>
-                            <span className="menu-label" style={{ fontSize: '11px', color: '#888' }}>Размер: {subtitleSize}px</span>
+                            <span className="menu-label" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Размер: {subtitleSize}px</span>
                             <input type="range" min={10} max={36} step={1} value={subtitleSize}
                                 onChange={e => setSubtitleSize(Number(e.target.value))}
                                 style={{ width: '100%', accentColor: 'var(--primary)', cursor: 'pointer' }} />
                         </div>
                         <div className="menu-item" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '6px' }} onClick={e => e.stopPropagation()}>
-                            <span className="menu-label" style={{ fontSize: '11px', color: '#888' }}>По вертикали: {subtitlePos.y}%</span>
+                            <span className="menu-label" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>По вертикали: {subtitlePos.y}%</span>
                             <input type="range" min={5} max={95} step={1} value={subtitlePos.y}
                                 onChange={e => setSubtitlePos(p => ({ ...p, y: Number(e.target.value) }))}
                                 style={{ width: '100%', accentColor: 'var(--primary)', cursor: 'pointer' }} />
                         </div>
                         <div className="menu-item" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '6px' }} onClick={e => e.stopPropagation()}>
-                            <span className="menu-label" style={{ fontSize: '11px', color: '#888' }}>По горизонтали: {subtitlePos.x}%</span>
+                            <span className="menu-label" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>По горизонтали: {subtitlePos.x}%</span>
                             <input type="range" min={5} max={95} step={1} value={subtitlePos.x}
                                 onChange={e => setSubtitlePos(p => ({ ...p, x: Number(e.target.value) }))}
                                 style={{ width: '100%', accentColor: 'var(--primary)', cursor: 'pointer' }} />
                         </div>
                         <div className="menu-item" onClick={() => setSubtitlePos({ x: 50, y: 88 })} style={{ justifyContent: 'center' }}>
-                            <span style={{ fontSize: '11px', color: '#666' }}>Сбросить позицию</span>
+                            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Сбросить позицию</span>
                         </div>
                       </div>
                   )}

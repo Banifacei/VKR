@@ -26,6 +26,7 @@ const DashboardPage = lazy(() => import('./pages/DashboardPage').then(m => ({ de
 
 import { AuthPage } from './pages/AuthPage';
 import { CoursesPage } from './pages/CoursesPage';
+import { PrivacyPage } from './pages/PrivacyPage';
 
 const UserPage      = lazy(() => import('./pages/UserPage').then(m => ({ default: m.UserPage })));
 const AdminPage     = lazy(() => import('./pages/AdminPage').then(m => ({ default: m.AdminPage })));
@@ -67,6 +68,7 @@ function App() {
                 <Suspense fallback={null}>
                 <Routes>
                     <Route path="/auth" element={<PublicRoute><AuthPage /></PublicRoute>} />
+                    <Route path="/privacy" element={<PrivacyPage />} />
 
                     {/* --- ОБЩИЕ РОУТЫ (Доступны всем авторизованным) --- */}
                     <Route path="/" element={<ProtectedRoute><CoursesPage /></ProtectedRoute>} />

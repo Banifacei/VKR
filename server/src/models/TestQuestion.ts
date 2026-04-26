@@ -24,6 +24,9 @@ export class TestQuestion extends Model {
   @Column({ type: DataType.INTEGER, defaultValue: 50 })
   declare aiThreshold: number;
 
+  @Column({ type: DataType.TEXT, allowNull: true })
+  declare imageUrl?: string; // Картинка к вопросу
+
   @ForeignKey(() => CourseTest)
   @Column({ type: DataType.INTEGER, allowNull: false })
   declare testId: number;

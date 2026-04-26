@@ -77,7 +77,7 @@ export const DashboardPage = () => {
                 </div>
 
                 {loading && (
-                    <div style={{ textAlign: 'center', padding: 60, color: '#555' }}>
+                    <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>
                         <Icons.Spinner size={24} /> Загрузка...
                     </div>
                 )}

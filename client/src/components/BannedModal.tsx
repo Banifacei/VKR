@@ -11,7 +11,7 @@ export const BannedModal = ({ reason, onClose }: Props) => (
         padding: 16,
     }}>
         <div style={{
-            background: '#1a1a1a', border: '1px solid #ff4444',
+            background: 'var(--bg-panel)', border: '1px solid #ff4444',
             borderRadius: 16, padding: '32px 28px', maxWidth: 440, width: '100%',
             textAlign: 'center',
         }}>
@@ -19,7 +19,7 @@ export const BannedModal = ({ reason, onClose }: Props) => (
             <h2 style={{ color: '#ff4444', margin: '0 0 8px', fontSize: 20 }}>
                 Аккаунт заблокирован
             </h2>
-            <p style={{ color: '#888', fontSize: 14, margin: '0 0 20px' }}>
+            <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: '0 0 20px' }}>
                 Ваш аккаунт был заблокирован администратором платформы.
             </p>
 
@@ -28,10 +28,10 @@ export const BannedModal = ({ reason, onClose }: Props) => (
                     background: 'rgba(255,68,68,0.08)', border: '1px solid rgba(255,68,68,0.2)',
                     borderRadius: 10, padding: '12px 16px', marginBottom: 24, textAlign: 'left',
                 }}>
-                    <p style={{ color: '#aaa', fontSize: 12, margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: 1 }}>
+                    <p style={{ color: 'var(--text-muted)', fontSize: 12, margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: 1 }}>
                         Причина
                     </p>
-                    <p style={{ color: '#fff', fontSize: 14, margin: 0, lineHeight: 1.5 }}>
+                    <p style={{ color: 'var(--text-main)', fontSize: 14, margin: 0, lineHeight: 1.5 }}>
                         {reason}
                     </p>
                 </div>
@@ -39,11 +39,11 @@ export const BannedModal = ({ reason, onClose }: Props) => (
 
             {!reason && (
                 <div style={{ marginBottom: 24 }}>
-                    <p style={{ color: '#555', fontSize: 13 }}>Причина не указана.</p>
+                    <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Причина не указана.</p>
                 </div>
             )}
 
-            <p style={{ color: '#555', fontSize: 12, marginBottom: 20 }}>
+            <p style={{ color: 'var(--text-muted)', fontSize: 12, marginBottom: 20 }}>
                 Если вы считаете, что это ошибка — обратитесь к администратору.
             </p>
 

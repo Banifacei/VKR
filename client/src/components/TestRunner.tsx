@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { submitTestResult, type ICourseTest } from '../api/testApi';
 import { Icons } from './Icons';
+import { normalizeUploadUrl } from '../utils/uploadUrl';
 
 interface TestRunnerProps {
     test: ICourseTest;
@@ -17,7 +18,32 @@ export const TestRunner = ({ test, onExit, onSuccess }: TestRunnerProps) => {
     const [detailedResults, setDetailedResults] = useState<Record<number, any>>({}); 
     const [isSubmitting, setIsSubmitting] = useState(false);
     
-    const questions = test.questions || [];
+    const rawQuestions = test.questions || [];
+
+    // Перемешиваем вопросы и/или варианты ответов один раз при монтировании
+    const questions = useMemo(() => {
+        let qs = [...rawQuestions];
+        if (test.shuffleQuestions) {
+            for (let i = qs.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [qs[i], qs[j]] = [qs[j], qs[i]];
+            }
+        }
+        if (test.shuffleAnswers) {
+            qs = qs.map(q => {
+                if (!q.options || q.options.length === 0) return q;
+                const opts = [...q.options];
+                for (let i = opts.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [opts[i], opts[j]] = [opts[j], opts[i]];
+                }
+                return { ...q, options: opts };
+            });
+        }
+        return qs;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     const currentQ = questions[currentQIndex];
 
     const handleAnswer = (val: any) => {
@@ -122,14 +148,14 @@ export const TestRunner = ({ test, onExit, onSuccess }: TestRunnerProps) => {
                     <div className="score-circle" style={{ borderColor: isPassed ? '#4dff88' : '#ff4d4d' }}>
                         {score}%
                     </div>
-                    <p style={{color: '#888', margin: '20px 0'}}>
+                    <p style={{color: 'var(--text-muted)', margin: '20px 0'}}>
                         Необходимый минимум: {test.passingScore}%
                     </p>
 
                     {/* ВСТАВЛЯЕМ БЛОК РАБОТЫ НАД ОШИБКАМИ ВНУТРЬ RETURN */}
                     {!test.hideResults && Object.keys(detailedResults).length > 0 && (
                         <div className="test-review-section" style={{ marginTop: '30px', textAlign: 'left', width: '100%' }}>
-                            <h3 style={{ borderBottom: '1px solid #333', paddingBottom: '10px', marginBottom: '15px' }}>
+                            <h3 style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', marginBottom: '15px' }}>
                                 Ваши ответы:
                             </h3>
                             
@@ -143,22 +169,25 @@ export const TestRunner = ({ test, onExit, onSuccess }: TestRunnerProps) => {
 
                                     return (
                                         <div key={q.id} style={{
-                                            background: '#1a1a1a', 
-                                            padding: '15px', 
-                                            borderRadius: '10px', 
+                                            background: 'var(--bg-card)',
+                                            padding: '15px',
+                                            borderRadius: '10px',
                                             borderLeft: `4px solid ${isCorrect ? '#4dff88' : '#ff4d4d'}`,
                                         }}>
-                                            <div style={{ marginBottom: '8px', fontWeight: 'bold', fontSize: '15px', color: '#eee' }}>
+                                            <div style={{ marginBottom: '8px', fontWeight: 'bold', fontSize: '15px', color: 'var(--text-main)' }}>
                                                 {idx + 1}. {q.text}
+                                                {q.imageUrl && (
+                                                    <img src={normalizeUploadUrl(q.imageUrl)} alt="" style={{ display: 'block', marginTop: 6, maxWidth: '100%', maxHeight: 120, borderRadius: 8, objectFit: 'contain' }} />
+                                                )}
                                             </div>
                                             
-                                            <div style={{ fontSize: '14px', color: '#ccc', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                                            <div style={{ fontSize: '14px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                                                 <div>
-                                                    <span style={{ color: '#888' }}>Ваш ответ: </span> 
+                                                    <span style={{ color: 'var(--text-muted)' }}>Ваш ответ: </span> 
                                                     {displayAns ? (
                                                         <span style={{ color: isCorrect ? '#4dff88' : '#ff4d4d' }}>{displayAns}</span>
                                                     ) : (
-                                                        <i style={{ color: '#666' }}>Нет ответа</i>
+                                                        <i style={{ color: 'var(--text-muted)' }}>Нет ответа</i>
                                                     )}
                                                 </div>
 
@@ -173,7 +202,7 @@ export const TestRunner = ({ test, onExit, onSuccess }: TestRunnerProps) => {
                                             {/* Можно даже показывать правильный ответ, если студент ошибся */}
                                             {!isCorrect && (q.type === 'single_choice' || q.type === 'multiple_choice') && (
                                                 <div style={{ fontSize: '14px', marginTop: '5px' }}>
-                                                    <span style={{ color: '#888' }}>Правильный ответ: </span>
+                                                    <span style={{ color: 'var(--text-muted)' }}>Правильный ответ: </span>
                                                     <span style={{ color: '#4dff88' }}>
                                                         {q.options?.filter((o: any) => o.isCorrect).map((o: any) => o.text).join(', ')}
                                                     </span>
@@ -208,16 +237,31 @@ export const TestRunner = ({ test, onExit, onSuccess }: TestRunnerProps) => {
 
                 <h3 className="question-text">{currentQ.text}</h3>
 
+                {currentQ.imageUrl && (
+                    <div style={{ margin: '10px 0 16px', textAlign: 'center' }}>
+                        <img
+                            src={normalizeUploadUrl(currentQ.imageUrl)}
+                            alt="Иллюстрация к вопросу"
+                            style={{ maxWidth: '100%', maxHeight: 260, borderRadius: 10, objectFit: 'contain', border: '1px solid rgba(255,255,255,0.08)' }}
+                        />
+                    </div>
+                )}
+
                 <div className="options-list">
                     {currentQ.type === 'single_choice' && currentQ.options?.map((opt: any, idx: number) => (
                         <label key={idx} className={`option-label ${answers[currentQ.id] === opt.text ? 'selected' : ''}`}>
-                            <input 
-                                type="radio" 
-                                name={`q-${currentQ.id}`} 
-                                checked={answers[currentQ.id] === opt.text} 
+                            <input
+                                type="radio"
+                                name={`q-${currentQ.id}`}
+                                checked={answers[currentQ.id] === opt.text}
                                 onChange={() => handleAnswer(opt.text)}
                             />
-                            {opt.text}
+                            <span style={{ flex: 1 }}>
+                                {opt.text}
+                                {opt.imageUrl && (
+                                    <img src={normalizeUploadUrl(opt.imageUrl)} alt="" style={{ display: 'block', marginTop: 6, maxWidth: '100%', maxHeight: 160, borderRadius: 8, objectFit: 'contain' }} />
+                                )}
+                            </span>
                         </label>
                     ))}
 
@@ -226,12 +270,17 @@ export const TestRunner = ({ test, onExit, onSuccess }: TestRunnerProps) => {
                         const isChecked = (answers[currentQ.id] || []).includes(opt.text);
                         return (
                             <label key={idx} className={`option-label ${isChecked ? 'selected' : ''}`}>
-                                <input 
-                                    type="checkbox" 
+                                <input
+                                    type="checkbox"
                                     checked={isChecked}
-                                    onChange={() => handleMultipleChoice(opt.text)} 
-                                /> 
-                                {opt.text}
+                                    onChange={() => handleMultipleChoice(opt.text)}
+                                />
+                                <span style={{ flex: 1 }}>
+                                    {opt.text}
+                                    {opt.imageUrl && (
+                                        <img src={normalizeUploadUrl(opt.imageUrl)} alt="" style={{ display: 'block', marginTop: 6, maxWidth: '100%', maxHeight: 160, borderRadius: 8, objectFit: 'contain' }} />
+                                    )}
+                                </span>
                             </label>
                         );
                     })}

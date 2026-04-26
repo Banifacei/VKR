@@ -26,7 +26,7 @@ const SortableItem = ({ video, index, isActive, onClick, onEdit, onDelete }: Sor
 
     return (
         <div ref={setNodeRef} style={style} className={`video-item ${isActive ? 'active' : ''}`} onClick={onClick}>
-            <div {...attributes} {...listeners} style={{ cursor: 'grab', marginRight: '10px', color: '#666', display: 'flex', alignItems: 'center' }} title="Потяните, чтобы изменить порядок">
+            <div {...attributes} {...listeners} style={{ cursor: 'grab', marginRight: '10px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }} title="Потяните, чтобы изменить порядок">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="4" y1="8" x2="20" y2="8"></line><line x1="4" y1="16" x2="20" y2="16"></line>
                 </svg>
@@ -38,10 +38,10 @@ const SortableItem = ({ video, index, isActive, onClick, onEdit, onDelete }: Sor
             <div className="video-title" style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{video.title}</span>
                 {video.isHidden && (
-                    <span title="Скрыт от студентов" style={{ fontSize: '10px', background: '#333', color: '#888', borderRadius: '4px', padding: '1px 5px', flexShrink: 0 }}>скрыт</span>
+                    <span title="Скрыт от студентов" style={{ fontSize: '10px', background: 'var(--bg-input)', color: 'var(--text-muted)', borderRadius: '4px', padding: '1px 5px', flexShrink: 0 }}>скрыт</span>
                 )}
                 {!video.isHidden && video.unlockDate && new Date(video.unlockDate) > new Date() && (
-                    <span title={`Откроется ${new Date(video.unlockDate).toLocaleDateString('ru-RU')}`} style={{ fontSize: '10px', background: '#1a2a1a', color: '#4caf50', borderRadius: '4px', padding: '1px 5px', flexShrink: 0 }}>
+                    <span title={`Откроется ${new Date(video.unlockDate).toLocaleDateString('ru-RU')}`} style={{ fontSize: '10px', background: 'rgba(76,175,80,0.15)', color: '#4caf50', borderRadius: '4px', padding: '1px 5px', flexShrink: 0 }}>
                         {new Date(video.unlockDate).toLocaleDateString('ru-RU')}
                     </span>
                 )}
@@ -87,7 +87,7 @@ export const DraggableVideoList = ({ videos, selectedVideoId, onSelectVideo, onR
         }
     };
 
-    if (videos.length === 0) return <div style={{padding: '20px', color: '#666', fontSize: '13px', textAlign: 'center'}}>Нет видео в этом курсе</div>;
+    if (videos.length === 0) return <div style={{padding: '20px', color: 'var(--text-muted)', fontSize: '13px', textAlign: 'center'}}>Нет видео в этом курсе</div>;
 
     return (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>

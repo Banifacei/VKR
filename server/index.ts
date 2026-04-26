@@ -119,6 +119,21 @@ app.use('/api/tests', testRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/theme', themeRoutes(logoUpload));
 
+const questionImageUpload = multer({
+    storage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+    fileFilter: imageFilter,
+});
+
+app.post('/api/upload/image', checkAuth, questionImageUpload.single('image'), (req: Request, res: Response): void => {
+    try {
+        if (!req.file) { res.status(400).json({ message: 'Файл не выбран' }); return; }
+        res.json({ url: `/uploads/${req.file.filename}` });
+    } catch {
+        res.status(500).json({ message: 'Ошибка загрузки изображения' });
+    }
+});
+
 app.post('/api/upload', checkAuth, videoUpload.single('video'), (req: Request, res: Response): void => {
     try {
         if (!req.file) {

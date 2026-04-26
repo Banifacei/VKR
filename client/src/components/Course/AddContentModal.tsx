@@ -52,33 +52,33 @@ export const AddContentModal = ({ isOpen, onClose, courseId, nextOrderIndex, onS
         }} onClick={handleClose}>
             
             <div 
-                style={{ background: '#111', padding: 'clamp(20px, 4vw, 30px)', borderRadius: '16px', border: '1px solid #333', width: 'calc(100% - 32px)', maxWidth: '400px', animation: 'fadeIn 0.2s ease' }}
+                style={{ background: 'var(--bg-panel)', padding: 'clamp(20px, 4vw, 30px)', borderRadius: '16px', border: '1px solid var(--border-color)', width: 'calc(100% - 32px)', maxWidth: '400px', animation: 'fadeIn 0.2s ease' }}
                 onClick={(e) => e.stopPropagation()} 
             >
                 {/* ЭКРАН 1: ВЫБОР */}
                 {modalView === 'select' && (
                     <>
-                        <h2 style={{color: '#fff', marginBottom: '25px', marginTop: 0, textAlign: 'center'}}>Что добавим в курс?</h2>
+                        <h2 style={{color: 'var(--text-main)', marginBottom: '25px', marginTop: 0, textAlign: 'center'}}>Что добавим в курс?</h2>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                             <button 
                                 onClick={() => setModalView('create_video')} 
-                                style={{ background: '#2a2a2a', border: '1px solid #444', color: '#fff', padding: '15px', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '15px', transition: '0.2s' }}
+                                style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '15px', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '15px', transition: '0.2s' }}
                             >
                                 <Icons.Monitor size={24}/>
                                 <div style={{textAlign: 'left'}}>
                                     <div style={{fontWeight: 'bold'}}>Видео-урок</div>
-                                    <div style={{fontSize: '12px', color: '#888'}}>Добавить обучающее видео</div>
+                                    <div style={{fontSize: '12px', color: 'var(--text-muted)'}}>Добавить обучающее видео</div>
                                 </div>
                             </button>
 
                             <button 
                                 onClick={() => setModalView('create_test')} 
-                                style={{ background: 'rgba(255, 215, 0, 0.1)', border: '1px solid rgba(255, 215, 0, 0.3)', color: '#fff', padding: '15px', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '15px', transition: '0.2s' }}
+                                style={{ background: 'rgba(255, 215, 0, 0.1)', border: '1px solid rgba(255, 215, 0, 0.3)', color: 'var(--text-main)', padding: '15px', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '15px', transition: '0.2s' }}
                             >
                                 <Icons.FileText size={24}/>
                                 <div style={{textAlign: 'left'}}>
                                     <div style={{fontWeight: 'bold', color: '#ffd700'}}>Тест</div>
-                                    <div style={{fontSize: '12px', color: '#888'}}>Проверка знаний</div>
+                                    <div style={{fontSize: '12px', color: 'var(--text-muted)'}}>Проверка знаний</div>
                                 </div>
                             </button>
                         </div>
@@ -88,7 +88,7 @@ export const AddContentModal = ({ isOpen, onClose, courseId, nextOrderIndex, onS
                 {/* ЭКРАН 2: ФОРМА СОЗДАНИЯ ТЕСТА */}
                 {modalView === 'create_test' && (
                     <>
-                        <h2 style={{color: '#fff', marginBottom: '20px', marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px'}}><Icons.FileText size={20}/> Новый тест</h2>
+                        <h2 style={{color: 'var(--text-main)', marginBottom: '20px', marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px'}}><Icons.FileText size={20}/> Новый тест</h2>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                             <input 
                                 type="text" placeholder="Название теста" className="modern-input"
@@ -100,11 +100,11 @@ export const AddContentModal = ({ isOpen, onClose, courseId, nextOrderIndex, onS
                             />
                             <div style={{ display: 'flex', gap: '10px' }}>
                                 <div style={{ flex: 1 }}>
-                                    <label style={{ fontSize: '12px', color: '#888' }}>Проходной балл (%)</label>
+                                    <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Проходной балл (%)</label>
                                     <input type="number" className="modern-input" min="1" max="100" value={newTestData.passingScore} onChange={e => setNewTestData({...newTestData, passingScore: Number(e.target.value)})} />
                                 </div>
                                 <div style={{ flex: 1 }}>
-                                    <label style={{ fontSize: '12px', color: '#888' }}>Попытки (0 = ∞)</label>
+                                    <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Попытки (0 = ∞)</label>
                                     <input type="number" className="modern-input" min="0" value={newTestData.maxAttempts} onChange={e => setNewTestData({...newTestData, maxAttempts: Number(e.target.value)})} />
                                 </div>
                             </div>
@@ -118,7 +118,7 @@ export const AddContentModal = ({ isOpen, onClose, courseId, nextOrderIndex, onS
                 {/* ЭКРАН 3: ФОРМА СОЗДАНИЯ ВИДЕО */}
                 {modalView === 'create_video' && (
                     <>
-                        <h2 style={{color: '#fff', marginBottom: '20px', marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px'}}><Icons.Monitor size={20}/> Новый урок</h2>
+                        <h2 style={{color: 'var(--text-main)', marginBottom: '20px', marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px'}}><Icons.Monitor size={20}/> Новый урок</h2>
                         <AddVideoForm 
                             courseId={courseId} 
                             onVideoAdded={() => {
@@ -130,7 +130,7 @@ export const AddContentModal = ({ isOpen, onClose, courseId, nextOrderIndex, onS
                 )}
 
                 <button 
-                    className="btn btn-ghost" style={{ marginTop: '20px', color: '#666', width: '100%' }} 
+                    className="btn btn-ghost" style={{ marginTop: '20px', color: 'var(--text-muted)', width: '100%' }}
                     onClick={handleClose}
                 >
                     Отмена

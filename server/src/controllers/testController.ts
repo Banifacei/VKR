@@ -101,7 +101,7 @@ export const updateCourseTest = async (req: Request, res: Response) => {
     try {
         const { testId } = req.params;
         // Сразу добавляем hideResults для нашей следующей фичи!
-        const { title, description, passingScore, maxAttempts, isHidden, hideResults, unlockDate, shuffleQuestions } = req.body;
+        const { title, description, passingScore, maxAttempts, isHidden, hideResults, unlockDate, shuffleQuestions, shuffleAnswers } = req.body;
 
         const test = await CourseTest.findByPk(testId);
         if (!test) return res.status(404).json({ message: 'Тест не найден' });
@@ -112,8 +112,9 @@ export const updateCourseTest = async (req: Request, res: Response) => {
         if (maxAttempts !== undefined) test.maxAttempts = maxAttempts;
         if (isHidden !== undefined) test.isHidden = isHidden;
         if (hideResults !== undefined) test.hideResults = hideResults;
-        if (unlockDate !== undefined) test.unlockDate = unlockDate || null; // Сохраняем переключатель результатов
+        if (unlockDate !== undefined) test.unlockDate = unlockDate || null;
         if (shuffleQuestions !== undefined) test.shuffleQuestions = shuffleQuestions;
+        if (shuffleAnswers !== undefined) test.shuffleAnswers = shuffleAnswers;
 
         await test.save();
         addSystemLog(`Обновлены настройки теста (ID: ${testId})`, 'info');
@@ -211,13 +212,14 @@ export const reorderTestQuestions = async (req: Request, res: Response) => {
 export const addTestQuestion = async (req: Request, res: Response) => {
     try {
         const { testId } = req.params;
-        const { type, text, options, correctAnswer, weight, aiThreshold } = req.body;
-        
+        const { type, text, options, correctAnswer, weight, aiThreshold, imageUrl } = req.body;
+
         const question = await TestQuestion.create({
             testId: Number(testId),
             type, text, options, correctAnswer,
             weight: weight || 1,
-            aiThreshold: aiThreshold || 50
+            aiThreshold: aiThreshold || 50,
+            imageUrl: imageUrl || null,
         });
         addSystemLog(`В тест (ID: ${testId}) добавлен новый вопрос`, 'info');
         res.status(201).json(question);

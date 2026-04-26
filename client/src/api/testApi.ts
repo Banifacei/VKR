@@ -4,6 +4,7 @@ export interface ITestQuestion {
     id: number;
     type: string;
     text: string;
+    imageUrl?: string;
     options?: any;
     correctAnswer?: string;
     weight: number;
@@ -25,6 +26,8 @@ export interface ICourseTest {
     unlockDate?: string | null;
     attemptsUsed?: number;
     bestScore?: number;
+    shuffleAnswers?: boolean;
+    shuffleQuestions?: boolean;
 }
 
 export const updateCourseTest = async (testId: number, data: Partial<ICourseTest>) => {
@@ -66,6 +69,13 @@ export const submitTestResult = async (testId: number, score: number, answers: a
     // answers - это объект { questionId: answerValue }
     const res = await api.post(`/tests/${testId}/submit`, { score, answers });
     return res.data;
+};
+
+export const uploadTestImage = async (file: File): Promise<string> => {
+    const form = new FormData();
+    form.append('image', file);
+    const res = await api.post('/upload/image', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+    return res.data.url as string;
 };
 
 // 👇 Функция для получения прогресса по тестам курса (чтобы рисовать галочки)

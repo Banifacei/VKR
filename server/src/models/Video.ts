@@ -47,4 +47,7 @@ export class Video extends Model {
 
   @Column({ type: DataType.JSONB, defaultValue: [] })
   declare qualityUrls: { quality: string; url: string }[]; // Варианты качества
+
+  @Column({ type: DataType.BOOLEAN, defaultValue: false })
+  declare noForwardSeek: boolean; // Запретить перемотку вперёд
 }

@@ -114,7 +114,7 @@ export const DateTimePicker = ({ value, onChange }: DateTimePickerProps) => {
                 {value && (
                     <span
                         onClick={e => { e.stopPropagation(); handleClear(); }}
-                        style={{ color: '#555', fontSize: '16px', lineHeight: 1, cursor: 'pointer', padding: '0 2px' }}
+                        style={{ color: 'var(--text-muted)', fontSize: '16px', lineHeight: 1, cursor: 'pointer', padding: '0 2px' }}
                         title="Очистить"
                     >×</span>
                 )}
@@ -124,15 +124,15 @@ export const DateTimePicker = ({ value, onChange }: DateTimePickerProps) => {
             {open && (
                 <div style={{
                     position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 9999,
-                    background: '#161616', border: '1px solid rgba(255,255,255,0.08)',
+                    background: 'var(--bg-panel)', border: '1px solid var(--border-color)',
                     borderRadius: '18px', padding: '20px', width: '290px',
-                    boxShadow: '0 24px 48px rgba(0,0,0,0.7)',
+                    boxShadow: '0 24px 48px rgba(0,0,0,0.3)',
                     animation: 'fadeIn 0.15s ease',
                 }}>
                     {/* Month nav */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
                         <button onClick={prevMonth} style={navBtnStyle}>‹</button>
-                        <span style={{ color: '#fff', fontWeight: 600, fontSize: '15px' }}>
+                        <span style={{ color: 'var(--text-main)', fontWeight: 600, fontSize: '15px' }}>
                             {MONTHS[viewMonth]} {viewYear}
                         </span>
                         <button onClick={nextMonth} style={navBtnStyle}>›</button>
@@ -141,7 +141,7 @@ export const DateTimePicker = ({ value, onChange }: DateTimePickerProps) => {
                     {/* Day-of-week headers */}
                     <div style={gridStyle}>
                         {DAYS.map(d => (
-                            <div key={d} style={{ textAlign: 'center', fontSize: '11px', color: '#555', padding: '3px 0', fontWeight: 600 }}>
+                            <div key={d} style={{ textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)', padding: '3px 0', fontWeight: 600 }}>
                                 {d}
                             </div>
                         ))}
@@ -163,14 +163,14 @@ export const DateTimePicker = ({ value, onChange }: DateTimePickerProps) => {
                                         fontSize: '13px', fontWeight: today ? 700 : 400,
                                         cursor: past ? 'default' : 'pointer',
                                         color: selected ? '#fff'
-                                             : past    ? '#333'
+                                             : past    ? 'var(--text-muted)'
                                              : today   ? 'var(--primary)'
-                                             : '#ccc',
+                                             : 'var(--text-main)',
                                         background: selected ? 'var(--primary)' : 'transparent',
                                         boxShadow: selected ? '0 4px 12px rgba(var(--primary-rgb),0.4)' : 'none',
                                         transition: 'background 0.15s, color 0.15s',
                                     }}
-                                    onMouseEnter={e => { if (!selected && !past) (e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.07)'; }}
+                                    onMouseEnter={e => { if (!selected && !past) (e.currentTarget as HTMLDivElement).style.background = 'var(--bg-input)'; }}
                                     onMouseLeave={e => { if (!selected) (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
                                 >
                                     {day.getDate()}
@@ -180,14 +180,14 @@ export const DateTimePicker = ({ value, onChange }: DateTimePickerProps) => {
                     </div>
 
                     {/* Time picker */}
-                    <div style={{ marginTop: '18px', padding: '14px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-                        <label style={{ fontSize: '12px', color: '#666', marginRight: '4px' }}>Время</label>
+                    <div style={{ marginTop: '18px', padding: '14px', background: 'var(--bg-card)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                        <label style={{ fontSize: '12px', color: 'var(--text-muted)', marginRight: '4px' }}>Время</label>
                         <input
                             type="number" min={0} max={23} value={hour}
                             onChange={e => setHour(clampHour(Number(e.target.value)))}
                             style={timeInputStyle}
                         />
-                        <span style={{ color: '#fff', fontSize: '20px', fontWeight: 700, lineHeight: 1 }}>:</span>
+                        <span style={{ color: 'var(--text-main)', fontSize: '20px', fontWeight: 700, lineHeight: 1 }}>:</span>
                         <input
                             type="number" min={0} max={59} value={String(minute).padStart(2, '0')}
                             onChange={e => setMinute(clampMinute(Number(e.target.value)))}
@@ -225,23 +225,23 @@ const gridStyle: React.CSSProperties = {
 };
 
 const navBtnStyle: React.CSSProperties = {
-    background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
-    borderRadius: '8px', color: '#fff', cursor: 'pointer', fontSize: '18px',
+    background: 'var(--bg-input)', border: '1px solid var(--border-color)',
+    borderRadius: '8px', color: 'var(--text-main)', cursor: 'pointer', fontSize: '18px',
     width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
     lineHeight: 1,
 };
 
 const timeInputStyle: React.CSSProperties = {
     width: '52px', textAlign: 'center', padding: '8px 4px',
-    background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-    borderRadius: '10px', color: '#fff', fontSize: '18px', fontWeight: 600,
+    background: 'var(--bg-input)', border: '1px solid var(--border-color)',
+    borderRadius: '10px', color: 'var(--text-main)', fontSize: '18px', fontWeight: 600,
     MozAppearance: 'textfield',
 };
 
 const clearBtnStyle: React.CSSProperties = {
     flex: 1, padding: '10px', borderRadius: '10px',
-    background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
-    color: '#888', cursor: 'pointer', fontSize: '13px', fontWeight: 500,
+    background: 'var(--bg-input)', border: '1px solid var(--border-color)',
+    color: 'var(--text-muted)', cursor: 'pointer', fontSize: '13px', fontWeight: 500,
 };
 
 const confirmBtnStyle: React.CSSProperties = {

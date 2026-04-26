@@ -44,4 +44,7 @@ export class CourseTest extends Model {
 
   @Column({ type: DataType.BOOLEAN, defaultValue: false })
   declare shuffleQuestions: boolean; // Перемешивать вопросы для каждого студента
+
+  @Column({ type: DataType.BOOLEAN, defaultValue: false })
+  declare shuffleAnswers: boolean; // Перемешивать варианты ответов для каждого студента
 }
