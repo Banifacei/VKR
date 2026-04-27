@@ -6,6 +6,7 @@ import { getAllUsers, changeUserRole, updateUser, createUser, deleteUser, banUse
 import type { IAdminUser } from '../api/userApi';
 import api from '../api/axiosInstance';
 import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { Icons } from '../components/Icons';
 import { AppHeader } from '../components/AppHeader';
 import '../components/GlobalSearch.css';
@@ -49,6 +50,7 @@ const ROLE_COLORS: Record<string, string> = { student: '#4a9eff', teacher: '#ffd
 
 export const AdminPage = () => {
   const { showToast } = useToast();
+  const confirm = useConfirm();
   const { user, updateUser: updateContextUser } = useAuth();
   const [showSamlModal, setShowSamlModal] = useState(false);
   const [samlForm, setSamlForm] = useState({ enabled: false, entryPoint: '', cert: '' });
@@ -342,7 +344,8 @@ export const AdminPage = () => {
   };
 
   const handleQuickAction = async (endpoint: string, actionName: string) => {
-      if (!window.confirm(`Вы уверены, что хотите: ${actionName}?`)) return;
+      const ok = await confirm({ title: 'Подтверждение', message: `Вы уверены, что хотите: ${actionName}?` });
+      if (!ok) return;
       setIsActionExecuting(true);
       try {
           await api.post(`/admin/${endpoint}`);
@@ -407,7 +410,8 @@ export const AdminPage = () => {
           showToast('Вы не можете удалить самого себя!', 'error');
           return;
       }
-      if (!window.confirm(`Вы действительно хотите удалить пользователя ${userName}? Это действие необратимо.`)) return;
+      const ok = await confirm({ title: 'Удалить пользователя', message: `Удалить ${userName}? Это действие необратимо — все данные будут потеряны.`, confirmText: 'Удалить', danger: true });
+      if (!ok) return;
       try { 
           await deleteUser(userId); 
           setUsersList(prev => prev.filter(u => u.id !== userId));

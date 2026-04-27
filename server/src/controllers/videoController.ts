@@ -252,7 +252,7 @@ export const deleteCourse = async (req: Request, res: Response) => {
         for (const filePath of filePaths) {
             try { await fsPromises.unlink(filePath); } catch (e) { console.warn('Не удалось удалить файл:', filePath); }
         }
-        addSystemLog(`Полностью удален курс (ID: ${courseId}) и все связанные файлы`, 'error');
+        addSystemLog(`Полностью удален курс (ID: ${courseId}) и все связанные файлы`, 'warning');
         res.json({ success: true, message: 'Курс и файлы удалены' });
     } catch (e) {
         console.error(e);
@@ -318,6 +318,21 @@ export const createVideo = async (req: Request, res: Response) => {
     // Авто-транскодирование: если загружен локальный файл — запускаем в фоне
     if (url && url.startsWith('/uploads/') && !url.endsWith('.vtt')) {
         transcodeVideoInBackground(video.id, url, Number(courseId));
+    }
+
+    // Уведомляем всех записанных студентов о новом уроке
+    const course = await Course.findByPk(Number(courseId), { attributes: ['id', 'title'] });
+    if (course) {
+        const enrollments = await CourseEnrollment.findAll({ where: { courseId: Number(courseId), status: 'approved' } });
+        for (const e of enrollments) {
+            sendNotification(
+                e.userId,
+                'new_video',
+                'Новый урок в курсе',
+                `В курсе "${(course as any).title}" появился новый урок: "${title}"`,
+                `/courses/${courseId}/video/${video.id}`,
+            ).catch(() => {});
+        }
     }
   } catch (error) {
     console.error(error);

@@ -5,11 +5,9 @@ FROM node:20-slim
 
 WORKDIR /app
 
-# Устанавливаем зависимости отдельно (кэш Docker слоёв)
+# Копируем зависимости и исходники
 COPY package*.json ./
-RUN npm ci
-
-# Копируем исходники
+COPY node_modules ./node_modules
 COPY . .
 
 # Папка для загрузок (перезаписывается volume из docker-compose)

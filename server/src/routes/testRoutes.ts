@@ -1,16 +1,17 @@
 import { Router } from 'express';
 import { checkAuth } from '../middleware/authMiddleware.js';
 import { updateCourseTest } from '../controllers/testController.js';
-import { 
-    getCourseTests, 
-    createCourseTest, 
-    deleteCourseTest, 
-    addTestQuestion, 
+import {
+    getCourseTests,
+    createCourseTest,
+    deleteCourseTest,
+    addTestQuestion,
     deleteTestQuestion,
     submitTestResult,
     getUserCourseProgress,
     reorderTestQuestions,
-    getTestStats
+    getTestStats,
+    resetTestAttempts
 } from '../controllers/testController.js';
 
 const router = Router();
@@ -28,4 +29,5 @@ router.delete('/questions/:questionId', checkAuth, deleteTestQuestion);
 router.post('/:testId/submit', checkAuth, submitTestResult);
 router.get('/courses/:courseId/progress', checkAuth, getUserCourseProgress);
 router.post('/:testId/questions/reorder', checkAuth, reorderTestQuestions);
+router.delete('/:testId/attempts', checkAuth, resetTestAttempts);
 export default router;

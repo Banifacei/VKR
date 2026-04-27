@@ -602,3 +602,77 @@ export const samlCallback = async (req: Request, res: Response, next: any) => {
         res.redirect(`${CLIENT_URL}/auth?error=server_error`);
     }
 };
+// POST /api/auth/forgot-password  { email }
+export const forgotPassword = async (req: Request, res: Response) => {
+    const { email } = req.body;
+    // Всегда отвечаем одинаково — не раскрываем, есть ли такой email
+    const ok = () => res.json({ message: 'Если такой email зарегистрирован, письмо отправлено.' });
+
+    try {
+        const user = await User.findOne({ where: { email: (email || '').toLowerCase().trim() } });
+        if (!user) return ok();
+
+        // Генерируем токен на 1 час
+        const token = randomBytes(32).toString('hex');
+        user.resetToken = token;
+        user.resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000);
+        await user.save();
+
+        const CLIENT_URL = process.env.CLIENT_URL || 'https://lumeo.su';
+        const link = `${CLIENT_URL}/reset-password?token=${token}`;
+
+        const { sendMail } = await import('../utils/mailer.js');
+        await sendMail(
+            user.email,
+            'Сброс пароля — Lumeo',
+            `<div style="font-family:sans-serif;max-width:480px;margin:0 auto">
+                <h2 style="color:#7c6aff">Сброс пароля</h2>
+                <p>Мы получили запрос на сброс пароля для вашего аккаунта на <strong>Lumeo</strong>.</p>
+                <p>Нажмите кнопку ниже — ссылка действует <strong>1 час</strong>.</p>
+                <a href="${link}" style="display:inline-block;margin:20px 0;padding:12px 28px;background:#7c6aff;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold">
+                    Сбросить пароль
+                </a>
+                <p style="color:#888;font-size:13px">Если вы не запрашивали сброс — просто проигнорируйте это письмо.</p>
+            </div>`,
+        );
+
+        addSystemLog(`Запрос сброса пароля для ${user.email}`, 'info');
+        ok();
+    } catch (e) {
+        console.error('[forgotPassword]', e);
+        ok(); // Не раскрываем ошибку клиенту
+    }
+};
+
+// POST /api/auth/reset-password  { token, password }
+export const resetPassword = async (req: Request, res: Response) => {
+    const { token, password } = req.body;
+
+    if (!token || !password || password.length < 8) {
+        return res.status(400).json({ message: 'Токен и пароль (мин. 8 символов) обязательны.' });
+    }
+
+    try {
+        const user = await User.findOne({
+            where: {
+                resetToken: token,
+                resetTokenExpiry: { [Op.gt]: new Date() },
+            },
+        });
+
+        if (!user) {
+            return res.status(400).json({ message: 'Ссылка недействительна или истекла. Запросите новую.' });
+        }
+
+        user.password = await bcrypt.hash(password, 10);
+        user.resetToken = null;
+        user.resetTokenExpiry = null;
+        await user.save();
+
+        addSystemLog(`Пароль сброшен для ${user.email}`, 'warning');
+        res.json({ message: 'Пароль успешно изменён. Теперь можете войти.' });
+    } catch (e) {
+        console.error('[resetPassword]', e);
+        res.status(500).json({ message: 'Ошибка сервера.' });
+    }
+};

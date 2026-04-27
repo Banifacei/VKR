@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import './AuthPage.css';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -215,6 +215,14 @@ export const AuthPage = () => {
                     <button className="auth-submit-btn" onClick={handleSubmit} disabled={isSubmitting}>
                         {isSubmitting ? 'Загрузка...' : (isLogin ? 'ВОЙТИ' : 'ЗАРЕГИСТРИРОВАТЬСЯ')}
                     </button>
+
+                    {isLogin && (
+                        <div style={{ textAlign: 'right', marginTop: '-4px', marginBottom: '8px' }}>
+                            <Link to="/forgot-password" style={{ color: 'var(--text-muted)', fontSize: '13px', textDecoration: 'none' }}>
+                                Забыли пароль?
+                            </Link>
+                        </div>
+                    )}
                     {/* РАЗДЕЛИТЕЛЬ И SSO */}
                     {isLogin && (authProviders.yandex || authProviders.google || authProviders.saml) && (
                         <div className="sso-container">

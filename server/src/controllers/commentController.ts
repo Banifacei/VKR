@@ -1,8 +1,11 @@
 import { Request, Response } from 'express';
 import { VideoComment } from '../models/VideoComment.js';
 import { User } from '../models/User.js';
+import { Video } from '../models/Video.js';
+import { Course } from '../models/Course.js';
 import { filterText } from './bannedWordController.js';
 import { createChannel } from '../utils/sseHub.js';
+import { sendNotification } from './notificationController.js';
 
 export const commentChannel = createChannel<number>();
 
@@ -48,7 +51,10 @@ export const addComment = async (req: Request, res: Response) => {
     if (text.trim().length > 2000) return res.status(400).json({ message: 'Слишком длинный комментарий' });
 
     try {
-        const filteredText = await filterText(text.trim(), { userId, videoId: Number(videoId) });
+        const originalText = text.trim();
+        const filteredText = await filterText(originalText, { userId, videoId: Number(videoId) });
+        const hasBannedWord = filteredText !== originalText;
+
         const comment = await VideoComment.create({
             videoId: Number(videoId),
             userId,
@@ -65,6 +71,49 @@ export const addComment = async (req: Request, res: Response) => {
             parentId: parentId || null,
         });
         res.status(201).json(full);
+
+        // Уведомления — fire-and-forget после ответа
+        const author = (full as any).user;
+        const authorName = `${author.firstName} ${author.lastName}`;
+
+        // 1. Если это ответ — уведомляем автора исходного комментария
+        if (parentId) {
+            const parent = await VideoComment.findByPk(parentId);
+            if (parent && parent.userId !== userId) {
+                const video = await Video.findByPk(Number(videoId), { attributes: ['id', 'title', 'courseId'] });
+                sendNotification(
+                    parent.userId,
+                    'comment_reply',
+                    'Новый ответ на ваш комментарий',
+                    `${authorName} ответил(а) на ваш комментарий`,
+                    video ? `/courses/${video.courseId}/video/${video.id}` : undefined,
+                ).catch(() => {});
+            }
+        }
+
+        // 2. Если найдено бан-слово — уведомляем владельца курса и всех админов
+        if (hasBannedWord) {
+            const video = await Video.findByPk(Number(videoId), { attributes: ['id', 'title', 'courseId'] });
+            if (video) {
+                const course = await Course.findByPk(video.courseId, { attributes: ['id', 'title', 'ownerId'] });
+                if (course) {
+                    const link = `/courses/${course.id}/video/${video.id}`;
+                    const notifTitle = 'Нарушение правил в комментарии';
+                    const notifMsg = `${authorName} написал(а) запрещённое слово в уроке "${video.title}"`;
+
+                    // Владелец курса
+                    sendNotification(course.ownerId, 'banned_word', notifTitle, notifMsg, link).catch(() => {});
+
+                    // Все администраторы (кроме самого владельца, чтоб не дублировать)
+                    const admins = await User.findAll({ where: { role: 'admin' }, attributes: ['id'] });
+                    for (const admin of admins) {
+                        if (admin.id !== course.ownerId) {
+                            sendNotification(admin.id, 'banned_word', notifTitle, notifMsg, link).catch(() => {});
+                        }
+                    }
+                }
+            }
+        }
     } catch (e) {
         console.error(e);
         res.status(500).json({ message: 'Ошибка добавления комментария' });

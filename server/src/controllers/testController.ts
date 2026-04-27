@@ -6,7 +6,10 @@ import { UserVideoProgress } from '../models/UserVideoProgress.js';
 import { pipeline } from '@xenova/transformers';
 import { Video } from '../models/Video.js';
 import { User } from '../models/User.js';
+import { Course } from '../models/Course.js';
+import { CourseEnrollment } from '../models/CourseEnrollment.js';
 import { addSystemLog } from './adminController.js';
+import { sendNotification } from './notificationController.js';
 
 export const getCourseTests = async (req: Request, res: Response) => {
     try {
@@ -103,13 +106,22 @@ export const updateCourseTest = async (req: Request, res: Response) => {
         // Сразу добавляем hideResults для нашей следующей фичи!
         const { title, description, passingScore, maxAttempts, isHidden, hideResults, unlockDate, shuffleQuestions, shuffleAnswers } = req.body;
 
+        if (passingScore !== undefined) {
+            const ps = Number(passingScore);
+            if (isNaN(ps) || ps < 0 || ps > 100) return res.status(400).json({ message: 'Проходной балл должен быть от 0 до 100' });
+        }
+        if (maxAttempts !== undefined) {
+            const ma = Number(maxAttempts);
+            if (isNaN(ma) || ma < 0) return res.status(400).json({ message: 'Количество попыток должно быть ≥ 0' });
+        }
+
         const test = await CourseTest.findByPk(testId);
         if (!test) return res.status(404).json({ message: 'Тест не найден' });
 
         if (title !== undefined) test.title = title;
         if (description !== undefined) test.description = description;
-        if (passingScore !== undefined) test.passingScore = passingScore;
-        if (maxAttempts !== undefined) test.maxAttempts = maxAttempts;
+        if (passingScore !== undefined) test.passingScore = Number(passingScore);
+        if (maxAttempts !== undefined) test.maxAttempts = Number(maxAttempts);
         if (isHidden !== undefined) test.isHidden = isHidden;
         if (hideResults !== undefined) test.hideResults = hideResults;
         if (unlockDate !== undefined) test.unlockDate = unlockDate || null;
@@ -130,6 +142,15 @@ export const createCourseTest = async (req: Request, res: Response) => {
         const { courseId } = req.params;
         const { title, description, passingScore, maxAttempts, orderIndex } = req.body;
 
+        if (passingScore !== undefined) {
+            const ps = Number(passingScore);
+            if (isNaN(ps) || ps < 0 || ps > 100) return res.status(400).json({ message: 'Проходной балл должен быть от 0 до 100' });
+        }
+        if (maxAttempts !== undefined) {
+            const ma = Number(maxAttempts);
+            if (isNaN(ma) || ma < 0) return res.status(400).json({ message: 'Количество попыток должно быть ≥ 0' });
+        }
+
         let finalOrderIndex = orderIndex;
 
         // 🤖 УМНАЯ ЛОГИКА: Если фронт не прислал orderIndex, находим самый большой в курсе
@@ -140,16 +161,31 @@ export const createCourseTest = async (req: Request, res: Response) => {
             finalOrderIndex = Math.max(maxVideoIndex, maxTestIndex) + 1;
         }
 
-        const test = await CourseTest.create({ 
-            title, 
-            description, 
+        const test = await CourseTest.create({
+            title,
+            description,
             courseId: Number(courseId),
-            passingScore: passingScore || 80, // Если создаем из старой формы, ставим дефолт 80%
-            maxAttempts: maxAttempts || 3,    // Дефолт 3 попытки
-            orderIndex: finalOrderIndex       // 👈 Железобетонно сохраняем в базу!
+            passingScore: passingScore || 80,
+            maxAttempts: maxAttempts || 3,
+            orderIndex: finalOrderIndex,
         });
         addSystemLog(`Создан новый тест: "${title}"`, 'success');
         res.status(201).json(test);
+
+        // Уведомляем всех записанных студентов о новом тесте
+        const course = await Course.findByPk(Number(courseId), { attributes: ['id', 'title'] });
+        if (course) {
+            const enrollments = await CourseEnrollment.findAll({ where: { courseId: Number(courseId), status: 'approved' } });
+            for (const e of enrollments) {
+                sendNotification(
+                    e.userId,
+                    'new_test',
+                    'Новый тест в курсе',
+                    `В курсе "${(course as any).title}" добавлен тест: "${title}"`,
+                    `/courses/${courseId}`,
+                ).catch(() => {});
+            }
+        }
     } catch (e) {
         console.error(e);
         res.status(500).json({ message: 'Ошибка при создании теста' });
@@ -315,8 +351,48 @@ export const submitTestResult = async (req: Request, res: Response) => {
             answers: JSON.stringify(detailedAnswers) // Теперь тут лежит умный JSON с результатами!
         });
 
-        addSystemLog(`Студент (ID: ${userId}) сдал тест (ID: ${testId}) на ${finalScore}%`, 'info');
+        // @ts-ignore
+        const userRole = req.user.role || 'student';
+        addSystemLog(`Пользователь (роль: ${userRole}, ID: ${userId}) сдал тест (ID: ${testId}) на ${finalScore}%`, 'info');
         res.json({ score: finalScore, detailedAnswers });
+
+        // Уведомления — после ответа клиенту
+        const isPassed = finalScore >= test.passingScore;
+        const resultWord = isPassed ? 'сдан' : 'не сдан';
+        sendNotification(
+            userId,
+            'test_result',
+            `Тест ${resultWord}`,
+            `Ваш результат: ${finalScore}% (мин. ${test.passingScore}%). Тест "${test.title}" ${resultWord}.`,
+            `/courses/${test.courseId}`,
+        ).catch(() => {});
+
+        // Если тест сдан — проверяем, завершён ли весь курс
+        if (isPassed) {
+            const course = await Course.findByPk(test.courseId, { attributes: ['id', 'title', 'ownerId'] });
+            if (course) {
+                const allVideos = await Video.findAll({ where: { courseId: test.courseId, isHidden: false }, attributes: ['id'] });
+                const allTests = await CourseTest.findAll({ where: { courseId: test.courseId, isHidden: false }, attributes: ['id', 'passingScore'] });
+
+                const watchedCount = await UserVideoProgress.count({ where: { userId, videoId: allVideos.map(v => v.id), isWatched: true } });
+                const allVideosDone = watchedCount >= allVideos.length;
+
+                const testResults = await UserTestResult.findAll({ where: { userId, testId: allTests.map(t => t.id) } });
+                const allTestsPassed = allTests.every(t => testResults.some(r => r.testId === t.id && r.score >= t.passingScore));
+
+                if (allVideosDone && allTestsPassed) {
+                    const student = await User.findByPk(userId, { attributes: ['firstName', 'lastName'] });
+                    const studentName = student ? `${(student as any).firstName} ${(student as any).lastName}` : `ID ${userId}`;
+                    sendNotification(
+                        (course as any).ownerId,
+                        'course_completed',
+                        'Студент завершил курс',
+                        `${studentName} завершил(а) курс "${(course as any).title}"`,
+                        `/courses/${test.courseId}/stats`,
+                    ).catch(() => {});
+                }
+            }
+        }
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Ошибка при сохранении результата' });
@@ -365,5 +441,27 @@ export const getUserCourseProgress = async (req: Request, res: Response) => {
     } catch (e) {
         console.error(e);
         res.status(500).json({ message: 'Ошибка при получении прогресса' });
+    }
+};
+
+// --- СБРОСИТЬ ПОПЫТКИ ТЕСТА (только для себя; admin может сбросить любому) ---
+export const resetTestAttempts = async (req: Request, res: Response) => {
+    try {
+        const { testId } = req.params;
+        // @ts-ignore
+        const requester = req.user as { id: number; role: string };
+        // targetUserId: если передан — только для adminов
+        const targetUserId = req.body.userId ? Number(req.body.userId) : requester.id;
+
+        if (targetUserId !== requester.id && requester.role !== 'admin') {
+            return res.status(403).json({ message: 'Недостаточно прав' });
+        }
+
+        const deleted = await UserTestResult.destroy({ where: { testId: Number(testId), userId: targetUserId } });
+        addSystemLog(`Сброшены попытки теста (ID: ${testId}) для пользователя (ID: ${targetUserId})`, 'warning');
+        res.json({ success: true, deleted });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ message: 'Ошибка сброса попыток' });
     }
 };

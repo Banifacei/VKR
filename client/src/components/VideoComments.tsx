@@ -3,6 +3,7 @@ import api from '../api/axiosInstance';
 import { Icons } from './Icons';
 import './VideoComments.css';
 import { sseQuery } from '../utils/sseTicket';
+import { useConfirm } from '../context/ConfirmContext';
 
 interface IUser { id: number; firstName: string; lastName: string; avatarUrl?: string; role: string }
 interface IComment {
@@ -30,6 +31,7 @@ const timeFmt = (iso: string) => {
 };
 
 export const VideoComments = ({ videoId, currentUserId, currentUserRole }: Props) => {
+    const confirm = useConfirm();
     const [comments, setComments] = useState<IComment[]>([]);
     const [text, setText]         = useState('');
     const [replyTo, setReplyTo]   = useState<IComment | null>(null);
@@ -102,9 +104,9 @@ export const VideoComments = ({ videoId, currentUserId, currentUserRole }: Props
     };
 
     const remove = async (id: number) => {
-        if (!confirm('Удалить комментарий?')) return;
+        const ok = await confirm({ title: 'Удалить комментарий', message: 'Удалить этот комментарий? Восстановить его не получится.', confirmText: 'Удалить', danger: true });
+        if (!ok) return;
         await api.delete(`/comments/${id}`);
-        // SSE доставит delete_comment всем зрителям автоматически
     };
 
     const canDelete = (c: IComment) =>

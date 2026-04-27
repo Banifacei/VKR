@@ -1,22 +1,26 @@
 import { useState, useMemo } from 'react';
 import { submitTestResult, type ICourseTest } from '../api/testApi';
+import api from '../api/axiosInstance';
 import { Icons } from './Icons';
 import { normalizeUploadUrl } from '../utils/uploadUrl';
+import { useConfirm } from '../context/ConfirmContext';
 
 interface TestRunnerProps {
     test: ICourseTest;
     onExit: () => void;
     onSuccess?: () => void;
+    userRole?: string;
 }
 
-export const TestRunner = ({ test, onExit, onSuccess }: TestRunnerProps) => {
+export const TestRunner = ({ test, onExit, onSuccess, userRole }: TestRunnerProps) => {
+    const confirm = useConfirm();
     const [step, setStep] = useState<'start' | 'quiz' | 'result'>('start');
     const [currentQIndex, setCurrentQIndex] = useState(0);
     const [answers, setAnswers] = useState<Record<number, any>>({});
     const [score, setScore] = useState(0);
-    // НОВОЕ: Стейт для хранения детальной проверки с сервера (включая ИИ)
-    const [detailedResults, setDetailedResults] = useState<Record<number, any>>({}); 
+    const [detailedResults, setDetailedResults] = useState<Record<number, any>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isResetting, setIsResetting] = useState(false);
     
     const rawQuestions = test.questions || [];
 
@@ -60,7 +64,25 @@ export const TestRunner = ({ test, onExit, onSuccess }: TestRunnerProps) => {
         }
     };
 
-    const handleNext = () => {
+    const handlePrev = () => {
+        if (currentQIndex > 0) setCurrentQIndex(prev => prev - 1);
+    };
+
+    const handleResetAttempts = async () => {
+        const ok = await confirm({ title: 'Сбросить попытки', message: 'Сбросить все попытки для этого теста? Результаты будут удалены.', confirmText: 'Сбросить', danger: true });
+        if (!ok) return;
+        setIsResetting(true);
+        try {
+            await api.delete(`/tests/${test.id}/attempts`);
+            onExit();
+        } catch (e) {
+            console.error('Ошибка сброса попыток', e);
+        } finally {
+            setIsResetting(false);
+        }
+    };
+
+    const handleNext = async () => {
         if (currentQIndex < questions.length - 1) {
             setCurrentQIndex(prev => prev + 1);
         } else {
@@ -72,7 +94,8 @@ export const TestRunner = ({ test, onExit, onSuccess }: TestRunnerProps) => {
             if (unanswered.length > 0) {
                 const n = unanswered.length;
                 const word = n === 1 ? 'вопрос' : n < 5 ? 'вопроса' : 'вопросов';
-                if (!confirm(`Вы не ответили на ${n} ${word}. Завершить тест?`)) return;
+                const ok = await confirm({ title: 'Незаполненные ответы', message: `Вы не ответили на ${n} ${word}. Завершить тест? Пропущенные вопросы будут засчитаны как неверные.`, confirmText: 'Завершить', cancelText: 'Вернуться' });
+                if (!ok) return;
             }
             finishTest();
         }
@@ -141,6 +164,16 @@ export const TestRunner = ({ test, onExit, onSuccess }: TestRunnerProps) => {
                             </button>
                         )}
                         <button className="btn btn-ghost" onClick={onExit}>Назад к курсу</button>
+                        {userRole === 'admin' && (
+                            <button
+                                className="btn btn-ghost"
+                                onClick={handleResetAttempts}
+                                disabled={isResetting}
+                                style={{ color: '#ff9900', fontSize: '13px', marginTop: '6px' }}
+                            >
+                                {isResetting ? '...' : '⟳ Сбросить попытки'}
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>
@@ -305,15 +338,25 @@ export const TestRunner = ({ test, onExit, onSuccess }: TestRunnerProps) => {
                     )}
                 </div>
 
-                <div className="runner-footer">
-                    <button 
-                        className="btn btn-primary" 
-                        style={{width: '100%'}} 
+                <div className="runner-footer" style={{ display: 'flex', gap: '10px' }}>
+                    {currentQIndex > 0 && (
+                        <button
+                            className="btn btn-ghost"
+                            style={{ flexShrink: 0 }}
+                            onClick={handlePrev}
+                            disabled={isSubmitting}
+                        >
+                            ← Назад
+                        </button>
+                    )}
+                    <button
+                        className="btn btn-primary"
+                        style={{ flex: 1 }}
                         onClick={handleNext}
                         disabled={isSubmitting}
                     >
-                        {isSubmitting 
-                            ? 'Проверка...' 
+                        {isSubmitting
+                            ? 'Проверка...'
                             : (currentQIndex === questions.length - 1 ? 'Завершить тест' : 'Следующий вопрос →')}
                     </button>
                 </div>

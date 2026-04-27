@@ -9,6 +9,7 @@ import type { IVideo } from '../types';
 import * as XLSX from 'xlsx';
 import api from '../api/axiosInstance';
 import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { Icons } from './Icons';
 import { DateTimePicker } from './DateTimePicker';
 
@@ -108,6 +109,7 @@ const SortableOption = ({ opt, idx, isCorrect, isDuplicate, accentColor, onChang
 
 export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) => {
     const { showToast } = useToast();
+    const confirm = useConfirm();
     const isDraggingQuestionRef = useRef(false);
     const isVideo = item.type === 'video';
     const accentColor = isVideo ? 'var(--primary)' : '#ffd700';
@@ -147,12 +149,18 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
         settingsData.noForwardSeek !== ((item as any).noForwardSeek || false);
 
     const handleSaveSettings = async () => {
+        const ps = Number(settingsData.passingScore);
+        const ma = Number(settingsData.maxAttempts);
+        if (!isVideo) {
+            if (isNaN(ps) || ps < 0 || ps > 100) { showToast('Проходной балл: от 0 до 100', 'error'); return; }
+            if (isNaN(ma) || ma < 0) { showToast('Количество попыток должно быть ≥ 0', 'error'); return; }
+        }
         setIsSavingSettings(true);
         try {
             const payload = {
                 ...settingsData,
-                maxAttempts: Number(settingsData.maxAttempts) || 0,
-                passingScore: Number(settingsData.passingScore) || 0,
+                maxAttempts: ma || 0,
+                passingScore: ps || 0,
             };
 
             if (isVideo && selectedVideo) {
@@ -607,7 +615,8 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
     };
 
     const handleDeleteClick = async (id: number) => {
-        if (!window.confirm('Точно удалить этот вопрос?')) return;
+        const ok = await confirm({ title: 'Удалить вопрос', message: 'Удалить этот вопрос из теста? Восстановить не получится.', confirmText: 'Удалить', danger: true });
+        if (!ok) return;
         try {
             if (isVideo) {
                 await deleteEvent(id);
@@ -1068,8 +1077,16 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', animation: 'fadeIn 0.2s ease' }}>
                                     <div style={{ background: 'var(--bg-card)', padding: '20px', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
                                         <h4 style={{ margin: '0 0 15px 0', color: 'var(--text-main)', fontSize: '16px' }}>Правила прохождения</h4>
-                                        <label style={{ fontSize: '13px', color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>Попыток сдачи (0 = безлимит):</label>
-                                        <input type="number" className="deck-input" min="0" value={settingsData.maxAttempts} onChange={e => setSettingsData({...settingsData, maxAttempts: e.target.value === '' ? '' : Number(e.target.value)})} style={{ background: 'var(--bg-input)', width: '100%', fontSize: '16px', padding: '12px' }} />
+                                        <label style={{ fontSize: '13px', color: Number(settingsData.maxAttempts) < 0 ? '#ff4d4d' : 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>Попыток сдачи (0 = безлимит):</label>
+                                        <input
+                                            type="number" className="deck-input" min="0"
+                                            value={settingsData.maxAttempts}
+                                            onChange={e => setSettingsData({...settingsData, maxAttempts: e.target.value === '' ? '' : Number(e.target.value)})}
+                                            style={{ background: 'var(--bg-input)', width: '100%', fontSize: '16px', padding: '12px', borderColor: Number(settingsData.maxAttempts) < 0 ? '#ff4d4d' : undefined, outline: Number(settingsData.maxAttempts) < 0 ? '1px solid #ff4d4d' : undefined }}
+                                        />
+                                        {Number(settingsData.maxAttempts) < 0 && (
+                                            <span style={{ fontSize: '12px', color: '#ff4d4d', marginTop: '5px', display: 'block' }}>⚠ Не может быть отрицательным</span>
+                                        )}
                                         
                                         {!isVideo && (
                                             <div style={{ marginTop: '20px' }}>
@@ -1149,10 +1166,10 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                         </div>
 
                                         <button 
-                                            className="btn btn-primary" 
-                                            style={{ width: '100%', marginTop: '20px', opacity: isChanged ? 1 : 0.5, cursor: isChanged ? 'pointer' : 'not-allowed', transition: '0.3s' }} 
-                                            onClick={handleSaveSettings} 
-                                            disabled={isSavingSettings || !isChanged}
+                                            className="btn btn-primary"
+                                            style={{ width: '100%', marginTop: '20px', opacity: (isChanged && Number(settingsData.maxAttempts) >= 0) ? 1 : 0.5, cursor: (isChanged && Number(settingsData.maxAttempts) >= 0) ? 'pointer' : 'not-allowed', transition: '0.3s' }}
+                                            onClick={handleSaveSettings}
+                                            disabled={isSavingSettings || !isChanged || Number(settingsData.maxAttempts) < 0}
                                         >
                                             {isSavingSettings ? 'Сохранение...' : (isChanged ? <><Icons.Save size={14}/> Сохранить настройки</> : <><Icons.Check size={14}/> Настройки сохранены</>)}
                                         </button>

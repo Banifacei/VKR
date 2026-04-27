@@ -14,6 +14,7 @@ import './UserPage.css';
 import './CoursesPage.css';
 import api from '../api/axiosInstance';
 import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { checkEnrollment, enrollInCourse, getCourseEnrollments, updateEnrollmentStatus} from '../api/videoApi';
 import { CourseLanding } from '../components/Course/CourseLanding';
 import { SortableCard } from '../components/Course/SortableCard';
@@ -39,6 +40,7 @@ export const UserPage = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
     const { showToast } = useToast();
+    const confirm = useConfirm();
     const [activeDragId, setActiveDragId] = useState<string | null>(null);
     const [showAddModal, setShowAddModal] = useState(false);
     const [editorItem, setEditorItem] = useState<DashboardItem | null>(null);
@@ -269,7 +271,8 @@ export const UserPage = () => {
     // Универсальное удаление (и для видео, и для тестов)
     const handleDeleteItem = async (item: any) => {
         const isVideo = item.type === 'video';
-        if (!window.confirm(`Вы уверены, что хотите навсегда удалить ${isVideo ? 'урок' : 'тест'} "${item.title}"?`)) return;
+        const ok = await confirm({ title: `Удалить ${isVideo ? 'урок' : 'тест'}`, message: `Навсегда удалить "${item.title}"? Это действие необратимо.`, confirmText: 'Удалить', danger: true });
+        if (!ok) return;
 
         try {
             // 🔥 Чистый axios
@@ -471,10 +474,11 @@ export const UserPage = () => {
                             )}
                         </div>
                     ) : (
-                        <TestRunner 
-                            test={activeItem} 
+                        <TestRunner
+                            test={activeItem}
                             onExit={() => setActiveItem(null)}
                             onSuccess={() => fetchCourseData()}
+                            userRole={userData?.role}
                         />
                     )}
                 </div>

@@ -10,7 +10,7 @@ import { CourseTest } from '../models/CourseTest.js';
 import { CourseEnrollment } from '../models/CourseEnrollment.js';
 import { addSystemLog } from './adminController.js';
 import { CourseCollaborator } from '../models/CourseCollaborator.js';
-import { notificationSse } from './notificationController.js';
+import { notificationSse, sendNotification } from './notificationController.js';
 import { Op } from 'sequelize';
 import * as xlsx from 'xlsx';
 import { createBroadcast } from '../utils/sseHub.js';
@@ -92,10 +92,21 @@ export const updateUserRole = async (req: Request, res: Response) => {
         const user = await User.findByPk(userIdToUpdate);
         if (!user) return res.status(404).json({ message: 'Пользователь не найден' });
 
+        const oldRole = user.role;
         user.role = role;
         await user.save();
         addSystemLog(`Изменена роль пользователя (ID: ${userIdToUpdate}) на "${role}"`, 'warning');
         res.json({ success: true, user });
+
+        if (oldRole !== role) {
+            const roleNames: Record<string, string> = { student: 'Студент', teacher: 'Преподаватель', admin: 'Администратор' };
+            sendNotification(
+                userIdToUpdate,
+                'role_changed',
+                'Ваша роль изменена',
+                `Ваша роль на платформе изменена: ${roleNames[oldRole] ?? oldRole} → ${roleNames[role] ?? role}`,
+            ).catch(() => {});
+        }
     } catch (e) {
         console.error(e);
         res.status(500).json({ message: 'Ошибка обновления роли' });

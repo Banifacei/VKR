@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../api/axiosInstance';
 import { updateCourseApi, deleteCourseApi } from '../../api/videoApi';
 import { useToast } from '../../context/ToastContext';
+import { useConfirm } from '../../context/ConfirmContext';
 import type { ICourse } from '../../types';
 import { Icons } from '../Icons';
 
@@ -23,6 +24,7 @@ export const CourseSettingsModal = ({
 }: CourseSettingsModalProps) => {
     
     const { showToast } = useToast();
+    const confirm = useConfirm();
     const navigate = useNavigate();
     
     // Стейты самой модалки
@@ -123,7 +125,8 @@ export const CourseSettingsModal = ({
     };
 
     const handleRemoveCollaborator = async (userId: number) => {
-        if (!window.confirm('Удалить пользователя из команды?')) return;
+        const ok = await confirm({ title: 'Удалить из команды', message: 'Убрать этого пользователя из команды курса?', confirmText: 'Удалить', danger: true });
+        if (!ok) return;
         try {
             await api.delete(`/videos/courses/${course.id}/collaborators/${userId}`);
             showToast('Пользователь удален', 'info');
@@ -199,9 +202,9 @@ export const CourseSettingsModal = ({
                                 
                                 {isOwner && (
                                     <button className="btn btn-ghost" style={{ background: 'rgba(255, 77, 77, 0.1)', color: '#ff4d4d' }} onClick={async () => {
-                                        if (window.confirm('⚠️ Вы уверены, что хотите навсегда удалить этот курс?')) {
-                                            try { await deleteCourseApi(course.id); navigate('/courses'); } catch (e) { showToast('Ошибка', 'error'); }
-                                        }
+                                        const ok = await confirm({ title: 'Удалить курс', message: `Навсегда удалить курс «${course.title}»? Все уроки, тесты и прогресс студентов будут потеряны. Это действие необратимо.`, confirmText: 'Удалить курс', danger: true });
+                                        if (!ok) return;
+                                        try { await deleteCourseApi(course.id); navigate('/courses'); } catch (e) { showToast('Ошибка', 'error'); }
                                     }}><Icons.Trash size={14}/> Удалить</button>
                                 )}
                             </div>
@@ -359,7 +362,8 @@ export const CourseSettingsModal = ({
                                 {pendingCount > 0 && (
                                     <button 
                                         onClick={async () => {
-                                            if (!window.confirm(`Одобрить все новые заявки (${pendingCount} шт.)?`)) return;
+                                            const ok = await confirm({ title: 'Массовое одобрение', message: `Одобрить все ${pendingCount} новых заявки на курс?`, confirmText: 'Одобрить все' });
+                                            if (!ok) return;
                                             setIsMassApproving(true);
                                             try {
                                                 const pendingIds = enrollmentsList.filter(req => req.status === 'pending').map(req => req.id);
@@ -450,13 +454,14 @@ export const CourseSettingsModal = ({
                                                         Одобрено
                                                     </span>
                                                     <button
-                                                        onClick={() => { if (window.confirm('Отозвать доступ к курсу?')) onEnrollmentAction(req.id, 'rejected'); }}
+                                                        onClick={async () => { const ok = await confirm({ title: 'Исключить студента', message: 'Отозвать доступ к курсу?', confirmText: 'Исключить', danger: true }); if (ok) onEnrollmentAction(req.id, 'rejected'); }}
                                                         style={{ background: 'transparent', color: '#ff4d4d', border: '1px solid rgba(255,77,77,0.3)', padding: '6px 10px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', transition: '0.2s' }}
                                                         title="Исключить студента"
                                                     >Исключить</button>
                                                     <button
                                                         onClick={async () => {
-                                                            if (!window.confirm(`Заблокировать ${req.user?.firstName} в этом курсе?`)) return;
+                                                            const ok = await confirm({ title: 'Заблокировать в курсе', message: `Заблокировать ${req.user?.firstName} в этом курсе? Студент потеряет доступ.`, confirmText: 'Заблокировать', danger: true });
+                                                            if (!ok) return;
                                                             await api.post(`/videos/courses/${course.id}/bans/${req.user?.id}`, { reason: '' });
                                                             onEnrollmentAction(req.id, 'rejected');
                                                             await loadCourseBans();

@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider } from './context/ToastContext';
 import { SearchProvider } from './context/SearchContext';
+import { ConfirmProvider } from './context/ConfirmContext';
 import { GlobalSearch } from './components/GlobalSearch';
 import api from './api/axiosInstance';
 
@@ -25,6 +26,8 @@ function HeartbeatSender() {
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then(m => ({ default: m.DashboardPage })));
 
 import { AuthPage } from './pages/AuthPage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { CoursesPage } from './pages/CoursesPage';
 import { PrivacyPage } from './pages/PrivacyPage';
 
@@ -59,6 +62,7 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
 function App() {
     return (
     <ToastProvider>
+    <ConfirmProvider>
         <ThemeProvider>
         <AuthProvider>
             <BrowserRouter>
@@ -68,6 +72,8 @@ function App() {
                 <Suspense fallback={null}>
                 <Routes>
                     <Route path="/auth" element={<PublicRoute><AuthPage /></PublicRoute>} />
+                    <Route path="/forgot-password" element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} />
+                    <Route path="/reset-password" element={<PublicRoute><ResetPasswordPage /></PublicRoute>} />
                     <Route path="/privacy" element={<PrivacyPage />} />
 
                     {/* --- ОБЩИЕ РОУТЫ (Доступны всем авторизованным) --- */}
@@ -100,6 +106,7 @@ function App() {
             </BrowserRouter>
         </AuthProvider>
         </ThemeProvider>
+    </ConfirmProvider>
     </ToastProvider>
     );
 }

@@ -48,6 +48,12 @@ export class User extends Model {
     @Column({ type: DataType.JSONB, defaultValue: {} })
     declare themeConfig: object; // { scheme, bgPattern, density }
 
+    @Column({ type: DataType.STRING, allowNull: true })
+    declare resetToken: string | null;
+
+    @Column({ type: DataType.DATE, allowNull: true })
+    declare resetTokenExpiry: Date | null;
+
     // --- СВЯЗИ ---
 
     @HasMany(() => UserResponse)
