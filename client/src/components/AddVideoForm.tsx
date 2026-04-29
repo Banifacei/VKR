@@ -1,158 +1,199 @@
 import { useState } from 'react';
 import { uploadVideoFile, createVideo } from '../api/videoApi';
-import './AddVideoForm.css'; // Импортируем стили
+import { useToast } from '../context/ToastContext';
 
 interface AddVideoFormProps {
   onVideoAdded: () => void;
   courseId: number | null;
 }
 
+type InputMode = 'file' | 'url';
+
+const detectLinkType = (url: string): string => {
+    if (/youtube\.com\/watch|youtu\.be\//.test(url)) return 'YouTube';
+    if (/rutube\.ru\/video\//.test(url)) return 'Rutube';
+    if (/vk\.com\/video/.test(url)) return 'VK Видео';
+    if (/\.(mp4|webm|ogg|mov)$/i.test(url)) return 'Прямая ссылка на видео';
+    if (url.startsWith('http')) return 'Внешняя ссылка';
+    return '';
+};
+
 export const AddVideoForm = ({ onVideoAdded, courseId }: AddVideoFormProps) => {
-  // States
+  const { showToast } = useToast();
+  const [inputMode, setInputMode] = useState<InputMode>('file');
   const [newTitle, setNewTitle] = useState('');
   const [newUrl, setNewUrl] = useState('');
   const [selectedVideoFile, setSelectedVideoFile] = useState<File | null>(null);
   const [selectedSubFile, setSelectedSubFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+
+  const linkType = newUrl.trim() ? detectLinkType(newUrl.trim()) : '';
 
   const handleSaveVideo = async () => {
-    if (!courseId) {
-        return alert("Ошибка: Курс не выбран!");
-    }
+    if (!courseId) return showToast('Ошибка: Курс не выбран!', 'error');
+    if (!newTitle.trim()) return showToast('Введите название урока!', 'error');
 
-    if (!newTitle.trim()) return alert("Введите название урока!");
-    if (!newUrl.trim() && !selectedVideoFile) {
-      return alert("Добавьте ссылку или выберите видео-файл!");
+    if (inputMode === 'file' && !selectedVideoFile) {
+      return showToast('Выберите видео-файл!', 'error');
+    }
+    if (inputMode === 'url' && !newUrl.trim()) {
+      return showToast('Введите ссылку на видео!', 'error');
     }
 
     setUploading(true);
+    setUploadProgress(null);
     try {
-      // 1. Загружаем видео (если файл)
-      let finalUrl = newUrl;
-      if (selectedVideoFile) {
-        const { url } = await uploadVideoFile(selectedVideoFile);
+      let finalUrl = newUrl.trim();
+
+      if (inputMode === 'file' && selectedVideoFile) {
+        setUploadProgress(0);
+        const { url } = await uploadVideoFile(selectedVideoFile, setUploadProgress);
+        setUploadProgress(null);
         finalUrl = url;
       }
 
-      // 2. Загружаем субтитры (если файл)
-      let subtitlesData = [];
-      if (selectedSubFile) {
-          const { url: subUrl } = await uploadVideoFile(selectedSubFile);
-          subtitlesData.push({
-              lang: 'ru',
-              label: 'Русский',
-              src: subUrl
-          });
+      let subtitlesData: { lang: string; label: string; src: string }[] = [];
+      if (inputMode === 'file' && selectedSubFile) {
+        const { url: subUrl } = await uploadVideoFile(selectedSubFile);
+        subtitlesData.push({ lang: 'ru', label: 'Русский', src: subUrl });
       }
 
-      // 3. Создаем запись в БД
-      await createVideo({ 
-          title: newTitle, 
-          url: finalUrl, 
-          subtitles: subtitlesData,
-          events: [],
-          courseId: courseId 
+      await createVideo({
+        title: newTitle,
+        url: finalUrl,
+        courseId,
+        subtitles: subtitlesData.length > 0 ? subtitlesData : undefined,
       });
-      
-      alert("Урок успешно опубликован!");
-      
-      // Сброс формы
+
       setNewTitle('');
       setNewUrl('');
       setSelectedVideoFile(null);
       setSelectedSubFile(null);
-      
-      // Очистка инпутов
-      const videoInput = document.getElementById('video-input') as HTMLInputElement;
-      if (videoInput) videoInput.value = '';
-      
-      const subInput = document.getElementById('sub-input') as HTMLInputElement;
-      if (subInput) subInput.value = '';
-      
+      showToast('Урок успешно опубликован!', 'success');
       onVideoAdded();
     } catch (e) {
       console.error(e);
-      alert("Ошибка при сохранении");
+      showToast('Ошибка при сохранении урока', 'error');
     } finally {
       setUploading(false);
+      setUploadProgress(null);
     }
   };
 
   return (
-    <div className="upload-section">
-      <h4 className="section-title">
-          <span>+</span> Создать новый урок
-      </h4>
-      
-      <input 
-        className="admin-input"
-        placeholder="Название урока" 
-        value={newTitle}
-        onChange={(e) => setNewTitle(e.target.value)}
-      />
-
-      <div className="upload-options">
-        {/* БЛОК ВИДЕО */}
-        <div className="option-group">
-          <p className="option-label">Видео (Ссылка или Файл)</p>
-          <input 
-            className="admin-input"
-            placeholder="https://rutube.ru//..." 
-            value={newUrl}
-            onChange={(e) => setNewUrl(e.target.value)}
-            disabled={!!selectedVideoFile}
-          />
-          <div className="file-input-wrapper">
-             <input 
-              id="video-input"
-              type="file" 
-              accept="video/*"
-              disabled={!!newUrl.trim()}
-              onChange={(e) => setSelectedVideoFile(e.target.files?.[0] || null)}
-            />
-            {selectedVideoFile && (
-                <button 
-                    className="clear-btn" 
-                    title="Удалить файл"
-                    onClick={() => {
-                        setSelectedVideoFile(null);
-                        const el = document.getElementById('video-input') as HTMLInputElement;
-                        if (el) el.value = '';
-                    }}
-                >✕</button>
-            )}
-          </div>
-        </div>
-
-        <div className="divider"></div>
-
-        {/* БЛОК СУБТИТРОВ */}
-        <div className="option-group">
-          <p className="option-label">Субтитры (.vtt)</p>
-          <div className="file-input-wrapper">
-             <input 
-              id="sub-input"
-              type="file" 
-              accept=".vtt"
-              onChange={(e) => setSelectedSubFile(e.target.files?.[0] || null)}
-            />
-            {selectedSubFile && (
-                <button 
-                    className="clear-btn" 
-                    title="Удалить файл"
-                    onClick={() => {
-                        setSelectedSubFile(null);
-                        const el = document.getElementById('sub-input') as HTMLInputElement;
-                        if (el) el.value = '';
-                    }}
-                >✕</button>
-            )}
-          </div>
-        </div>
+    <div className="add-video-form">
+      <div className="form-group">
+        <label className="form-label">Название урока</label>
+        <input
+          type="text"
+          className="modern-input"
+          placeholder="Напр. Введение в Docker"
+          value={newTitle}
+          onChange={e => setNewTitle(e.target.value)}
+        />
       </div>
 
+      {/* Переключатель вкладок */}
+      <div className="input-mode-tabs">
+        <button
+          className={`mode-tab ${inputMode === 'file' ? 'active' : ''}`}
+          onClick={() => setInputMode('file')}
+          type="button"
+        >
+          Загрузить файл
+        </button>
+        <button
+          className={`mode-tab ${inputMode === 'url' ? 'active' : ''}`}
+          onClick={() => setInputMode('url')}
+          type="button"
+        >
+          Вставить ссылку
+        </button>
+      </div>
+
+      {inputMode === 'file' ? (
+        <div className="upload-grid">
+          <div className="option-group">
+            <p className="option-label">Видео-файл (.mp4, .webm)</p>
+            <div className="file-input-wrapper">
+              <input
+                id="video-input"
+                type="file"
+                accept="video/mp4,video/webm"
+                onChange={e => setSelectedVideoFile(e.target.files?.[0] || null)}
+              />
+              {selectedVideoFile && (
+                <button
+                  className="clear-btn"
+                  title="Удалить файл"
+                  onClick={() => {
+                    setSelectedVideoFile(null);
+                    const el = document.getElementById('video-input') as HTMLInputElement;
+                    if (el) el.value = '';
+                  }}
+                >✕</button>
+              )}
+            </div>
+          </div>
+
+          <div className="divider"></div>
+
+          <div className="option-group">
+            <p className="option-label">Субтитры (.vtt)</p>
+            <div className="file-input-wrapper">
+              <input
+                id="sub-input"
+                type="file"
+                accept=".vtt"
+                onChange={e => setSelectedSubFile(e.target.files?.[0] || null)}
+              />
+              {selectedSubFile && (
+                <button
+                  className="clear-btn"
+                  title="Удалить файл"
+                  onClick={() => {
+                    setSelectedSubFile(null);
+                    const el = document.getElementById('sub-input') as HTMLInputElement;
+                    if (el) el.value = '';
+                  }}
+                >✕</button>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="url-input-group">
+          <input
+            type="url"
+            className="modern-input"
+            placeholder="https://youtube.com/watch?v=... или https://rutube.ru/video/..."
+            value={newUrl}
+            onChange={e => setNewUrl(e.target.value)}
+          />
+          {linkType && (
+            <div className="link-type-badge">
+              {linkType}
+            </div>
+          )}
+          <p className="option-label" style={{ marginTop: '6px' }}>
+            Поддерживаются: YouTube, Rutube, VK Видео и прямые ссылки на .mp4/.webm
+          </p>
+        </div>
+      )}
+
+      {uploadProgress !== null && (
+        <div className="upload-progress-wrap">
+          <div className="upload-progress-bar" style={{ width: `${uploadProgress}%` }} />
+          <span className="upload-progress-label">{uploadProgress}%</span>
+        </div>
+      )}
       <button className="primary-button" onClick={handleSaveVideo} disabled={uploading}>
-        {uploading ? "Загрузка медиа..." : "Опубликовать урок"}
+        {uploading
+          ? uploadProgress !== null
+            ? `Загрузка видео... ${uploadProgress}%`
+            : 'Сохранение...'
+          : 'Опубликовать урок'}
       </button>
     </div>
   );

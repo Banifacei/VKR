@@ -1,0 +1,226 @@
+import { useState, useRef } from 'react';
+import { useTheme, THEME_PRESETS, previewGlobalBg, previewPreset, previewScheme, previewDensity, type ThemePreset, type BgPattern, type ColorScheme, type Density } from '../../context/ThemeContext';
+import { Icons } from '../Icons';
+
+const BG_PATTERNS: { value: BgPattern; label: string; icon: string }[] = [
+    { value: 'off',       label: 'Без паттерна', icon: '⬛' },
+    { value: 'grid',      label: 'Сетка',        icon: '🔲' },
+    { value: 'dots',      label: 'Точки',        icon: '⠿' },
+    { value: 'cross',     label: 'Решётка+',     icon: '✛' },
+    { value: 'diagonal',  label: 'Диагональ',    icon: '╱' },
+    { value: 'particles', label: 'Частицы',      icon: '✨' },
+];
+
+const COLOR_SCHEMES: { value: ColorScheme; label: string; icon: string; desc: string }[] = [
+    { value: 'dark',   label: 'Тёмная',    icon: '🌑', desc: 'Тёмный интерфейс по умолчанию' },
+    { value: 'light',  label: 'Светлая',   icon: '☀️', desc: 'Светлый интерфейс по умолчанию' },
+    { value: 'system', label: 'Системная', icon: '💻', desc: 'Следовать настройкам ОС' },
+    { value: 'time',   label: 'По времени', icon: '🕐', desc: 'Тёмная ночью (20:00–7:00)' },
+];
+
+const DENSITIES: { value: Density; label: string; icon: string; desc: string }[] = [
+    { value: 'normal',  label: 'Обычный',   icon: '▣', desc: 'Стандартные отступы' },
+    { value: 'compact', label: 'Компактный', icon: '▪', desc: 'Уменьшенные отступы' },
+];
+
+export const BrandingTab = () => {
+    const { globalTheme, saveGlobalTheme, isSaving } = useTheme();
+
+    const [preset,        setPreset]        = useState<ThemePreset>(globalTheme.theme_preset);
+    const [name,          setName]          = useState(globalTheme.platform_name);
+    const [bgPattern,     setBgPattern]     = useState<BgPattern>(globalTheme.platform_bg_pattern);
+    const [defaultScheme, setDefaultScheme] = useState<ColorScheme>(globalTheme.default_scheme);
+    const [defaultDensity, setDefaultDensity] = useState<Density>(globalTheme.default_density);
+    const [logoFile,      setLogoFile]      = useState<File | null>(null);
+    const [logoPreview,   setLogoPreview]   = useState(globalTheme.platform_logo);
+    const fileRef = useRef<HTMLInputElement>(null);
+
+    const handleLogo = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setLogoFile(file);
+        setLogoPreview(URL.createObjectURL(file));
+    };
+
+    const handleSave = async () => {
+        await saveGlobalTheme({
+            theme_preset:        preset,
+            platform_name:       name,
+            platform_bg_pattern: bgPattern,
+            default_scheme:      defaultScheme,
+            default_density:     defaultDensity,
+            logoFile,
+        });
+        setLogoFile(null);
+    };
+
+    return (
+        <div className="branding-tab">
+            {/* Название платформы */}
+            <div className="admin-section" style={{ marginBottom: 24 }}>
+                <div className="section-header">
+                    <h2>Название платформы</h2>
+                </div>
+                <div className="section-body">
+                    <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: '0 0 16px' }}>
+                        Отображается в заголовке и на странице входа. Бейдж «Powered by Lumeo» сохранится.
+                    </p>
+                    <input
+                        className="modern-input"
+                        value={name}
+                        onChange={e => setName(e.target.value)}
+                        placeholder="Lumeo"
+                        maxLength={40}
+                    />
+                </div>
+            </div>
+
+            {/* Логотип */}
+            <div className="admin-section" style={{ marginBottom: 24 }}>
+                <div className="section-header">
+                    <h2>Логотип</h2>
+                </div>
+                <div className="section-body">
+                    <div className="branding-logo-row">
+                        <div className="branding-logo-preview" onClick={() => fileRef.current?.click()}>
+                            {logoPreview
+                                ? <img src={logoPreview} alt="logo" />
+                                : <Icons.Building size={32}/>
+                            }
+                            <div className="branding-logo-overlay">Изменить</div>
+                        </div>
+                        <div style={{ flex: 1 }}>
+                            <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: '0 0 12px' }}>
+                                PNG, SVG, JPG — до 2 МБ. Рекомендуется квадратный формат.
+                            </p>
+                            <div style={{ display: 'flex', gap: 10 }}>
+                                <button className="btn btn-secondary" onClick={() => fileRef.current?.click()}>
+                                    Загрузить логотип
+                                </button>
+                                {logoPreview && (
+                                    <button className="btn btn-ghost" onClick={() => { setLogoPreview(''); setLogoFile(null); }}>
+                                        Удалить
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                    <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleLogo} />
+                </div>
+            </div>
+
+            {/* Цветовой пресет */}
+            <div className="admin-section" style={{ marginBottom: 24 }}>
+                <div className="section-header">
+                    <h2>Цветовая схема</h2>
+                </div>
+                <div className="section-body">
+                    <div className="branding-presets-grid">
+                        {(Object.entries(THEME_PRESETS) as [ThemePreset, typeof THEME_PRESETS[ThemePreset]][]).map(([key, p]) => (
+                            <button
+                                key={key}
+                                className={`branding-preset-card ${preset === key ? 'active' : ''}`}
+                                onClick={() => { setPreset(key); previewPreset(key); }}
+                                style={{ '--preset-color': p.primary } as React.CSSProperties}
+                            >
+                                <span className="preset-dot" style={{ background: p.primary }} />
+                                <span className="preset-label">{p.label}</span>
+                                {preset === key && <span className="preset-check">✓</span>}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* Фоновый паттерн */}
+            <div className="admin-section" style={{ marginBottom: 24 }}>
+                <div className="section-header">
+                    <h2>Фон для всех пользователей</h2>
+                </div>
+                <div className="section-body">
+                    <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: '0 0 16px' }}>
+                        Пользователи могут переопределить в настройках профиля.
+                    </p>
+                    <div className="branding-bg-grid">
+                        {BG_PATTERNS.map(p => (
+                            <button
+                                key={p.value}
+                                className={`branding-bg-card ${bgPattern === p.value ? 'active' : ''}`}
+                                onClick={() => { setBgPattern(p.value); previewGlobalBg(p.value); }}
+                            >
+                                <span className="bg-card-icon">{p.icon}</span>
+                                <span>{p.label}</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* Тема по умолчанию */}
+            <div className="admin-section" style={{ marginBottom: 24 }}>
+                <div className="section-header">
+                    <h2>Тема по умолчанию</h2>
+                </div>
+                <div className="section-body">
+                    <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: '0 0 16px' }}>
+                        Применяется для новых пользователей и тех, кто не изменял настройки интерфейса.
+                    </p>
+                    <div className="branding-scheme-grid">
+                        {COLOR_SCHEMES.map(s => (
+                            <button
+                                key={s.value}
+                                className={`branding-scheme-card ${defaultScheme === s.value ? 'active' : ''}`}
+                                onClick={() => { setDefaultScheme(s.value); previewScheme(s.value); }}
+                            >
+                                <span className="scheme-icon">{s.icon}</span>
+                                <span className="scheme-label">{s.label}</span>
+                                <span className="scheme-desc">{s.desc}</span>
+                                {defaultScheme === s.value && <span className="scheme-check">✓</span>}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* Плотность интерфейса по умолчанию */}
+            <div className="admin-section" style={{ marginBottom: 24 }}>
+                <div className="section-header">
+                    <h2>Плотность интерфейса</h2>
+                </div>
+                <div className="section-body">
+                    <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: '0 0 16px' }}>
+                        Влияет на размер отступов и элементов для новых пользователей.
+                    </p>
+                    <div className="branding-density-grid">
+                        {DENSITIES.map(d => (
+                            <button
+                                key={d.value}
+                                className={`branding-density-card ${defaultDensity === d.value ? 'active' : ''}`}
+                                onClick={() => { setDefaultDensity(d.value); previewDensity(d.value); }}
+                            >
+                                <span className="density-icon">{d.icon}</span>
+                                <span className="density-label">{d.label}</span>
+                                <span className="density-desc">{d.desc}</span>
+                                {defaultDensity === d.value && <span className="density-check">✓</span>}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* Действия */}
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                <button className="btn btn-primary" onClick={handleSave} disabled={isSaving} style={{ minWidth: 160 }}>
+                    {isSaving ? 'Сохранение...' : 'Сохранить брендинг'}
+                </button>
+                <button
+                    className="btn btn-secondary"
+                    onClick={() => window.open('/?preview=1', '_blank')}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+                >
+                    <Icons.Eye size={14}/> Предпросмотр как студент
+                </button>
+            </div>
+        </div>
+    );
+};

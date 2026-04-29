@@ -3,23 +3,42 @@ import 'reflect-metadata';
 import express from 'express';
 import cors from 'cors';
 import sequelize from './src/config/db.js';
-import videoRoutes from './src/routes/videoRoutes.js'; // Используем только videoRoutes
+import videoRoutes from './src/routes/videoRoutes.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { slugify } from 'transliteration';
 import fs from 'fs';
 import multer from 'multer';
+import { User } from './src/models/User.js';
+import authRoutes from './src/routes/authRoutes.js';
+import userRoutes from './src/routes/userRoutes.js';
+import testRoutes from './src/routes/testRoutes.js';
+import adminRoutes from './src/routes/adminRoutes.js';
+import themeRoutes from './src/routes/themeRoutes.js';
+import { trackActivityMiddleware, addSystemLog } from './src/controllers/adminController.js';
+import { createDefaultAdmin } from './src/models/initAdmin.js';
+import { cleanupOrphanFiles } from './src/utils/cleanup.js';
+import passport from 'passport';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
-const PORT = process.env.PORT || 5000;
-// 1. Папка для загрузок
+const PORT = process.env.PORT || 5001;
+const BASE_URL = process.env.API_URL || `http://localhost:${PORT}`;
+const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 const uploadDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-}
+const avatarDir = path.join(uploadDir, 'avatars');
+const logoDir = path.join(uploadDir, 'logos');
+[uploadDir, avatarDir, logoDir].forEach(dir => {
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+    }
+});
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
+        if (file.fieldname === 'avatar')
+            return cb(null, avatarDir);
+        if (file.fieldname === 'logo')
+            return cb(null, logoDir);
         cb(null, uploadDir);
     },
     filename: (req, file, cb) => {
@@ -29,21 +48,55 @@ const storage = multer.diskStorage({
         cb(null, `${Date.now()}-${safeName}${ext}`);
     }
 });
-const upload = multer({ storage });
-// 3. Middleware
-app.use(cors({ origin: true, credentials: true }));
+const videoUpload = multer({
+    storage,
+    limits: { fileSize: 500 * 1024 * 1024 }, // 500 MB
+    fileFilter: (_req, file, cb) => {
+        const allowed = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'];
+        if (allowed.includes(file.mimetype)) {
+            cb(null, true);
+        }
+        else {
+            cb(new Error('Только видеофайлы разрешены (mp4, webm, ogg, mov).'));
+        }
+    }
+});
+const imageFilter = (_req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'];
+    if (allowed.includes(file.mimetype))
+        cb(null, true);
+    else
+        cb(new Error('Только изображения разрешены (jpeg, png, webp, gif, svg).'));
+};
+const avatarUpload = multer({
+    storage,
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: imageFilter,
+});
+const logoUpload = multer({
+    storage,
+    limits: { fileSize: 2 * 1024 * 1024 },
+    fileFilter: imageFilter,
+});
+app.use(passport.initialize());
+app.use(cors({ origin: CLIENT_URL, credentials: true }));
 app.use(express.json());
+app.use(trackActivityMiddleware);
 app.use('/uploads', express.static(uploadDir));
-// 4. Эндпоинт загрузки
-app.post('/api/upload', upload.single('video'), (req, res) => {
+app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/tests', testRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/theme', themeRoutes(logoUpload));
+app.post('/api/upload', videoUpload.single('video'), (req, res) => {
     try {
         if (!req.file) {
             res.status(400).send('Файл не загружен');
             return;
         }
-        const protocol = req.protocol;
-        const host = req.get('host');
-        const fullUrl = `${protocol}://${host}/uploads/${req.file.filename}`;
+        const fullUrl = `/uploads/${req.file.filename}`;
+        addSystemLog(`Загружено новое видео: ${req.file.originalname}`, 'info');
         res.json({ url: fullUrl });
     }
     catch (err) {
@@ -51,17 +104,59 @@ app.post('/api/upload', upload.single('video'), (req, res) => {
         res.status(500).send('Ошибка сервера при загрузке');
     }
 });
-// 5. Роуты
+app.post('/api/auth/avatar', avatarUpload.single('avatar'), async (req, res) => {
+    try {
+        if (!req.file) {
+            res.status(400).json({ message: 'Файл не выбран' });
+            return;
+        }
+        const { userId } = req.body;
+        if (!userId) {
+            res.status(400).json({ message: 'ID пользователя не указан' });
+            return;
+        }
+        const user = await User.findByPk(userId);
+        if (!user) {
+            res.status(404).json({ message: 'Пользователь не найден' });
+            return;
+        }
+        const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+        user.avatarUrl = avatarUrl;
+        await user.save();
+        addSystemLog(`Пользователь (ID: ${userId}) обновил аватар`, 'info');
+        res.json({ avatarUrl });
+    }
+    catch (err) {
+        console.error("Ошибка при загрузке аватара:", err);
+        res.status(500).json({ message: 'Ошибка сервера' });
+    }
+});
 app.use('/api/videos', videoRoutes);
-// 6. Запуск
+// Глобальный обработчик ошибок (multer и прочие middleware)
+app.use((err, _req, res, _next) => {
+    if (err?.message) {
+        return res.status(400).json({ message: err.message });
+    }
+    res.status(500).json({ message: 'Внутренняя ошибка сервера' });
+});
+let server;
 async function start() {
     try {
         await sequelize.authenticate();
         await sequelize.sync({ alter: true });
+        // force: true — удаляет таблицы (DROP) и создает их заново (CREATE) что бы бд очистить
+        //await sequelize.sync({ force: true });
+        // Миграция: исправляем типы колонок, которые alter:true не меняет автоматически
+        await sequelize.query(`ALTER TABLE interactive_events ALTER COLUMN "explanation" TYPE TEXT`).catch(() => { });
+        // Миграция: 'none' как глобальный паттерн фона означает 'off' (без фона), а не "следовать платформе"
+        await sequelize.query(`UPDATE system_settings SET value = 'off' WHERE key = 'platform_bg_pattern' AND value = 'none'`).catch(() => { });
+        await createDefaultAdmin();
         console.log('✅ База данных подключена');
-        const server = app.listen(PORT, () => {
+        await cleanupOrphanFiles(uploadDir, avatarDir);
+        server = app.listen(PORT, () => {
             console.log(`🚀 Сервер запущен на порту ${PORT}`);
             console.log(`📁 Папка для загрузок: ${uploadDir}`);
+            addSystemLog(`Сервер Lumeo успешно стартовал на порту ${PORT}`, 'success');
         });
         server.timeout = 600000;
     }
@@ -69,4 +164,19 @@ async function start() {
         console.error('❌ Ошибка запуска:', e);
     }
 }
+const shutdown = () => {
+    console.log('🛑 Остановка сервера...');
+    if (server) {
+        server.close(async () => {
+            await sequelize.close();
+            console.log('✅ Сервер остановлен');
+            process.exit(0);
+        });
+    }
+    else {
+        process.exit(0);
+    }
+};
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);
 start();

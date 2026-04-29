@@ -1,0 +1,15 @@
+import { Router } from 'express';
+import { getBannedWords, addBannedWord, deleteBannedWord, importBannedWords, getOffenders } from '../controllers/bannedWordController.js';
+import { checkAuth, isAdmin } from '../middleware/authMiddleware.js';
+import { validateId } from '../middleware/validateId.js';
+
+const router = Router();
+const wId = validateId('id');
+
+router.get('/',             checkAuth, isAdmin, getBannedWords);
+router.get('/offenders',    checkAuth, isAdmin, getOffenders);
+router.post('/',            checkAuth, isAdmin, addBannedWord);
+router.post('/import',      checkAuth, isAdmin, importBannedWords);
+router.delete('/:id',       checkAuth, isAdmin, wId, deleteBannedWord);
+
+export default router;

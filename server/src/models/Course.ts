@@ -1,5 +1,8 @@
-import { Table, Column, Model, DataType, HasMany } from 'sequelize-typescript';
+import { Table, Column, Model, DataType, HasMany, ForeignKey, BelongsTo } from 'sequelize-typescript';
 import { Video } from './Video.js';
+import { CourseTest } from './CourseTest.js';
+import { User } from './User.js';
+import { CourseEnrollment } from './CourseEnrollment.js';
 
 @Table({ tableName: 'courses' })
 export class Course extends Model {
@@ -9,12 +12,34 @@ export class Course extends Model {
   @Column({ type: DataType.TEXT, allowNull: true })
   declare description: string;
 
-  @Column({ type: DataType.STRING, allowNull: false }) // ФИО Преподавателя
+  @Column({ type: DataType.STRING, allowNull: false })
   declare instructor: string;
 
-  @Column({ type: DataType.STRING, allowNull: true }) // Ссылка на обложку (опционально)
+  @Column({ type: DataType.STRING, allowNull: true })
   declare coverImage: string;
+
+  @ForeignKey(() => User)
+  @Column({ type: DataType.INTEGER, allowNull: true })
+  declare ownerId: number;
+
+  @BelongsTo(() => User)
+  declare owner: User;
 
   @HasMany(() => Video)
   declare videos: Video[];
+
+  @HasMany(() => CourseTest)
+  declare tests: CourseTest[];
+
+  @Column({ type: DataType.STRING, defaultValue: 'open' })
+  declare enrollmentType: string;
+
+  @HasMany(() => CourseEnrollment)
+  declare enrollments: CourseEnrollment[];
+
+  @Column({ type: DataType.BOOLEAN, defaultValue: false })
+  declare allowTeachersFreeAccess: boolean;
+
+  @Column({ type: DataType.INTEGER, defaultValue: 0 })
+  declare orderIndex: number;
 }

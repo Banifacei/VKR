@@ -1,0 +1,73 @@
+services:
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL — идентично prod
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:15
+    container_name: lumeo-postgres-dev
+    env_file: .env
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Backend — монтируем исходники, tsx watch перезапускает при изменениях
+  # ---------------------------------------------------------------------------
+  server:
+    image: node:20-slim        # без Dockerfile — просто node для tsx watch
+    container_name: lumeo-server-dev
+    working_dir: /app
+    env_file: .env
+    environment:
+      DB_HOST: postgres
+      NODE_ENV: development
+    volumes:
+      - ./server:/app          # исходники монтируются напрямую
+      - /app/node_modules      # node_modules остаётся внутри контейнера
+      - uploads_dev:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:5001/api/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))\""]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+    command: sh -c "npm install && npm run dev"   # tsx watch — перезапуск при изменении .ts
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Frontend — Vite dev server с HMR (горячая замена модулей)
+  # ---------------------------------------------------------------------------
+  client:
+    image: node:20-alpine      # без Dockerfile — просто node для запуска vite
+    container_name: lumeo-client-dev
+    working_dir: /app
+    env_file: .env
+    environment:
+      VITE_API_URL: /api
+    volumes:
+      - ./client:/app          # исходники монтируются напрямую
+      - /app/node_modules      # node_modules остаётся внутри контейнера
+    ports:
+      - "5173:5173"            # Vite dev server
+    depends_on:
+      server:
+        condition: service_healthy
+    command: sh -c "npm install && npm run dev"   # vite --host — HMR при каждом сохранении
+    restart: unless-stopped
+
+volumes:
+  postgres_data_dev:
+  uploads_dev:

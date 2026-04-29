@@ -1,128 +1,1535 @@
-import React, { useState } from 'react';
-import { UserProfile } from '../components/UserProfile';
-import { Link } from 'react-router-dom';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { BrandingTab } from '../components/Admin/BrandingTab';
 import './AdminPage.css';
+import { useAuth } from '../context/AuthContext';
+import { getAllUsers, changeUserRole, updateUser, createUser, deleteUser, banUser, unbanUser } from '../api/userApi';
+import type { IAdminUser } from '../api/userApi';
+import api from '../api/axiosInstance';
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
+import { Icons } from '../components/Icons';
+import { AppHeader } from '../components/AppHeader';
+import '../components/GlobalSearch.css';
+import { sseQuery } from '../utils/sseTicket';
 
-// Иконки для кнопок
-const Icons = {
-    Plus: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>,
-    Settings: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>,
-    Edit: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-};
+interface ISystemLog { id: number; time: string; msg: string; type: 'info' | 'success' | 'error' | 'warning'; }
+
+interface IOnlineUser {
+  userId?: number;
+  firstName?: string;
+  lastName?: string;
+  role?: string;
+  page?: string;
+  avatarUrl?: string;
+  lastSeen?: number;
+}
+
+function formatPage(page?: string): string {
+  if (!page) return '—';
+  if (page === '/') return 'Каталог курсов';
+  if (page === '/dashboard') return 'Дашборд';
+  if (page === '/history') return 'История';
+  if (page === '/profile') return 'Профиль';
+  if (page === '/analytics') return 'Аналитика';
+  if (page === '/adminpanel') return 'Панель администратора';
+  if (/^\/course\/\d+\/lesson\/\d+/.test(page)) return 'Просмотр урока';
+  if (/^\/course\/\d+/.test(page)) return 'Страница курса';
+  return page;
+}
+
+function formatLastSeen(lastSeen?: number): string {
+  if (!lastSeen) return '';
+  const diff = Math.floor((Date.now() - lastSeen) / 1000);
+  if (diff < 60) return 'сейчас';
+  if (diff < 3600) return `${Math.floor(diff / 60)} мин назад`;
+  return `${Math.floor(diff / 3600)} ч назад`;
+}
+
+const ROLE_LABELS: Record<string, string> = { student: 'Студент', teacher: 'Преподаватель', admin: 'Админ' };
+const ROLE_COLORS: Record<string, string> = { student: '#4a9eff', teacher: '#ffd700', admin: '#ff4d4d' };
 
 export const AdminPage = () => {
-  const [username] = useState(localStorage.getItem('lumeo_user') || 'Admin');
+  const { showToast } = useToast();
+  const confirm = useConfirm();
+  const { user, updateUser: updateContextUser } = useAuth();
+  const [showSamlModal, setShowSamlModal] = useState(false);
+  const [samlForm, setSamlForm] = useState({ enabled: false, entryPoint: '', cert: '' });
+  const [activeTab, setActiveTab] = useState<'system' | 'users' | 'requests' | 'integrations' | 'branding' | 'moderation'>('system');
+  const [bannedWords, setBannedWords] = useState<{ id: number; word: string }[]>([]);
+  const [offenders, setOffenders] = useState<any[]>([]);
+  const [newWord, setNewWord] = useState('');
+  const [importText, setImportText] = useState('');
+  const [wordLoading, setWordLoading] = useState(false);
+  const [usersList, setUsersList] = useState<IAdminUser[]>([]);
+  const [usersTotal, setUsersTotal] = useState(0);
+  const [usersPage, setUsersPage] = useState(1);
+  const [usersTotalPages, setUsersTotalPages] = useState(1);
+  const [usersByRole, setUsersByRole] = useState({ student: 0, teacher: 0, admin: 0 });
+  const [usersSearch, setUsersSearch] = useState('');
+  const [usersRoleFilter, setUsersRoleFilter] = useState('');
+  const [usersProviderFilter, setUsersProviderFilter] = useState('');
+  const [pendingUsers, setPendingUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showOnlineModal, setShowOnlineModal] = useState(false);
+  const [onlineUsers, setOnlineUsers] = useState<IOnlineUser[]>([]);
+  const [onlineRoleFilter, setOnlineRoleFilter] = useState<string>('all');
+  const [systemLoading, setSystemLoading] = useState(true);
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+  const [storageData, setStorageData] = useState({ total: 100, video: 0, db: 0, cache: 0 });
+  const [systemLogs, setSystemLogs] = useState<ISystemLog[]>([]);
+  const [serverStats, setServerStats] = useState({ cpu: 0, ram: 0, connections: 0, uptime: '...' });
+  const [isActionExecuting, setIsActionExecuting] = useState(false);
+  const [logFilter, setLogFilter] = useState<'all' | 'info' | 'success' | 'warning' | 'error'>('all');
+  const [showGoogleModal, setShowGoogleModal] = useState(false);
+  const [googleForm, setGoogleForm] = useState({ enabled: false, clientId: '', clientSecret: '' });
+  const [requiresApproval, setRequiresApproval] = useState(false);
 
-  const handleLogout = () => {
-    localStorage.removeItem('lumeo_user');
-    window.location.href = '/auth';
+  const [modalMode, setModalMode] = useState<'add' | 'edit' | 'template' | null>(null);
+  const [skipTemplateModal, setSkipTemplateModal] = useState(false);
+  const [editingUserId, setEditingUserId] = useState<number | null>(null);
+  const [userForm, setUserForm] = useState({ firstName: '', lastName: '', email: '', role: 'student', password: '' });
+  const [isSaving, setIsSaving] = useState(false);
+  const [systemSettings, setSystemSettings] = useState<any>({});
+  const [banModalUser, setBanModalUser] = useState<IAdminUser | null>(null);
+  const [banReasonInput, setBanReasonInput] = useState('');
+  const [showYandexModal, setShowYandexModal] = useState(false);
+  const [yandexForm, setYandexForm] = useState({ enabled: false, clientId: '', clientSecret: '' });
+  const [showLdapModal, setShowLdapModal] = useState(false);
+  const [ldapForm, setLdapForm] = useState({ enabled: false, url: '', searchBase: '' });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const openSamlModal = () => {
+      setSamlForm({
+          enabled: systemSettings.saml_enabled === 'true' || systemSettings.saml_enabled === true,
+          entryPoint: systemSettings.saml_entry_point || '',
+          cert: systemSettings.saml_cert || ''
+      });
+      setShowSamlModal(true);
   };
+
+  const handleSaveSaml = async () => {
+      setIsSaving(true);
+      try {
+          await api.post('/admin/settings/toggle', { key: 'saml_enabled', value: String(samlForm.enabled) });
+          await api.post('/admin/settings/toggle', { key: 'saml_entry_point', value: samlForm.entryPoint });
+          await api.post('/admin/settings/toggle', { key: 'saml_cert', value: samlForm.cert });
+          showToast('Настройки SAML успешно сохранены!', 'success');
+          setShowSamlModal(false);
+          fetchSystemData(); 
+      } catch (e) { showToast('Ошибка при сохранении SAML', 'error'); } 
+      finally { setIsSaving(false); }
+  };
+  const [systemModules, setSystemModules] = useState<{ name: string; version: string; status: string; note?: string }[]>([]);
+
+  const fetchSystemData = async () => {
+      try {
+          const [storageRes, logsRes, settingsRes, modulesRes] = await Promise.all([
+              api.get('/admin/storage'),
+              api.get('/admin/logs'),
+              api.get('/admin/settings'),
+              api.get('/admin/system-modules'),
+          ]);
+          setStorageData(storageRes.data);
+          setSystemLogs(logsRes.data);
+          setRequiresApproval(settingsRes.data.registration_requires_approval);
+          setSystemSettings(settingsRes.data);
+          setSystemModules(modulesRes.data);
+      } catch (e) { console.error('Ошибка загрузки статических данных системы'); }
+      finally { setSystemLoading(false); }
+  };
+
+  const openLdapModal = () => {
+      setLdapForm({
+          enabled: systemSettings.ldap_enabled === true || systemSettings.ldap_enabled === 'true',
+          url: systemSettings.ldap_url || 'ldap://ldap.forumsys.com:389',
+          searchBase: systemSettings.ldap_search_base || 'dc=example,dc=com'
+      });
+      setShowLdapModal(true);
+  };
+
+  const handleSaveLdap = async () => {
+      setIsSaving(true);
+      try {
+          await api.post('/admin/settings/toggle', { key: 'ldap_enabled', value: String(ldapForm.enabled) });
+          await api.post('/admin/settings/toggle', { key: 'ldap_url', value: ldapForm.url });
+          await api.post('/admin/settings/toggle', { key: 'ldap_search_base', value: ldapForm.searchBase });
+          showToast('Настройки LDAP успешно сохранены!', 'success');
+          setShowLdapModal(false);
+          fetchSystemData();
+      } catch (e) {
+          showToast('Ошибка при сохранении настроек LDAP', 'error');
+      } finally {
+          setIsSaving(false);
+      }
+  };
+
+  const openYandexModal = () => {
+      setYandexForm({
+          enabled: systemSettings.yandex_enabled === 'true' || systemSettings.yandex_enabled === true,
+          clientId: systemSettings.yandex_client_id || '',
+          clientSecret: systemSettings.yandex_client_secret || ''
+      });
+      setShowYandexModal(true);
+  };
+
+  const handleSaveYandex = async () => {
+      setIsSaving(true);
+      try {
+          await api.post('/admin/settings/toggle', { key: 'yandex_enabled', value: String(yandexForm.enabled) });
+          await api.post('/admin/settings/toggle', { key: 'yandex_client_id', value: yandexForm.clientId });
+          await api.post('/admin/settings/toggle', { key: 'yandex_client_secret', value: yandexForm.clientSecret });
+          showToast('Настройки Yandex ID успешно сохранены!', 'success');
+          setShowYandexModal(false);
+          fetchSystemData(); 
+      } catch (e) {
+          showToast('Ошибка при сохранении настроек Яндекс', 'error');
+      } finally {
+          setIsSaving(false);
+      }
+  };
+
+  const openGoogleModal = () => {
+      setGoogleForm({
+          enabled: systemSettings.google_enabled === 'true' || systemSettings.google_enabled === true,
+          clientId: systemSettings.google_client_id || '',
+          clientSecret: systemSettings.google_client_secret || ''
+      });
+      setShowGoogleModal(true);
+  };
+
+  const handleSaveGoogle = async () => {
+      setIsSaving(true);
+      try {
+          await api.post('/admin/settings/toggle', { key: 'google_enabled', value: String(googleForm.enabled) });
+          await api.post('/admin/settings/toggle', { key: 'google_client_id', value: googleForm.clientId });
+          await api.post('/admin/settings/toggle', { key: 'google_client_secret', value: googleForm.clientSecret });
+          showToast('Настройки Google успешно сохранены!', 'success');
+          setShowGoogleModal(false);
+          fetchSystemData(); 
+      } catch (e) {
+          showToast('Ошибка при сохранении настроек Google', 'error');
+      } finally {
+          setIsSaving(false);
+      }
+  };
+  const fetchLiveServerStats = async () => {
+      try {
+          const res = await api.get('/admin/server-stats');
+          if (res.data) setServerStats(res.data);
+      } catch (e) {}
+  };
+
+  const fetchPendingUsers = async () => {
+      try {
+          const res = await api.get('/users/pending');
+          setPendingUsers(res.data);
+      } catch (e) { console.error('Ошибка загрузки заявок'); }
+  };
+
+  useEffect(() => {
+      fetchUsers();
+      fetchPendingUsers();
+      fetchSystemData();
+      fetchLiveServerStats();
+
+      // CPU/RAM статистика — оставляем polling (pull-данные без события)
+      const liveInterval = setInterval(fetchLiveServerStats, 1500);
+
+      // SSE: мгновенные уведомления о новых заявках и одобрениях/отклонениях
+      let es: EventSource | null = null;
+      let active = true;
+      sseQuery().then(q => {
+          if (!active || !q) return;
+          es = new EventSource(`/api/users/admin/stream?${q}`);
+          es.onmessage = ({ data }) => {
+              try {
+                  const d = JSON.parse(data);
+                  if (d.type === 'pending_user') {
+                      setPendingUsers(prev => {
+                          if (prev.find(u => u.id === d.userId)) return prev;
+                          return [{ id: d.userId, email: d.email, firstName: d.name?.split(' ')[0] || '', lastName: d.name?.split(' ')[1] || '', createdAt: new Date().toISOString() }, ...prev];
+                      });
+                  } else if (d.type === 'user_approved' || d.type === 'user_rejected') {
+                      setPendingUsers(prev => prev.filter(u => u.id !== d.userId));
+                      if (d.type === 'user_approved') fetchUsers();
+                  }
+              } catch { /* игнорируем */ }
+          };
+          es.onerror = () => es?.close();
+      });
+
+      return () => { active = false; clearInterval(liveInterval); es?.close(); };
+  }, []);
+
+  // SSE онлайн-пользователей — подключаемся когда открыта модалка
+  useEffect(() => {
+    if (!showOnlineModal) return;
+    let es: EventSource | null = null;
+    let active = true;
+    sseQuery().then(q => {
+        if (!active || !q) return;
+        es = new EventSource(`/api/admin/online-users/stream?${q}`);
+        es.onmessage = ({ data }) => {
+            try { setOnlineUsers(JSON.parse(data).users ?? []); } catch {}
+        };
+        es.onerror = () => es?.close();
+    });
+    return () => { active = false; es?.close(); };
+  }, [showOnlineModal]);
+
+  const handleToggleSetting = async () => {
+      const newValue = !requiresApproval;
+      setRequiresApproval(newValue);
+      if (!newValue && activeTab === 'requests') setActiveTab('system');
+      try {
+          await api.post('/admin/settings/toggle', { key: 'registration_requires_approval', value: newValue });
+          showToast('Настройки модерации обновлены', 'info');
+          fetchSystemData(); 
+      } catch (e) { showToast('Ошибка переключения настройки', 'error'); setRequiresApproval(!newValue); }
+  };
+
+  const handleRequestAction = async (id: number, action: 'approve' | 'reject') => {
+      try {
+          await api.post(`/users/${id}/${action}`);
+          setPendingUsers(prev => prev.filter(u => u.id !== id));
+          if (action === 'approve') fetchUsers(); 
+          showToast(`Заявка успешно ${action === 'approve' ? 'одобрена' : 'отклонена'}`, 'success');
+          fetchSystemData(); 
+      } catch (e) { showToast('Ошибка при обработке заявки', 'error'); }
+  };
+  
+  const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const formData = new FormData();
+      formData.append('file', file);
+      try {
+          setIsActionExecuting(true);
+          const res = await api.post('/users/import', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+          showToast(res.data.message || 'Импорт завершен', 'success'); 
+          fetchUsers(); fetchSystemData();
+      } catch (err: any) { showToast(err.response?.data?.message || 'Сбой при загрузке файла', 'error'); } 
+      finally { setIsActionExecuting(false); if (fileInputRef.current) fileInputRef.current.value = ''; }
+  };
+
+  const handleTemplateClick = () => {
+      const skipModal = localStorage.getItem(`lumeo_skip_template_${user?.id}`);
+      if (skipModal === 'true') {
+          downloadExcelTemplate(); 
+      } else {
+          setModalMode('template'); 
+      }
+  };
+
+  const downloadExcelTemplate = async () => {
+      if (skipTemplateModal) localStorage.setItem(`lumeo_skip_template_${user?.id}`, 'true');
+      try {
+          const res = await api.get('/users/template', { responseType: 'blob' });
+          const url = window.URL.createObjectURL(res.data);
+          const link = document.createElement('a');
+          link.style.display = 'none'; link.href = url; link.download = 'Lumeo_Template.xlsx'; 
+          document.body.appendChild(link); link.click();
+          setTimeout(() => { document.body.removeChild(link); window.URL.revokeObjectURL(url); }, 100);
+      } catch (e) { showToast('Ошибка при скачивании шаблона', 'error'); }
+  };
+
+  const handleExportUsers = async () => {
+      try {
+          const res = await api.get('/users/export', { responseType: 'blob' });
+          const url = URL.createObjectURL(res.data);
+          const link = document.createElement('a');
+          link.href = url; link.setAttribute('download', `Lumeo_Users_${new Date().toISOString().split('T')[0]}.xlsx`);
+          document.body.appendChild(link); link.click(); link.remove();
+          showToast('База успешно выгружена', 'success');
+      } catch (e) { showToast('Ошибка при выгрузке базы пользователей', 'error'); }
+  };
+
+  const handleQuickAction = async (endpoint: string, actionName: string) => {
+      const ok = await confirm({ title: 'Подтверждение', message: `Вы уверены, что хотите: ${actionName}?` });
+      if (!ok) return;
+      setIsActionExecuting(true);
+      try {
+          await api.post(`/admin/${endpoint}`);
+          showToast(`Успешно: ${actionName}`, 'success'); fetchSystemData();
+      } catch (e) { showToast(`Ошибка выполнения: ${actionName}`, 'error'); } 
+      finally { setIsActionExecuting(false); }
+  };
+
+
+  const fetchUsers = async (page = usersPage, search = usersSearch, role = usersRoleFilter, provider = usersProviderFilter) => {
+      setLoading(true);
+      try {
+          const data = await getAllUsers({ page, limit: 50, search: search || undefined, role: role || undefined, provider: provider || undefined });
+          setUsersList(data.users);
+          setUsersTotal(data.total);
+          setUsersPage(data.page);
+          setUsersTotalPages(data.totalPages);
+          setUsersByRole(data.byRole);
+      } catch (e) { showToast('Ошибка при загрузке пользователей', 'error'); }
+      finally { setLoading(false); }
+  };
+
+  const handleRoleChange = async (userId: number, newRole: string) => {
+      const oldList = [...usersList];
+      setUsersList(prev => prev.map(u => u.id === userId ? { ...u, role: newRole as any } : u));
+      try { 
+          await changeUserRole(userId, newRole);
+          showToast('Роль пользователя изменена', 'info');
+      } 
+      catch (e) { showToast('Не удалось сменить роль', 'error'); setUsersList(oldList); }
+  };
+
+  const openAddModal = () => { setModalMode('add'); setUserForm({ firstName: '', lastName: '', email: '', role: 'student', password: '' }); };
+  const openEditModal = (u: IAdminUser) => { setModalMode('edit'); setEditingUserId(u.id); setUserForm({ firstName: u.firstName, lastName: u.lastName, email: u.email, role: u.role, password: '' }); };
+  const closeModal = () => { setModalMode(null); setEditingUserId(null); };
+
+  const handleSubmitUser = async () => {
+      setIsSaving(true);
+      try {
+          if (modalMode === 'add') {
+              if (!userForm.email) { showToast('Email обязателен', 'error'); return; }
+              if (!userForm.password) { showToast('Пароль обязателен', 'error'); return; }
+              if (userForm.password.length < 8) { showToast('Пароль должен быть минимум 8 символов', 'error'); return; }
+              const newUser = await createUser(userForm);
+              setUsersList([newUser, ...usersList]);
+              showToast('Пользователь успешно создан!', 'success');
+          } else if (modalMode === 'edit' && editingUserId) {
+              await updateUser(editingUserId, userForm);
+              setUsersList(prev => prev.map(u => u.id === editingUserId ? { ...u, ...userForm } as IAdminUser : u));
+              if (user && user.id === editingUserId) updateContextUser({ firstName: userForm.firstName, lastName: userForm.lastName, email: userForm.email, role: userForm.role });
+              showToast('Данные пользователя обновлены', 'success');
+          }
+          closeModal();
+      } catch (e: any) {
+          const msg = e?.response?.data?.message || 'Ошибка при сохранении пользователя';
+          showToast(msg, 'error');
+      } finally { setIsSaving(false); }
+  };
+
+  const handleDeleteUser = async (userId: number, userName: string) => {
+      if (user?.id === userId) {
+          showToast('Вы не можете удалить самого себя!', 'error');
+          return;
+      }
+      const ok = await confirm({ title: 'Удалить пользователя', message: `Удалить ${userName}? Это действие необратимо — все данные будут потеряны.`, confirmText: 'Удалить', danger: true });
+      if (!ok) return;
+      try { 
+          await deleteUser(userId); 
+          setUsersList(prev => prev.filter(u => u.id !== userId));
+          showToast(`Пользователь ${userName} удален`, 'info');
+      } 
+      catch (e) { showToast('Ошибка при удалении пользователя', 'error'); }
+  };
+
+  const storageTotal = storageData.total || 1;
+  const storageUsed = storageData.video + storageData.db + storageData.cache;
+  const filteredLogs = systemLogs.filter(log => logFilter === 'all' || log.type === logFilter);
+
+  type AlertSeverity = 'critical' | 'warning' | 'info';
+  interface SystemAlert { id: string; severity: AlertSeverity; title: string; message: string; action?: { label: string; onClick: () => void }; }
+
+  const systemAlerts = useMemo<SystemAlert[]>(() => {
+    if (systemLoading) return [];
+    const alerts: SystemAlert[] = [];
+
+    // CPU
+    if (serverStats.cpu >= 90)
+      alerts.push({ id: 'cpu-critical', severity: 'critical', title: 'Критическая нагрузка CPU', message: `CPU загружен на ${serverStats.cpu.toFixed(1)}%. Возможно зависание сервера.` });
+    else if (serverStats.cpu >= 75)
+      alerts.push({ id: 'cpu-warn', severity: 'warning', title: 'Высокая нагрузка CPU', message: `CPU загружен на ${serverStats.cpu.toFixed(1)}%. Рекомендуется проверить фоновые задачи.` });
+
+    // RAM
+    if (serverStats.ram >= 90)
+      alerts.push({ id: 'ram-critical', severity: 'critical', title: 'Критическое использование RAM', message: `RAM занята на ${serverStats.ram.toFixed(1)}%. Риск нехватки памяти.` });
+    else if (serverStats.ram >= 80)
+      alerts.push({ id: 'ram-warn', severity: 'warning', title: 'Высокое использование RAM', message: `RAM занята на ${serverStats.ram.toFixed(1)}%. Рекомендуется мониторинг.` });
+
+    // Disk
+    const diskPct = storageTotal > 0 ? (storageUsed / storageTotal) * 100 : 0;
+    if (diskPct >= 90)
+      alerts.push({ id: 'disk-critical', severity: 'critical', title: 'Хранилище почти заполнено', message: `Использовано ${diskPct.toFixed(0)}% дискового пространства (${storageUsed.toFixed(1)} GB из ${storageTotal} GB).` });
+    else if (diskPct >= 75)
+      alerts.push({ id: 'disk-warn', severity: 'warning', title: 'Заканчивается место на диске', message: `Использовано ${diskPct.toFixed(0)}% хранилища. Рассмотрите очистку видеоархива.` });
+
+    // Pending user approvals
+    if (pendingUsers.length > 0)
+      alerts.push({ id: 'pending', severity: 'info', title: `${pendingUsers.length} заявок на вступление`, message: `Пользователи ожидают подтверждения регистрации.`, action: { label: 'Перейти', onClick: () => setActiveTab('requests') } });
+
+    // Error spike in logs
+    const recentErrors = systemLogs.filter(l => l.type === 'error').length;
+    if (recentErrors >= 5)
+      alerts.push({ id: 'errors', severity: 'warning', title: `${recentErrors} ошибок в журнале`, message: 'Зафиксировано повышенное количество ошибок. Проверьте журнал событий.', action: { label: 'Смотреть', onClick: () => setLogFilter('error') } });
+
+    // Too many admins
+    if (usersByRole.admin > 3)
+      alerts.push({ id: 'admins', severity: 'warning', title: 'Много администраторов', message: `В системе ${usersByRole.admin} администраторов. Рекомендуется минимизировать число привилегированных аккаунтов.`, action: { label: 'Управлять', onClick: () => setActiveTab('users') } });
+
+    // No external auth configured
+    const isEnabled = (v: any) => v === true || v === 'true';
+    const hasExternalAuth =
+      isEnabled(systemSettings.google_enabled) ||
+      isEnabled(systemSettings.yandex_enabled) ||
+      isEnabled(systemSettings.ldap_enabled) ||
+      isEnabled(systemSettings.saml_enabled);
+    if (!hasExternalAuth)
+      alerts.push({ id: 'auth', severity: 'info', title: 'Используется только локальная аутентификация', message: 'Внешние провайдеры (Google, Яндекс, LDAP, SAML) не настроены. Рекомендуется для корпоративных развёртываний.', action: { label: 'Настроить', onClick: () => setActiveTab('integrations') } });
+
+    return alerts;
+  }, [systemLoading, serverStats, storageUsed, storageTotal, pendingUsers, systemLogs, usersByRole, systemSettings]);
+
+  const loadBannedWords = async () => {
+    try {
+      const [words, offs] = await Promise.all([
+        api.get('/banned-words'),
+        api.get('/banned-words/offenders'),
+      ]);
+      setBannedWords(words.data);
+      setOffenders(offs.data);
+    } catch { /* */ }
+  };
+  const addWord = async () => {
+    if (!newWord.trim()) return;
+    setWordLoading(true);
+    try {
+      await api.post('/banned-words', { word: newWord.trim() });
+      setNewWord('');
+      await loadBannedWords();
+      showToast('Слово добавлено', 'success');
+    } catch (e: any) {
+      showToast(e?.response?.data?.message || 'Ошибка', 'error');
+    } finally { setWordLoading(false); }
+  };
+  const removeWord = async (id: number) => {
+    await api.delete(`/banned-words/${id}`);
+    setBannedWords(prev => prev.filter(w => w.id !== id));
+  };
+  const importWords = async () => {
+    const words = importText.split(/[\n,;]+/).map(w => w.trim()).filter(Boolean);
+    if (!words.length) return;
+    setWordLoading(true);
+    try {
+      const r = await api.post('/banned-words/import', { words });
+      setImportText('');
+      await loadBannedWords();
+      showToast(`Добавлено ${r.data.added} из ${r.data.total}`, 'success');
+    } catch { showToast('Ошибка импорта', 'error'); }
+    finally { setWordLoading(false); }
+  };
+
   return (
     <div className="lumeo-layout">
-      {/* Шапка */}
-      <header className="lumeo-header">
-          <div className="logo-group">
-            <div className="logo">Lumeo<span className="dot">.</span></div>
-            <span className="admin-badge">ROOT ACCESS</span>
+      {/* Модалка бана пользователя */}
+      {banModalUser && (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+              <div style={{ background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: 16, padding: 28, maxWidth: 420, width: '100%' }}>
+                  <h3 style={{ margin: '0 0 8px', color: 'var(--text-main)' }}>Заблокировать пользователя</h3>
+                  <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: '0 0 16px' }}>
+                      {banModalUser.firstName} {banModalUser.lastName} ({banModalUser.email})
+                  </p>
+                  <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: 13, marginBottom: 6 }}>Причина блокировки (необязательно)</label>
+                  <textarea
+                      style={{ width: '100%', boxSizing: 'border-box', background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 8, color: 'var(--text-main)', padding: '8px 12px', fontSize: 13, fontFamily: 'inherit', resize: 'vertical', minHeight: 80, outline: 'none' }}
+                      placeholder="Например: нарушение правил платформы..."
+                      value={banReasonInput}
+                      onChange={e => setBanReasonInput(e.target.value)}
+                      maxLength={500}
+                  />
+                  <div style={{ display: 'flex', gap: 10, marginTop: 16, justifyContent: 'flex-end' }}>
+                      <button className="btn btn-ghost" onClick={() => setBanModalUser(null)}>Отмена</button>
+                      <button
+                          className="btn btn-primary"
+                          style={{ background: '#ff4444', borderColor: '#ff4444' }}
+                          onClick={async () => {
+                              await banUser(banModalUser.id, banReasonInput.trim() || undefined);
+                              setUsersList(prev => prev.map(x => x.id === banModalUser.id ? { ...x, status: 'banned' } : x));
+                              showToast('Пользователь заблокирован', 'success');
+                              setBanModalUser(null);
+                          }}
+                      >
+                          Заблокировать
+                      </button>
+                  </div>
+              </div>
           </div>
-          
-          {/* Правая часть хедера */}
-          <div style={{display: 'flex', alignItems: 'center', gap: '24px'}}>
-              <Link to="/" className="nav-link">Выход на сайт →</Link>
-              
-              {/* Вставляем профиль */}
-              <UserProfile username={username} onLogout={handleLogout} />
+      )}
+      {/* Скрытый input для Excel */}
+      <input 
+          type="file" 
+          accept=".xlsx, .xls, .csv" 
+          style={{ display: 'none' }} 
+          ref={fileInputRef}
+          onChange={handleExcelUpload} 
+      />
+
+      {/* МОДАЛЬНОЕ ОКНО ДОБАВЛЕНИЯ/РЕДАКТИРОВАНИЯ */}
+      {(modalMode === 'add' || modalMode === 'edit') && (
+          <div className="modal-overlay">
+              <div className="modal-content">
+                  <div className="modal-header">
+                      <h3>{modalMode === 'add' ? 'Добавить пользователя' : 'Редактирование профиля'}</h3>
+                      <button className="btn-icon" onClick={closeModal}><Icons.Close /></button>
+                  </div>
+                  <div className="modal-body">
+                      <div className="form-group" style={{ display: 'flex', gap: '15px' }}>
+                          <div style={{ flex: 1 }}>
+                              <label>Имя</label>
+                              <input className="modern-input" value={userForm.firstName} onChange={e => setUserForm({...userForm, firstName: e.target.value})} />
+                          </div>
+                          <div style={{ flex: 1 }}>
+                              <label>Фамилия</label>
+                              <input className="modern-input" value={userForm.lastName} onChange={e => setUserForm({...userForm, lastName: e.target.value})} />
+                          </div>
+                      </div>
+                      <div className="form-group">
+                          <label>Email (Логин)</label>
+                          <input className="modern-input" type="email" value={userForm.email} onChange={e => setUserForm({...userForm, email: e.target.value})} />
+                      </div>
+                      <div className="form-group">
+                          <label>Уровень доступа</label>
+                          <select className="modern-input" value={userForm.role} onChange={e => setUserForm({...userForm, role: e.target.value})}>
+                              <option value="student">Студент</option>
+                              <option value="teacher">Преподаватель</option>
+                              <option value="admin">Администратор</option>
+                          </select>
+                      </div>
+                      <div className="form-group" style={{marginTop: '25px', borderTop: '1px solid #333', paddingTop: '15px'}}>
+                          <label style={{color: modalMode === 'add' ? '#fff' : '#ff4d4d'}}>
+                              {modalMode === 'add' ? 'Пароль (Обязательно)' : 'Смена пароля'}
+                          </label>
+                          <input 
+                              className="modern-input" 
+                              type="password" 
+                              placeholder={modalMode === 'add' ? 'Введите пароль' : 'Оставьте пустым, если не меняете'} 
+                              value={userForm.password} 
+                              onChange={e => setUserForm({...userForm, password: e.target.value})} 
+                          />
+                      </div>
+                  </div>
+                  <div className="modal-footer">
+                      <button className="btn btn-secondary" onClick={closeModal}>Отмена</button>
+                      <button className="btn btn-primary" onClick={handleSubmitUser} disabled={isSaving}>
+                          {isSaving ? 'Загрузка...' : (modalMode === 'add' ? 'Создать пользователя' : 'Сохранить изменения')}
+                      </button>
+                  </div>
+              </div>
           </div>
-      </header>
+      )}
+        {/* МОДАЛЬНОЕ ОКНО LDAP */}
+      {showLdapModal && (
+          <div className="modal-overlay">
+              <div className="modal-content">
+                  <div className="modal-header">
+                      <h3>Настройки LDAP / Active Directory</h3>
+                      <button className="btn-icon" onClick={() => setShowLdapModal(false)}><Icons.Close /></button>
+                  </div>
+                  <div className="modal-body">
+                      <div className="form-group" style={{ marginBottom: '20px' }}>
+                          <label className="lumeo-switch" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: '10px' }}>
+                              <input type="checkbox" checked={ldapForm.enabled} onChange={e => setLdapForm({...ldapForm, enabled: e.target.checked})} />
+                              <span className="slider round"></span>
+                          </label>
+                          <strong style={{ color: ldapForm.enabled ? '#00ff88' : '#888', verticalAlign: 'middle' }}>
+                              {ldapForm.enabled ? 'Интеграция ВКЛЮЧЕНА' : 'Интеграция ОТКЛЮЧЕНА'}
+                          </strong>
+                      </div>
+                      <div className="form-group">
+                          <label>URL сервера (LDAP URL)</label>
+                          <input className="modern-input" placeholder="ldap://10.0.0.5:389" value={ldapForm.url} onChange={e => setLdapForm({...ldapForm, url: e.target.value})} />
+                      </div>
+                      <div className="form-group">
+                          <label>База поиска (Search Base)</label>
+                          <input className="modern-input" placeholder="dc=example,dc=com" value={ldapForm.searchBase} onChange={e => setLdapForm({...ldapForm, searchBase: e.target.value})} />
+                      </div>
+                      <p style={{fontSize: '12px', color: 'var(--text-muted)', marginTop: '10px'}}>
+                          *Для тестирования по умолчанию подставлен публичный сервер Forumsys.
+                      </p>
+                  </div>
+                  <div className="modal-footer">
+                      <button className="btn btn-secondary" onClick={() => setShowLdapModal(false)}>Отмена</button>
+                      <button className="btn btn-primary" onClick={handleSaveLdap} disabled={isSaving}>
+                          {isSaving ? 'Сохранение...' : 'Сохранить настройки'}
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+      {/* МОДАЛЬНОЕ ОКНО YANDEX */}
+      {showYandexModal && (
+          <div className="modal-overlay">
+              <div className="modal-content">
+                  <div className="modal-header">
+                      <h3>Настройки OpenID: Yandex ID</h3>
+                      <button className="btn-icon" onClick={() => setShowYandexModal(false)}><Icons.Close /></button>
+                  </div>
+                  <div className="modal-body">
+                      <div className="form-group" style={{ marginBottom: '20px' }}>
+                          <label className="lumeo-switch" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: '10px' }}>
+                              <input type="checkbox" checked={yandexForm.enabled} onChange={e => setYandexForm({...yandexForm, enabled: e.target.checked})} />
+                              <span className="slider round"></span>
+                          </label>
+                          <strong style={{ color: yandexForm.enabled ? '#00ff88' : '#888', verticalAlign: 'middle' }}>
+                              {yandexForm.enabled ? 'Интеграция ВКЛЮЧЕНА' : 'Интеграция ОТКЛЮЧЕНА'}
+                          </strong>
+                      </div>
+                      <div className="form-group">
+                          <label>Client ID</label>
+                          <input className="modern-input" placeholder="ID приложения Яндекса" value={yandexForm.clientId} onChange={e => setYandexForm({...yandexForm, clientId: e.target.value})} />
+                      </div>
+                      <div className="form-group">
+                          <label>Client Secret (Пароль)</label>
+                          <input className="modern-input" type="password" placeholder="Секретный ключ" value={yandexForm.clientSecret} onChange={e => setYandexForm({...yandexForm, clientSecret: e.target.value})} />
+                      </div>
+                  </div>
+                  <div className="modal-footer">
+                      <button className="btn btn-secondary" onClick={() => setShowYandexModal(false)}>Отмена</button>
+                      <button className="btn btn-primary" onClick={handleSaveYandex} disabled={isSaving}>
+                          {isSaving ? 'Сохранение...' : 'Сохранить настройки'}
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+      {/* МОДАЛЬНОЕ ОКНО GOOGLE */}
+      {showGoogleModal && (
+          <div className="modal-overlay">
+              <div className="modal-content">
+                  <div className="modal-header">
+                      <h3>Настройки OpenID: Google Workspace</h3>
+                      <button className="btn-icon" onClick={() => setShowGoogleModal(false)}><Icons.Close /></button>
+                  </div>
+                  <div className="modal-body">
+                      <div className="form-group" style={{ marginBottom: '20px' }}>
+                          <label className="lumeo-switch" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: '10px' }}>
+                              <input type="checkbox" checked={googleForm.enabled} onChange={e => setGoogleForm({...googleForm, enabled: e.target.checked})} />
+                              <span className="slider round"></span>
+                          </label>
+                          <strong style={{ color: googleForm.enabled ? '#00ff88' : '#888', verticalAlign: 'middle' }}>
+                              {googleForm.enabled ? 'Интеграция ВКЛЮЧЕНА' : 'Интеграция ОТКЛЮЧЕНА'}
+                          </strong>
+                      </div>
+                      <div className="form-group">
+                          <label>Client ID</label>
+                          <input className="modern-input" placeholder="Идентификатор клиента Google" value={googleForm.clientId} onChange={e => setGoogleForm({...googleForm, clientId: e.target.value})} />
+                      </div>
+                      <div className="form-group">
+                          <label>Client Secret</label>
+                          <input className="modern-input" type="password" placeholder="Секрет клиента" value={googleForm.clientSecret} onChange={e => setGoogleForm({...googleForm, clientSecret: e.target.value})} />
+                      </div>
+                  </div>
+                  <div className="modal-footer">
+                      <button className="btn btn-secondary" onClick={() => setShowGoogleModal(false)}>Отмена</button>
+                      <button className="btn btn-primary" onClick={handleSaveGoogle} disabled={isSaving}>
+                          {isSaving ? 'Сохранение...' : 'Сохранить настройки'}
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+      {showSamlModal && (
+          <div className="modal-overlay">
+              <div className="modal-content" style={{ maxWidth: '500px' }}>
+                  <div className="modal-header">
+                      <h3>Корпоративный вход (SAML 2.0)</h3>
+                      <button className="btn-icon" onClick={() => setShowSamlModal(false)}><Icons.Close /></button>
+                  </div>
+                  <div className="modal-body">
+                      <div className="form-group" style={{ marginBottom: '20px' }}>
+                          <label className="lumeo-switch" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: '10px' }}>
+                              <input type="checkbox" checked={samlForm.enabled} onChange={e => setSamlForm({...samlForm, enabled: e.target.checked})} />
+                              <span className="slider round"></span>
+                          </label>
+                          <strong style={{ color: samlForm.enabled ? '#00ff88' : '#888', verticalAlign: 'middle' }}>{samlForm.enabled ? 'Интеграция ВКЛЮЧЕНА' : 'Интеграция ОТКЛЮЧЕНА'}</strong>
+                      </div>
+                      <div className="form-group">
+                          <label>SSO URL (Entry Point)</label>
+                          <input className="modern-input" placeholder="https://idp.example.com/saml2/idp/sso" value={samlForm.entryPoint} onChange={e => setSamlForm({...samlForm, entryPoint: e.target.value})} />
+                      </div>
+                      <div className="form-group">
+                          <label>Публичный сертификат (Public X.509 Cert)</label>
+                          <textarea className="modern-input" style={{ minHeight: '120px', fontFamily: 'monospace', fontSize: '12px' }} placeholder="MIIC4jCCAcqgAwIBAgIQ..." value={samlForm.cert} onChange={e => setSamlForm({...samlForm, cert: e.target.value})} />
+                      </div>
+                      <p style={{fontSize: '12px', color: 'var(--text-muted)', marginTop: '10px'}}>
+                          *Укажите Entity ID (Issuer): <strong>lumeo-web</strong><br/>
+                          *Callback URL (ACS): <strong>{apiUrl}/auth/saml/callback</strong>
+                      </p>
+                  </div>
+                  <div className="modal-footer">
+                      <button className="btn btn-secondary" onClick={() => setShowSamlModal(false)}>Отмена</button>
+                      <button className="btn btn-primary" onClick={handleSaveSaml} disabled={isSaving}>{isSaving ? 'Сохранение...' : 'Сохранить'}</button>
+                  </div>
+              </div>
+          </div>
+      )}
+      {/* ШАПКА */}
+      <AppHeader badge="Администратор" badgeColor="danger" />
 
       <div className="lumeo-container">
         <main className="admin-layout">
             
-            <div className="admin-header">
-                <h1>Панель управления</h1>
-                <p>Мониторинг системы и управление образовательным контентом</p>
+            <div className="admin-header" style={{ display: 'center', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                    <h1>Панель управления</h1>
+                    <p>Центр мониторинга и управления образовательной платформой</p>
+                </div>
+                {/* ТУМБЛЕР МОДЕРАЦИИ СВЕРХУ СПРАВА */}
+                <div className="settings-toggle-card">
+                    <div className="settings-toggle-info">
+                        <strong>Модерация регистраций</strong>
+                        <span>{requiresApproval ? 'Только по заявкам' : 'Свободный вход'}</span>
+                    </div>
+                    <label className="lumeo-switch">
+                        <input type="checkbox" checked={requiresApproval} onChange={handleToggleSetting} />
+                        <span className="slider round"></span>
+                    </label>
+                </div>
+            </div>
+            
+            {/* ВКЛАДКИ НАВИГАЦИИ */}
+            <div className="admin-tabs">
+                <button className={`admin-tab ${activeTab === 'system' ? 'active' : ''}`} onClick={() => setActiveTab('system')}>
+                    <Icons.Server /> Обзор системы
+                </button>
+                <button className={`admin-tab ${activeTab === 'users' ? 'active' : ''}`} onClick={() => setActiveTab('users')}>
+                    <Icons.Users /> База пользователей
+                </button>
+                <button className={`admin-tab ${activeTab === 'integrations' ? 'active' : ''}`} onClick={() => setActiveTab('integrations')}>
+                    <Icons.LinkIcon /> Интеграции (SSO)
+                </button>
+                <button className={`admin-tab ${activeTab === 'branding' ? 'active' : ''}`} onClick={() => setActiveTab('branding')}>
+                    <Icons.Palette /> Брендинг
+                </button>
+                <button className={`admin-tab ${activeTab === 'moderation' ? 'active' : ''}`} onClick={() => { setActiveTab('moderation'); loadBannedWords(); }}>
+                    <Icons.Shield /> Модерация
+                </button>
+                {/* Вкладка заявок появляется ТОЛЬКО если модерация включена */}
+                {requiresApproval && (
+                    <button className={`admin-tab ${activeTab === 'requests' ? 'active' : ''}`} onClick={() => setActiveTab('requests')}>
+                        <Icons.Bell /> Заявки
+                        {pendingUsers.length > 0 && <span className="tab-badge">{pendingUsers.length}</span>}
+                    </button>
+                )}
             </div>
 
-            {/* Статистика */}
-            <div className="stats-grid">
-                <div className="stat-card">
-                    <div className="stat-label">Доступно уроков</div>
-                    <div className="stat-value">12</div>
-                </div>
-                
-                <div className="stat-card">
-                    <div className="stat-label">Активные пользователи</div>
-                    <div className="stat-value blue">42</div>
-                </div>
-                
-                <div className="stat-card">
-                    <div className="stat-label">Состояние системы</div>
-                    <div className="server-status">
-                        <span className="pulse-dot"></span>
-                        All Systems Normal
+            {/* МЕТРИКИ СВЕРХУ (Скрываем на вкладке заявок для чистоты) */}
+            {activeTab !== 'requests' && (
+                <div className={`metrics-row${systemLoading ? ' metrics-loading' : ''}`}>
+                    <div className="stat-card mini">
+                        <div className="stat-icon" style={{color: 'var(--primary)'}}><Icons.Users /></div>
+                        <div className="stat-info"><div className="stat-label">Пользователей</div><div className="stat-value">{usersTotal || usersByRole.student + usersByRole.teacher + usersByRole.admin}</div></div>
+                    </div>
+                    <div className="stat-card mini">
+                        <div className="stat-icon" style={{color: '#ffd700'}}><Icons.Code /></div>
+                        <div className="stat-info"><div className="stat-label">Преподавателей</div><div className="stat-value">{usersByRole.teacher}</div></div>
+                    </div>
+                    <div className="stat-card mini">
+                        <div className="stat-icon" style={{color: '#ff4d4d'}}><Icons.Shield /></div>
+                        <div className="stat-info"><div className="stat-label">Администраторов</div><div className="stat-value">{usersByRole.admin}</div></div>
+                    </div>
+                    <div className="stat-card mini" style={{cursor: 'pointer'}} onClick={() => setShowOnlineModal(true)} title="Посмотреть кто онлайн">
+                        <div className="stat-icon" style={{color: '#00ff88'}}><Icons.Activity /></div>
+                        <div className="stat-info"><div className="stat-label">Активных сессий</div><div className="stat-value">{serverStats.connections}</div></div>
                     </div>
                 </div>
-            </div>
+            )}
 
-            {/* Таблица пользователей */}
-            <div className="admin-section">
-                <div className="section-header">
-                    <h2>Пользователи системы</h2>
-                    <div className="actions-row">
-                        <button className="btn btn-secondary"><Icons.Settings /> LDAP</button>
-                        <button className="btn btn-primary"><Icons.Plus /> Добавить</button>
+            {/* ==================== ВКЛАДКА 1: ОБЗОР СИСТЕМЫ ==================== */}
+            {activeTab === 'system' && (
+              <>
+                {/* СИСТЕМНЫЕ УВЕДОМЛЕНИЯ */}
+                {!systemLoading && (
+                  <div className="system-alerts-panel">
+                    {systemAlerts.length === 0 ? (
+                      <div className="system-alert alert-ok">
+                        <span className="alert-icon">✓</span>
+                        <span className="alert-text">Все системы работают в штатном режиме</span>
+                      </div>
+                    ) : (
+                      systemAlerts.map(alert => (
+                        <div key={alert.id} className={`system-alert alert-${alert.severity}`}>
+                          <span className="alert-icon">
+                            {alert.severity === 'critical' && '✕'}
+                            {alert.severity === 'warning' && '⚠'}
+                            {alert.severity === 'info' && 'i'}
+                          </span>
+                          <div className="alert-body">
+                            <span className="alert-title">{alert.title}</span>
+                            <span className="alert-message">{alert.message}</span>
+                          </div>
+                          {alert.action && (
+                            <button className="alert-action-btn" onClick={alert.action.onClick}>
+                              {alert.action.label}
+                            </button>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+                <div className="dashboard-columns">
+                    <div className="dashboard-main">
+                        <div className="admin-section log-section">
+                            <div className="section-header compact" style={{flexWrap: 'wrap', gap: '10px'}}>
+                                <h2 style={{display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px'}}><Icons.Terminal /> Журнал событий</h2>
+                                
+                                <div className="log-filters">
+                                    <button className={`filter-btn ${logFilter === 'all' ? 'active' : ''}`} onClick={() => setLogFilter('all')}>Все</button>
+                                    <button className={`filter-btn info ${logFilter === 'info' ? 'active' : ''}`} onClick={() => setLogFilter('info')}>Инфо</button>
+                                    <button className={`filter-btn success ${logFilter === 'success' ? 'active' : ''}`} onClick={() => setLogFilter('success')}>Успех</button>
+                                    <button className={`filter-btn warning ${logFilter === 'warning' ? 'active' : ''}`} onClick={() => setLogFilter('warning')}>Внимание</button>
+                                    <button className={`filter-btn error ${logFilter === 'error' ? 'active' : ''}`} onClick={() => setLogFilter('error')}>Ошибки</button>
+                                    <button className="btn-icon" style={{marginLeft: 'auto'}} onClick={fetchSystemData} title="Обновить"><Icons.Refresh /></button>
+                                </div>
+                            </div>
+                            
+                            <div className="section-body log-container modern-scroll">
+                                {filteredLogs.length > 0 ? (
+                                    filteredLogs.map(log => (
+                                        <div key={log.id} className={`log-item log-type-${log.type}`}>
+                                            <div className="log-time">{log.time}</div>
+                                            <div className="log-icon-wrapper">
+                                                {log.type === 'info' && <Icons.LogInfo />}
+                                                {log.type === 'success' && <Icons.LogSuccess />}
+                                                {log.type === 'warning' && <Icons.LogWarning />}
+                                                {log.type === 'error' && <Icons.LogError />}
+                                            </div>
+                                            <div className="log-message">
+                                                <span className={`log-badge badge-${log.type}`}>{log.type.toUpperCase()}</span>
+                                                {log.msg}
+                                            </div>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="log-empty-state">
+                                        <Icons.Terminal />
+                                        <span>Нет записей для этого фильтра</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    <aside className="dashboard-sidebar">
+                        <div className="admin-section sidebar-section">
+                            <div className="section-header compact">
+                                <h2 style={{display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px'}}><Icons.Server /> Сервер Lumeo</h2>
+                                <div className="server-status small"><span className="pulse-dot"></span> Online</div>
+                            </div>
+                            <div className="section-body">
+                                <div style={{fontSize: '11px', color: 'var(--text-muted)', marginBottom: '15px', textAlign: 'right'}}>Аптайм: {serverStats.uptime}</div>
+                                <div className="server-monitor">
+                                    <div className="monitor-row"><span>CPU ({serverStats.cpu.toFixed(1)}%)</span><div className="progress-bar-bg"><div className="progress-bar-fill cpu" style={{width: `${serverStats.cpu}%`}}></div></div></div>
+                                    <div className="monitor-row"><span>RAM ({serverStats.ram.toFixed(1)}%)</span><div className="progress-bar-bg"><div className="progress-bar-fill ram" style={{width: `${serverStats.ram}%`}}></div></div></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="admin-section sidebar-section">
+                            <div className="section-header compact"><h2 style={{display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px'}}><Icons.Database /> Хранилище (S3)</h2></div>
+                            <div className="section-body">
+                                <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '12px'}}><span style={{color: 'var(--text-main)', fontWeight: 'bold'}}>{storageUsed.toFixed(1)} GB</span><span style={{color: 'var(--text-muted)'}}>из {storageTotal} GB</span></div>
+                                <div className="storage-bar">
+                                    <div className="storage-segment video" style={{width: `${(storageData.video / storageTotal) * 100}%`}}></div>
+                                    <div className="storage-segment db" style={{width: `${(storageData.db / storageTotal) * 100}%`}}></div>
+                                    <div className="storage-segment cache" style={{width: `${(storageData.cache / storageTotal) * 100}%`}}></div>
+                                </div>
+                                <div className="storage-legend">
+                                    <div className="legend-item"><div className="dot video"></div>Видео</div><div className="legend-item"><div className="dot db"></div>БД</div><div className="legend-item"><div className="dot cache"></div>Кэш (AI)</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="admin-section sidebar-section">
+                            <div className="section-header compact">
+                                <h2 style={{display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px'}}><Icons.Activity /> Статус модулей</h2>
+                            </div>
+                            <div className="section-body">
+                                {systemModules.length === 0 ? (
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '12px', textAlign: 'center', padding: '10px 0' }}>Загрузка...</div>
+                                ) : systemModules.map((mod, i) => {
+                                    const isActive = mod.status === 'active';
+                                    const isIdle = mod.status === 'idle';
+                                    const color = isActive ? '#00ff88' : isIdle ? '#ffd700' : '#ff4d4d';
+                                    return (
+                                        <div key={i} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', paddingBottom: '10px', borderBottom: '1px solid var(--border-color)'}}>
+                                            <div>
+                                                <div style={{color: 'var(--text-main)', fontWeight: '500', fontSize: '12px'}}>{mod.name}</div>
+                                                <div style={{color: 'var(--text-muted)', fontSize: '10px'}}>{mod.note || mod.version}</div>
+                                            </div>
+                                            <div style={{color, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0}}>
+                                                <span className={isActive ? 'pulse-dot' : ''} style={{width: '6px', height: '6px', background: color, borderRadius: '50%', display: 'inline-block'}}></span>
+                                                {isActive ? 'Активен' : isIdle ? 'Ожидание' : 'Недоступен'}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        <div className="admin-section sidebar-section">
+                            <div className="section-header compact"><h2 style={{display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px'}}><Icons.Zap /> Быстрые действия</h2></div>
+                            <div className="section-body quick-actions-grid">
+                                <button className="quick-action-btn" disabled={isActionExecuting} onClick={() => handleQuickAction('clear-cache', 'Очистить кэш ИИ')}>Очистить кэш ИИ</button>
+                                <button className="quick-action-btn" disabled={isActionExecuting} onClick={() => handleQuickAction('backup-db', 'Сделать бэкап БД')}>Сделать бэкап БД</button>
+                                <button className="quick-action-btn danger" disabled={isActionExecuting} onClick={() => handleQuickAction('restart', 'Принудительная перезагрузка')}>Принудительная перезагрузка</button>
+                            </div>
+                        </div>
+                    </aside>
+                </div>
+              </>
+            )}
+
+            {/* ==================== ВКЛАДКА 2: УПРАВЛЕНИЕ ПОЛЬЗОВАТЕЛЯМИ ==================== */}
+            {activeTab === 'users' && (
+                <div className="admin-section">
+                    <div className="section-header">
+                        <h2>База пользователей</h2>
+                        <div className="actions-row">
+                            <button className="btn btn-secondary" onClick={handleTemplateClick} title="Скачать шаблон (Excel)">
+                                <Icons.Download /> Шаблон
+                            </button>
+                            <button className="btn btn-secondary" onClick={() => fileInputRef.current?.click()} disabled={isActionExecuting}>
+                                <Icons.Upload /> {isActionExecuting ? 'Импорт...' : 'Импорт Excel'}
+                            </button>
+                            <button className="btn btn-secondary" onClick={handleExportUsers} title="Выгрузить всех пользователей в Excel" style={{color: '#00ff88', borderColor: 'rgba(0, 255, 136, 0.3)'}}>
+                                <Icons.Database /> Выгрузить БД
+                            </button>
+                            <button className="btn btn-primary" onClick={openAddModal}><Icons.Plus /> Добавить</button>
+                            <button className="btn btn-secondary" onClick={() => fetchUsers()}><Icons.Refresh /> Обновить</button>
+                        </div>
+                        {/* МОДАЛЬНОЕ ОКНО ИНСТРУКЦИИ К ШАБЛОНУ */}
+                        {modalMode === 'template' && (
+                            <div className="modal-overlay">
+                                <div className="modal-content" style={{ maxWidth: '580px', padding: '30px' }}>
+                                    <div className="modal-header" style={{ marginBottom: '15px', borderBottom: 'none' }}>
+                                        <h3 style={{ fontSize: '20px' }}>Инструкция к импорту</h3>
+                                        <button className="btn-icon" onClick={closeModal}><Icons.Close /></button>
+                                    </div>
+                                    <div className="modal-body">
+                                        <p style={{ color: 'var(--text-muted)', fontSize: '13.5px', marginBottom: '24px', lineHeight: '1.5' }}>
+                                            Для массовой регистрации скачайте Excel-шаблон и заполните его, соблюдая следующие правила:
+                                        </p>
+                                        
+                                        <ul className="template-rules">
+                                            <li><strong>Имя, Фамилия, Email, Пароль</strong> — <span style={{color: '#ff4d4d'}}>обязательные</span> поля.</li>
+                                            <li>В колонке <strong>Роль</strong> нужно использовать строго системные значения: <code>student</code>, <code>teacher</code> или <code>admin</code>. Оставите пустым — станет студентом.</li>
+                                            <li>Поля <strong>Отчество</strong> и <strong>Телефон</strong> можно оставить пустыми.</li>
+                                            <li><strong style={{color: '#ffd700'}}>Важно:</strong> Не удаляйте и не переименовывайте самую первую строку с названиями колонок!</li>
+                                        </ul>
+
+                                        {/* НАШ НОВЫЙ ЧЕКБОКС */}
+                                        {/* НАШ ИДЕАЛЬНЫЙ ЧЕКБОКС */}
+                                        <label className="dont-show-again">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={skipTemplateModal} 
+                                                onChange={(e) => setSkipTemplateModal(e.target.checked)} 
+                                            />
+                                            <span className="custom-checkbox"></span>
+                                            <span className="checkbox-text">Больше не показывать мне это уведомление</span>
+                                        </label>
+                                        
+                                    </div>
+                                    
+                                    {/* Красивые кнопки */}
+                                    <div className="modal-footer" style={{ borderTop: 'none', paddingTop: '10px', gap: '15px' }}>
+                                        <button className="btn btn-secondary" onClick={closeModal} style={{flex: 1, padding: '14px', background: 'var(--bg-card)'}}>
+                                            Закрыть
+                                        </button>
+                                        <button className="btn btn-primary" onClick={downloadExcelTemplate} style={{ backgroundColor: '#00ff88', color: '#000', flex: 2, padding: '14px', fontSize: '14px' }}>
+                                            <Icons.Download /> Скачать шаблон
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Поиск и фильтр */}
+                    <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                        <input
+                            className="modern-input"
+                            style={{ flex: 1, minWidth: '200px' }}
+                            placeholder="Поиск по имени или email..."
+                            value={usersSearch}
+                            onChange={e => {
+                                setUsersSearch(e.target.value);
+                                setUsersPage(1);
+                                fetchUsers(1, e.target.value, usersRoleFilter);
+                            }}
+                        />
+                        <select
+                            className="modern-input"
+                            style={{ width: '180px' }}
+                            value={usersRoleFilter}
+                            onChange={e => {
+                                setUsersRoleFilter(e.target.value);
+                                setUsersPage(1);
+                                fetchUsers(1, usersSearch, e.target.value, usersProviderFilter);
+                            }}
+                        >
+                            <option value="">Все роли</option>
+                            <option value="student">Студенты</option>
+                            <option value="teacher">Преподаватели</option>
+                            <option value="admin">Администраторы</option>
+                        </select>
+                        <select
+                            className="modern-input"
+                            style={{ width: '160px' }}
+                            value={usersProviderFilter}
+                            onChange={e => {
+                                setUsersProviderFilter(e.target.value);
+                                setUsersPage(1);
+                                fetchUsers(1, usersSearch, usersRoleFilter, e.target.value);
+                            }}
+                        >
+                            <option value="">Все источники</option>
+                            <option value="local">Локальные</option>
+                            <option value="ldap">LDAP / AD</option>
+                            <option value="google">Google</option>
+                            <option value="yandex">Яндекс</option>
+                            <option value="saml">SAML SSO</option>
+                        </select>
+                    </div>
+
+                    {loading ? (
+                        <div style={{padding: '40px', textAlign: 'center', color: 'var(--text-muted)'}}>Загрузка базы данных...</div>
+                    ) : (
+                        <div className="table-responsive">
+                            <table className="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Пользователь</th>
+                                        <th>Роль</th>
+                                        <th style={{textAlign: 'right'}}>Действия</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {usersList.map((u) => (
+                                        <tr key={u.id}>
+                                            <td>
+                                                <div style={{display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px'}}>
+                                                    <span style={{fontWeight: '600', color: 'var(--text-main)', fontSize: '14px'}}>
+                                                        {u.firstName} {u.lastName}
+                                                    </span>
+                                                    {u.authProvider && (
+                                                        <span style={{
+                                                            fontSize: '10px',
+                                                            fontWeight: '600',
+                                                            padding: '2px 6px',
+                                                            borderRadius: '4px',
+                                                            letterSpacing: '0.5px',
+                                                            textTransform: 'uppercase',
+                                                            background: u.authProvider === 'yandex' ? 'rgba(255,51,51,0.15)'
+                                                                      : u.authProvider === 'google' ? 'rgba(66,133,244,0.15)'
+                                                                      : u.authProvider === 'ldap'   ? 'rgba(0,255,136,0.15)'
+                                                                      : u.authProvider === 'local'  ? 'rgba(100,100,100,0.2)'
+                                                                      : 'rgba(155,89,182,0.15)',
+                                                            color: u.authProvider === 'yandex' ? '#ff5555'
+                                                                 : u.authProvider === 'google' ? '#4285f4'
+                                                                 : u.authProvider === 'ldap'   ? '#00ff88'
+                                                                 : u.authProvider === 'local'  ? '#888'
+                                                                 : '#c39bd3',
+                                                            border: `1px solid ${
+                                                                u.authProvider === 'yandex' ? 'rgba(255,51,51,0.3)'
+                                                              : u.authProvider === 'google' ? 'rgba(66,133,244,0.3)'
+                                                              : u.authProvider === 'ldap'   ? 'rgba(0,255,136,0.3)'
+                                                              : u.authProvider === 'local'  ? 'rgba(100,100,100,0.3)'
+                                                              : 'rgba(155,89,182,0.3)'
+                                                            }`,
+                                                        }}>
+                                                            {u.authProvider}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div style={{fontSize: '12px', color: 'var(--text-muted)'}}>{u.email} &bull; ID: {u.id}</div>
+                                            </td>
+                                            <td>
+                                                <select className={`role-select ${u.role}`} value={u.role} onChange={(e) => handleRoleChange(u.id, e.target.value)}>
+                                                    <option value="student">Студент</option>
+                                                    <option value="teacher">Преподаватель</option>
+                                                    <option value="admin">Администратор</option>
+                                                </select>
+                                            </td>
+                                            <td style={{textAlign: 'right'}}>
+                                                <div style={{display: 'flex', justifyContent: 'flex-end', gap: '8px', alignItems: 'center'}}>
+                                                    {u.status === 'banned' && (
+                                                        <span style={{ fontSize: '10px', color: '#ff4d4d', background: 'rgba(255,77,77,0.15)', border: '1px solid rgba(255,77,77,0.3)', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>БАН</span>
+                                                    )}
+                                                    <button className="btn-icon" onClick={() => openEditModal(u)} title="Настроить"><Icons.Edit /></button>
+                                                    {u.status === 'banned' ? (
+                                                        <button className="btn-icon" style={{ color: '#00ff88', borderColor: 'rgba(0,255,136,0.3)' }} title="Разблокировать" onClick={async () => { await unbanUser(u.id); setUsersList(prev => prev.map(x => x.id === u.id ? {...x, status: 'active'} : x)); showToast('Пользователь разблокирован', 'success'); }}>✓</button>
+                                                    ) : (
+                                                        <button className="btn-icon" style={{ color: '#ff9900', borderColor: 'rgba(255,153,0,0.3)' }} title="Заблокировать" onClick={() => { setBanModalUser(u); setBanReasonInput(''); }}>🚫</button>
+                                                    )}
+                                                    <button className="btn-icon delete-icon" onClick={() => handleDeleteUser(u.id, u.firstName)} title="Удалить"><Icons.Trash /></button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+
+                    {/* Пагинация */}
+                    {usersTotalPages > 1 && (
+                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '16px' }}>
+                            <button
+                                className="btn btn-secondary"
+                                disabled={usersPage <= 1}
+                                onClick={() => { const p = usersPage - 1; setUsersPage(p); fetchUsers(p); }}
+                            >
+                                &lsaquo; Назад
+                            </button>
+                            <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
+                                Стр. {usersPage} / {usersTotalPages} &nbsp;&bull;&nbsp; Всего: {usersTotal}
+                            </span>
+                            <button
+                                className="btn btn-secondary"
+                                disabled={usersPage >= usersTotalPages}
+                                onClick={() => { const p = usersPage + 1; setUsersPage(p); fetchUsers(p); }}
+                            >
+                                Вперёд &rsaquo;
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* ==================== ВКЛАДКА 3: ЗАЯВКИ (PRO) ==================== */}
+            {activeTab === 'requests' && requiresApproval && (
+                <div className="admin-section">
+                    <div className="section-header">
+                        <h2>Ожидают подтверждения</h2>
+                        <button className="btn btn-secondary" onClick={fetchPendingUsers}><Icons.Refresh /> Обновить</button>
+                    </div>
+
+                    {pendingUsers.length === 0 ? (
+                        <div className="empty-requests">
+                            <div className="empty-shield"><Icons.Shield /></div>
+                            <h3>Очередь пуста</h3>
+                            <p>Все заявки обработаны. Новых пользователей нет.</p>
+                        </div>
+                    ) : (
+                        <div className="requests-list">
+                            {pendingUsers.map((u) => (
+                                <div className="request-card" key={u.id}>
+                                    
+                                    {/* Инфо профиля */}
+                                    <div className="req-user-info">
+                                        <div className="req-avatar">
+                                            {(u.firstName?.[0] || '')}{(u.lastName?.[0] || '')}
+                                        </div>
+                                        <div className="req-details">
+                                            <h4>{u.firstName} {u.lastName}</h4>
+                                            <span className="req-email">{u.email}</span>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Мета-данные */}
+                                    <div className="req-meta">
+                                        <div className="req-badge">Новый аккаунт</div>
+                                        <div className="req-date">
+                                            {new Date(u.createdAt).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Кнопки */}
+                                    <div className="req-actions">
+                                        <button className="req-btn approve" onClick={() => handleRequestAction(u.id, 'approve')}>
+                                            <Icons.Check /> Принять
+                                        </button>
+                                        <button className="req-btn reject" onClick={() => handleRequestAction(u.id, 'reject')} title="Отклонить">
+                                            <Icons.Close />
+                                        </button>
+                                    </div>
+
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+            {/* ==================== ВКЛАДКА 4: ИНТЕГРАЦИИ SSO ==================== */}
+            {activeTab === 'branding' && <BrandingTab />}
+
+            {activeTab === 'integrations' && (
+                <div className="admin-section">
+                    <div className="section-header">
+                        <h2>Провайдеры аутентификации (Single Sign-On)</h2>
+                        <button className="btn btn-primary" onClick={() => showToast('Магазин плагинов недоступен в демо-версии', 'info')}><Icons.Plus /> Добавить провайдер</button>
+                    </div>
+                    
+                    <div className="section-body">
+                        <div className="integrations-grid">
+                            
+                            {/* Карточка SAML */}
+                            <div className="integration-card active">
+                                <div className="int-header">
+                                    <div className="int-icon saml"><Icons.Shield /></div>
+                                    <div className="int-status"><span className="pulse-dot"></span> Активен</div>
+                                </div>
+                                <h3>SAML 2.0 (Active Directory)</h3>
+                                <p>Корпоративная аутентификация через Microsoft ADFS или Keycloak.</p>
+                                <div className="int-meta">
+                                    <span>Урл: sso.lumeo.edu/saml</span>
+                                </div>
+                                <div className="int-actions">
+                                    <button 
+                                        className={systemSettings.saml_enabled === 'true' || systemSettings.saml_enabled === true ? "btn btn-secondary" : "btn btn-primary"} 
+                                        style={{width: '100%'}} 
+                                        onClick={openSamlModal}
+                                    >
+                                        Настроить
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Карточка LDAP */}
+                            <div className={`integration-card ${systemSettings.ldap_enabled === 'true' || systemSettings.ldap_enabled === true ? 'active' : ''}`}>
+                                <div className="int-header">
+                                    <div className="int-icon ldap"><Icons.Database /></div>
+                                    <div className={`int-status ${systemSettings.ldap_enabled === 'true' || systemSettings.ldap_enabled === true ? '' : 'disabled'}`}>
+                                        {systemSettings.ldap_enabled === 'true' || systemSettings.ldap_enabled === true ? <><span className="pulse-dot"></span> Активен</> : 'Отключен'}
+                                    </div>
+                                </div>
+                                <h3>LDAP / OpenLDAP</h3>
+                                <p>Прямое подключение к серверу каталогов для синхронизации студентов.</p>
+                                <div className="int-meta">
+                                    <span>Сервер: {systemSettings.ldap_url || 'Не настроен'}</span>
+                                </div>
+                                <div className="int-actions">
+                                    <button 
+                                        className={systemSettings.ldap_enabled === 'true' || systemSettings.ldap_enabled === true ? "btn btn-secondary" : "btn btn-primary"} 
+                                        style={{width: '100%'}} 
+                                        onClick={openLdapModal}
+                                    >
+                                        Настроить
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Карточка OpenID (Яндекс) */}
+                            <div className={`integration-card ${systemSettings.yandex_enabled === 'true' || systemSettings.yandex_enabled === true ? 'active' : ''}`}>
+                                <div className="int-header">
+                                    <div className="int-icon openid"><Icons.Globe /></div>
+                                    <div className={`int-status ${systemSettings.yandex_enabled === 'true' || systemSettings.yandex_enabled === true ? '' : 'disabled'}`}>
+                                        {systemSettings.yandex_enabled === 'true' || systemSettings.yandex_enabled === true ? <><span className="pulse-dot"></span> Активен</> : 'Отключен'}
+                                    </div>
+                                </div>
+                                <h3>Yandex ID (OpenID Connect)</h3>
+                                <p>Вход через аккаунт Яндекса (поддерживается автоматическое создание профиля).</p>
+                                <div className="int-actions">
+                                    <button 
+                                        className={systemSettings.yandex_enabled === 'true' || systemSettings.yandex_enabled === true ? "btn btn-secondary" : "btn btn-primary"} 
+                                        style={{width: '100%'}} 
+                                        onClick={openYandexModal}
+                                    >
+                                        Настроить
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Карточка Google */}
+                            <div className={`integration-card ${systemSettings.google_enabled === 'true' || systemSettings.google_enabled === true ? 'active' : ''}`}>
+                                <div className="int-header">
+                                    <div className="int-icon openid" style={{background: 'rgba(66, 133, 244, 0.2)', color: '#4285F4'}}>
+                                        <Icons.Globe /> 
+                                    </div>
+                                    <div className={`int-status ${systemSettings.google_enabled === 'true' || systemSettings.google_enabled === true ? '' : 'disabled'}`}>
+                                        {systemSettings.google_enabled === 'true' || systemSettings.google_enabled === true ? <><span className="pulse-dot"></span> Активен</> : 'Отключен'}
+                                    </div>
+                                </div>
+                                <h3>Google Workspace</h3>
+                                <p>Вход через аккаунт Google (OpenID Connect).</p>
+                                <div className="int-actions">
+                                    <button 
+                                        className={systemSettings.google_enabled === 'true' || systemSettings.google_enabled === true ? "btn btn-secondary" : "btn btn-primary"} 
+                                        style={{width: '100%'}} 
+                                        onClick={openGoogleModal}
+                                    >
+                                        Настроить
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
+            )}
+            {/* ==================== ВКЛАДКА: МОДЕРАЦИЯ ==================== */}
+            {activeTab === 'moderation' && (
+                <div className="admin-section">
+                    <div className="section-header">
+                        <h2>Фильтр слов</h2>
+                        <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>Запрещённые слова заменяются на *** в комментариях</span>
+                    </div>
+                    <div className="section-body">
+                        {/* Добавить одно слово */}
+                        <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+                            <input
+                                className="modern-input"
+                                style={{ flex: 1, maxWidth: 320 }}
+                                placeholder="Добавить слово..."
+                                value={newWord}
+                                onChange={e => setNewWord(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter') addWord(); }}
+                            />
+                            <button className="btn btn-primary" onClick={addWord} disabled={wordLoading || !newWord.trim()}>
+                                <Icons.Plus /> Добавить
+                            </button>
+                        </div>
 
-                <table className="data-table">
-                    <thead>
-                        <tr>
-                            <th>Имя пользователя</th>
-                            <th>Роль</th>
-                            <th>Последний вход</th>
-                            <th>Действия</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>
-                                <div style={{fontWeight: '500', color: '#fff'}}>Алексей Смирнов</div>
-                                <div style={{fontSize: '12px', color: '#666'}}>alex.smirnov@lumeo.ru</div>
-                            </td>
-                            <td><span className="role-badge teacher">Преподаватель</span></td>
-                            <td>Сегодня, 14:30</td>
-                            <td>
-                                <button className="btn-icon" title="Редактировать"><Icons.Edit /></button>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <div style={{fontWeight: '500', color: '#fff'}}>Елена Воробей</div>
-                                <div style={{fontSize: '12px', color: '#666'}}>elena.v@student.ru</div>
-                            </td>
-                            <td><span className="role-badge student">Студент</span></td>
-                            <td>Вчера, 09:15</td>
-                            <td>
-                                <button className="btn-icon" title="Редактировать"><Icons.Edit /></button>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <div style={{fontWeight: '500', color: '#fff'}}>Дмитрий Козлов</div>
-                                <div style={{fontSize: '12px', color: '#666'}}>d.kozlov@student.ru</div>
-                            </td>
-                            <td><span className="role-badge student">Студент</span></td>
-                            <td>2 дня назад</td>
-                            <td>
-                                <button className="btn-icon" title="Редактировать"><Icons.Edit /></button>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+                        {/* Массовый импорт */}
+                        <div style={{ marginBottom: 24, background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 12, padding: '16px 20px' }}>
+                            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 8 }}>Массовый импорт — вставьте слова через запятую, пробел или каждое с новой строки:</div>
+                            <textarea
+                                className="modern-textarea"
+                                style={{ minHeight: 80, marginBottom: 10 }}
+                                placeholder="мат, грубость, спам..."
+                                value={importText}
+                                onChange={e => setImportText(e.target.value)}
+                            />
+                            <button className="btn btn-secondary" onClick={importWords} disabled={wordLoading || !importText.trim()}>
+                                Импортировать
+                            </button>
+                        </div>
 
+                        {/* Топ нарушителей */}
+                        {offenders.length > 0 && (
+                            <div style={{ marginBottom: 28 }}>
+                                <div style={{ fontSize: 13, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
+                                    Топ нарушителей
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                    {offenders.map((o: any, i) => {
+                                        const u = o.user;
+                                        const initials = u ? `${u.firstName?.[0] ?? ''}${u.lastName?.[0] ?? ''}`.toUpperCase() : '?';
+                                        const lastSeen = o.lastSeen ? new Date(o.lastSeen).toLocaleDateString('ru-RU') : '—';
+                                        return (
+                                            <div key={o.userId} style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 10, padding: '10px 16px' }}>
+                                                <span style={{ fontSize: 13, color: 'var(--text-muted)', width: 20, flexShrink: 0 }}>#{i + 1}</span>
+                                                {u?.avatarUrl
+                                                    ? <img src={u.avatarUrl} style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                                                    : <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#fff', flexShrink: 0 }}>{initials}</div>
+                                                }
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-main)' }}>{u?.firstName} {u?.lastName}</div>
+                                                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{u?.email}</div>
+                                                </div>
+                                                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                                                    <div style={{ fontSize: 18, fontWeight: 700, color: '#ff4b4b' }}>{o.count}</div>
+                                                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>нарушений</div>
+                                                </div>
+                                                <div style={{ textAlign: 'right', flexShrink: 0, minWidth: 70 }}>
+                                                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>последнее</div>
+                                                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{lastSeen}</div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Список слов */}
+                        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 10 }}>
+                            Всего в списке: <strong style={{ color: 'var(--text-main)' }}>{bannedWords.length}</strong>
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                            {bannedWords.map(w => (
+                                <div key={w.id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 8, padding: '4px 10px 4px 12px', fontSize: 13 }}>
+                                    <span style={{ color: 'var(--text-main)' }}>{w.word}</span>
+                                    <button
+                                        onClick={() => removeWord(w.id)}
+                                        style={{ background: 'none', border: 'none', color: '#ff4b4b', cursor: 'pointer', padding: '0 0 0 4px', display: 'flex', alignItems: 'center' }}
+                                    >
+                                        <Icons.Close size={12} />
+                                    </button>
+                                </div>
+                            ))}
+                            {bannedWords.length === 0 && (
+                                <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Список пуст — все слова разрешены</div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </main>
       </div>
+
+    {/* ===== МОДАЛКА ОНЛАЙН ПОЛЬЗОВАТЕЛЕЙ ===== */}
+    {showOnlineModal && (
+      <div className="modal-overlay" onClick={() => setShowOnlineModal(false)}>
+        <div className="modal-content" style={{ maxWidth: 560, maxHeight: '80vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 17 }}>Онлайн сейчас</h3>
+              <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{onlineUsers.length} активных сессий</span>
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {(['all', 'student', 'teacher', 'admin'] as const).map(r => (
+                <button
+                  key={r}
+                  onClick={() => setOnlineRoleFilter(r)}
+                  style={{
+                    padding: '3px 10px', borderRadius: 12, border: 'none', cursor: 'pointer', fontSize: 12,
+                    background: onlineRoleFilter === r ? 'var(--primary)' : 'var(--card-bg)',
+                    color: onlineRoleFilter === r ? '#fff' : 'var(--text-secondary)',
+                  }}
+                >{r === 'all' ? 'Все' : ROLE_LABELS[r]}</button>
+              ))}
+            </div>
+            <button onClick={() => setShowOnlineModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: 4 }}>
+              <Icons.Close size={18} />
+            </button>
+          </div>
+          <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {onlineUsers.filter(u => onlineRoleFilter === 'all' || u.role === onlineRoleFilter).length === 0 ? (
+              <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '30px 0', fontSize: 14 }}>
+                Нет активных пользователей
+              </div>
+            ) : (
+              onlineUsers
+                .filter(u => onlineRoleFilter === 'all' || u.role === onlineRoleFilter)
+                .sort((a, b) => (b.lastSeen ?? 0) - (a.lastSeen ?? 0))
+                .map((u, i) => {
+                  const initials = `${u.firstName?.[0] ?? ''}${u.lastName?.[0] ?? ''}`.toUpperCase() || '?';
+                  const roleColor = ROLE_COLORS[u.role ?? ''] ?? '#888';
+                  return (
+                    <div key={u.userId ?? i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 10, background: 'var(--card-bg)' }}>
+                      {u.avatarUrl ? (
+                        <img src={u.avatarUrl} alt="" style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                      ) : (
+                        <div style={{ width: 38, height: 38, borderRadius: '50%', background: roleColor + '33', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 600, color: roleColor, flexShrink: 0 }}>
+                          {initials}
+                        </div>
+                      )}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : `Пользователь #${u.userId}`}
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+                          {formatPage(u.page)}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: roleColor + '22', color: roleColor, fontWeight: 500 }}>
+                          {ROLE_LABELS[u.role ?? ''] ?? u.role}
+                        </span>
+                        <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                          {formatLastSeen(u.lastSeen)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
+            )}
+          </div>
+          <div style={{ marginTop: 12, fontSize: 11, color: 'var(--text-secondary)', textAlign: 'center' }}>
+            Обновляется автоматически каждые 10 сек
+          </div>
+        </div>
+      </div>
+    )}
     </div>
   );
 };

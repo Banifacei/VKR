@@ -1,6 +1,7 @@
 // src/components/VideoPlaylist.tsx
 
 import type { IVideo } from '../types';
+import { pluralizeRu } from '../utils/pluralize';
 
 interface VideoPlaylistProps {
   videos: IVideo[];
@@ -13,7 +14,7 @@ export const VideoPlaylist = ({ videos, selectedVideoId, onSelect }: VideoPlayli
     <aside className="playlist-sidebar">
       <div className="playlist-header">
           <h3>Программа курса</h3>
-          <span className="count">{videos.length} уроков</span>
+          <span className="count">{videos.length} {pluralizeRu(videos.length, 'урок', 'урока', 'уроков')}</span>
       </div>
       <div className="playlist-scroll">
           {videos.map((v, index) => (

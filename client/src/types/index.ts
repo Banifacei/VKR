@@ -1,10 +1,21 @@
+// Добавим интерфейс для наших новых вариантов ответов
+export interface IOption {
+    text: string;
+    isCorrect: boolean;
+}
+
 export interface IInteractiveEvent {
     id: number;
     time: number;
-    type: 'question' | 'info' | 'chapter';
+    type: 'single_choice' | 'multiple_choice' | 'free_text' | 'info' | 'chapter' | 'question';
     question: string;
-    options?: string[];
+    options?: IOption[]; 
     correctAnswer?: string;
+    isStrict?: boolean;
+    weight?: number;
+    rewindTo?: number;
+    explanation?: string;
+    aiThreshold?: number;
 }
 
 export interface ISubtitle {
@@ -23,6 +34,12 @@ export interface IVideo {
     courseId?: number; 
     createdAt?: string;
     updatedAt?: string;
+    maxAttempts?: number;
+    allowExternalTest?: boolean;
+    isHidden?: boolean;
+    unlockDate?: string | null;
+    qualityUrls?: { quality: string; url: string }[];
+    noForwardSeek?: boolean;
 }
 
 export interface ICourse {
@@ -30,5 +47,8 @@ export interface ICourse {
     title: string;
     description: string;
     instructor: string;
+    ownerId?: number;
     videos?: IVideo[];
+    enrollmentType?: 'open' | 'request' | 'closed';
+    allowTeachersFreeAccess?: boolean;
 }

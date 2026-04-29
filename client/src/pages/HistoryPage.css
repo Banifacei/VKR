@@ -1,0 +1,91 @@
+/* ==========================================================
+   HistoryPage.css — история просмотров и статистика
+   ========================================================== */
+
+.dashboard-title {
+    margin: 0;
+    font-size: 1.8rem;
+    background: linear-gradient(90deg, #fff, #aaa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* Виджеты статистики */
+.stats-widgets-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+}
+.stat-widget {
+    background: #111; border: 1px solid #333;
+    border-radius: 20px; padding: 20px;
+    display: flex; align-items: center; gap: 15px;
+    transition: transform 0.2s;
+}
+.stat-widget:hover { transform: translateY(-2px); border-color: #444; }
+.highlight-widget  { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%); border: none; }
+
+.widget-icon  { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.widget-info  { display: flex; flex-direction: column; flex: 1; }
+.widget-value { font-size: 24px; font-weight: 700; color: #fff; line-height: 1.2; }
+.widget-label { font-size: 13px; color: #888; margin-top: 4px; font-weight: 500; }
+
+/* Карточки истории */
+.profile-history-card { background: #111; border: 1px solid #333; border-radius: 20px; padding: 25px; }
+.history-title {
+    margin: 0 0 20px 0; font-size: 18px; color: #fff;
+    border-bottom: 1px solid #333; padding-bottom: 15px;
+    display: flex; align-items: center; gap: 10px;
+}
+.history-list { display: flex; flex-direction: column; gap: 15px; }
+
+.history-item {
+    display: flex; gap: 20px; padding: 12px; border-radius: 12px;
+    transition: background 0.2s; cursor: pointer;
+    background: transparent; border: 1px solid transparent;
+}
+.history-item:hover { background: rgba(255,255,255,0.03); border-color: #333; }
+
+.history-video-thumb {
+    width: 160px; height: 90px; background: #222; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    color: #555; position: relative; overflow: hidden; flex-shrink: 0;
+}
+
+.history-progress-bar         { position: absolute; bottom: 0; left: 0; height: 4px; background: #f00; }
+.history-progress-bar.full    { width: 100%; background: #4dff88; }
+.history-progress-bar.partial { width: 60%; background: var(--warning); }
+
+.history-video-info    { display: flex; flex-direction: column; justify-content: center; }
+.history-video-title   { font-size: 16px; font-weight: 600; color: #fff; margin-bottom: 6px; }
+.history-video-course  { font-size: 13px; color: #888; margin-bottom: 12px; }
+.history-meta          { display: flex; align-items: center; gap: 15px; }
+.history-date          { font-size: 12px; color: #666; }
+
+.history-badge         { font-size: 11px; padding: 4px 10px; border-radius: 6px; font-weight: 600; display: flex; align-items: center; gap: 4px; }
+.history-badge.success { background: rgba(var(--success-rgb),0.1); color: #4dff88; }
+.history-badge.warning { background: rgba(var(--warning-rgb),0.15); color: var(--warning); }
+
+/* Карточки незавершённых */
+.unfinished-card { border: 1px solid rgba(var(--warning-rgb),0.3); background: linear-gradient(180deg, rgba(var(--warning-rgb),0.03) 0%, #111 100%); }
+.unfinished-item { background: rgba(var(--warning-rgb),0.02); border: 1px solid rgba(var(--warning-rgb),0.1); }
+.unfinished-item:hover { background: rgba(var(--warning-rgb),0.05); border-color: rgba(var(--warning-rgb),0.3); }
+
+.empty-history { text-align: center; padding: 40px 20px; color: #666; }
+
+/* Адаптив */
+@media (max-width: 600px) {
+    .stats-widgets-grid { grid-template-columns: 1fr; }
+    .history-item       { flex-direction: column; }
+    .history-video-thumb { width: 100%; height: 160px; }
+    .dashboard-title    { font-size: 1.4rem; }
+    .profile-history-card { padding: 16px; }
+    .history-title      { font-size: 15px; }
+}
+@media (max-width: 480px) {
+    .stats-widgets-grid { gap: 10px; }
+    .stat-widget        { padding: 14px; }
+    .widget-value       { font-size: 20px; }
+    .history-video-title { font-size: 14px; }
+    .history-meta       { flex-wrap: wrap; gap: 8px; }
+}

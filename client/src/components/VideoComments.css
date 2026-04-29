@@ -1,0 +1,103 @@
+.vc-root { margin-top: 32px; }
+
+.vc-heading {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 16px; font-weight: 700; color: #fff;
+    margin: 0 0 20px;
+}
+.vc-count {
+    background: rgba(255,255,255,0.08);
+    border-radius: 10px; padding: 1px 8px;
+    font-size: 12px; color: #888; font-weight: 500;
+}
+
+/* ── Form ── */
+.vc-form { margin-bottom: 28px; }
+.vc-reply-hint {
+    font-size: 12px; color: #888; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 8px;
+}
+.vc-reply-hint em { color: var(--primary, #00ff88); font-style: normal; }
+.vc-reply-hint button { background: none; border: none; color: #555; cursor: pointer; font-size: 14px; }
+
+.vc-input {
+    width: 100%; box-sizing: border-box;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    color: #fff; font-family: inherit; font-size: 14px;
+    padding: 12px 14px; resize: vertical;
+    transition: border-color 0.15s;
+    outline: none;
+}
+.vc-input:focus { border-color: rgba(255,255,255,0.2); }
+.vc-input::placeholder { color: #555; }
+
+.vc-form-footer {
+    display: flex; justify-content: space-between;
+    align-items: center; margin-top: 8px;
+}
+.vc-char-count { font-size: 11px; color: #555; }
+.vc-submit { padding: 8px 20px; font-size: 13px; }
+
+.vc-login-hint { color: #555; font-size: 13px; margin-bottom: 24px; }
+
+/* ── List ── */
+.vc-list { display: flex; flex-direction: column; gap: 0; }
+.vc-loading, .vc-empty { color: #555; font-size: 13px; padding: 20px 0; text-align: center; }
+
+/* ── Comment ── */
+.vc-comment {
+    display: flex; gap: 12px;
+    padding: 16px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.vc-comment:last-child { border-bottom: none; }
+.vc-reply {
+    margin-left: 44px; margin-top: 12px;
+    padding: 12px 0 0;
+    border-bottom: none;
+}
+
+.vc-avatar {
+    width: 36px; height: 36px;
+    border-radius: 50%; object-fit: cover; flex-shrink: 0;
+}
+.vc-avatar-placeholder {
+    background: var(--primary, #00ff88);
+    color: #000; display: flex;
+    align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700;
+}
+
+.vc-comment-body { flex: 1; min-width: 0; }
+.vc-comment-meta {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 6px;
+}
+.vc-author { font-size: 13px; font-weight: 600; color: #ddd; display: flex; align-items: center; gap: 6px; }
+.vc-role-badge {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    background: rgba(0,255,136,0.1); color: var(--primary, #00ff88);
+    border: 1px solid rgba(0,255,136,0.2); border-radius: 4px; padding: 1px 6px;
+}
+.vc-date { font-size: 11px; color: #555; }
+.vc-text { font-size: 14px; color: #bbb; line-height: 1.6; margin: 0 0 8px; white-space: pre-wrap; word-break: break-word; }
+
+.vc-actions { display: flex; gap: 12px; }
+.vc-action-btn {
+    background: none; border: none;
+    font-size: 12px; color: #555; cursor: pointer;
+    font-family: inherit; padding: 0;
+    display: flex; align-items: center; gap: 4px;
+    transition: color 0.15s;
+}
+.vc-action-btn:hover { color: #aaa; }
+.vc-action-btn.danger:hover { color: #ff4d4d; }
+
+/* ── Мобиле: уменьшаем отступ вложенных ответов ── */
+@media (max-width: 480px) {
+    .vc-reply { margin-left: 28px; }
+    .vc-avatar { width: 28px; height: 28px; }
+    .vc-avatar-placeholder { font-size: 11px; }
+    .vc-root { margin-top: 20px; }
+}
