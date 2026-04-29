@@ -93,3 +93,11 @@
 }
 .vc-action-btn:hover { color: #aaa; }
 .vc-action-btn.danger:hover { color: #ff4d4d; }
+
+/* ── Мобиле: уменьшаем отступ вложенных ответов ── */
+@media (max-width: 480px) {
+    .vc-reply { margin-left: 28px; }
+    .vc-avatar { width: 28px; height: 28px; }
+    .vc-avatar-placeholder { font-size: 11px; }
+    .vc-root { margin-top: 20px; }
+}

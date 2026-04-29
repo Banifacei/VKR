@@ -1,7 +1,7 @@
 import express, { Router } from 'express';
 import passport from 'passport';
 import rateLimit from 'express-rate-limit';
-import { register, login, updateProfile, getMe, yandexLoginRedirect, yandexCallback, getAuthSettings, googleLoginRedirect, googleCallback, samlLoginRedirect, samlCallback, exchangeOAuthCode, forgotPassword, resetPassword } from '../controllers/authController.js';
+import { register, login, updateProfile, getMe, yandexLoginRedirect, yandexCallback, getAuthSettings, googleLoginRedirect, googleCallback, samlLoginRedirect, samlCallback, exchangeOAuthCode, forgotPassword, resetPassword, verifyEmail, resendVerification } from '../controllers/authController.js';
 import { checkAuth, createSseTicket } from '../middleware/authMiddleware.js';
 
 const router = Router();
@@ -20,6 +20,8 @@ router.post('/register', authLimiter, register);
 router.post('/login', authLimiter, login);
 router.post('/forgot-password', authLimiter, forgotPassword);
 router.post('/reset-password', authLimiter, resetPassword);
+router.post('/verify-email', authLimiter, verifyEmail);
+router.post('/resend-verification', authLimiter, resendVerification);
 router.post('/exchange', authLimiter, exchangeOAuthCode);
 router.put('/update', checkAuth, updateProfile);
 router.get('/me', checkAuth, getMe);

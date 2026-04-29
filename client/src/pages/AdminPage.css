@@ -8,6 +8,7 @@
     display: flex;
     flex-direction: column;
     height: 100vh;
+    height: 100dvh;
     background: transparent;
     color: var(--text-main);
     font-family: 'Inter', sans-serif;
@@ -642,3 +643,32 @@ label.dont-show-again input[type="checkbox"]:checked + .custom-checkbox::after {
 .system-alert.alert-critical .alert-title { color: #fca5a5; }
 .system-alert.alert-critical .alert-action-btn { color: #f87171; }
 .system-alert.alert-critical .alert-action-btn:hover { background: rgba(248, 113, 113, 0.15); }
+
+/* ==========================================================
+   МОБИЛЬНАЯ АДАПТАЦИЯ
+   ========================================================== */
+
+@media (max-width: 900px) {
+    .dashboard-columns { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 768px) {
+    .admin-layout { padding: 24px 20px; }
+    .admin-header h1 { font-size: 24px; }
+    .metrics-row { grid-template-columns: repeat(2, 1fr); gap: 14px; }
+    .admin-tabs { overflow-x: auto; padding-bottom: 4px; gap: 6px; scrollbar-width: none; }
+    .admin-tabs::-webkit-scrollbar { display: none; }
+    .admin-tab { padding: 8px 14px; font-size: 13px; white-space: nowrap; }
+}
+
+@media (max-width: 480px) {
+    .admin-layout { padding: 14px 12px; }
+    .admin-header h1 { font-size: 20px; }
+    .admin-header p { font-size: 13px; }
+    .metrics-row { gap: 10px; }
+    .stat-card.mini { padding: 14px; gap: 10px; }
+    .stat-value { font-size: 20px; }
+    .section-header { padding: 14px 16px; }
+    .section-body { padding: 14px; }
+    .lumeo-header { padding: 0 14px; }
+}

@@ -41,7 +41,7 @@ export const HistoryPage = () => {
         <div className="lumeo-layout">
             <AppHeader showSearch={false} showNotifications={false} backButton />
 
-            <div className="lumeo-container profile-wrapper">
+            <div className="profile-wrapper">
                 <div className="profile-dashboard">
                     
                     {/* САЙДБАР (Идентичный ProfilePage) */}
@@ -67,7 +67,9 @@ export const HistoryPage = () => {
                             <button className={`profile-nav-btn ${location.pathname === '/profile' ? 'active' : ''}`} onClick={() => navigate('/profile', { replace: true })}>
                                 <Icons.SettingsIcon /> Настройки аккаунта
                             </button>
-                            
+                            <button className={`profile-nav-btn ${location.pathname === '/appearance' ? 'active' : ''}`} onClick={() => navigate('/profile', { replace: true, state: { tab: 'appearance' } })}>
+                                <Icons.Palette /> Внешний вид
+                            </button>
                             {userData.role === 'student' && (
                                 <button className={`profile-nav-btn ${location.pathname === '/history' ? 'active' : ''}`} onClick={() => navigate('/history', { replace: true })}>
                                     <Icons.StatsIcon /> Статистика и история

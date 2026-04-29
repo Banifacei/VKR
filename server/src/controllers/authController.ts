@@ -57,12 +57,12 @@ export const register = async (req: Request, res: Response) => {
         }
 
         const existingUser = await User.findOne({
-            where: { 
+            where: {
                 [Op.or]: [
                     { email },
                     ...(phone ? [{ phone }] : [])
                 ]
-            } 
+            }
         });
 
         if (existingUser) {
@@ -70,11 +70,40 @@ export const register = async (req: Request, res: Response) => {
         }
 
         const hash = await bcrypt.hash(password, 10);
+        const smtpConfigured = !!(process.env.SMTP_USER && process.env.SMTP_PASS);
+
+        if (smtpConfigured) {
+            const code = String(Math.floor(100000 + Math.random() * 900000));
+            await User.create({
+                firstName,
+                lastName,
+                middleName: middleName || null,
+                email,
+                phone: phone || null,
+                password: hash,
+                status: 'email_pending',
+                authProvider: 'local',
+                emailVerificationToken: code,
+                emailVerificationExpiry: new Date(Date.now() + 30 * 60 * 1000),
+            });
+            const { sendMail } = await import('../utils/mailer.js');
+            await sendMail(
+                email,
+                'Подтверждение почты — Lumeo',
+                `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:20px">
+                    <h2 style="color:#00aeef;margin-bottom:16px">Подтверждение email</h2>
+                    <p>Для завершения регистрации на <strong>Lumeo</strong> введите код:</p>
+                    <div style="font-size:36px;font-weight:bold;letter-spacing:10px;text-align:center;margin:24px 0;color:#111;background:#f0f0f0;padding:20px;border-radius:12px">${code}</div>
+                    <p style="color:#888;font-size:13px">Код действует <strong>30 минут</strong>. Если вы не регистрировались — проигнорируйте письмо.</p>
+                </div>`,
+            );
+            return res.status(201).json({ message: 'Код подтверждения отправлен на почту', status: 'verify_email' });
+        }
 
         const setting = await SystemSetting.findOne({ where: { key: 'registration_requires_approval' } });
-        const requiresApproval = setting ? setting.value : false; // По умолчанию пропускаем всех
+        const requiresApproval = setting?.value === 'true';
         const userStatus = requiresApproval ? 'pending' : 'active';
-        
+
         const user = await User.create({
             firstName,
             lastName,
@@ -94,11 +123,11 @@ export const register = async (req: Request, res: Response) => {
                 email,
                 name: `${firstName} ${lastName}`,
             });
-            res.status(201).json({ message: 'Заявка отправлена на рассмотрение', status: 'pending' });
-        } else {
-            addSystemLog(`Новый пользователь зарегистрирован: ${email}`, 'success');
-            res.status(201).json({ message: 'Регистрация успешна', status: 'active' });
+            return res.status(201).json({ message: 'Заявка отправлена на рассмотрение', status: 'pending' });
         }
+
+        addSystemLog(`Новый пользователь зарегистрирован: ${email}`, 'success');
+        res.status(201).json({ message: 'Регистрация успешна', status: 'active' });
     } catch (e) {
         console.error(e);
         res.status(500).json({ message: 'Ошибка регистрации' });
@@ -188,6 +217,9 @@ export const login = async (req: Request, res: Response) => {
                 return res.status(401).json({ message: 'Неверный логин или пароль' });
             }
 
+            if (user.status === 'email_pending') {
+                return res.status(403).json({ status: 'email_pending', message: 'Подтвердите email для входа' });
+            }
             if (user.status === 'pending') {
                 return res.json({ status: 'pending', message: 'Ваш аккаунт находится на рассмотрении' });
             }
@@ -674,5 +706,89 @@ export const resetPassword = async (req: Request, res: Response) => {
     } catch (e) {
         console.error('[resetPassword]', e);
         res.status(500).json({ message: 'Ошибка сервера.' });
+    }
+};
+
+// POST /api/auth/verify-email  { email, code }
+export const verifyEmail = async (req: Request, res: Response) => {
+    try {
+        const { email, code } = req.body;
+        if (!email || !code) {
+            return res.status(400).json({ message: 'Email и код обязательны' });
+        }
+
+        const user = await User.findOne({
+            where: {
+                email: (email as string).toLowerCase().trim(),
+                status: 'email_pending',
+                emailVerificationToken: String(code).trim(),
+                emailVerificationExpiry: { [Op.gt]: new Date() },
+            },
+        });
+
+        if (!user) {
+            return res.status(400).json({ message: 'Неверный код или срок действия истёк' });
+        }
+
+        const setting = await SystemSetting.findOne({ where: { key: 'registration_requires_approval' } });
+        const requiresApproval = setting?.value === 'true';
+
+        user.emailVerificationToken = null;
+        user.emailVerificationExpiry = null;
+        user.status = requiresApproval ? 'pending' : 'active';
+        await user.save();
+
+        if (requiresApproval) {
+            addSystemLog(`Новая заявка на регистрацию: ${user.email}`, 'warning');
+            adminSse.broadcast({
+                type: 'pending_user',
+                userId: user.id,
+                email: user.email,
+                name: `${user.firstName} ${user.lastName}`,
+            });
+            return res.json({ status: 'pending', message: 'Почта подтверждена. Заявка отправлена на рассмотрение.' });
+        }
+
+        addSystemLog(`Новый пользователь зарегистрирован: ${user.email}`, 'success');
+        res.json({ status: 'active', message: 'Почта подтверждена! Теперь можете войти.' });
+    } catch (e) {
+        console.error('[verifyEmail]', e);
+        res.status(500).json({ message: 'Ошибка сервера' });
+    }
+};
+
+// POST /api/auth/resend-verification  { email }
+export const resendVerification = async (req: Request, res: Response) => {
+    const ok = () => res.json({ message: 'Если аккаунт ожидает подтверждения — код отправлен.' });
+    try {
+        const { email } = req.body;
+        if (!email) return ok();
+
+        const user = await User.findOne({
+            where: { email: (email as string).toLowerCase().trim(), status: 'email_pending' },
+        });
+        if (!user) return ok();
+
+        const code = String(Math.floor(100000 + Math.random() * 900000));
+        user.emailVerificationToken = code;
+        user.emailVerificationExpiry = new Date(Date.now() + 30 * 60 * 1000);
+        await user.save();
+
+        const { sendMail } = await import('../utils/mailer.js');
+        await sendMail(
+            user.email,
+            'Новый код подтверждения — Lumeo',
+            `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:20px">
+                <h2 style="color:#00aeef;margin-bottom:16px">Новый код подтверждения</h2>
+                <p>Ваш новый код для активации аккаунта на <strong>Lumeo</strong>:</p>
+                <div style="font-size:36px;font-weight:bold;letter-spacing:10px;text-align:center;margin:24px 0;color:#111;background:#f0f0f0;padding:20px;border-radius:12px">${code}</div>
+                <p style="color:#888;font-size:13px">Код действует <strong>30 минут</strong>.</p>
+            </div>`,
+        );
+
+        ok();
+    } catch (e) {
+        console.error('[resendVerification]', e);
+        ok();
     }
 };

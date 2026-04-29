@@ -54,6 +54,12 @@ export class User extends Model {
     @Column({ type: DataType.DATE, allowNull: true })
     declare resetTokenExpiry: Date | null;
 
+    @Column({ type: DataType.STRING, allowNull: true })
+    declare emailVerificationToken: string | null;
+
+    @Column({ type: DataType.DATE, allowNull: true })
+    declare emailVerificationExpiry: Date | null;
+
     // --- СВЯЗИ ---
 
     @HasMany(() => UserResponse)

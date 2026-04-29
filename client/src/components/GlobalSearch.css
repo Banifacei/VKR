@@ -204,7 +204,9 @@
 .header-search-center {
     display: flex;
     justify-content: center;
-    width: 460px;
+    flex: 1;
+    max-width: 460px;
+    min-width: 0;
 }
 
 .header-search-center .gs-trigger {

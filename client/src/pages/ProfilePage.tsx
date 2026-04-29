@@ -18,7 +18,9 @@ export const ProfilePage = () => {
         try { return saved ? JSON.parse(saved) : {}; } catch (e) { return {}; }
     });
 
-    const [activeSection, setActiveSection] = useState<'account' | 'appearance'>('account');
+    const [activeSection, setActiveSection] = useState<'account' | 'appearance'>(
+        (location.state as any)?.tab === 'appearance' ? 'appearance' : 'account'
+    );
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [firstName, setFirstName] = useState(userData.firstName || '');
     const [lastName, setLastName] = useState(userData.lastName || '');
@@ -96,7 +98,7 @@ export const ProfilePage = () => {
             
             <AppHeader showSearch={false} showNotifications={false} backButton />
 
-            <div className="lumeo-container profile-wrapper">
+            <div className="profile-wrapper">
                 <div className="profile-dashboard">
                     
                     {/* САЙДБАР ОБЩИЙ */}

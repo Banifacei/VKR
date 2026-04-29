@@ -54,7 +54,6 @@ export const TestRunner = ({ test, onExit, onSuccess, userRole }: TestRunnerProp
         setAnswers({ ...answers, [currentQ.id]: val });
     };
 
-    // НОВОЕ: Хендлер для множественного выбора (multiple_choice)
     const handleMultipleChoice = (optText: string) => {
         const currentArr = answers[currentQ.id] || [];
         if (currentArr.includes(optText)) {
@@ -203,7 +202,6 @@ export const TestRunner = ({ test, onExit, onSuccess, userRole }: TestRunnerProp
                             
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '400px', overflowY: 'auto', paddingRight: '10px' }}>
                                 {questions.map((q, idx) => {
-                                    // НОВОЕ: Берем результаты проверки с бэкенда!
                                     const resData = detailedResults[q.id] || {};
                                     const userAns = resData.answer;
                                     const isCorrect = resData.isCorrect || false;

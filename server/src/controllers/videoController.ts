@@ -1145,13 +1145,21 @@ export const applyForCourse = async (req: Request, res: Response) => {
         // Уведомляем владельца курса о новой заявке (если статус pending)
         if (status === 'pending') {
             const applicant = await User.findByPk(userId, { attributes: ['firstName', 'lastName'] });
+            const applicantName = applicant ? `${applicant.firstName} ${applicant.lastName}` : `ID:${userId}`;
             enrollCourseSse.broadcast(Number(courseId), {
                 type: 'new_request',
                 courseId: Number(courseId),
                 enrollmentId: enrollment.id,
                 userId,
-                userName: applicant ? `${applicant.firstName} ${applicant.lastName}` : `ID:${userId}`,
+                userName: applicantName,
             });
+            sendNotification(
+                course.ownerId,
+                'enrollment_request',
+                'Новая заявка на курс',
+                `${applicantName} хочет записаться на курс «${course.title}»`,
+                `/course/${course.id}/enrollments`,
+            );
         }
 
         res.json({ success: true, status: enrollment.status });

@@ -133,6 +133,7 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   const originalRateRef = useRef(1);                        // Запоминаем исходную скорость
 
   const isLongPressActiveRef = useRef(false); // Флаг: сейчас активно удержание?
+  const isTouchPressRef = useRef(false);      // Флаг: текущий press начался с touch (не mouse)?
   const wasPlayingRef = useRef(false);        // Флаг: играло ли видео ДО нажатия?
   const isSeekingRef = useRef(false);         // Флаг: идёт перемотка
   const lastQualitySwitchRef = useRef(0);     // Время последнего авто-переключения качества
@@ -429,6 +430,10 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
                           setIsPlaying(true);
                       } else if (event.data === YTState.PAUSED) {
                           setIsPlaying(false);
+                          if (videoId) {
+                              const t = ytPlayerRef.current?.getCurrentTime?.() ?? externalTimeRef.current;
+                              savePlaybackProgress(videoId, t, false).catch(() => {});
+                          }
                       } else if (event.data === YTState.ENDED) {
                           handleVideoEnd();
                       }
@@ -553,7 +558,8 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
 
   // --- ЛОГИКА НАЖАТИЯ (Smart Touch/Click) ---
   
-  const handlePressStart = () => {
+  const handlePressStart = (e?: React.TouchEvent<any> | React.MouseEvent<any>) => {
+      isTouchPressRef.current = !!(e && 'touches' in e);
       if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
 
       // Запоминаем состояние (играло или нет), чтобы вернуть его при отмене
@@ -615,7 +621,13 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
       // 3. Если ускорения НЕ было -> Значит это обычный КЛИК -> Пауза/Плей
       else {
           if (!activeEvent) {
-              togglePlay();
+              // YouTube-стиль для touch: первый тап при скрытых контролах — показать контролы,
+              // второй тап (контролы уже видны) — пауза/плей. Mouse-клик всегда переключает.
+              if (isTouchPressRef.current && !showControls) {
+                  showControlsTemporarily();
+              } else {
+                  togglePlay();
+              }
           }
       }
   };
@@ -1070,6 +1082,7 @@ const handleVideoDoubleClick = (e: React.MouseEvent) => {
               setHasNewAnswers(false);
           }
       }
+      showControlsTemporarily();
   };
 
   // --- NEW: Обработка движения мыши по прогресс-бару (для тултипа и подсветки) ---
@@ -1216,6 +1229,7 @@ useEffect(() => {
 
   // Переключение качества с сохранением позиции
   const switchQuality = (newSource: typeof safeSource, auto = false) => {
+      if (newSource.url === currentSource.url) return; // то же качество — ничего не делаем
       const savedTime = videoRef.current?.currentTime || 0;
       const wasPlaying = !videoRef.current?.paused;
       if (!auto) {
@@ -1606,12 +1620,6 @@ const renderMainMenu = () => (
         className={`yt-video ${showControls ? 'controls-visible' : ''}`}
         playsInline
         preload="metadata"
-        onDoubleClick={handleVideoDoubleClick}
-        onMouseDown={handlePressStart}
-        onTouchStart={handlePressStart}
-        onMouseUp={handlePressEnd}
-        onTouchEnd={handlePressEnd}
-        onMouseLeave={handlePressCancel}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={() => {
             setDuration(videoRef.current?.duration || 0);
@@ -1625,7 +1633,7 @@ const renderMainMenu = () => (
                 safePlay();
             }
         }}
-        onLoadStart={() => setIsBuffering(true)}
+        onLoadStart={() => { setIsBuffering(true); isSeekingRef.current = false; }}
         onLoadedData={() => setIsBuffering(false)}
         onPlay={() => setIsPlaying(true)}
         onPlaying={() => setIsBuffering(false)}
@@ -1660,6 +1668,21 @@ const renderMainMenu = () => (
               <track key={idx} kind="subtitles" src={normalizeUploadUrl(sub.src)} srcLang={sub.lang} label={sub.label} />
           ))}
       </video>
+
+      {/* Прозрачный overlay для нативного видео — перехватывает touch/click до браузера,
+          чтобы iOS Safari не мог перехватить тап для нативных видео-контролов */}
+      {!currentEmbedUrl && (
+          <div
+              style={{ position: 'absolute', inset: 0, zIndex: 2, cursor: 'pointer', touchAction: 'manipulation' }}
+              onDoubleClick={handleVideoDoubleClick}
+              onMouseDown={(e) => { containerRef.current?.focus(); handlePressStart(e); }}
+              onMouseUp={handlePressEnd}
+              onMouseLeave={handlePressCancel}
+              onTouchStart={handlePressStart}
+              onTouchEnd={handlePressEnd}
+              onTouchCancel={handlePressCancel}
+          />
+      )}
 
       {isBuffering && !currentEmbedUrl && (
           <div style={{
@@ -1831,13 +1854,15 @@ const renderMainMenu = () => (
                 </button>
             )}
             
-            <button 
-                className="yt-btn" 
-                onClick={() => videoRef.current?.requestPictureInPicture()}
+            {!currentEmbedUrl && document.pictureInPictureEnabled && (
+            <button
+                className="yt-btn"
+                onClick={() => videoRef.current?.requestPictureInPicture().catch(() => {})}
                 title="Картинка в картинке"
             >
                 <VideoPlayeIcons.Pip />
             </button>
+            )}
             
             <div className="settings-wrapper" ref={settingsRef}>
               <button 

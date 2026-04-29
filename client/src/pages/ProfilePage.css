@@ -5,10 +5,12 @@
 
 .profile-wrapper {
     display: flex;
+    flex: 1;
+    min-height: 0;          /* flex-shrink работает корректно */
+    overflow-y: auto;
     justify-content: center;
     align-items: flex-start;
     padding: 40px 20px;
-    min-height: calc(100vh - 80px);
 }
 
 .profile-dashboard {
@@ -28,7 +30,8 @@
     box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     height: fit-content;
     position: sticky;
-    top: 100px;
+    top: 20px;              /* sticky относительно profile-wrapper (скролл-контейнер) */
+    align-self: flex-start; /* не растягивается вслед за main-area */
 }
 
 .sidebar-avatar-section {
@@ -92,7 +95,14 @@
 .profile-nav-btn:hover  { background: rgba(255,255,255,0.03); color: #fff; }
 .profile-nav-btn.active { background: rgba(0,174,239,0.1); color: var(--primary); border-color: rgba(0,174,239,0.3); }
 
-.profile-main-area { display: flex; flex-direction: column; gap: 25px; }
+.profile-main-area {
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+    min-height: 500px;      /* предотвращает резкое схлопывание при смене вкладок */
+    align-self: flex-start;
+    width: 100%;
+}
 
 /* Основная карточка настроек */
 .profile-glass-card {
@@ -151,6 +161,18 @@
     .input-grid-2 { grid-template-columns: 1fr; }
     .profile-wrapper { padding: 24px 14px; }
     .profile-glass-card { padding: 24px 18px; }
+
+    /* Горизонтальный скролл для навигации */
+    .profile-nav-menu {
+        flex-direction: row;
+        overflow-x: auto;
+        gap: 8px;
+        padding-bottom: 4px;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+    }
+    .profile-nav-menu::-webkit-scrollbar { display: none; }
+    .profile-nav-btn { white-space: nowrap; flex-shrink: 0; padding: 10px 14px; font-size: 13px; }
 }
 @media (max-width: 480px) {
     .profile-wrapper { padding: 16px 12px; }

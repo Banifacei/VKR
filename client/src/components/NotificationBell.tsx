@@ -19,6 +19,7 @@ interface INotification {
 const typeIcon: Record<string, React.ReactNode> = {
     enrollment_approved: <Icons.Check   size={13} color="#00ff88" />,
     enrollment_rejected: <Icons.Fail    size={13} color="#ff4d4d" />,
+    enrollment_request:  <Icons.Bell    size={13} color="#f09819" />,
     new_content:         <Icons.Video   size={13} color="#4285f4" />,
     course_completed:    <Icons.Trophy  size={13} color="#f0c040" />,
     course_request:      <Icons.Bell    size={13} color="#f09819" />,

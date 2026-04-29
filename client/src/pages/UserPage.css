@@ -8,6 +8,7 @@
     display: flex;
     flex-direction: column;
     height: 100vh;
+    height: 100dvh;
     background: transparent;
     color: var(--text-main);
     font-family: 'Inter', -apple-system, sans-serif;
@@ -347,4 +348,10 @@
     .content-card { height: auto; min-height: 180px; }
     .course-title-large { font-size: 1.3rem; }
     .user-name-badge { padding: 6px 10px; font-size: 13px; }
+    .video-info h1 { font-size: 18px; }
+    .video-meta { font-size: 12px; }
+    /* Тест: результаты */
+    .score-circle { width: 90px; height: 90px; font-size: 24px; border-width: 6px; }
+    .runner-container { padding: 12px; min-height: auto; }
+    .runner-card { padding: 16px; }
 }
