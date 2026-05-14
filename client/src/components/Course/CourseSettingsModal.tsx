@@ -31,7 +31,6 @@ export const CourseSettingsModal = ({
     const [settingsTab, setSettingsTab] = useState<'info' | 'team' | 'enrollments'>('info');
     const [editCourseData, setEditCourseData] = useState({ title: '', description: '', instructor: '', enrollmentType: 'open', allowTeachersFreeAccess: false });
     
-    // 🔥 НОВЫЕ СТЕЙТЫ ДЛЯ ЗАЯВОК
     const [enrollmentFilter, setEnrollmentFilter] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'banned'>('all');
     const [isMassApproving, setIsMassApproving] = useState(false);
     const [courseBans, setCourseBans] = useState<any[]>([]);
@@ -151,7 +150,6 @@ export const CourseSettingsModal = ({
         }
     };
 
-    // 🔥 ФИЛЬТРАЦИЯ ЗАЯВОК
     const filteredEnrollments = enrollmentFilter === 'banned'
         ? []
         : enrollmentsList.filter(req => {
@@ -348,7 +346,6 @@ export const CourseSettingsModal = ({
 
                             <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '10px 0' }} />
 
-                            {/* 🔥 НОВОЕ: ПАНЕЛЬ ФИЛЬТРОВ И МАССОВЫХ ДЕЙСТВИЙ */}
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                                 <div style={{ display: 'flex', gap: '8px', background: 'var(--bg-card)', padding: '4px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
                                     <button onClick={() => setEnrollmentFilter('all')} style={{ padding: '6px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', background: enrollmentFilter === 'all' ? '#333' : 'transparent', color: enrollmentFilter === 'all' ? 'var(--text-main)' : 'var(--text-muted)', fontSize: '12px', fontWeight: 'bold', transition: '0.2s' }}>Все ({enrollmentsList.length})</button>
@@ -416,7 +413,6 @@ export const CourseSettingsModal = ({
                                 ))
                             )}
 
-                            {/* 🔥 ОБНОВЛЕННЫЙ СПИСОК ЗАЯВОК (С ФИЛЬТРОМ И ИСКЛЮЧЕНИЕМ) */}
                             {enrollmentFilter !== 'banned' && (filteredEnrollments.length === 0 ? (
                                 <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>
                                     <div style={{ fontSize: '40px', marginBottom: '10px' }}>📭</div>

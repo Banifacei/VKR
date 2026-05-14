@@ -2099,12 +2099,20 @@ video.controls-visible::-webkit-media-text-track-container { transform: translat
 /* ── Шапка: скрываем текстовые nav-ссылки на телефонах ── */
 @media (max-width: 600px) {
   .lumeo-header .nav-link { display: none; }
+  /* Текстовые кнопки-навигации в шапке (children AppHeader) скрываем */
+  .lumeo-header .btn.btn-ghost { display: none; }
+  /* subtitle рядом с логотипом — скрываем на маленьком экране */
+  .logo-group span[style] { display: none; }
 }
 
 /* ── Шапка: общий адаптив ── */
+.gs-mobile-search-btn { display: none; }
+
 @media (max-width: 480px) {
   .lumeo-header { padding: 0 12px !important; height: 52px !important; flex-shrink: 0; }
   .logo, .logo-link { font-size: 18px !important; }
+  .header-search-center { display: none; }
+  .gs-mobile-search-btn { display: flex; }
 }
 
 /* ── Кнопки: минимальный размер для касания на тачскрине ── */
@@ -2119,10 +2127,15 @@ video.controls-visible::-webkit-media-text-track-container { transform: translat
 
 /* ── Dropdown: на мобиле на всю доступную ширину ── */
 @media (max-width: 480px) {
-  .profile-dropdown { width: min(200px, calc(100vw - 32px)); right: 0; }
+  .profile-dropdown { width: min(240px, calc(100vw - 24px)); right: 0; }
 }
 
 /* ── Таблицы: горизонтальный скролл везде ── */
 @media (max-width: 768px) {
   .table-responsive { -webkit-overflow-scrolling: touch; }
+}
+
+/* ── Страницы без боковой панели: безопасные поля для мобилки ── */
+@media (max-width: 480px) {
+  .main-content { padding-left: 12px !important; padding-right: 12px !important; }
 }

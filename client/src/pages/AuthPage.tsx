@@ -11,7 +11,7 @@ import { BannedModal } from '../components/BannedModal';
 export const AuthPage = () => {
     const { globalTheme } = useTheme();
     const { showToast } = useToast();
-    const [authProviders, setAuthProviders] = useState({ yandex: false, google: false, saml: false });
+    const [authProviders, setAuthProviders] = useState({ yandex: false, google: false, saml: false, esia: false });
 
     useEffect(() => {
         api.get('/auth/settings')
@@ -286,7 +286,7 @@ export const AuthPage = () => {
                         <>
                             {!isLogin && (
                                 <>
-                                    <div style={{display: 'flex', gap: '10px'}}>
+                                    <div className="name-inputs-grid">
                                         <div className="input-container">
                                             <input className="auth-input" placeholder="Имя" value={firstName} onChange={e => setFirstName(e.target.value)} />
                                         </div>
@@ -357,7 +357,7 @@ export const AuthPage = () => {
                                 </div>
                             )}
 
-                            {isLogin && (authProviders.yandex || authProviders.google || authProviders.saml) && (
+                            {isLogin && (authProviders.yandex || authProviders.google || authProviders.saml || true) && (
                                 <div className="sso-container">
                                     <div className="auth-divider">
                                         <span>или</span>
@@ -398,6 +398,22 @@ export const AuthPage = () => {
                                                     <Icons.Building /> Корпоративный портал
                                                 </button>
                                             )}
+                                            {/* ЕСИА — проектируемая интеграция */}
+                                            <div title="Интеграция с Госуслугами требует регистрации организации в Минцифры. Запланировано к подключению.">
+                                                <button
+                                                    className="btn btn-secondary"
+                                                    type="button"
+                                                    disabled
+                                                    style={{ width: '100%', opacity: 0.5, cursor: 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
+                                                >
+                                                    <svg width="18" height="18" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                        <circle cx="50" cy="50" r="48" fill="#0066cc" stroke="#004499" strokeWidth="2"/>
+                                                        <text x="50" y="67" textAnchor="middle" fill="white" fontSize="52" fontWeight="bold" fontFamily="Arial">Г</text>
+                                                    </svg>
+                                                    Войти через Госуслуги
+                                                    <span style={{ fontSize: '10px', background: 'rgba(255,255,255,0.15)', padding: '2px 6px', borderRadius: '4px' }}>скоро</span>
+                                                </button>
+                                            </div>
                                         </div>
                                     )}
                                 </div>

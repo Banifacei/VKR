@@ -43,7 +43,6 @@ export const UserProfile = ({ user, onLogout }: UserProfileProps) => {
                         src={user.avatarUrl} 
                         alt="avatar" 
                         className="avatar-img" 
-                        // 🔥 ФИКС: Если картинка не прогрузилась (403/404), показываем инициал
                         onError={(e) => {
                             (e.target as HTMLImageElement).style.display = 'none';
                             (e.target as HTMLImageElement).parentElement!.innerText = initial;
@@ -64,9 +63,9 @@ export const UserProfile = ({ user, onLogout }: UserProfileProps) => {
                 <div className="profile-dropdown">
                     <button 
                         className="dropdown-item" 
-                        onClick={() => { 
+                        onClick={() => {
                             setIsOpen(false);
-                            navigate('/profile'); // <-- ПРОСТО ПЕРЕХОДИМ НА СТРАНИЦУ
+                            navigate('/profile');
                         }}
                     >
                         <Icons.Settings size={14}/> Настройки
@@ -74,15 +73,15 @@ export const UserProfile = ({ user, onLogout }: UserProfileProps) => {
                     {user.role === 'student' && (
                         <button 
                             className="dropdown-item" 
-                            onClick={() => { 
+                            onClick={() => {
                                 setIsOpen(false);
-                                navigate('/history'); // ПРОСТО ПРЯМОЙ ПУТЬ
+                                navigate('/history');
                             }}
                         >
                             <Icons.BarChart2 size={14}/> Моя статистика
                         </button>
                     )}
-                    {user.role === 'teacher' && (
+                    {user.role != 'student' && (
                         <button className="dropdown-item"
                         onClick={() => { 
                             setIsOpen(false); 

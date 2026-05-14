@@ -107,6 +107,12 @@ export const AppHeader = ({
 
                 {children}
 
+                {showSearch && (
+                    <button className="gs-mobile-search-btn btn btn-icon" onClick={openSearch} title="Поиск">
+                        <Icons.Search size={18} />
+                    </button>
+                )}
+
                 {showNotifications && <NotificationBell />}
 
                 {user && (

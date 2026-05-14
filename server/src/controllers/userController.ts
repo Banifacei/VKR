@@ -82,7 +82,6 @@ export const updateUserRole = async (req: Request, res: Response) => {
             return res.status(400).json({ message: 'Недопустимая роль' });
         }
 
-        // 🔥 ИБ: Защита от случайного лишения себя прав (чтобы не заблокировать админку)
         if (userIdToUpdate === adminId && role !== 'admin') {
             return res.status(403).json({ 
                 message: 'Ошибка ИБ: Вы не можете снять с себя права администратора!' 
@@ -123,7 +122,6 @@ export const updateUserByAdmin = async (req: Request, res: Response) => {
             return res.status(400).json({ message: 'Недопустимая роль' });
         }
 
-        // 🔥 ИБ: Защита от случайного лишения себя прав через модальное окно редактирования
         if (userIdToUpdate === adminId && role !== 'admin') {
             return res.status(403).json({ 
                 message: 'Ошибка ИБ: Вы не можете снять с себя права администратора!' 
@@ -305,7 +303,6 @@ export const deleteUserByAdmin = async (req: Request, res: Response) => {
             return res.status(404).json({ message: 'Пользователь не найден' });
         }
 
-        // 🔥 СНАЧАЛА УДАЛЯЕМ ВЕСЬ "МУСОР" ПОЛЬЗОВАТЕЛЯ (ЕГО ОТВЕТЫ, ПРОГРЕСС, ТЕСТЫ)
         await UserResponse.destroy({ where: { userId: userIdToDelete } });
         await UserVideoProgress.destroy({ where: { userId: userIdToDelete } });
         await UserTestResult.destroy({ where: { userId: userIdToDelete } });
@@ -392,7 +389,6 @@ export const importUsersFromExcel = async (req: Request, res: Response) => {
         // Берем сам лист
         const sheet = workbook.Sheets[sheetName];
         
-        // 🛡 ИСПРАВЛЕНИЕ: Проверяем, что лист реально существует (успокаиваем TypeScript)
         if (!sheet) {
             return res.status(400).json({ message: 'Не удалось прочитать данные с листа' });
         }
@@ -411,9 +407,9 @@ export const importUsersFromExcel = async (req: Request, res: Response) => {
             // Поддерживаем разные названия колонок (на русском и английском)
             const firstName = row['Имя'] || row['FirstName'] || 'Студент';
             const lastName = row['Фамилия'] || row['LastName'] || '';
-            const middleName = row['Отчество'] || row['MiddleName'] || null; // <--- НОВОЕ
+            const middleName = row['Отчество'] || row['MiddleName'] || null;
             const email = row['Email'] || row['Почта'];
-            const phone = row['Телефон'] || row['Phone'] || null;            // <--- НОВОЕ
+            const phone = row['Телефон'] || row['Phone'] || null;
             const rawPassword = row['Пароль'] || row['Password'];
             const role = row['Роль'] || row['Role'] || 'student';
 

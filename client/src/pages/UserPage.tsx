@@ -55,7 +55,6 @@ export const UserPage = () => {
         prevStatusRef.current = enrollStatus;
     }, [enrollStatus]);
     
-    // 🔥 ЗАГРУЗИТЬ СПИСОК ЗАЯВОК
     const fetchEnrollmentsList = async (id: number) => {
         try {
             const res = await getCourseEnrollments(id);
@@ -108,7 +107,6 @@ export const UserPage = () => {
     // Модалка авторизации
     const [showAuthModal, setShowAuthModal] = useState(!userData || !userData.id);
 
-    // 👇 2. ЛОГИКА TEST CARDS
     const testCardsRef = useRef<HTMLDivElement>(null);
     const videoSeekRef = useRef<((t: number) => void) | null>(null);
     const [testModeState, setTestModeState] = useState<Record<number, boolean>>(() => {
@@ -169,7 +167,7 @@ export const UserPage = () => {
         const { active, over } = event;
         
         if (over && active.id !== over.id) {
-            isSavingOrderRef.current = true; // 🔒 Блокируем фоновое скачивание!
+            isSavingOrderRef.current = true;
 
             // 1. Вычисляем новый порядок прямо здесь (синхронно)
             const oldIndex = items.findIndex((i) => `${i.type}-${i.id}` === active.id);
@@ -184,18 +182,16 @@ export const UserPage = () => {
             // 3. Отправляем ЖЕЛЕЗОБЕТОННЫЙ payload на бэкенд
             try {
                 const payload = updatedItems.map((i: any) => ({ id: i.id, type: i.type, orderIndex: i.orderIndex }));
-                // 🔥 Чистый axios
                 await api.post(`/videos/course/${courseId}/reorder`, { items: payload });
             } catch (e) {
                 console.error("❌ Ошибка при сохранении сортировки:", e);
                 showToast('Ошибка при сохранении порядка', 'error');
             } finally {
-                isSavingOrderRef.current = false; // 🔓 Снимаем блокировку
+                isSavingOrderRef.current = false;
             }
         }
     };
     // Загрузка данных курса
-    // 👇 1. Вынесли функцию загрузки, чтобы вызывать её откуда угодно!
     const fetchCourseData = async () => {
         if (!courseId) return;
         try {
@@ -205,11 +201,9 @@ export const UserPage = () => {
             const foundCourse = allCourses.find(c => c.id === Number(courseId));
             setCourse(foundCourse || null);
             
-            // 🔥 ПРОВЕРКА ПРАВ (ФРОНТЕНД-ИЗОЛЯЦИЯ)
             let hasRights = false;
             if (userData?.role === 'admin') hasRights = true;
             if (foundCourse?.ownerId === userData?.id) hasRights = true;
-            // 👇 ВОТ ЭТОГО У ТЕБЯ НЕТ В КОДЕ ВЫШЕ:
             try {
                 const collabRes = await api.get(`/videos/courses/${courseId}/collaborators`);
                 if (collabRes.data.some((c: any) => Number(c.userId) === Number(userData?.id))) {
@@ -254,7 +248,6 @@ export const UserPage = () => {
         fetchCourseData();
     }, [courseId]);
 
-    // 🔥 МАГИЯ: Ловим параметр из URL и сразу открываем видео!
     useEffect(() => {
         const lessonId = searchParams.get('lessonId');
         // Если в URL есть lessonId, контент загрузился и ничего еще не открыто
@@ -275,7 +268,6 @@ export const UserPage = () => {
         if (!ok) return;
 
         try {
-            // 🔥 Чистый axios
             const endpoint = isVideo ? `/videos/${item.id}` : `/tests/${item.id}`;
             await api.delete(endpoint);
             showToast(`${isVideo ? 'Урок' : 'Тест'} успешно удален`, 'info');
@@ -329,7 +321,6 @@ export const UserPage = () => {
         return () => { active = false; es?.close(); esCourse?.close(); };
     }, [courseId, canEdit]);
     // --- РАСЧЕТ ПРОГРЕССА КУРСА ---
-    // 🔥 ФУНКЦИЯ ДЛЯ КНОПКИ "ЗАПИСАТЬСЯ"
     const handleEnroll = async () => {
         if (!courseId) return;
         setIsEnrolling(true);
@@ -401,7 +392,6 @@ export const UserPage = () => {
                                     isExternalTestMode={isExternalTest}
                                     onToggleTestMode={handleToggleTestMode}
                                     
-                                    // 👇 3. ФУНКЦИИ ДЛЯ СЧЕТЧИКА ПОПЫТОК
                                     onResetTest={() => showToast('Прогресс сброшен', 'info')}
                                     onRefreshEvents={handleRefreshEvents}
                                     onTimeUpdate={setVideoCurrentTime}
@@ -436,7 +426,6 @@ export const UserPage = () => {
                                 />
                             )}
 
-                            {/* 👇 4. БЛОК С КАРТОЧКАМИ ВОПРОСОВ */}
                             {isExternalTest && activeItem.events && activeItem.events.some(e => ['single_choice', 'multiple_choice', 'free_text', 'question'].includes(e.type)) && (
                                 <div ref={testCardsRef} style={{ marginTop: '30px', animation: 'fadeIn 0.4s ease' }}>
                                     <div style={{ background: 'var(--bg-panel)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-color)', marginBottom: '20px' }}>
@@ -492,14 +481,12 @@ export const UserPage = () => {
             {showAuthModal && <AuthModal onLoginSuccess={handleLoginSuccess} />}
 
             <AppHeader logoTo="/courses" />
-            {/* 🔥 ЕСЛИ СТАТУС ГРУЗИТСЯ */}
             {enrollStatus === 'loading' ? (
                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1, color: 'var(--text-muted)', height: 'calc(100vh - 60px)' }}>
                     <span className="loader-dots">Загрузка курса...</span>
                 </div>
             ) : enrollStatus !== 'approved' && !canEdit ? (
-                /* 🔥 ИСПОЛЬЗУЕМ ВЫНЕСЕННЫЙ КОМПОНЕНТ ЛЕНДИНГА */
-                <CourseLanding 
+                <CourseLanding
                     course={course}
                     enrollStatus={enrollStatus}
                     isEnrolling={isEnrolling}
@@ -513,7 +500,6 @@ export const UserPage = () => {
                         ← Все курсы
                     </button>
 
-                    {/* 🔥 1. ПРОВЕРКА ДЛЯ ШАПКИ */}
                     {loading ? (
                         <div style={{ animation: 'fadeIn 0.3s ease', marginTop: '10px' }}>
                             <div className="skeleton" style={{ width: '40%', minWidth: '300px', height: '40px', borderRadius: '8px', marginBottom: '25px' }}></div>
@@ -584,7 +570,6 @@ export const UserPage = () => {
                     )}
                 </div>
 
-                {/* 🔥 2. ПРОВЕРКА ДЛЯ КАРТОЧЕК */}
                 {loading ? (
                     <div className="content-grid" style={{ animation: 'fadeIn 0.3s ease' }}>
                         {[1, 2, 3].map(i => (
@@ -639,8 +624,7 @@ export const UserPage = () => {
                 )}
             </div>
             )}
-            {/* 🌟 ДИНАМИЧЕСКАЯ МОДАЛКА ДОБАВЛЕНИЯ */}
-            <AddContentModal 
+            <AddContentModal
                 isOpen={showAddModal} 
                 onClose={() => setShowAddModal(false)} 
                 courseId={Number(courseId)} 
@@ -657,7 +641,6 @@ export const UserPage = () => {
                     }} 
                 />
             )}
-            {/* 🔥 ВЫНЕСЕННАЯ МОДАЛКА НАСТРОЕК */}
             {course && (
                 <CourseSettingsModal 
                     isOpen={showCourseSettings}

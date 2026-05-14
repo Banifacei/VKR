@@ -3,9 +3,9 @@ import { UserResponse } from './UserResponse.js';
 import { UserVideoProgress } from './UserVideoProgress.js';
 import { CourseEnrollment } from './CourseEnrollment.js';
 
-@Table({ tableName: 'users' })
+@Table({ tableName: 'users', indexes: [{ unique: true, fields: ['email'], name: 'users_email_key' }] })
 export class User extends Model {
-    @Column({ type: DataType.STRING, allowNull: false, unique: true })
+    @Column({ type: DataType.STRING, allowNull: false })
     declare email: string;
 
     @Column({ type: DataType.STRING, allowNull: false })
@@ -17,8 +17,6 @@ export class User extends Model {
     @Column({ type: DataType.STRING })
     declare lastName: string;
 
-    // --- НОВЫЕ ПОЛЯ ---
-    
     @Column({ type: DataType.STRING })
     declare middleName: string;
 
@@ -31,7 +29,6 @@ export class User extends Model {
     @Column({ type: DataType.STRING, defaultValue: 'student' })
     declare role: string; // 'student' | 'teacher' | 'admin'
 
-    // 🔥 НОВОЕ ПОЛЕ: Статус аккаунта
     @Column({ type: DataType.STRING, defaultValue: 'active' })
     declare status: string; // 'pending' | 'active' | 'rejected' | 'banned'
 

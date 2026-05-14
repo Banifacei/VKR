@@ -25,7 +25,6 @@ export const HistoryPage = () => {
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                // 🔥 Умный axios сам передаст токен
                 const res = await api.get('/users/stats');
                 setStats(res.data);
             } catch (e) { 
@@ -115,7 +114,6 @@ export const HistoryPage = () => {
                                         </div>
                                     </div>
 
-                                    {/* НОВЫЙ ВИДЖЕТ: Сданные тесты */}
                                     <div className="stat-widget highlight-widget" style={{ background: 'linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%)', border: '1px solid #333' }}>
                                         <div className="widget-info" style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                                             <div>
@@ -127,7 +125,6 @@ export const HistoryPage = () => {
                                     </div>
                                 </div>
 
-                                {/* НОВЫЙ БЛОК: Результаты глобальных тестов */}
                                 <div className="profile-history-card" style={{ marginTop: '30px' }}>
                                     <h3 className="history-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                         <Icons.FileText size={18}/> Результаты тестов

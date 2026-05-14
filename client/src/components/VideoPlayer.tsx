@@ -810,8 +810,8 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
     }
 
     if (questions.length > 0 && !activeEvent && !showEndScreen && !isExternalTestMode) {
-        const eventToTrigger = questions.find(ev => 
-            Math.abs(ev.time - time) < 0.5 && !processedEventIds.includes(ev.id)
+        const eventToTrigger = questions.find(ev =>
+            Math.abs(ev.time - time) < 0.5 && !processedEventIdsRef.current.includes(ev.id)
         );
         if (eventToTrigger) {
             videoRef.current.pause();

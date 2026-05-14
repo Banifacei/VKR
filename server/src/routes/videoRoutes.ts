@@ -38,6 +38,7 @@ import {
     banFromCourse,
     unbanFromCourse,
     getCourseBans,
+    getTeacherAccessibleCourses,
 } from '../controllers/videoController.js';
 import { checkCourseAccess, checkCourseBan } from '../middleware/courseAuthMiddleware.js';
 import { checkAuth, checkAuthSse } from '../middleware/authMiddleware.js';
@@ -56,6 +57,7 @@ const uId = validateId('userId');
 // --- СУЩЕСТВУЮЩИЕ РОУТЫ ---
 router.get('/my-enrollments', checkAuth, getMyEnrollments);
 router.get('/my-progress-all', checkAuth, getMyProgressAll);
+router.get('/my-courses', checkAuth, getTeacherAccessibleCourses);
 router.put('/reorder', checkAuth, reorderVideos);
 router.post('/:videoId/autocaptions', checkAuth, vId, checkCourseAccess, generateSubtitles);
 router.post('/:videoId/transcode', checkAuth, vId, checkCourseAccess, transcodeVideo);
