@@ -5,10 +5,6 @@ on:
     branches: [main]
     tags: ['v*']
 
-env:
-  REGISTRY: ghcr.io
-  OWNER: ${{ github.repository_owner }}
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -30,22 +26,22 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # Вычисляем тег: если это git-тег (v1.2.3) → 1.2.3 + latest, иначе только latest
-      - name: Determine image tag
+      # ghcr.io требует строчные буквы — приводим owner к lowercase
+      - name: Determine image tags
         id: tag
         run: |
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+
           if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             VERSION="${{ github.ref_name }}"
             VERSION="${VERSION#v}"
-            echo "version=${VERSION}" >> $GITHUB_OUTPUT
-            echo "tags_server=ghcr.io/${{ env.OWNER }}/lumeo-server:${VERSION},ghcr.io/${{ env.OWNER }}/lumeo-server:latest" >> $GITHUB_OUTPUT
-            echo "tags_client=ghcr.io/${{ env.OWNER }}/lumeo-client:${VERSION},ghcr.io/${{ env.OWNER }}/lumeo-client:latest" >> $GITHUB_OUTPUT
-            echo "tags_installer=ghcr.io/${{ env.OWNER }}/lumeo-installer:${VERSION},ghcr.io/${{ env.OWNER }}/lumeo-installer:latest" >> $GITHUB_OUTPUT
+            echo "tags_server=ghcr.io/${OWNER}/lumeo-server:${VERSION},ghcr.io/${OWNER}/lumeo-server:latest" >> $GITHUB_OUTPUT
+            echo "tags_client=ghcr.io/${OWNER}/lumeo-client:${VERSION},ghcr.io/${OWNER}/lumeo-client:latest" >> $GITHUB_OUTPUT
+            echo "tags_installer=ghcr.io/${OWNER}/lumeo-installer:${VERSION},ghcr.io/${OWNER}/lumeo-installer:latest" >> $GITHUB_OUTPUT
           else
-            echo "version=latest" >> $GITHUB_OUTPUT
-            echo "tags_server=ghcr.io/${{ env.OWNER }}/lumeo-server:latest" >> $GITHUB_OUTPUT
-            echo "tags_client=ghcr.io/${{ env.OWNER }}/lumeo-client:latest" >> $GITHUB_OUTPUT
-            echo "tags_installer=ghcr.io/${{ env.OWNER }}/lumeo-installer:latest" >> $GITHUB_OUTPUT
+            echo "tags_server=ghcr.io/${OWNER}/lumeo-server:latest" >> $GITHUB_OUTPUT
+            echo "tags_client=ghcr.io/${OWNER}/lumeo-client:latest" >> $GITHUB_OUTPUT
+            echo "tags_installer=ghcr.io/${OWNER}/lumeo-installer:latest" >> $GITHUB_OUTPUT
           fi
 
       - name: Build & push lumeo-server
