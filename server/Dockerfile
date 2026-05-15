@@ -5,12 +5,11 @@ FROM node:20-slim
 
 WORKDIR /app
 
-# Копируем зависимости и исходники
 COPY package*.json ./
-COPY node_modules ./node_modules
+RUN npm ci --only=production && npm install tsx
+
 COPY . .
 
-# Папка для загрузок (перезаписывается volume из docker-compose)
 RUN mkdir -p uploads/avatars
 
 EXPOSE 5001
