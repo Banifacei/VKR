@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import api from '../api/axiosInstance';
 import { Icons } from '../components/Icons';
@@ -13,7 +12,6 @@ import './ProfilePage.css';
 import './CoursesPage.css';
 
 export const AnalyticsPage = () => {
-    const { user } = useAuth();
     const navigate = useNavigate();
     const { showToast } = useToast();
     
@@ -38,9 +36,8 @@ export const AnalyticsPage = () => {
     const loadTeacherCourses = async () => {
         setIsLoading(true);
         try {
-            const res = await api.get('/videos/courses');
-            const myCourses = res.data.filter((c: any) => c.ownerId === user?.id || user?.role === 'admin');
-            setCourses(myCourses);
+            const res = await api.get('/videos/my-courses');
+            setCourses(res.data);
         } catch (e) {
             showToast('Ошибка загрузки курсов', 'error');
         } finally {
@@ -185,12 +182,13 @@ export const AnalyticsPage = () => {
                                                 if (analytics.studentsProgress.length === 0) return <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border-color)', borderRadius: '12px' }}>Нет студентов</div>;
                                                 if (filteredStudents.length === 0) return <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border-color)', borderRadius: '12px' }}>По запросу ничего не найдено</div>;
 
-                                                return filteredStudents.map((student: any, index: number) => {
-                                                    const isTop1 = index === 0;
-                                                    const isTop2 = index === 1;
-                                                    const isTop3 = index === 2;
+                                                return filteredStudents.map((student: any) => {
+                                                    const originalRank = analytics.studentsProgress.findIndex((s: any) => s.id === student.id);
+                                                    const isTop1 = originalRank === 0;
+                                                    const isTop2 = originalRank === 1;
+                                                    const isTop3 = originalRank === 2;
 
-                                                    let rankBadge = <span style={{ color: 'var(--text-muted)', fontWeight: 'bold', fontSize: '15px' }}>{index + 1}</span>;
+                                                    let rankBadge = <span style={{ color: 'var(--text-muted)', fontWeight: 'bold', fontSize: '15px' }}>{originalRank + 1}</span>;
                                                     if (isTop1) rankBadge = <span style={{ fontSize: '22px', filter: 'drop-shadow(0 0 10px rgba(255, 215, 0, 0.4))' }}>🥇</span>;
                                                     if (isTop2) rankBadge = <span style={{ fontSize: '22px', filter: 'drop-shadow(0 0 10px rgba(192, 192, 192, 0.2))' }}>🥈</span>;
                                                     if (isTop3) rankBadge = <span style={{ fontSize: '22px', filter: 'drop-shadow(0 0 10px rgba(205, 127, 50, 0.2))' }}>🥉</span>;

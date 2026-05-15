@@ -231,7 +231,6 @@ export const TestRunner = ({ test, onExit, onSuccess, userRole }: TestRunnerProp
                                                     )}
                                                 </div>
 
-                                                {/* НОВОЕ: Показываем оценку ИИ, если она пришла с сервера */}
                                                 {resData.similarity !== null && resData.similarity !== undefined && (
                                                     <span style={{ background: 'rgba(var(--primary-rgb), 0.15)', color: 'var(--primary)', padding: '2px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: 'bold' }}>
                                                         ИИ: {resData.similarity}%
@@ -305,7 +304,6 @@ export const TestRunner = ({ test, onExit, onSuccess, userRole }: TestRunnerProp
                         </label>
                     ))}
 
-                    {/* ИСПРАВЛЕНО: Чекбоксы теперь работают с массивами */}
                     {currentQ.type === 'multiple_choice' && currentQ.options?.map((opt: any, idx: number) => {
                         const isChecked = (answers[currentQ.id] || []).includes(opt.text);
                         return (

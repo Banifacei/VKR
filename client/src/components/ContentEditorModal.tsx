@@ -167,7 +167,6 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                 await updateVideo(selectedVideo.id, payload);
                 setSelectedVideo({...selectedVideo, ...payload});
             } else if (selectedTest) {
-                // 🔥 Используем api (порт и токен подставятся сами)
                 await api.put(`/tests/${selectedTest.id}`, payload);
                 setSelectedTest({...selectedTest, ...payload});
             }
@@ -176,7 +175,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
         finally { setIsSavingSettings(false); }
     };
 
-    // --- 📝 КОНСТРУКТОР ---
+    // --- КОНСТРУКТОР ---
     const [currentTime, setCurrentTime] = useState(0);
     const [eventType, setEventType] = useState<'single_choice' | 'multiple_choice' | 'free_text' | 'info'>('single_choice');
     const [questionText, setQuestionText] = useState('');
@@ -350,7 +349,6 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                 detailsData.push([name, question, answer, aiScore, result]);
             });
         } else {
-            // 👇 ТЕПЕРЬ РАЗБИВАЕМ КАЖДЫЙ ВОПРОС НА ОТДЕЛЬНУЮ СТРОКУ!
             detailsData.push(['ФИО обучающегося', 'Балл за попытку', 'Вопрос', 'Ответ студента', 'Статус / ИИ']);
             
             statsData.forEach(stat => {
@@ -402,22 +400,21 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
     const getGroupedStats = () => {
         const groups: Record<number, { correct: number; incorrect: number; name: string; userId: number; testScore?: number; total: number }> = {};
         
-        if (!Array.isArray(statsData)) return []; // 🛡️ Защита от ошибки
+        if (!Array.isArray(statsData)) return [];
 
         statsData.forEach(stat => {
             const uId = stat.userId;
             const name = stat.user ? `${stat.user.firstName} ${stat.user.lastName}`.trim() : `Студент ID: ${uId}`;
-            
+
             if (!groups[uId]) {
                 groups[uId] = { correct: 0, incorrect: 0, name, userId: uId, total: 0, testScore: 0 };
             }
-            
+
             if (stat.score !== undefined) {
-                // 📝 ЭТО ОБЫЧНЫЙ ТЕСТ: сохраняем ЛУЧШИЙ результат среди попыток
+                // Сохраняем лучший результат среди попыток
                 groups[uId].testScore = Math.max(groups[uId].testScore || 0, stat.score);
-                groups[uId].total++; // Считаем количество попыток
+                groups[uId].total++;
             } else {
-                // 📺 ЭТО ВИДЕО-ИНТЕРАКТИВ: считаем правильные и неправильные
                 if (stat.isCorrect) groups[uId].correct++;
                 else groups[uId].incorrect++;
             }
@@ -720,15 +717,13 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
             setSelectedTest({ ...selectedTest, questions: newQuestions });
 
             try {
-                // 🔥 Тоже используем api (код стал в 3 раза короче)
-                await api.post(`/tests/${selectedTest.id}/questions/reorder`, { 
-                    orderedIds: newQuestions.map((q: any) => q.id) 
+                await api.post(`/tests/${selectedTest.id}/questions/reorder`, {
+                    orderedIds: newQuestions.map((q: any) => q.id)
                 });
                 onSuccess();
             } catch (e) { console.error(e); showToast('Ошибка сохранения порядка', 'error'); }
             finally {
-            // 👇 РАЗБЛОКИРУЕМ РАДАР ТОЛЬКО ТУТ
-            isDraggingQuestionRef.current = false; 
+            isDraggingQuestionRef.current = false;
         }
         }
     };
@@ -900,7 +895,6 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                                                         <thead><tr style={{ color: 'var(--text-muted)', fontSize: '13px' }}><th style={{padding:'8px 0'}}>Вопрос</th><th style={{padding:'8px 0'}}>Ответ студента</th><th style={{padding:'8px 0', textAlign: 'right'}}>Статус</th></tr></thead>
                                                                         <tbody>
                                                                             {selectedTest?.questions?.map((q: any) => {
-                                                                                // 👇 ДОСТАЕМ НОВУЮ СТРУКТУРУ ДАННЫХ
                                                                                 const resData = answersObj[q.id] || {};
                                                                                 const userAns = Array.isArray(resData.answer) ? resData.answer.join(', ') : (resData.answer || null);
                                                                                 const isCorrect = resData.isCorrect || false;
@@ -910,7 +904,6 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                                                                         <td style={{padding:'12px 0', color: 'var(--text-main)', fontSize: '14px', width: '45%'}}>{q.text}</td>
                                                                                         <td style={{padding:'12px 0', color: 'var(--text-main)', fontSize: '14px', fontWeight: 500}}>
                                                                                             {userAns || <i style={{color:'#666'}}>Нет ответа</i>}
-                                                                                            {/* Если есть оценка ИИ, покажем преподу! */}
                                                                                             {resData.similarity !== undefined && resData.similarity !== null && (
                                                                                                 <span style={{ marginLeft: '8px', color: 'var(--primary)', fontSize: '12px', background: 'rgba(var(--primary-rgb),0.1)', padding: '2px 6px', borderRadius: '4px' }}>
                                                                                                     ИИ: {resData.similarity}%
@@ -1107,7 +1100,6 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                             </div>
                                         )}
 
-                                        {/* 👇 ЕДИНЫЙ ПЕРЕКЛЮЧАТЕЛЬ ДЛЯ ВСЕХ (и для видео, и для тестов) */}
                                         <label className="toggle-wrapper" style={{ marginTop: '25px', display: 'flex', alignItems: 'center', background: 'var(--bg-input)', padding: '15px', borderRadius: '12px', cursor: 'pointer' }}>
                                             <input type="checkbox" className="toggle-input" checked={settingsData.hideResults} onChange={e => setSettingsData({...settingsData, hideResults: e.target.checked})} />
                                             <div className="toggle-track"><div className="toggle-thumb"></div></div>

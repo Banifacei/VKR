@@ -348,7 +348,7 @@ export const submitTestResult = async (req: Request, res: Response) => {
             userId,
             testId: Number(testId),
             score: finalScore,
-            answers: JSON.stringify(detailedAnswers) // Теперь тут лежит умный JSON с результатами!
+            answers: detailedAnswers
         });
 
         // @ts-ignore

@@ -27,27 +27,24 @@ export class Video extends Model {
   @HasMany(() => InteractiveEvent)
   declare events: InteractiveEvent[];
 
-  @Column({ type: DataType.INTEGER, defaultValue: 3 }) // <--- Ставим 3
+  @Column({ type: DataType.INTEGER, defaultValue: 3 })
   declare maxAttempts: number;
 
   @Column({ type: DataType.INTEGER, defaultValue: 0 })
   declare orderIndex: number;
 
-  // ... твои старые поля (courseId, events, maxAttempts, orderIndex)
-
-  // 👇 НОВЫЕ ПОЛЯ ДЛЯ РЕДАКТОРА ПРЕПОДА
   @Column({ type: DataType.BOOLEAN, defaultValue: true })
-  declare allowExternalTest: boolean; // Разрешить решать тест под видео
+  declare allowExternalTest: boolean;
 
   @Column({ type: DataType.BOOLEAN, defaultValue: false })
-  declare isHidden: boolean; // Скрыто от студентов (черновик)
+  declare isHidden: boolean;
 
   @Column({ type: DataType.DATE, allowNull: true })
-  declare unlockDate: Date | null; // Отложенный релиз (дата и время)
+  declare unlockDate: Date | null;
 
   @Column({ type: DataType.JSONB, defaultValue: [] })
-  declare qualityUrls: { quality: string; url: string }[]; // Варианты качества
+  declare qualityUrls: { quality: string; url: string }[];
 
   @Column({ type: DataType.BOOLEAN, defaultValue: false })
-  declare noForwardSeek: boolean; // Запретить перемотку вперёд
+  declare noForwardSeek: boolean;
 }

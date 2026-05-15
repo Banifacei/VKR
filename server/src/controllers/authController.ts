@@ -136,7 +136,6 @@ export const register = async (req: Request, res: Response) => {
 
 export const login = async (req: Request, res: Response) => {
     try {
-        // 🔥 ФИКС 1: Фронтенд может присылать логин под разными ключами
         const authId = req.body.identifier || req.body.email || req.body.username || req.body.login;
         const password = req.body.password;
 
@@ -325,8 +324,7 @@ export const updateProfile = async (req: Request, res: Response) => {
 
 export const getMe = async (req: Request, res: Response) => {
     try {
-        // @ts-ignore
-        const userId = req.user.id;
+        const userId = (req as any).user.id;
         const user = await User.findByPk(userId);
         
         if (!user) {
@@ -354,13 +352,14 @@ export const getAuthSettings = async (req: Request, res: Response) => {
         const yandexSetting = await SystemSetting.findOne({ where: { key: 'yandex_enabled' } });
         const googleSetting = await SystemSetting.findOne({ where: { key: 'google_enabled' } });
         const samlSetting = await SystemSetting.findOne({ where: { key: 'saml_enabled' } });
-        // 🔥 Убрали сравнение с логическим true, оставили только строку
         const isYandexEnabled = yandexSetting?.value === 'true';
         
         res.json({
             yandex: yandexSetting?.value === 'true',
-            google: googleSetting?.value === 'true', 
+            google: googleSetting?.value === 'true',
             saml: samlSetting?.value === 'true',
+            // ЕСИА (Госуслуги) — проектируемая интеграция, не активна
+            esia: false,
         });
     } catch (error) {
         console.error("Ошибка при получении настроек авторизации:", error);
@@ -376,7 +375,6 @@ export const yandexLoginRedirect = async (req: Request, res: Response) => {
         return res.status(500).send('Авторизация через Яндекс не настроена администратором.');
     }
 
-    // 🔥 ВОТ ОН, НАШ РОДНОЙ LOCALHOST!
     const redirectUri = `${API_URL}/api/auth/yandex/callback`;
     const url = `https://oauth.yandex.ru/authorize?response_type=code&client_id=${clientId.value}&redirect_uri=${redirectUri}`;
     
@@ -450,7 +448,6 @@ export const yandexCallback = async (req: Request, res: Response) => {
         res.redirect(`${CLIENT_URL}/auth?code=${oneTimeCode}`);
     } catch (error) {
         console.error('Ошибка Yandex OAuth:', error);
-        // 🔥 МЕНЯЕМ НА CLIENT_URL
         res.redirect(`${CLIENT_URL}/auth?error=server_error`);
     }
 };
@@ -508,9 +505,7 @@ export const googleCallback = async (req: Request, res: Response) => {
         let user = await User.findOne({ where: { email } });
         let googleAvatar = profile.picture || null;
 
-        // 🔥 ФИКС: Если ссылка от Google пришла, гарантируем нормальный размер
         if (googleAvatar && googleAvatar.includes('googleusercontent.com')) {
-            // Убираем старые параметры размера (если есть) и ставим s200-c
             googleAvatar = googleAvatar.split('=')[0] + '=s200-c';
         }
 
@@ -791,4 +786,50 @@ export const resendVerification = async (req: Request, res: Response) => {
         console.error('[resendVerification]', e);
         ok();
     }
+};
+
+// =============================================================================
+// ESIA (ЕСИА) — Госуслуги OpenID Connect
+// =============================================================================
+//
+// АРХИТЕКТУРА ИНТЕГРАЦИИ (проектируемая функция)
+//
+// Поток авторизации:
+//   1. Пользователь нажимает «Войти через Госуслуги»
+//   2. GET /auth/esia → формируем запрос с подписью (ГОСТ Р 34.10-2012) и
+//      редиректим на: https://esia.gosuslugi.ru/aas/oauth2/ac
+//      Параметры: client_id, scope (openid, email, fullname), response_type=code,
+//                 redirect_uri, state (CSRF-токен), timestamp, client_secret (ГОСТ-подпись)
+//   3. Пользователь авторизуется на esia.gosuslugi.ru и нас редиректят обратно
+//      на GET /auth/esia/callback?code=XXX&state=YYY
+//   4. Обмениваем code → access_token через POST /aas/oauth2/te
+//      (запрос также подписывается ГОСТ-ключом)
+//   5. Получаем данные пользователя: GET /rs/prns/{oid}/ctts?embed=(email)
+//      Заголовок: Authorization: Bearer <access_token>
+//   6. Создаём/обновляем User в БД, выдаём JWT → redirect на /auth?code=...
+//
+// ПОЧЕМУ НЕ РЕАЛИЗОВАНО В ТЕКУЩЕЙ ВЕРСИИ:
+//   - Требует регистрации юридического лица на технологическом портале ЕСИА
+//     (https://esia.gosuslugi.ru/op/dks/) и одобрения Минцифры (срок: месяцы)
+//   - JWT-токены ЕСИА подписываются алгоритмом ГОСТ Р 34.10-2012, который
+//     НЕ поддерживается стандартными JS/Node.js библиотеками (jsonwebtoken, jose).
+//     Требуется отдельный микросервис на Go/Java с КриптоПро или аналогом.
+//   - Для тестовой среды (esia-portal1.test.gosuslugi.ru) также требуется
+//     зарегистрированный тестовый аккаунт организации.
+//
+// ЗАВИСИМОСТИ ДЛЯ БУДУЩЕЙ РЕАЛИЗАЦИИ:
+//   - Квалифицированная электронная подпись (КЭП) от аккредитованного УЦ
+//   - Go-сервис / Java-сервис для ГОСТ-подписи запросов
+//   - Переменные окружения: ESIA_CLIENT_ID, ESIA_PRIVATE_KEY_PATH,
+//     ESIA_CERTIFICATE_PATH, ESIA_SCOPE
+//
+// =============================================================================
+
+export const esiaLoginRedirect = (_req: Request, res: Response) => {
+    res.status(503).json({
+        available: false,
+        message: 'Авторизация через Госуслуги (ЕСИА) не активирована в данной конфигурации.',
+        reason: 'Требует регистрации организации в Минцифры и ГОСТ-криптографии.',
+        docs: 'https://digital.gov.ru/ru/documents/6186/',
+    });
 };

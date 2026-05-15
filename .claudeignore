@@ -1,0 +1,26 @@
+# Зависимости
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Билды
+client/dist/
+server/dist/
+
+# Загруженные медиафайлы (видео, кеш транскодера)
+server/uploads/*.mp4
+server/uploads/*.webm
+server/uploads/*.ogg
+server/uploads/*.mov
+server/uploads/.cache/
+
+# Сгенерированный JS из TypeScript
+server/index.js
+
+# Lock-файлы (не редактируются вручную)
+package-lock.json
+client/package-lock.json
+server/package-lock.json
+
+# Docker и CI артефакты
+.git/

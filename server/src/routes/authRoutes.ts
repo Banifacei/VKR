@@ -1,7 +1,7 @@
 import express, { Router } from 'express';
 import passport from 'passport';
 import rateLimit from 'express-rate-limit';
-import { register, login, updateProfile, getMe, yandexLoginRedirect, yandexCallback, getAuthSettings, googleLoginRedirect, googleCallback, samlLoginRedirect, samlCallback, exchangeOAuthCode, forgotPassword, resetPassword, verifyEmail, resendVerification } from '../controllers/authController.js';
+import { register, login, updateProfile, getMe, yandexLoginRedirect, yandexCallback, getAuthSettings, googleLoginRedirect, googleCallback, samlLoginRedirect, samlCallback, exchangeOAuthCode, forgotPassword, resetPassword, verifyEmail, resendVerification, esiaLoginRedirect } from '../controllers/authController.js';
 import { checkAuth, createSseTicket } from '../middleware/authMiddleware.js';
 
 const router = Router();
@@ -33,4 +33,8 @@ router.get('/google/callback', googleCallback);
 router.get('/saml', samlLoginRedirect);
 // ВАЖНО: Тут POST и встроенный парсер express.urlencoded
 router.post('/saml/callback', express.urlencoded({ extended: true }), samlCallback);
+
+// ЕСИА / Госуслуги — проектируемая интеграция (см. authController.ts для архитектуры)
+router.get('/esia', esiaLoginRedirect);
+
 export default router;

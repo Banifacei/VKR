@@ -18,10 +18,7 @@ import { StarDisplay } from '../components/StarRating';
 import { AppHeader } from '../components/AppHeader';
 import '../components/GlobalSearch.css';
 import { pluralizeRu } from '../utils/pluralize';
-// 🔥 КАСТОМНЫЕ ИКОНКИ (БЕЗ ЭМОДЗИ)
-
-
-// 🔥 ГЕНЕРАТОР СОЧНЫХ ГРАДИЕНТОВ ПО ID КУРСА
+// Генератор градиентов по ID курса
 const getGradient = (id: number) => {
     const gradients = [
         'linear-gradient(135deg, #FF416C 0%, #FF4B2B 100%)', // Красный

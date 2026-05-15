@@ -1,0 +1,78 @@
+name: Build & Push to ghcr.io
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+env:
+  REGISTRY: ghcr.io
+  OWNER: ${{ github.repository_owner }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Вычисляем тег: если это git-тег (v1.2.3) → 1.2.3 + latest, иначе только latest
+      - name: Determine image tag
+        id: tag
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION="${{ github.ref_name }}"
+            VERSION="${VERSION#v}"
+            echo "version=${VERSION}" >> $GITHUB_OUTPUT
+            echo "tags_server=ghcr.io/${{ env.OWNER }}/lumeo-server:${VERSION},ghcr.io/${{ env.OWNER }}/lumeo-server:latest" >> $GITHUB_OUTPUT
+            echo "tags_client=ghcr.io/${{ env.OWNER }}/lumeo-client:${VERSION},ghcr.io/${{ env.OWNER }}/lumeo-client:latest" >> $GITHUB_OUTPUT
+            echo "tags_installer=ghcr.io/${{ env.OWNER }}/lumeo-installer:${VERSION},ghcr.io/${{ env.OWNER }}/lumeo-installer:latest" >> $GITHUB_OUTPUT
+          else
+            echo "version=latest" >> $GITHUB_OUTPUT
+            echo "tags_server=ghcr.io/${{ env.OWNER }}/lumeo-server:latest" >> $GITHUB_OUTPUT
+            echo "tags_client=ghcr.io/${{ env.OWNER }}/lumeo-client:latest" >> $GITHUB_OUTPUT
+            echo "tags_installer=ghcr.io/${{ env.OWNER }}/lumeo-installer:latest" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build & push lumeo-server
+        uses: docker/build-push-action@v5
+        with:
+          context: ./server
+          push: true
+          tags: ${{ steps.tag.outputs.tags_server }}
+          cache-from: type=gha,scope=server
+          cache-to: type=gha,mode=max,scope=server
+
+      - name: Build & push lumeo-client
+        uses: docker/build-push-action@v5
+        with:
+          context: ./client
+          push: true
+          tags: ${{ steps.tag.outputs.tags_client }}
+          build-args: |
+            VITE_API_URL=/api
+          cache-from: type=gha,scope=client
+          cache-to: type=gha,mode=max,scope=client
+
+      - name: Build & push lumeo-installer
+        uses: docker/build-push-action@v5
+        with:
+          context: ./installer
+          push: true
+          tags: ${{ steps.tag.outputs.tags_installer }}
+          cache-from: type=gha,scope=installer
+          cache-to: type=gha,mode=max,scope=installer

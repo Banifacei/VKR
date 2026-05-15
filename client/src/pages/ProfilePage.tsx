@@ -48,7 +48,6 @@ export const ProfilePage = () => {
         formData.append('userId', String(userData.id));
 
         try {
-            // 🔥 FormData работает в axios из коробки
             const res = await api.post('/auth/avatar', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
@@ -69,7 +68,6 @@ export const ProfilePage = () => {
         
         setIsSaving(true);
         try {
-            // 🔥 Чистый axios
             const res = await api.put('/auth/update', {
                 userId: userData.id,
                 firstName, lastName, middleName, 
