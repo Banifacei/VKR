@@ -55,8 +55,29 @@ function generate(bytes = 32) {
   return crypto.randomBytes(bytes).toString('hex');
 }
 
-function checkSystem() {
+function getDockerHostIp() {
+  try {
+    const gw = execSync("ip route show default | awk '{print $3}' | head -1", { stdio: 'pipe' }).toString().trim();
+    if (gw && /^\d+\.\d+\.\d+\.\d+$/.test(gw)) return gw;
+  } catch {}
+  return '172.17.0.1';
+}
+
+function probePort(host, port) {
+  const net = require('net');
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    socket.setTimeout(800);
+    socket.on('connect', () => { socket.destroy(); resolve(true); });
+    socket.on('error', () => { socket.destroy(); resolve(false); });
+    socket.on('timeout', () => { socket.destroy(); resolve(false); });
+    socket.connect(port, host);
+  });
+}
+
+async function checkSystem() {
   const results = [];
+  const hostIp = getDockerHostIp();
 
   try { execSync('docker --version', { stdio: 'pipe' }); results.push({ id: 'docker', ok: true, label: 'Docker', value: execSync('docker --version', { stdio: 'pipe' }).toString().trim() }); }
   catch { results.push({ id: 'docker', ok: false, label: 'Docker', value: 'Не найден — установите Docker' }); }
@@ -72,12 +93,8 @@ function checkSystem() {
 
   const ports = [80, 443, 5001];
   for (const port of ports) {
-    try {
-      execSync(`ss -tlnp | grep :${port}`, { stdio: 'pipe' });
-      results.push({ id: `port${port}`, ok: false, label: `Порт ${port}`, value: `Занят — может быть конфликт` });
-    } catch {
-      results.push({ id: `port${port}`, ok: true, label: `Порт ${port}`, value: 'Свободен' });
-    }
+    const inUse = await probePort(hostIp, port);
+    results.push({ id: `port${port}`, ok: !inUse, label: `Порт ${port}`, value: inUse ? 'Занят — может быть конфликт' : 'Свободен' });
   }
 
   return results;
@@ -229,7 +246,9 @@ async function runInstall() {
 
     // Ждём healthcheck сервера
     pushLog({ type: 'info', text: '⏳ Ждём готовности сервера...' });
-    await waitForServer(state.config.CLIENT_URL || 'http://localhost', 60);
+    const exposePort = state.config.EXPOSE_PORT || 80;
+    const hostIp = getDockerHostIp();
+    await waitForServer(`http://${hostIp}:${exposePort}`, 60);
 
     // Создаём дополнительных администраторов (если были добавлены ещё)
     if (state.admins.length > 1) {
@@ -328,9 +347,24 @@ app.get('/api/state', (req, res) => {
   });
 });
 
-app.get('/api/system-check', (req, res) => {
-  try { res.json({ ok: true, results: checkSystem() }); }
+app.get('/api/system-check', async (req, res) => {
+  try { res.json({ ok: true, results: await checkSystem() }); }
   catch (e) { res.json({ ok: false, error: e.message }); }
+});
+
+app.get('/api/check-port/:port', async (req, res) => {
+  const port = parseInt(req.params.port);
+  if (!port || port < 1 || port > 65535) return res.json({ ok: false, error: 'invalid port' });
+  const hostIp = getDockerHostIp();
+  const inUse = await probePort(hostIp, port);
+  const alternatives = [];
+  if (inUse) {
+    for (const p of [8080, 8443, 3000, 8888, 9000, 4000].filter(p => p !== port)) {
+      if (alternatives.length >= 3) break;
+      if (!await probePort(hostIp, p)) alternatives.push(p);
+    }
+  }
+  res.json({ inUse, alternatives });
 });
 
 app.post('/api/config', (req, res) => {

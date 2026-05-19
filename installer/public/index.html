@@ -334,7 +334,11 @@ function renderConfig() {
       <div class="hint">Используется для CORS, SSO-редиректов и ссылок в письмах.</div>
     </div>
     <div class="field"><label>Внешний порт</label>
-      <input id="expose-port" placeholder="80" value="${c.EXPOSE_PORT||'80'}"/>
+      <div class="input-action">
+        <input id="expose-port" placeholder="80" value="${c.EXPOSE_PORT||'80'}" oninput="schedulePortCheck()"/>
+        <button class="btn btn-secondary btn-sm" id="btn-check-port" onclick="checkPort()">${I.refresh} Проверить</button>
+      </div>
+      <div id="port-status" style="margin-top:6px;min-height:20px"></div>
       <div class="hint">Если стоит reverse proxy (Caddy/nginx) — оставьте 80.</div>
     </div>
 
@@ -343,6 +347,46 @@ function renderConfig() {
       <button class="btn btn-primary" onclick="saveConfig()">Далее ${I.chevR}</button>
     </div>
   `;
+  setTimeout(checkPort, 200);
+}
+
+let portCheckTimer = null;
+
+function schedulePortCheck() {
+  clearTimeout(portCheckTimer);
+  portCheckTimer = setTimeout(checkPort, 600);
+}
+
+async function checkPort() {
+  const portEl = document.getElementById('expose-port');
+  const statusEl = document.getElementById('port-status');
+  const btn = document.getElementById('btn-check-port');
+  if (!statusEl || !portEl) return;
+  const portNum = parseInt(portEl.value || '80');
+  if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
+    statusEl.innerHTML = `<span style="color:var(--red);font-size:.82rem">Некорректный номер порта</span>`;
+    return;
+  }
+  statusEl.innerHTML = `<span style="color:var(--text2);font-size:.82rem;display:flex;align-items:center;gap:5px">${I.spinner} Проверяем порт ${portNum}...</span>`;
+  if (btn) btn.disabled = true;
+  try {
+    const result = await api('GET', `/api/check-port/${portNum}`);
+    if (btn) btn.disabled = false;
+    if (!result.inUse) {
+      statusEl.innerHTML = `<span style="color:var(--green);font-size:.82rem;display:flex;align-items:center;gap:5px">${I.check} Порт ${portNum} свободен</span>`;
+    } else {
+      let alts = '';
+      if (result.alternatives && result.alternatives.length) {
+        alts = `<span style="display:block;font-size:.8rem;color:var(--text2);margin-top:4px">Свободные альтернативы: ` +
+          result.alternatives.map(p => `<button class="btn btn-secondary btn-sm" style="padding:2px 10px;font-size:.78rem;margin:0 3px" onclick="document.getElementById('expose-port').value='${p}';checkPort()">${p}</button>`).join('') +
+          `</span>`;
+      }
+      statusEl.innerHTML = `<span style="color:var(--red);font-size:.82rem;display:flex;align-items:center;gap:5px">${I.x} Порт ${portNum} занят — выберите другой</span>${alts}`;
+    }
+  } catch {
+    if (btn) btn.disabled = false;
+    statusEl.innerHTML = '';
+  }
 }
 
 async function saveConfig() {
