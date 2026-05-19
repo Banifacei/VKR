@@ -180,8 +180,8 @@ services:
       test: ["CMD-SHELL", "node -e \\"require('http').get('http://localhost:5001/api/theme',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))\\""]
       interval: 5s
       timeout: 5s
-      retries: 12
-      start_period: 10s
+      retries: 36
+      start_period: 60s
     restart: unless-stopped
 
   client:
@@ -272,6 +272,20 @@ async function runInstall() {
     state.installing = false;
     saveState();
     pushLog({ type: 'error', text: `❌ Ошибка: ${err.message}` });
+
+    // Показываем логи контейнеров чтобы было видно причину
+    for (const ctr of ['lumeo-server', 'lumeo-postgres', 'lumeo-client']) {
+      try {
+        const logs = execSync(`docker logs --tail 30 ${ctr} 2>&1`, { stdio: 'pipe' }).toString().trim();
+        if (logs) {
+          pushLog({ type: 'warn', text: `─── Логи ${ctr} (последние 30 строк) ───` });
+          for (const line of logs.split('\n')) {
+            if (line.trim()) pushLog({ type: 'log', text: line });
+          }
+        }
+      } catch {}
+    }
+
     pushLog({ type: 'failed', text: 'FAILED' });
   }
 }
