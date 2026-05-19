@@ -24,22 +24,27 @@
 body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:24px 16px}
 h1{font-size:1.6rem;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .logo{display:flex;align-items:center;gap:12px;margin-bottom:32px}
-.logo-icon{width:44px;height:44px;background:linear-gradient(135deg,var(--accent),#a855f7);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px}
+.logo-icon{width:44px;height:44px;background:linear-gradient(135deg,var(--accent),#a855f7);border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff}
 
 /* Steps bar */
 .steps{display:flex;align-items:center;gap:0;margin-bottom:32px;width:100%;max-width:720px}
 .step-item{display:flex;align-items:center;flex:1}
-.step-dot{width:32px;height:32px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex-shrink:0;transition:.3s;background:var(--surface)}
+.step-dot{width:32px;height:32px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex-shrink:0;transition:.3s;background:var(--surface);color:var(--text2)}
 .step-dot.active{border-color:var(--accent);background:var(--accent);color:#fff}
 .step-dot.done{border-color:var(--green);background:var(--green);color:#fff}
 .step-line{flex:1;height:2px;background:var(--border);transition:.3s}
 .step-line.done{background:var(--green)}
-.step-label{font-size:11px;color:var(--text2);margin-top:4px;text-align:center;width:32px}
+.step-label{font-size:11px;color:var(--text2);margin-top:4px;text-align:center;width:60px;margin-left:-14px}
 
 /* Card */
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:32px;width:100%;max-width:720px;box-shadow:var(--shadow)}
-.card-title{font-size:1.2rem;font-weight:600;margin-bottom:6px}
+.card-title{font-size:1.2rem;font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:10px}
+.card-title svg{color:var(--accent2)}
 .card-sub{color:var(--text2);font-size:.9rem;margin-bottom:24px;line-height:1.5}
+
+/* Section header */
+.section-header{display:flex;align-items:center;gap:8px;font-size:.9rem;font-weight:600;color:var(--accent2);margin-bottom:12px;margin-top:8px}
+.section-header:first-of-type{margin-top:0}
 
 /* Form */
 .field{margin-bottom:18px}
@@ -60,61 +65,72 @@ h1{font-size:1.6rem;font-weight:700;background:linear-gradient(135deg,var(--acce
 /* Buttons */
 .btn{padding:10px 22px;border-radius:8px;border:none;font-size:.9rem;font-weight:600;cursor:pointer;transition:.2s;display:inline-flex;align-items:center;gap:8px}
 .btn-primary{background:var(--accent);color:#fff}
-.btn-primary:hover{background:var(--accent2)}
+.btn-primary:hover:not(:disabled){background:var(--accent2)}
 .btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
-.btn-secondary:hover{border-color:var(--accent);color:var(--accent)}
+.btn-secondary:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
 .btn-danger{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3)}
 .btn-sm{padding:7px 14px;font-size:.82rem}
-.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn:disabled{opacity:.45;cursor:not-allowed}
 .actions{display:flex;justify-content:space-between;align-items:center;margin-top:28px;gap:12px}
 .actions-right{display:flex;gap:10px}
 
 /* Check results */
 .check-item{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:8px;background:var(--surface2);margin-bottom:8px}
-.check-icon{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
-.check-icon.ok{background:rgba(34,197,94,.2);color:var(--green)}
-.check-icon.fail{background:rgba(239,68,68,.2);color:var(--red)}
+.check-icon{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.check-icon.ok{background:rgba(34,197,94,.15);color:var(--green)}
+.check-icon.fail{background:rgba(239,68,68,.15);color:var(--red)}
 .check-label{font-weight:500;font-size:.9rem}
 .check-value{margin-left:auto;font-size:.82rem;color:var(--text2)}
 
 /* Admin cards */
 .admin-list{display:flex;flex-direction:column;gap:12px;margin-bottom:16px}
 .admin-card{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:16px;position:relative}
-.admin-card .badge{position:absolute;top:12px;right:12px;font-size:.72rem;padding:3px 8px;border-radius:20px;background:rgba(108,99,255,.2);color:var(--accent2);font-weight:600}
-.admin-remove{position:absolute;top:10px;right:10px;background:none;border:none;color:var(--text2);cursor:pointer;font-size:18px;line-height:1}
-.admin-remove:hover{color:var(--red)}
+.admin-card .badge{display:inline-flex;align-items:center;gap:5px;font-size:.72rem;padding:3px 8px;border-radius:20px;background:rgba(108,99,255,.2);color:var(--accent2);font-weight:600;margin-bottom:12px}
+.admin-remove{position:absolute;top:12px;right:12px;background:none;border:none;color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:4px;transition:.2s}
+.admin-remove:hover{color:var(--red);background:rgba(239,68,68,.1)}
 
 /* Optional badge */
 .optional-badge{display:inline-flex;align-items:center;gap:6px;font-size:.78rem;padding:4px 10px;border-radius:20px;background:rgba(245,158,11,.1);color:var(--yellow);border:1px solid rgba(245,158,11,.25);margin-bottom:16px}
 
+/* Install phases */
+.install-phases{display:flex;align-items:center;margin-bottom:16px;gap:0}
+.phase-step{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1}
+.phase-dot{width:28px;height:28px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;background:var(--surface);color:var(--text2);transition:.4s;font-size:12px}
+.phase-dot.active{border-color:var(--accent);background:rgba(108,99,255,.15);color:var(--accent)}
+.phase-dot.done{border-color:var(--green);background:rgba(34,197,94,.15);color:var(--green)}
+.phase-label{font-size:10px;color:var(--text2);white-space:nowrap}
+.phase-line{flex:1;height:2px;background:var(--border);margin-bottom:18px;transition:.4s}
+.phase-line.done{background:var(--green)}
+
 /* Log terminal */
-.terminal{background:#0a0a14;border:1px solid var(--border);border-radius:8px;padding:16px;font-family:'Courier New',monospace;font-size:.82rem;height:280px;overflow-y:auto;margin-bottom:16px}
-.terminal .log-info{color:#888}
-.terminal .log-log{color:#aaa}
+.terminal{background:#0a0a14;border:1px solid var(--border);border-radius:8px;padding:16px;font-family:'Courier New',monospace;font-size:.82rem;height:260px;overflow-y:auto;margin-bottom:16px;line-height:1.6}
+.terminal .log-info{color:#9090bb}
+.terminal .log-log{color:#7070a0}
 .terminal .log-warn{color:var(--yellow)}
 .terminal .log-success{color:var(--green)}
 .terminal .log-error{color:var(--red)}
 
 /* Progress */
-.progress-wrap{height:6px;background:var(--surface2);border-radius:3px;margin-bottom:20px;overflow:hidden}
-.progress-bar{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:3px;transition:width .4s;width:0%}
+.progress-wrap{height:4px;background:var(--surface2);border-radius:2px;margin-bottom:20px;overflow:hidden}
+.progress-bar{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:2px;transition:width .5s ease;width:0%}
 
 /* Done screen */
-.done-icon{font-size:56px;text-align:center;margin-bottom:16px}
+.done-icon{display:flex;justify-content:center;margin-bottom:16px}
+.done-icon-circle{width:72px;height:72px;border-radius:50%;background:rgba(34,197,94,.15);border:2px solid rgba(34,197,94,.3);display:flex;align-items:center;justify-content:center;color:var(--green)}
 .done-title{font-size:1.4rem;font-weight:700;text-align:center;margin-bottom:8px}
 .done-sub{color:var(--text2);text-align:center;font-size:.95rem;margin-bottom:28px;line-height:1.6}
 .skipped-list{border:1px solid rgba(245,158,11,.25);background:rgba(245,158,11,.05);border-radius:8px;padding:16px;margin-bottom:20px}
-.skipped-list h4{font-size:.9rem;color:var(--yellow);margin-bottom:10px}
+.skipped-list h4{font-size:.9rem;color:var(--yellow);margin-bottom:10px;display:flex;align-items:center;gap:6px}
 .skipped-list li{font-size:.85rem;color:var(--text2);margin-left:16px;margin-bottom:4px;line-height:1.5}
 .skipped-list li a{color:var(--accent2)}
-.open-btn{width:100%;padding:14px;font-size:1rem;border-radius:10px;background:linear-gradient(135deg,var(--accent),#a855f7);color:#fff;border:none;cursor:pointer;font-weight:700;transition:.2s}
+.open-btn{width:100%;padding:14px;font-size:1rem;border-radius:10px;background:linear-gradient(135deg,var(--accent),#a855f7);color:#fff;border:none;cursor:pointer;font-weight:700;transition:.2s;display:flex;align-items:center;justify-content:center;gap:8px}
 .open-btn:hover{opacity:.9;transform:translateY(-1px)}
 
 /* Modal */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;z-index:999;backdrop-filter:blur(4px)}
 .modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:32px;max-width:500px;width:90%;box-shadow:var(--shadow)}
-.modal-warn{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:14px;margin-bottom:20px;text-align:center}
-.modal-warn strong{color:var(--red);font-size:1.1rem;display:block;margin-bottom:6px}
+.modal-warn{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:14px;margin-bottom:20px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px}
+.modal-warn strong{color:var(--red);font-size:1rem}
 .modal-warn span{font-size:.85rem;color:var(--text2)}
 .cred-row{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--surface2);border-radius:8px;margin-bottom:8px}
 .cred-label{font-size:.82rem;color:var(--text2)}
@@ -123,15 +139,20 @@ h1{font-size:1.6rem;font-weight:700;background:linear-gradient(135deg,var(--acce
 .modal-timer span{color:var(--accent2);font-weight:700}
 
 /* Alerts */
-.alert{padding:12px 16px;border-radius:8px;font-size:.88rem;margin-bottom:16px;line-height:1.5}
+.alert{padding:12px 16px;border-radius:8px;font-size:.88rem;margin-bottom:16px;line-height:1.5;display:flex;align-items:flex-start;gap:10px}
+.alert svg{flex-shrink:0;margin-top:1px}
 .alert-info{background:rgba(108,99,255,.1);border:1px solid rgba(108,99,255,.25);color:var(--accent2)}
 .alert-warn{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);color:var(--yellow)}
 
 /* Updater mode */
-.updater-card{text-align:center;padding:40px 32px}
-.updater-icon{font-size:48px;margin-bottom:16px}
+.updater-card{text-align:center;padding:32px}
+.updater-icon-wrap{width:64px;height:64px;border-radius:50%;background:rgba(108,99,255,.15);border:2px solid rgba(108,99,255,.3);display:flex;align-items:center;justify-content:center;color:var(--accent2);margin:0 auto 16px}
 .updater-title{font-size:1.3rem;font-weight:700;margin-bottom:8px}
 .updater-sub{color:var(--text2);font-size:.9rem;margin-bottom:28px;line-height:1.5}
+
+/* Spinner */
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{animation:spin 1s linear infinite;transform-origin:center}
 
 @media(max-width:600px){.row2,.row3{grid-template-columns:1fr}}
 </style>
@@ -139,37 +160,74 @@ h1{font-size:1.6rem;font-weight:700;background:linear-gradient(135deg,var(--acce
 <body>
 
 <div class="logo">
-  <div class="logo-icon">🎓</div>
+  <div class="logo-icon">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>
+    </svg>
+  </div>
   <h1>LumeoLoadpad</h1>
 </div>
 
 <div id="steps-bar" class="steps" style="display:none"></div>
-
 <div id="app" class="card"></div>
 
 <script>
+// ─── SVG Icons ────────────────────────────────────────────────────────────────
+const I = {
+  check:    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+  x:        `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+  checkLg:  `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+  chevR:    `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>`,
+  chevL:    `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>`,
+  play:     `<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg>`,
+  refresh:  `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>`,
+  skip:     `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="5 12 12 5 19 12"/><polyline points="5 19 12 12 19 19"/></svg>`,
+  warn:     `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+  info:     `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
+  db:       `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>`,
+  lock:     `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
+  globe:    `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`,
+  user:     `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
+  mail:     `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>`,
+  star:     `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
+  plus:     `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
+  trash:    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`,
+  dice:     `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="2" width="20" height="20" rx="4"/><circle cx="8" cy="8" r="1" fill="currentColor"/><circle cx="16" cy="8" r="1" fill="currentColor"/><circle cx="8" cy="16" r="1" fill="currentColor"/><circle cx="16" cy="16" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>`,
+  docker:   `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12.5c0 .28-.01.55-.04.82C21.56 17.1 18.4 20 14.5 20H9.5C5.36 20 2 16.64 2 12.5c0-3.54 2.32-6.55 5.53-7.59"/><rect x="6" y="6" width="3" height="3" rx=".5"/><rect x="10" y="6" width="3" height="3" rx=".5"/><rect x="14" y="6" width="3" height="3" rx=".5"/><rect x="10" y="2" width="3" height="3" rx=".5"/></svg>`,
+  hdd:      `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="22" y1="12" x2="2" y2="12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><circle cx="12" cy="16" r="1" fill="currentColor"/><circle cx="16" cy="16" r="1" fill="currentColor"/></svg>`,
+  plug:     `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18"/><path d="M7 6v4"/><path d="M17 6v4"/><path d="M7 10c0 2.21 2.24 4 5 4s5-1.79 5-4"/><path d="M12 14v4"/></svg>`,
+  upload:   `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>`,
+  spinner:  `<svg class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.22-8.56"/></svg>`,
+  externalLink: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`,
+};
+
 // ─── State ────────────────────────────────────────────────────────────────────
 const STEPS = [
-  { id: 'check',   label: '⚙️', title: 'Проверка' },
-  { id: 'config',  label: '📋', title: 'Настройки' },
-  { id: 'admins',  label: '👤', title: 'Админы' },
-  { id: 'email',   label: '✉️', title: 'Email' },
-  { id: 'install', label: '🚀', title: 'Установка' },
-  { id: 'done',    label: '✅', title: 'Готово' },
+  { id: 'check',   icon: I.plug,   title: 'Проверка' },
+  { id: 'config',  icon: I.db,     title: 'Настройки' },
+  { id: 'admins',  icon: I.user,   title: 'Админы' },
+  { id: 'email',   icon: I.mail,   title: 'Email' },
+  { id: 'install', icon: I.upload, title: 'Установка' },
+  { id: 'done',    icon: I.checkLg, title: 'Готово' },
+];
+
+const PHASES = [
+  { id: 'ph-env',    label: '.env',      icon: I.lock  },
+  { id: 'ph-pull',   label: 'Образы',    icon: I.docker },
+  { id: 'ph-up',     label: 'Запуск',    icon: I.play  },
+  { id: 'ph-health', label: 'Healthcheck', icon: I.check },
 ];
 
 let appState = { step: 'check', installed: false, installing: false, skippedSteps: [], config: {}, admins: [] };
 let checkResults = [];
 let logEs = null;
+let currentPhase = -1;
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
   const s = await api('GET', '/api/state');
   Object.assign(appState, s);
-  if (appState.installed && appState.step !== 'install') {
-    renderUpdater();
-    return;
-  }
+  if (appState.installed && appState.step !== 'install') { renderUpdater(); return; }
   if (appState.step === 'install' || appState.installing) {
     renderStepsBar(appState.step);
     renderInstall();
@@ -194,13 +252,13 @@ function renderStepsBar(currentStep) {
   STEPS.forEach((s, i) => {
     const isDone = i < curIdx;
     const isActive = i === curIdx;
-    html += `<div class="step-item">`;
-    html += `<div style="display:flex;flex-direction:column;align-items:center">
-      <div class="step-dot ${isDone?'done':isActive?'active':''}">${isDone?'✓':s.label}</div>
-      <div class="step-label" style="color:${isActive?'var(--accent2)':isDone?'var(--green)':'var(--text2)'}">${s.title}</div>
+    html += `<div class="step-item">
+      <div style="display:flex;flex-direction:column;align-items:center">
+        <div class="step-dot ${isDone?'done':isActive?'active':''}">${isDone ? I.check : s.icon}</div>
+        <div class="step-label" style="color:${isActive?'var(--accent2)':isDone?'var(--green)':'var(--text2)'}">${s.title}</div>
+      </div>
+      ${i < STEPS.length-1 ? `<div class="step-line ${isDone?'done':''}" style="margin-bottom:18px"></div>` : ''}
     </div>`;
-    if (i < STEPS.length - 1) html += `<div class="step-line ${isDone?'done':''}"></div>`;
-    html += `</div>`;
   });
   bar.innerHTML = html;
 }
@@ -219,66 +277,70 @@ function render(step) {
 // ─── Step: System check ───────────────────────────────────────────────────────
 async function renderCheck() {
   document.getElementById('app').innerHTML = `
-    <div class="card-title">Проверка системы</div>
+    <div class="card-title">${I.plug} Проверка системы</div>
     <div class="card-sub">Проверяем что всё готово для установки Lumeo</div>
-    <div id="check-results"><div style="color:var(--text2);text-align:center;padding:20px">⏳ Проверяем...</div></div>
-    <div class="actions"><div></div><button class="btn btn-primary" id="btn-next" disabled>Далее →</button></div>
+    <div id="check-results"><div style="color:var(--text2);text-align:center;padding:24px;display:flex;align-items:center;justify-content:center;gap:10px">${I.spinner} Проверяем...</div></div>
+    <div class="actions"><div></div><button class="btn btn-primary" id="btn-next" disabled>Далее ${I.chevR}</button></div>
   `;
   const { results } = await api('GET', '/api/system-check');
   checkResults = results;
-  const allOk = results.every(r => r.ok);
+  const critFail = results.some(r => !r.ok && (r.id === 'docker' || r.id === 'compose'));
   let html = '';
+  const iconMap = { docker: I.docker, compose: I.docker, disk: I.hdd, port80: I.plug, port443: I.plug, port5001: I.plug };
   for (const r of results) {
     html += `<div class="check-item">
-      <div class="check-icon ${r.ok?'ok':'fail'}">${r.ok?'✓':'✗'}</div>
-      <div class="check-label">${r.label}</div>
+      <div class="check-icon ${r.ok?'ok':'fail'}">${r.ok ? I.check : I.x}</div>
+      <div style="display:flex;align-items:center;gap:6px">${iconMap[r.id]||''}<span class="check-label">${r.label}</span></div>
       <div class="check-value">${r.value}</div>
     </div>`;
   }
-  if (!allOk) html += `<div class="alert alert-warn" style="margin-top:12px">⚠️ Есть предупреждения — установка возможна, но могут возникнуть проблемы</div>`;
+  if (!results.every(r => r.ok)) {
+    html += `<div class="alert alert-warn" style="margin-top:12px">${I.warn}<span>Есть предупреждения — установка возможна, но могут возникнуть проблемы</span></div>`;
+  }
   document.getElementById('check-results').innerHTML = html;
   const btn = document.getElementById('btn-next');
-  btn.disabled = false;
-  btn.onclick = () => render('config');
+  btn.disabled = critFail;
+  if (!critFail) btn.onclick = () => render('config');
+  else btn.title = 'Сначала исправьте критические ошибки';
 }
 
 // ─── Step: Config ─────────────────────────────────────────────────────────────
 function renderConfig() {
   const c = appState.config;
   document.getElementById('app').innerHTML = `
-    <div class="card-title">Основные настройки</div>
+    <div class="card-title">${I.db} Основные настройки</div>
     <div class="card-sub">Заполните параметры подключения. Если оставить пароли пустыми — они будут сгенерированы автоматически.</div>
 
-    <div style="font-size:.9rem;font-weight:600;color:var(--accent2);margin-bottom:12px">🗄️ База данных</div>
+    <div class="section-header">${I.db} База данных</div>
     <div class="row3">
       <div class="field"><label>Название БД</label><input id="db-name" placeholder="lumeo_db" value="${c.DB_NAME||'lumeo_db'}"/></div>
       <div class="field"><label>Пользователь БД</label><input id="db-user" placeholder="lumeo" value="${c.DB_USER||'lumeo'}"/></div>
       <div class="field"><label>Порт БД</label><input id="db-port" placeholder="5432" value="${c.DB_PORT||'5432'}"/></div>
     </div>
-    <div class="field"><label>Пароль БД <span style="color:var(--text2)">(оставьте пустым — сгенерируем)</span></label>
+    <div class="field"><label>Пароль БД <span style="color:var(--text2);font-weight:400">(оставьте пустым — сгенерируем)</span></label>
       <div class="input-action"><input id="db-pass" type="password" placeholder="Оставьте пустым для автогенерации" value="${c.DB_PASSWORD&&c.DB_PASSWORD!='***'?c.DB_PASSWORD:''}"/>
-      <button class="btn btn-secondary btn-sm" onclick="genPass('db-pass')">🎲 Генерировать</button></div>
+      <button class="btn btn-secondary btn-sm" onclick="genPass('db-pass')">${I.dice} Генерировать</button></div>
     </div>
 
-    <div style="font-size:.9rem;font-weight:600;color:var(--accent2);margin-bottom:12px;margin-top:8px">🔐 Безопасность</div>
-    <div class="field"><label>JWT Secret <span style="color:var(--text2)">(оставьте пустым — сгенерируем)</span></label>
+    <div class="section-header">${I.lock} Безопасность</div>
+    <div class="field"><label>JWT Secret <span style="color:var(--text2);font-weight:400">(оставьте пустым — сгенерируем)</span></label>
       <div class="input-action"><input id="jwt-secret" type="password" placeholder="Оставьте пустым для автогенерации" value="${c.JWT_SECRET&&c.JWT_SECRET!='***'?c.JWT_SECRET:''}"/>
-      <button class="btn btn-secondary btn-sm" onclick="genPass('jwt-secret',48)">🎲 Генерировать</button></div>
+      <button class="btn btn-secondary btn-sm" onclick="genPass('jwt-secret',48)">${I.dice} Генерировать</button></div>
     </div>
 
-    <div style="font-size:.9rem;font-weight:600;color:var(--accent2);margin-bottom:12px;margin-top:8px">🌐 Публичный адрес</div>
-    <div class="field"><label>URL сервиса <span style="color:var(--text2)">(с http/https, без / в конце)</span></label>
+    <div class="section-header">${I.globe} Публичный адрес</div>
+    <div class="field"><label>URL сервиса <span style="color:var(--text2);font-weight:400">(с http/https, без / в конце)</span></label>
       <input id="client-url" placeholder="https://lumeo.university.edu или http://192.168.1.10" value="${c.CLIENT_URL||''}"/>
-      <div class="hint">Используется для CORS, SSO-редиректов и ссылок в письмах. Если используете домен — укажите домен, если IP — укажите IP с портом.</div>
+      <div class="hint">Используется для CORS, SSO-редиректов и ссылок в письмах.</div>
     </div>
-    <div class="field"><label>Внешний порт <span style="color:var(--text2)">(на каком порту будет доступен Lumeo)</span></label>
+    <div class="field"><label>Внешний порт</label>
       <input id="expose-port" placeholder="80" value="${c.EXPOSE_PORT||'80'}"/>
-      <div class="hint">Если стоит reverse proxy (Caddy/nginx) — оставьте 80. Если прямой доступ — укажите нужный порт.</div>
+      <div class="hint">Если стоит reverse proxy (Caddy/nginx) — оставьте 80.</div>
     </div>
 
     <div class="actions">
-      <button class="btn btn-secondary" onclick="render('check')">← Назад</button>
-      <button class="btn btn-primary" onclick="saveConfig()">Далее →</button>
+      <button class="btn btn-secondary" onclick="render('check')">${I.chevL} Назад</button>
+      <button class="btn btn-primary" onclick="saveConfig()">Далее ${I.chevR}</button>
     </div>
   `;
 }
@@ -312,27 +374,29 @@ function renderAdminsUI() {
   let cardsHtml = '';
   appState.admins.forEach((a, i) => {
     cardsHtml += `<div class="admin-card" id="admin-card-${i}">
-      ${i === 0 ? '<span class="badge">⭐ Главный администратор</span>' : `<button class="admin-remove" onclick="removeAdmin(${i})">×</button>`}
+      ${i === 0
+        ? `<div class="badge">${I.star} Главный администратор</div>`
+        : `<button class="admin-remove" onclick="removeAdmin(${i})" title="Удалить">${I.trash}</button>`}
       <div class="row2" style="margin-bottom:0">
         <div class="field"><label>Имя</label><input id="a${i}-fn" placeholder="Иван" value="${a.firstName||''}"/></div>
         <div class="field"><label>Фамилия</label><input id="a${i}-ln" placeholder="Иванов" value="${a.lastName||''}"/></div>
       </div>
       <div class="field"><label>Email</label><input id="a${i}-email" type="email" placeholder="admin@university.edu" value="${a.email||''}"/></div>
-      <div class="field"><label>Пароль <span style="color:var(--text2)">(оставьте пустым — сгенерируем)</span></label>
+      <div class="field"><label>Пароль <span style="color:var(--text2);font-weight:400">(оставьте пустым — сгенерируем)</span></label>
         <div class="input-action"><input id="a${i}-pass" type="password" placeholder="Оставьте пустым для автогенерации" value="${a.password||''}"/>
-        <button class="btn btn-secondary btn-sm" onclick="genPass('a${i}-pass',12)">🎲</button></div>
+        <button class="btn btn-secondary btn-sm" onclick="genPass('a${i}-pass',12)">${I.dice}</button></div>
       </div>
     </div>`;
   });
 
   document.getElementById('app').innerHTML = `
-    <div class="card-title">Администраторы</div>
-    <div class="card-sub">Создайте минимум одного администратора. Первый будет иметь наивысший уровень доступа. Остальных можно добавить позже в /adminpanel.</div>
+    <div class="card-title">${I.user} Администраторы</div>
+    <div class="card-sub">Создайте минимум одного администратора. Первый будет иметь наивысший уровень доступа.</div>
     <div class="admin-list" id="admin-list">${cardsHtml}</div>
-    <button class="btn btn-secondary btn-sm" onclick="addAdmin()" style="margin-bottom:8px">+ Добавить ещё администратора</button>
+    <button class="btn btn-secondary btn-sm" onclick="addAdmin()" style="margin-bottom:8px">${I.plus} Добавить ещё администратора</button>
     <div class="actions">
-      <button class="btn btn-secondary" onclick="render('config')">← Назад</button>
-      <button class="btn btn-primary" onclick="saveAdmins()">Далее →</button>
+      <button class="btn btn-secondary" onclick="render('config')">${I.chevL} Назад</button>
+      <button class="btn btn-primary" onclick="saveAdmins()">Далее ${I.chevR}</button>
     </div>
   `;
 }
@@ -369,9 +433,9 @@ async function saveAdmins() {
 function renderEmail() {
   const c = appState.config;
   document.getElementById('app').innerHTML = `
-    <div class="card-title">Настройки Email</div>
-    <div class="optional-badge">⏭ Необязательный шаг — можно настроить позже в <strong>/adminpanel</strong></div>
-    <div class="card-sub">Email используется для сброса пароля, уведомлений и подтверждения регистрации. Если пропустите — эти функции будут недоступны.</div>
+    <div class="card-title">${I.mail} Настройки Email</div>
+    <div class="optional-badge">${I.skip} Необязательный шаг — можно настроить позже в <strong>/adminpanel</strong></div>
+    <div class="card-sub">Email используется для сброса пароля, уведомлений и подтверждения регистрации.</div>
 
     <div class="row2">
       <div class="field"><label>SMTP хост</label><input id="smtp-host" placeholder="smtp.gmail.com" value="${c.SMTP_HOST||''}"/>
@@ -382,16 +446,16 @@ function renderEmail() {
       </div>
     </div>
     <div class="field"><label>Логин SMTP</label><input id="smtp-user" placeholder="noreply@university.edu" value="${c.SMTP_USER||''}"/>
-      <div class="hint">Для Gmail нужен <a href="https://myaccount.google.com/apppasswords" target="_blank">App Password</a> (не обычный пароль аккаунта)</div>
+      <div class="hint">Для Gmail нужен <a href="https://myaccount.google.com/apppasswords" target="_blank">App Password</a></div>
     </div>
     <div class="field"><label>Пароль SMTP</label><input id="smtp-pass" type="password" placeholder="App Password или пароль почты" value="${c.SMTP_PASS||''}"/></div>
     <div class="field"><label>Адрес отправителя</label><input id="smtp-from" placeholder="Lumeo LMS &lt;noreply@university.edu&gt;" value="${c.SMTP_FROM||''}"/></div>
 
     <div class="actions">
-      <button class="btn btn-secondary" onclick="render('admins')">← Назад</button>
+      <button class="btn btn-secondary" onclick="render('admins')">${I.chevL} Назад</button>
       <div class="actions-right">
-        <button class="btn btn-secondary" onclick="skipEmail()">Пропустить</button>
-        <button class="btn btn-primary" onclick="saveEmail()">Далее →</button>
+        <button class="btn btn-secondary" onclick="skipEmail()">${I.skip} Пропустить</button>
+        <button class="btn btn-primary" onclick="saveEmail()">Далее ${I.chevR}</button>
       </div>
     </div>
   `;
@@ -423,31 +487,51 @@ async function saveEmail() {
 function renderInstall() {
   renderStepsBar('install');
   const skipped = appState.skippedSteps || [];
+  const isInstalling = appState.installing;
+
   let summaryHtml = '';
   if (skipped.length) {
-    summaryHtml = `<div class="alert alert-warn">⏭ Пропущено: ${skipped.map(s=>({email:'Email'})[s]||s).join(', ')} — можно настроить после в <strong>/adminpanel</strong></div>`;
+    summaryHtml = `<div class="alert alert-warn">${I.warn}<span>Пропущено: ${skipped.map(s=>({email:'Email'})[s]||s).join(', ')} — настройте после в <strong>/adminpanel</strong></span></div>`;
   }
 
+  const phasesHtml = PHASES.map((p, i) => `
+    <div class="phase-step">
+      <div class="phase-dot" id="${p.id}">${p.icon}</div>
+      <div class="phase-label">${p.label}</div>
+    </div>
+    ${i < PHASES.length-1 ? `<div class="phase-line" id="${p.id}-line"></div>` : ''}
+  `).join('');
+
   document.getElementById('app').innerHTML = `
-    <div class="card-title">🚀 Установка Lumeo</div>
-    <div class="card-sub">Сейчас загрузим Docker образы и запустим все сервисы. Это может занять 3-5 минут.</div>
+    <div class="card-title">${I.upload} Установка Lumeo</div>
+    <div class="card-sub">Сейчас загрузим Docker образы и запустим все сервисы. Это может занять 3–5 минут.</div>
     ${summaryHtml}
+    <div class="install-phases" id="install-phases" style="display:${isInstalling?'flex':'none'}">${phasesHtml}</div>
     <div class="progress-wrap"><div class="progress-bar" id="prog-bar"></div></div>
     <div class="terminal" id="terminal"><span style="color:var(--text2)">Нажмите кнопку ниже чтобы начать установку...</span></div>
     <div class="actions">
-      <div id="install-status"></div>
-      <button class="btn btn-primary" id="btn-install" onclick="startInstall()">▶ Начать установку</button>
+      <button class="btn btn-secondary" id="btn-back" onclick="render('email')" ${isInstalling ? 'disabled' : ''}>${I.chevL} Назад</button>
+      <button class="btn btn-primary" id="btn-install" onclick="startInstall()" ${isInstalling ? 'disabled' : ''}>
+        ${isInstalling ? `${I.spinner} Устанавливаем...` : `${I.play} Начать установку`}
+      </button>
     </div>
   `;
 
-  // Если уже устанавливается — подключаемся к логам
-  if (appState.installing) startLogStream();
+  if (isInstalling) {
+    document.getElementById('terminal').innerHTML = '';
+    startLogStream();
+  }
 }
 
 async function startInstall() {
-  document.getElementById('btn-install').disabled = true;
-  document.getElementById('btn-install').textContent = '⏳ Устанавливаем...';
+  const btn = document.getElementById('btn-install');
+  const backBtn = document.getElementById('btn-back');
+  btn.disabled = true;
+  btn.innerHTML = `${I.spinner} Устанавливаем...`;
+  backBtn.disabled = true;
   document.getElementById('terminal').innerHTML = '';
+  document.getElementById('install-phases').style.display = 'flex';
+  appState.installing = true;
   await api('POST', '/api/install');
   startLogStream();
 }
@@ -464,15 +548,18 @@ function startLogStream() {
 
     if (data.type === 'done') {
       logEs.close();
-      progress = 100;
+      setPhase('ph-health', true);
       updateProgress(100);
-      setTimeout(() => { appState.installed = true; appState.step = 'done'; render('done'); }, 800);
+      setTimeout(() => { appState.installed = true; appState.step = 'done'; appState.installing = false; render('done'); }, 800);
       return;
     }
     if (data.type === 'failed') {
       logEs.close();
+      appState.installing = false;
       const btn = document.getElementById('btn-install');
-      if (btn) { btn.disabled = false; btn.textContent = '🔄 Попробовать снова'; }
+      const backBtn = document.getElementById('btn-back');
+      if (btn) { btn.disabled = false; btn.innerHTML = `${I.refresh} Попробовать снова`; btn.onclick = startInstall; }
+      if (backBtn) backBtn.disabled = false;
       return;
     }
 
@@ -482,9 +569,39 @@ function startLogStream() {
     term.appendChild(line);
     term.scrollTop = term.scrollHeight;
 
-    if (data.type === 'info' || data.type === 'success') progress = Math.min(progress + 8, 90);
+    detectPhase(data.text);
+
+    if (data.type === 'info' || data.type === 'success') progress = Math.min(progress + 7, 90);
     updateProgress(progress);
   };
+}
+
+function detectPhase(text) {
+  if (text.includes('.env') || text.includes('Записываем')) setPhase('ph-env');
+  else if (text.includes('образы') || text.includes('pull') || text.includes('Скачиваем')) setPhase('ph-pull');
+  else if (text.includes('контейнеры') || text.includes('Запускаем') || text.includes(' up')) setPhase('ph-up');
+  else if (text.includes('Ждём') || text.includes('Ожидание') || text.includes('сервер')) setPhase('ph-health');
+}
+
+function setPhase(phaseId, markDone = false) {
+  const idx = PHASES.findIndex(p => p.id === phaseId);
+  if (idx === -1 || idx <= currentPhase) return;
+
+  // Mark previous phases done
+  for (let i = 0; i < idx; i++) {
+    const dot = document.getElementById(PHASES[i].id);
+    if (dot) { dot.className = 'phase-dot done'; dot.innerHTML = I.check; }
+    const line = document.getElementById(PHASES[i].id + '-line');
+    if (line) line.className = 'phase-line done';
+  }
+
+  const dot = document.getElementById(phaseId);
+  if (dot) {
+    dot.className = markDone ? 'phase-dot done' : 'phase-dot active';
+    dot.innerHTML = markDone ? I.check : I.spinner;
+  }
+
+  currentPhase = idx;
 }
 
 function updateProgress(val) {
@@ -499,7 +616,6 @@ async function renderDone() {
   const skipped = appState.skippedSteps || [];
   const clientUrl = appState.config.CLIENT_URL || '';
 
-  let credHtml = '';
   if (credentials && Object.keys(credentials).length) {
     showCredentialsModal(credentials, clientUrl);
   }
@@ -508,54 +624,52 @@ async function renderDone() {
   if (skipped.length) {
     const labels = { email: 'Email / SMTP — нужен для сброса пароля и уведомлений' };
     skippedHtml = `<div class="skipped-list">
-      <h4>⚠️ Не забудьте настроить пропущенные шаги:</h4>
+      <h4>${I.warn} Не забудьте настроить пропущенные шаги:</h4>
       <ul>${skipped.map(s=>`<li>${labels[s]||s} → <a href="${clientUrl}/adminpanel" target="_blank">/adminpanel</a></li>`).join('')}</ul>
     </div>`;
   }
 
   document.getElementById('app').innerHTML = `
-    <div class="done-icon">🎉</div>
+    <div class="done-icon"><div class="done-icon-circle">${I.checkLg}</div></div>
     <div class="done-title">Lumeo успешно установлен!</div>
-    <div class="done-sub">Все сервисы запущены и готовы к работе. Войдите под учётной записью администратора чтобы начать.</div>
+    <div class="done-sub">Все сервисы запущены и готовы к работе.<br>Войдите под учётной записью администратора чтобы начать.</div>
     ${skippedHtml}
-    <button class="open-btn" onclick="window.open('${clientUrl}','_blank')">Открыть Lumeo →</button>
+    <button class="open-btn" onclick="window.open('${clientUrl}','_blank')">Открыть Lumeo ${I.externalLink}</button>
   `;
 }
 
 function showCredentialsModal(creds, clientUrl) {
   let timer = 30;
-  const timerLabel = () => timer > 0 ? `<span>${timer}с</span>` : '';
-  const btnLabel = () => timer > 0 ? `Я записал (${timer}с)` : 'Я записал и сохранил данные';
-
-  const rows = [
-    creds.ADMIN_EMAIL && `<div class="cred-row"><span class="cred-label">Email админа</span><span class="cred-val">${creds.ADMIN_EMAIL}</span></div>`,
-    creds.ADMIN_PASSWORD && `<div class="cred-row"><span class="cred-label">Пароль админа</span><span class="cred-val">${creds.ADMIN_PASSWORD}</span></div>`,
-    creds.DB_PASSWORD && `<div class="cred-row"><span class="cred-label">Пароль БД</span><span class="cred-val">${creds.DB_PASSWORD}</span></div>`,
-    creds.JWT_SECRET && `<div class="cred-row"><span class="cred-label">JWT Secret</span><span class="cred-val" style="font-size:.75rem">${creds.JWT_SECRET}</span></div>`,
-  ].filter(Boolean).join('');
-
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = `<div class="modal">
     <div class="modal-warn">
-      <strong>⚠️ ДАННЫЕ БУДУТ ПОКАЗАНЫ ТОЛЬКО ОДИН РАЗ</strong>
+      <div style="width:40px;height:40px;border-radius:50%;background:rgba(239,68,68,.2);display:flex;align-items:center;justify-content:center;color:var(--red)">${I.warn}</div>
+      <strong>ДАННЫЕ БУДУТ ПОКАЗАНЫ ТОЛЬКО ОДИН РАЗ</strong>
       <span>Запишите или сохраните их прямо сейчас. После закрытия окна они недоступны.</span>
     </div>
-    ${rows}
-    <div class="modal-timer">Кнопка станет активна через ${timerLabel()}</div>
-    <button class="btn btn-primary" id="cred-btn" style="width:100%;margin-top:16px;justify-content:center" disabled onclick="closeCredModal()">${btnLabel()}</button>
+    ${[
+      creds.ADMIN_EMAIL    && `<div class="cred-row"><span class="cred-label">Email админа</span><span class="cred-val">${creds.ADMIN_EMAIL}</span></div>`,
+      creds.ADMIN_PASSWORD && `<div class="cred-row"><span class="cred-label">Пароль админа</span><span class="cred-val">${creds.ADMIN_PASSWORD}</span></div>`,
+      creds.DB_PASSWORD    && `<div class="cred-row"><span class="cred-label">Пароль БД</span><span class="cred-val">${creds.DB_PASSWORD}</span></div>`,
+      creds.JWT_SECRET     && `<div class="cred-row"><span class="cred-label">JWT Secret</span><span class="cred-val" style="font-size:.72rem">${creds.JWT_SECRET}</span></div>`,
+    ].filter(Boolean).join('')}
+    <div class="modal-timer" id="cred-timer">Кнопка станет активна через <span>${timer}с</span></div>
+    <button class="btn btn-primary" id="cred-btn" style="width:100%;margin-top:16px;justify-content:center" disabled onclick="closeCredModal()">Я записал и сохранил данные (${timer}с)</button>
   </div>`;
   document.body.appendChild(overlay);
+  window._credOverlay = overlay;
 
   const interval = setInterval(() => {
     timer--;
-    const timerEl = overlay.querySelector('.modal-timer');
+    const timerEl = overlay.querySelector('#cred-timer');
     const btn = overlay.querySelector('#cred-btn');
     if (timerEl) timerEl.innerHTML = timer > 0 ? `Кнопка станет активна через <span>${timer}с</span>` : 'Нажмите кнопку когда сохраните данные';
-    if (btn) { btn.textContent = btnLabel(); if (timer <= 0) { btn.disabled = false; clearInterval(interval); } }
+    if (btn) {
+      btn.textContent = timer > 0 ? `Я записал и сохранил данные (${timer}с)` : 'Я записал и сохранил данные';
+      if (timer <= 0) { btn.disabled = false; clearInterval(interval); }
+    }
   }, 1000);
-
-  window._credOverlay = overlay;
 }
 
 function closeCredModal() {
@@ -568,11 +682,19 @@ async function renderUpdater() {
   const { current, latest } = await api('GET', '/api/check-updates').catch(() => ({ current: '?', latest: '?' }));
   document.getElementById('app').innerHTML = `
     <div class="updater-card">
-      <div class="updater-icon">🔄</div>
+      <div class="updater-icon-wrap">${I.refresh}</div>
       <div class="updater-title">LumeoLoadpad — Updater</div>
-      <div class="updater-sub">Lumeo установлен и работает. Этот сервис используется для обновлений — управляйте им через <strong>/adminpanel → Обновления</strong>.</div>
-      <div class="check-item" style="margin-bottom:12px"><div class="check-label">Текущая версия</div><div class="check-value">${current}</div></div>
-      <div class="check-item"><div class="check-label">Доступная версия</div><div class="check-value">${latest}</div></div>
+      <div class="updater-sub">Lumeo установлен и работает. Управляйте обновлениями через <strong>/adminpanel → Обновления</strong>.</div>
+      <div class="check-item" style="margin-bottom:8px">
+        <div class="check-icon ok">${I.check}</div>
+        <div class="check-label">Текущая версия</div>
+        <div class="check-value" style="font-family:monospace">${current}</div>
+      </div>
+      <div class="check-item">
+        <div class="check-icon ok">${I.upload}</div>
+        <div class="check-label">Доступная версия</div>
+        <div class="check-value" style="font-family:monospace">${latest}</div>
+      </div>
     </div>
   `;
 }
@@ -585,7 +707,7 @@ function genPass(id, len = 32) {
   let pass = '';
   for (let i = 0; i < len; i++) pass += chars[Math.floor(Math.random() * chars.length)];
   const el = document.getElementById(id);
-  if (el) { el.value = pass; el.type = 'text'; setTimeout(() => el.type = 'password', 3000); }
+  if (el) { el.value = pass; el.type = 'text'; setTimeout(() => { if(el) el.type = 'password'; }, 3000); }
 }
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
