@@ -193,7 +193,7 @@ services:
       - "${exposePort}:80"
     depends_on:
       server:
-        condition: service_healthy
+        condition: service_started
     restart: unless-stopped
 
 volumes:
@@ -235,6 +235,12 @@ async function runInstall() {
     // Записываем docker-compose.yml
     pushLog({ type: 'info', text: '📝 Записываем docker-compose.yml...' });
     writeDockerCompose(state.config);
+
+    // Чистим предыдущую установку (если была), чтобы postgres стартовал с новыми credentials
+    pushLog({ type: 'info', text: '🧹 Останавливаем предыдущие контейнеры...' });
+    try {
+      await runCommand('docker', ['compose', '-f', path.join(WORKSPACE, 'docker-compose.yml'), 'down', '--volumes', '--remove-orphans']);
+    } catch {}
 
     // docker compose pull
     pushLog({ type: 'info', text: '📦 Скачиваем образы (это может занять несколько минут)...' });
