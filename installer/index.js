@@ -372,6 +372,11 @@ app.get('/api/system-check', async (req, res) => {
   catch (e) { res.json({ ok: false, error: e.message }); }
 });
 
+app.get('/api/server-ip', (req, res) => {
+  const ip = getDockerHostIp();
+  res.json({ ip });
+});
+
 app.get('/api/check-port/:port', async (req, res) => {
   const port = parseInt(req.params.port);
   if (!port || port < 1 || port > 65535) return res.json({ ok: false, error: 'invalid port' });

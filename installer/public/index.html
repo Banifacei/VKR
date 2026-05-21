@@ -330,12 +330,12 @@ function renderConfig() {
 
     <div class="section-header">${I.globe} Публичный адрес</div>
     <div class="field"><label>URL сервиса <span style="color:var(--text2);font-weight:400">(с http/https, без / в конце)</span></label>
-      <input id="client-url" placeholder="https://lumeo.university.edu или http://192.168.1.10" value="${c.CLIENT_URL||''}"/>
-      <div class="hint">Используется для CORS, SSO-редиректов и ссылок в письмах.</div>
+      <input id="client-url" placeholder="Определяем IP..." value="${c.CLIENT_URL||''}"/>
+      <div class="hint" id="url-hint">Если есть домен — укажите его. Иначе используем IP сервера.</div>
     </div>
     <div class="field"><label>Внешний порт</label>
       <div class="input-action">
-        <input id="expose-port" placeholder="80" value="${c.EXPOSE_PORT||'80'}" oninput="schedulePortCheck()"/>
+        <input id="expose-port" placeholder="80" value="${c.EXPOSE_PORT||'80'}" oninput="schedulePortCheck();updateAutoUrl()"/>
         <button class="btn btn-secondary btn-sm" id="btn-check-port" onclick="checkPort()">${I.refresh} Проверить</button>
       </div>
       <div id="port-status" style="margin-top:6px;min-height:20px"></div>
@@ -348,6 +348,7 @@ function renderConfig() {
     </div>
   `;
   setTimeout(checkPort, 200);
+  autoDetectServerIp();
 }
 
 let portCheckTimer = null;
@@ -390,18 +391,26 @@ async function checkPort() {
 }
 
 async function saveConfig() {
+  const urlEl = document.getElementById('client-url');
+  let clientUrl = v('client-url').replace(/\/$/, '');
+  if (!clientUrl && urlEl && urlEl.dataset.autoUrl) clientUrl = urlEl.dataset.autoUrl;
+  if (!clientUrl) {
+    const { ip } = await api('GET', '/api/server-ip').catch(() => ({ ip: '' }));
+    const port = v('expose-port') || '80';
+    clientUrl = ip ? (port === '80' ? `http://${ip}` : `http://${ip}:${port}`) : '';
+  }
+  if (!clientUrl) { alert('Не удалось определить адрес сервера — укажите URL вручную'); return; }
   const data = {
     DB_NAME: v('db-name') || 'lumeo_db',
     DB_USER: v('db-user') || 'lumeo',
     DB_PORT: v('db-port') || '5432',
     DB_PASSWORD: v('db-pass'),
     JWT_SECRET: v('jwt-secret'),
-    CLIENT_URL: v('client-url').replace(/\/$/, ''),
-    API_URL: (v('client-url').replace(/\/$/, '')) + '/api',
+    CLIENT_URL: clientUrl,
+    API_URL: clientUrl + '/api',
     EXPOSE_PORT: v('expose-port') || '80',
     nextStep: 'admins',
   };
-  if (!data.CLIENT_URL) { alert('Укажите URL сервиса'); return; }
   await api('POST', '/api/config', { step: 'config', data });
   appState.config = { ...appState.config, ...data };
   render('admins');
@@ -745,6 +754,42 @@ async function renderUpdater() {
 
 // ─── Utils ────────────────────────────────────────────────────────────────────
 function v(id) { const el = document.getElementById(id); return el ? el.value.trim() : ''; }
+
+function buildAutoUrl(ip, port) {
+  port = port || '80';
+  return (port === '80' || port === 80) ? `http://${ip}` : `http://${ip}:${port}`;
+}
+
+async function autoDetectServerIp() {
+  const urlEl = document.getElementById('client-url');
+  const hintEl = document.getElementById('url-hint');
+  if (!urlEl) return;
+  try {
+    const { ip } = await api('GET', '/api/server-ip');
+    if (!ip) return;
+    const port = v('expose-port') || '80';
+    const autoUrl = buildAutoUrl(ip, port);
+    urlEl.dataset.autoUrl = autoUrl;
+    urlEl.dataset.detectedIp = ip;
+    if (!urlEl.value) urlEl.value = autoUrl;
+    if (hintEl) hintEl.innerHTML = `Автоопределён IP сервера: <strong>${ip}</strong>. Если есть домен — замените на него.`;
+    urlEl.placeholder = autoUrl;
+  } catch {}
+}
+
+function updateAutoUrl() {
+  const urlEl = document.getElementById('client-url');
+  if (!urlEl || !urlEl.dataset.detectedIp) return;
+  const ip = urlEl.dataset.detectedIp;
+  const port = v('expose-port') || '80';
+  const autoUrl = buildAutoUrl(ip, port);
+  urlEl.dataset.autoUrl = autoUrl;
+  // Обновляем значение только если там был старый авто-URL (пользователь не менял вручную)
+  if (!urlEl.value || urlEl.value === buildAutoUrl(ip, urlEl.dataset.lastPort || '80')) {
+    urlEl.value = autoUrl;
+  }
+  urlEl.dataset.lastPort = port;
+}
 
 function genPass(id, len = 32) {
   const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
