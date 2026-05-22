@@ -483,26 +483,45 @@ async function saveAdmins() {
 }
 
 // ─── Step: Email ──────────────────────────────────────────────────────────────
+const SMTP_PROVIDERS = [
+  { value: '',       label: 'Выберите провайдера...', host: '',                       port: '',    hint: '' },
+  { value: 'gmail',  label: 'Gmail',                  host: 'smtp.gmail.com',          port: '587', hint: 'Нужен <a href="https://myaccount.google.com/apppasswords" target="_blank">App Password</a> — обычный пароль не подойдёт.' },
+  { value: 'yandex', label: 'Яндекс 360',             host: 'smtp.yandex.ru',          port: '587', hint: 'Создайте <a href="https://id.yandex.ru/security/app-passwords" target="_blank">пароль приложения</a> в настройках аккаунта.' },
+  { value: 'mailru', label: 'Mail.ru',                host: 'smtp.mail.ru',            port: '465', hint: 'Создайте <a href="https://account.mail.ru/user/2-step-auth/passwords" target="_blank">пароль приложения</a> в настройках Mail.ru.' },
+  { value: 'outlook',label: 'Microsoft / Outlook',    host: 'smtp.office365.com',      port: '587', hint: 'Используйте обычный пароль аккаунта Microsoft.' },
+  { value: 'custom', label: 'Другой (ввести вручную)', host: '',                       port: '587', hint: '' },
+];
+
 function renderEmail() {
   const c = appState.config;
+  const providerOptions = SMTP_PROVIDERS.map(p =>
+    `<option value="${p.value}">${p.label}</option>`
+  ).join('');
+
   document.getElementById('app').innerHTML = `
     <div class="card-title">${I.mail} Настройки Email</div>
     <div class="optional-badge">${I.skip} Необязательный шаг — можно настроить позже в <strong>/adminpanel</strong></div>
     <div class="card-sub">Email используется для сброса пароля, уведомлений и подтверждения регистрации.</div>
 
-    <div class="row2">
-      <div class="field"><label>SMTP хост</label><input id="smtp-host" placeholder="smtp.gmail.com" value="${c.SMTP_HOST||''}"/>
-        <div class="hint">Gmail: smtp.gmail.com · Yandex: smtp.yandex.ru · Mail.ru: smtp.mail.ru</div>
-      </div>
-      <div class="field"><label>SMTP порт</label><input id="smtp-port" placeholder="587" value="${c.SMTP_PORT||'587'}"/>
-        <div class="hint">587 (STARTTLS) или 465 (SSL)</div>
-      </div>
+    <div class="field">
+      <label>Почтовый провайдер</label>
+      <select id="smtp-provider" onchange="onProviderChange()">${providerOptions}</select>
     </div>
-    <div class="field"><label>Логин SMTP</label><input id="smtp-user" placeholder="noreply@university.edu" value="${c.SMTP_USER||''}"/>
-      <div class="hint">Для Gmail нужен <a href="https://myaccount.google.com/apppasswords" target="_blank">App Password</a></div>
+
+    <div id="smtp-fields" style="display:none">
+      <div class="row2">
+        <div class="field"><label>SMTP хост</label><input id="smtp-host" placeholder="smtp.example.com" value="${c.SMTP_HOST||''}"/></div>
+        <div class="field"><label>SMTP порт</label><input id="smtp-port" placeholder="587" value="${c.SMTP_PORT||'587'}"/>
+          <div class="hint">587 (STARTTLS) или 465 (SSL)</div>
+        </div>
+      </div>
+      <div class="field"><label>Логин SMTP</label><input id="smtp-user" placeholder="noreply@example.com" value="${c.SMTP_USER||''}"/></div>
+      <div class="field"><label>Пароль SMTP</label><input id="smtp-pass" type="password" placeholder="Пароль или App Password" value="${c.SMTP_PASS||''}"/></div>
+      <div class="field"><label>Адрес отправителя</label><input id="smtp-from" placeholder="Lumeo LMS &lt;noreply@example.com&gt;" value="${c.SMTP_FROM||''}"/>
+        <div class="hint">Оставьте пустым — используем логин SMTP</div>
+      </div>
+      <div id="provider-hint"></div>
     </div>
-    <div class="field"><label>Пароль SMTP</label><input id="smtp-pass" type="password" placeholder="App Password или пароль почты" value="${c.SMTP_PASS||''}"/></div>
-    <div class="field"><label>Адрес отправителя</label><input id="smtp-from" placeholder="Lumeo LMS &lt;noreply@university.edu&gt;" value="${c.SMTP_FROM||''}"/></div>
 
     <div class="actions">
       <button class="btn btn-secondary" onclick="render('admins')">${I.chevL} Назад</button>
@@ -512,6 +531,43 @@ function renderEmail() {
       </div>
     </div>
   `;
+
+  // Если уже есть сохранённый хост — определим провайдера и покажем поля
+  if (c.SMTP_HOST) {
+    const found = SMTP_PROVIDERS.find(p => p.host === c.SMTP_HOST);
+    const sel = document.getElementById('smtp-provider');
+    if (found) sel.value = found.value;
+    else sel.value = 'custom';
+    onProviderChange(true);
+  }
+}
+
+function onProviderChange(keepValues = false) {
+  const sel = document.getElementById('smtp-provider');
+  const fieldsEl = document.getElementById('smtp-fields');
+  const hintEl = document.getElementById('provider-hint');
+  const provider = SMTP_PROVIDERS.find(p => p.value === sel.value);
+
+  if (!provider || !provider.value) {
+    fieldsEl.style.display = 'none';
+    return;
+  }
+
+  fieldsEl.style.display = 'block';
+
+  if (!keepValues && provider.host) {
+    document.getElementById('smtp-host').value = provider.host;
+    document.getElementById('smtp-port').value = provider.port;
+  } else if (!keepValues) {
+    document.getElementById('smtp-host').value = '';
+    document.getElementById('smtp-port').value = provider.port || '587';
+  }
+
+  if (provider.hint && hintEl) {
+    hintEl.innerHTML = `<div class="alert alert-info">${I.info}<span>${provider.hint}</span></div>`;
+  } else if (hintEl) {
+    hintEl.innerHTML = '';
+  }
 }
 
 async function skipEmail() {
@@ -764,17 +820,15 @@ async function autoDetectServerIp() {
   const urlEl = document.getElementById('client-url');
   const hintEl = document.getElementById('url-hint');
   if (!urlEl) return;
-  try {
-    const { ip } = await api('GET', '/api/server-ip');
-    if (!ip) return;
-    const port = v('expose-port') || '80';
-    const autoUrl = buildAutoUrl(ip, port);
-    urlEl.dataset.autoUrl = autoUrl;
-    urlEl.dataset.detectedIp = ip;
-    if (!urlEl.value) urlEl.value = autoUrl;
-    if (hintEl) hintEl.innerHTML = `Автоопределён IP сервера: <strong>${ip}</strong>. Если есть домен — замените на него.`;
-    urlEl.placeholder = autoUrl;
-  } catch {}
+  // Используем hostname из адресной строки браузера — всегда корректный адрес
+  const hostname = window.location.hostname;
+  const port = v('expose-port') || '80';
+  const autoUrl = buildAutoUrl(hostname, port);
+  urlEl.dataset.autoUrl = autoUrl;
+  urlEl.dataset.detectedIp = hostname;
+  if (!urlEl.value) urlEl.value = autoUrl;
+  if (hintEl) hintEl.innerHTML = `Автоопределён адрес: <strong>${hostname}</strong>. Если есть домен — замените на него.`;
+  urlEl.placeholder = autoUrl;
 }
 
 function updateAutoUrl() {
