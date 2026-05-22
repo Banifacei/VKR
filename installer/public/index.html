@@ -379,10 +379,20 @@ async function checkPort() {
       let alts = '';
       if (result.alternatives && result.alternatives.length) {
         alts = `<span style="display:block;font-size:.8rem;color:var(--text2);margin-top:4px">Свободные альтернативы: ` +
-          result.alternatives.map(p => `<button class="btn btn-secondary btn-sm" style="padding:2px 10px;font-size:.78rem;margin:0 3px" onclick="document.getElementById('expose-port').value='${p}';checkPort()">${p}</button>`).join('') +
+          result.alternatives.map(p => `<button class="btn btn-secondary btn-sm" style="padding:2px 10px;font-size:.78rem;margin:0 3px" data-alt-port="${p}">${p}</button>`).join('') +
           `</span>`;
       }
       statusEl.innerHTML = `<span style="color:var(--red);font-size:.82rem;display:flex;align-items:center;gap:5px">${I.x} Порт ${portNum} занят — выберите другой</span>${alts}`;
+      // Привязываем обработчик к кнопкам альтернативных портов после рендера
+      setTimeout(() => {
+        statusEl.querySelectorAll('button[data-alt-port]').forEach(btn => {
+          btn.onclick = () => {
+            document.getElementById('expose-port').value = btn.dataset.altPort;
+            updateAutoUrl();
+            checkPort();
+          };
+        });
+      }, 0);
     }
   } catch {
     if (btn) btn.disabled = false;
@@ -392,13 +402,15 @@ async function checkPort() {
 
 async function saveConfig() {
   const urlEl = document.getElementById('client-url');
-  let clientUrl = v('client-url').replace(/\/$/, '');
-  if (!clientUrl && urlEl && urlEl.dataset.autoUrl) clientUrl = urlEl.dataset.autoUrl;
-  if (!clientUrl) {
-    const { ip } = await api('GET', '/api/server-ip').catch(() => ({ ip: '' }));
-    const port = v('expose-port') || '80';
-    clientUrl = ip ? (port === '80' ? `http://${ip}` : `http://${ip}:${port}`) : '';
-  }
+  const port = v('expose-port') || '80';
+  const detectedIp = urlEl ? urlEl.dataset.detectedIp : '';
+  const fieldValue = v('client-url').replace(/\/$/, '');
+
+  // Если пользователь ввёл домен (не содержит detectedIp) — используем его.
+  // Иначе всегда строим из текущего IP + текущего порта, чтобы не было рассинхрона.
+  const isCustomDomain = fieldValue && detectedIp && !fieldValue.includes(detectedIp);
+  let clientUrl = isCustomDomain ? fieldValue : (detectedIp ? buildAutoUrl(detectedIp, port) : fieldValue);
+
   if (!clientUrl) { alert('Не удалось определить адрес сервера — укажите URL вручную'); return; }
   const data = {
     DB_NAME: v('db-name') || 'lumeo_db',
