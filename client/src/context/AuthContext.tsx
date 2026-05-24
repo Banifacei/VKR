@@ -15,6 +15,8 @@ interface User {
     role: string;
     avatarUrl?: string;
     themeConfig?: { scheme?: string; bgPattern?: string; density?: string };
+    onboardingCompleted?: boolean;
+    homeworkDismissed?: boolean;
 }
 
 // Тип контекста (что доступно компонентам)

@@ -23,6 +23,7 @@ import commentRoutes from './src/routes/commentRoutes.js';
 import ratingRoutes from './src/routes/ratingRoutes.js';
 import bookmarkRoutes from './src/routes/bookmarkRoutes.js';
 import bannedWordRoutes from './src/routes/bannedWordRoutes.js';
+import homeworkRoutes from './src/routes/homeworkRoutes.js';
 import { trackActivityMiddleware, addSystemLog, heartbeatHandler } from './src/controllers/adminController.js';
 import { createDefaultAdmin } from './src/models/initAdmin.js';
 import { cleanupOrphanFiles } from './src/utils/cleanup.js';
@@ -182,6 +183,7 @@ app.use('/api/ratings', ratingRoutes);
 app.use('/api/bookmarks', bookmarkRoutes);
 app.use('/api/banned-words', bannedWordRoutes);
 app.use('/api/videos', videoRoutes);
+app.use('/api/homework', homeworkRoutes);
 
 // Глобальный обработчик ошибок (multer и прочие middleware)
 app.use((err: any, _req: Request, res: Response, _next: any) => {

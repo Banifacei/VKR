@@ -82,18 +82,19 @@ export const UserProfile = ({ user, onLogout }: UserProfileProps) => {
                         </button>
                     )}
                     {user.role != 'student' && (
-                        <button className="dropdown-item"
-                        onClick={() => { 
-                            setIsOpen(false); 
-                            navigate('/analytics'); 
+                        <button className="dropdown-item" data-tour="analytics-link"
+                        onClick={() => {
+                            setIsOpen(false);
+                            navigate('/analytics');
                         }}>
                             <Icons.TrendingUp size={14}/> Центр аналитики
                         </button>
                     )}
                     {user.role === 'admin' && (
-                        <button 
-                            className="dropdown-item" 
-                            onClick={() => { 
+                        <button
+                            className="dropdown-item"
+                            data-tour="admin-link"
+                            onClick={() => {
                                 setIsOpen(false);
                                 navigate('/adminpanel');
                             }}

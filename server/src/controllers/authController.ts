@@ -340,7 +340,37 @@ export const getMe = async (req: Request, res: Response) => {
             avatarUrl: user.avatarUrl,
             status: user.status,
             themeConfig: user.themeConfig || {},
+            onboardingCompleted: user.onboardingCompleted,
+            homeworkDismissed: user.homeworkDismissed,
         });
+    } catch (e) {
+        res.status(500).json({ message: 'Ошибка сервера' });
+    }
+};
+
+export const completeOnboarding = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).user.id;
+        const { homeworkDismissed } = req.body;
+        const user = await User.findByPk(userId);
+        if (!user) return res.status(404).json({ message: 'Пользователь не найден' });
+        user.onboardingCompleted = true;
+        if (homeworkDismissed !== undefined) user.homeworkDismissed = !!homeworkDismissed;
+        await user.save();
+        res.json({ ok: true });
+    } catch (e) {
+        res.status(500).json({ message: 'Ошибка сервера' });
+    }
+};
+
+export const dismissHomework = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).user.id;
+        const user = await User.findByPk(userId);
+        if (!user) return res.status(404).json({ message: 'Пользователь не найден' });
+        user.homeworkDismissed = true;
+        await user.save();
+        res.json({ ok: true });
     } catch (e) {
         res.status(500).json({ message: 'Ошибка сервера' });
     }

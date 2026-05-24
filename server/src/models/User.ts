@@ -57,6 +57,12 @@ export class User extends Model {
     @Column({ type: DataType.DATE, allowNull: true })
     declare emailVerificationExpiry: Date | null;
 
+    @Column({ type: DataType.BOOLEAN, defaultValue: false })
+    declare onboardingCompleted: boolean;
+
+    @Column({ type: DataType.BOOLEAN, defaultValue: false })
+    declare homeworkDismissed: boolean;
+
     // --- СВЯЗИ ---
 
     @HasMany(() => UserResponse)

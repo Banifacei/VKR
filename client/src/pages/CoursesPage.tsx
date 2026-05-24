@@ -18,6 +18,7 @@ import { StarDisplay } from '../components/StarRating';
 import { AppHeader } from '../components/AppHeader';
 import '../components/GlobalSearch.css';
 import { pluralizeRu } from '../utils/pluralize';
+import { HomeworkCard } from '../components/HomeworkCard';
 // Генератор градиентов по ID курса
 const getGradient = (id: number) => {
     const gradients = [
@@ -205,15 +206,17 @@ export const CoursesPage = () => {
             </AppHeader>
 
             <div className="courses-content">
+                <HomeworkCard />
                 <h1 className="courses-page-title">Витрина курсов</h1>
                 <p className="courses-page-subtitle">Выберите программу обучения и начните развиваться уже сегодня.</p>
-                
-                <div className="course-showcase-grid">
-                    
+
+                <div className="course-showcase-grid" data-tour="courses-list">
+
                     {/* КНОПКА СОЗДАНИЯ (ДЛЯ ПРЕПОДА/АДМИНА, скрыта в режиме предпросмотра) */}
                     {!isPreview && user && ['teacher', 'admin'].includes(user.role) && (
-                        <div 
-                            className="course-card-modern" 
+                        <div
+                            className="course-card-modern"
+                            data-tour="create-course-btn"
                             onClick={openAddModal}
                             style={{ border: '2px dashed #333', background: 'transparent', justifyContent: 'center', alignItems: 'center', minHeight: '300px' }}
                         >

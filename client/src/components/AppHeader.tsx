@@ -113,7 +113,11 @@ export const AppHeader = ({
                     </button>
                 )}
 
-                {showNotifications && <NotificationBell />}
+                {showNotifications && (
+                    <span data-tour="notification-bell">
+                        <NotificationBell />
+                    </span>
+                )}
 
                 {user && (
                     <UserProfile

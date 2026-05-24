@@ -6,6 +6,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider } from './context/ToastContext';
 import { SearchProvider } from './context/SearchContext';
 import { ConfirmProvider } from './context/ConfirmContext';
+import { TourProvider, useTour, getTourStepsByRole } from './context/TourContext';
 import { GlobalSearch } from './components/GlobalSearch';
 import api from './api/axiosInstance';
 
@@ -20,6 +21,24 @@ function HeartbeatSender() {
         const id = setInterval(send, 30_000);
         return () => clearInterval(id);
     }, [isAuthenticated, location.pathname]);
+
+    return null;
+}
+
+function OnboardingLauncher() {
+    const { user, isAuthenticated } = useAuth();
+    const { startTour } = useTour();
+
+    useEffect(() => {
+        if (!isAuthenticated || !user) return;
+        if (user.onboardingCompleted) return;
+        // Небольшая задержка чтобы страница успела отрендериться
+        const t = setTimeout(() => {
+            const steps = getTourStepsByRole(user.role);
+            startTour(steps);
+        }, 800);
+        return () => clearTimeout(t);
+    }, [isAuthenticated, user?.id, user?.onboardingCompleted]);
 
     return null;
 }
@@ -65,8 +84,10 @@ function App() {
     <ConfirmProvider>
         <ThemeProvider>
         <AuthProvider>
+        <TourProvider>
             <BrowserRouter>
                 <HeartbeatSender />
+                <OnboardingLauncher />
                 <SearchProvider>
                 <GlobalSearch />
                 <Suspense fallback={null}>
@@ -104,6 +125,7 @@ function App() {
                 </Suspense>
                 </SearchProvider>
             </BrowserRouter>
+        </TourProvider>
         </AuthProvider>
         </ThemeProvider>
     </ConfirmProvider>
