@@ -402,14 +402,26 @@ async function checkPort() {
 
 async function saveConfig() {
   const urlEl = document.getElementById('client-url');
-  const port = v('expose-port') || '80';
+  const port = String(v('expose-port') || '80');
   const detectedIp = urlEl ? urlEl.dataset.detectedIp : '';
   const fieldValue = v('client-url').replace(/\/$/, '');
 
-  // Если пользователь ввёл домен (не содержит detectedIp) — используем его.
-  // Иначе всегда строим из текущего IP + текущего порта, чтобы не было рассинхрона.
-  const isCustomDomain = fieldValue && detectedIp && !fieldValue.includes(detectedIp);
-  let clientUrl = isCustomDomain ? fieldValue : (detectedIp ? buildAutoUrl(detectedIp, port) : fieldValue);
+  // Определяем итоговый CLIENT_URL:
+  // • Если поле содержит доменное имя (не IP) — доверяем ему полностью (за ним reverse-proxy).
+  // • Если поле содержит IP (автодетект или вбит вручную) — всегда строим из IP + EXPOSE_PORT,
+  //   чтобы порт никогда не разъехался с реальным проброшенным портом.
+  const fieldHostname = _parseHostname(fieldValue);
+  const fieldIsIp = _isIp(fieldHostname);
+  const baseIp = fieldIsIp ? fieldHostname : (detectedIp || window.location.hostname);
+
+  let clientUrl;
+  if (fieldValue && !fieldIsIp && fieldHostname) {
+    // Пользователь ввёл домен — используем как есть
+    clientUrl = fieldValue;
+  } else {
+    // IP (автодетект или вручную) — строим с актуальным портом
+    clientUrl = buildAutoUrl(baseIp, port);
+  }
 
   if (!clientUrl) { alert('Не удалось определить адрес сервера — укажите URL вручную'); return; }
   const data = {
@@ -801,6 +813,7 @@ function closeCredModal() {
 async function renderUpdater() {
   document.getElementById('steps-bar').style.display = 'none';
   const { current, latest } = await api('GET', '/api/check-updates').catch(() => ({ current: '?', latest: '?' }));
+  const clientUrl = appState.config.CLIENT_URL || '';
   document.getElementById('app').innerHTML = `
     <div class="updater-card">
       <div class="updater-icon-wrap">${I.refresh}</div>
@@ -811,11 +824,12 @@ async function renderUpdater() {
         <div class="check-label">Текущая версия</div>
         <div class="check-value" style="font-family:monospace">${current}</div>
       </div>
-      <div class="check-item">
+      <div class="check-item" style="margin-bottom:16px">
         <div class="check-icon ok">${I.upload}</div>
         <div class="check-label">Доступная версия</div>
         <div class="check-value" style="font-family:monospace">${latest}</div>
       </div>
+      ${clientUrl ? `<button class="open-btn" onclick="window.open('${clientUrl}','_blank')">Открыть Lumeo ${I.externalLink}</button>` : ''}
     </div>
   `;
 }
@@ -824,8 +838,18 @@ async function renderUpdater() {
 function v(id) { const el = document.getElementById(id); return el ? el.value.trim() : ''; }
 
 function buildAutoUrl(ip, port) {
-  port = port || '80';
-  return (port === '80' || port === 80) ? `http://${ip}` : `http://${ip}:${port}`;
+  port = String(port || '80');
+  if (port === '80')  return `http://${ip}`;
+  if (port === '443') return `https://${ip}`;
+  return `http://${ip}:${port}`;
+}
+
+function _isIp(hostname) {
+  return /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname);
+}
+
+function _parseHostname(url) {
+  try { return new URL(url.startsWith('http') ? url : 'http://' + url).hostname; } catch { return ''; }
 }
 
 async function autoDetectServerIp() {

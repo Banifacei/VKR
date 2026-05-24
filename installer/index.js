@@ -34,8 +34,25 @@ function saveState() {
   try { fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2)); } catch {}
 }
 
-if (fs.existsSync(STATE_FILE) && !state.installed) {
-  try { Object.assign(state, JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'))); } catch {}
+if (fs.existsSync(STATE_FILE)) {
+  try {
+    const saved = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
+    if (!state.installed) {
+      Object.assign(state, saved);
+    } else if (saved.config) {
+      // В режиме updater всё равно грузим config, чтобы знать CLIENT_URL
+      state.config = { ...saved.config };
+    }
+  } catch {}
+}
+
+// Если CLIENT_URL не в state — читаем из .env напрямую
+if (state.installed && !state.config.CLIENT_URL) {
+  try {
+    const envText = fs.readFileSync(path.join(WORKSPACE, '.env'), 'utf8');
+    const m = envText.match(/^CLIENT_URL=(.+)$/m);
+    if (m) state.config.CLIENT_URL = m[1].trim();
+  } catch {}
 }
 
 // ─── SSE clients ──────────────────────────────────────────────────────────────
