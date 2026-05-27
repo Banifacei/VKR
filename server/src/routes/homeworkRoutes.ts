@@ -17,7 +17,7 @@ router.get('/status', checkAuth, isTeacherOrAdmin, async (req: Request, res: Res
         const video = await Video.findOne({ where: { courseId: course.id } });
         if (!video) return res.json({ hasCourse: true, hasVideo: false, hasTest: false });
 
-        const test = await CourseTest.findOne({ where: { videoId: video.id } });
+        const test = await CourseTest.findOne({ where: { courseId: course.id } });
         res.json({ hasCourse: true, hasVideo: true, hasTest: !!test });
     } catch {
         res.status(500).json({ message: 'Ошибка сервера' });

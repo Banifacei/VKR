@@ -1202,7 +1202,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
 
                                     <div>
                                         <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>{eventType === 'info' ? 'Текст инфо-карточки' : 'Формулировка вопроса'}</label>
-                                        <textarea className="deck-input" placeholder="Напишите здесь свой вопрос..." value={questionText} onChange={e => setQuestionText(e.target.value)} style={{ background: 'var(--bg-input)', minHeight: '100px', resize: 'vertical', fontSize: '15px', border: '1px solid var(--border-color)' }} />
+                                        <textarea className="deck-input" placeholder="Напишите здесь свой вопрос..." value={questionText} onChange={e => setQuestionText(e.target.value)} style={{ background: 'var(--bg-input)', minHeight: '100px', resize: 'vertical', fontSize: '15px', border: '1px solid var(--border-color)', width: '100%' }} />
                                         {/* Изображение к вопросу (только для обычных тестов) */}
                                         {!isVideo && (
                                             <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -1250,7 +1250,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                     {eventType === 'free_text' && (
                                         <div style={{ background: 'rgba(var(--primary-rgb), 0.05)', padding: '20px', borderRadius: '16px', border: '1px solid rgba(var(--primary-rgb), 0.3)', position: 'relative', overflow: 'hidden' }}>
                                             <label style={{ fontSize: '12px', color: 'var(--primary)', display: 'block', marginBottom: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }}>Эталон для нейросети:</label>
-                                            <textarea className="deck-input" placeholder="Напишите идеальный ответ или ключевые слова, которые должен упомянуть студент..." value={freeTextAnswer} onChange={e => setFreeTextAnswer(e.target.value)} style={{ background: 'rgba(0,0,0,0.5)', minHeight: '100px', resize: 'vertical', fontSize: '14px', border: '1px solid rgba(var(--primary-rgb), 0.2)' }} />
+                                            <textarea className="deck-input" placeholder="Напишите идеальный ответ или ключевые слова, которые должен упомянуть студент..." value={freeTextAnswer} onChange={e => setFreeTextAnswer(e.target.value)} style={{ background: 'rgba(0,0,0,0.5)', minHeight: '100px', resize: 'vertical', fontSize: '14px', border: '1px solid rgba(var(--primary-rgb), 0.2)', width: '100%' }} />
                                             
                                             <div style={{ marginTop: '20px' }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
@@ -1294,8 +1294,8 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                             )}
 
                                             <div>
-                                                <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>Объяснение при ошибке (опционально):</label>
-                                                <textarea className="deck-input" placeholder="Неверно, потому что..." value={explanation} onChange={e => setExplanation(e.target.value)} style={{ background: 'var(--bg-input)', minHeight: '60px', resize: 'vertical', fontSize: '14px' }} />
+                                                <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>Объяснение при ошибке:</label>
+                                                <textarea className="deck-input" placeholder="Неверно, потому что..." value={explanation} onChange={e => setExplanation(e.target.value)} style={{ background: 'var(--bg-input)', minHeight: '60px', resize: 'vertical', fontSize: '14px', width: '100%' }} />
                                             </div>
                                         </div>
                                     )}
