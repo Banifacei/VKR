@@ -1003,22 +1003,32 @@ export const AdminPage = () => {
                             <h2 style={{display:'flex', alignItems:'center', gap:'8px', fontSize:'15px'}}><Icons.Database /> Хранилище</h2>
                             <span style={{fontSize:'12px', color:'var(--text-muted)'}}>{storageUsed.toFixed(1)} / {storageTotal} GB</span>
                         </div>
-                        <div className="section-body">
-                            <div className="storage-bar" style={{marginBottom:'12px'}}>
-                                <div className="storage-segment video" style={{width:`${(storageData.video/storageTotal)*100}%`}}></div>
-                                <div className="storage-segment db"    style={{width:`${(storageData.db/storageTotal)*100}%`}}></div>
-                                <div className="storage-segment cache" style={{width:`${(storageData.cache/storageTotal)*100}%`}}></div>
-                            </div>
-                            <div style={{display:'flex', flexDirection:'column', gap:'8px'}}>
-                                {[{label:'Видео', val:storageData.video, color:'var(--primary)'},{label:'База данных', val:storageData.db, color:'#b5179e'},{label:'Кэш ИИ', val:storageData.cache, color:'var(--warning)'}].map(item => (
-                                    <div key={item.label} style={{display:'flex', justifyContent:'space-between', alignItems:'center', fontSize:'13px'}}>
-                                        <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
-                                            <div style={{width:'8px', height:'8px', borderRadius:'50%', background:item.color, flexShrink:0}}></div>
-                                            <span style={{color:'var(--text-muted)'}}>{item.label}</span>
+                        <div className="section-body" style={{display:'flex', flexDirection:'column', gap:'14px'}}>
+                            {[
+                                {label:'Видео',       val:storageData.video, color:'var(--primary)',  bg:'rgba(var(--primary-rgb),0.1)'},
+                                {label:'База данных', val:storageData.db,    color:'#b5179e',         bg:'rgba(181,23,158,0.1)'},
+                                {label:'Кэш ИИ',      val:storageData.cache, color:'var(--warning)',  bg:'rgba(var(--warning-rgb),0.1)'},
+                            ].map(item => {
+                                const maxVal = Math.max(storageData.video, storageData.db, storageData.cache, 0.01);
+                                const pct = Math.max((item.val / maxVal) * 100, item.val > 0 ? 4 : 0);
+                                return (
+                                    <div key={item.label}>
+                                        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'6px'}}>
+                                            <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
+                                                <div style={{width:'8px', height:'8px', borderRadius:'50%', background:item.color, flexShrink:0, boxShadow:`0 0 5px ${item.color}`}}></div>
+                                                <span style={{fontSize:'13px', color:'var(--text-muted)'}}>{item.label}</span>
+                                            </div>
+                                            <span style={{fontSize:'13px', color:'var(--text-main)', fontWeight:600}}>{item.val.toFixed(2)} GB</span>
                                         </div>
-                                        <span style={{color:'var(--text-main)', fontWeight:500}}>{item.val.toFixed(2)} GB</span>
+                                        <div style={{height:'6px', background:'var(--bg-deep)', borderRadius:'3px', overflow:'hidden'}}>
+                                            <div style={{height:'100%', width:`${pct}%`, background:item.color, borderRadius:'3px', transition:'width 0.5s ease', boxShadow:`0 0 8px ${item.color}55`}}></div>
+                                        </div>
                                     </div>
-                                ))}
+                                );
+                            })}
+                            <div style={{borderTop:'1px solid var(--border-color)', paddingTop:'10px', display:'flex', justifyContent:'space-between', fontSize:'12px', color:'var(--text-muted)'}}>
+                                <span>Итого занято</span>
+                                <span style={{color:'var(--text-main)', fontWeight:600}}>{storageUsed.toFixed(2)} GB <span style={{fontWeight:400}}>из {storageTotal} GB</span></span>
                             </div>
                         </div>
                     </div>
