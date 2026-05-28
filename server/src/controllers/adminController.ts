@@ -319,6 +319,30 @@ export const toggleSystemSetting = async (req: Request, res: Response) => {
         res.status(500).json({ message: 'Ошибка сохранения настройки' });
     }
 };
+export const testEmailSettings = async (req: Request, res: Response) => {
+    const { smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from, test_to } = req.body;
+    if (!smtp_host || !smtp_user || !smtp_pass || !test_to) {
+        return res.status(400).json({ message: 'Заполните хост, логин, пароль и адрес получателя' });
+    }
+    try {
+        const nodemailer = (await import('nodemailer')).default;
+        const port = Number(smtp_port) || 587;
+        const transporter = nodemailer.createTransport({
+            host: smtp_host, port, secure: port === 465,
+            auth: { user: smtp_user, pass: smtp_pass },
+        });
+        await transporter.sendMail({
+            from: smtp_from || smtp_user,
+            to: test_to,
+            subject: 'Lumeo — тест почтовых настроек',
+            html: '<p>Если вы получили это письмо — почтовые настройки настроены корректно.</p>',
+        });
+        res.json({ message: 'Тестовое письмо успешно отправлено' });
+    } catch (e: any) {
+        res.status(500).json({ message: `Ошибка отправки: ${e.message}` });
+    }
+};
+
 // --- РЕАЛЬНАЯ ИНФОРМАЦИЯ О МОДУЛЯХ СИСТЕМЫ ---
 export const getSystemModules = async (_req: Request, res: Response) => {
     const modules = [];

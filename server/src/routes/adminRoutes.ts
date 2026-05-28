@@ -3,6 +3,7 @@ import { checkAuth, isAdmin, checkAuthSse } from '../middleware/authMiddleware.j
 import {
     getSystemSettings,
     toggleSystemSetting,
+    testEmailSettings,
     getStorageStats,
     getSystemLogs,
     getServerStats,
@@ -36,5 +37,6 @@ router.post('/backup-db', backupDatabase);
 router.post('/restart', restartServer);
 router.get('/settings', getSystemSettings);
 router.post('/settings/toggle', toggleSystemSetting);
+router.post('/settings/email-test', testEmailSettings);
 
 export default router;

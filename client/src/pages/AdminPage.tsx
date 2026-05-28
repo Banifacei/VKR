@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { BrandingTab } from '../components/Admin/BrandingTab';
+import { EmailTab } from '../components/Admin/EmailTab';
 import './AdminPage.css';
 import { useAuth } from '../context/AuthContext';
 import { getAllUsers, changeUserRole, updateUser, createUser, deleteUser, banUser, unbanUser } from '../api/userApi';
@@ -54,7 +55,7 @@ export const AdminPage = () => {
   const { user, updateUser: updateContextUser } = useAuth();
   const [showSamlModal, setShowSamlModal] = useState(false);
   const [samlForm, setSamlForm] = useState({ enabled: false, entryPoint: '', cert: '' });
-  const [activeTab, setActiveTab] = useState<'system' | 'users' | 'requests' | 'integrations' | 'branding' | 'moderation'>('system');
+  const [activeTab, setActiveTab] = useState<'system' | 'users' | 'requests' | 'integrations' | 'branding' | 'moderation' | 'email'>('system');
   const [bannedWords, setBannedWords] = useState<{ id: number; word: string }[]>([]);
   const [offenders, setOffenders] = useState<any[]>([]);
   const [newWord, setNewWord] = useState('');
@@ -797,6 +798,9 @@ export const AdminPage = () => {
                 <button className={`admin-tab ${activeTab === 'branding' ? 'active' : ''}`} onClick={() => setActiveTab('branding')}>
                     <Icons.Palette /> Брендинг
                 </button>
+                <button className={`admin-tab ${activeTab === 'email' ? 'active' : ''}`} onClick={() => setActiveTab('email')}>
+                    <Icons.Mail /> Почта
+                </button>
                 <button className={`admin-tab ${activeTab === 'moderation' ? 'active' : ''}`} onClick={() => { setActiveTab('moderation'); loadBannedWords(); }}>
                     <Icons.Shield /> Модерация
                 </button>
@@ -1251,6 +1255,7 @@ export const AdminPage = () => {
             )}
             {/* ==================== ВКЛАДКА 4: ИНТЕГРАЦИИ SSO ==================== */}
             {activeTab === 'branding' && <BrandingTab />}
+            {activeTab === 'email' && <EmailTab />}
 
             {activeTab === 'integrations' && (
                 <div className="admin-section">
