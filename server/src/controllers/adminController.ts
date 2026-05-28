@@ -319,6 +319,15 @@ export const toggleSystemSetting = async (req: Request, res: Response) => {
         res.status(500).json({ message: 'Ошибка сохранения настройки' });
     }
 };
+export const getEmailTemplateDefaults = async (_req: Request, res: Response) => {
+    try {
+        const { DEFAULT_TEMPLATES } = await import('../utils/mailer.js');
+        res.json(DEFAULT_TEMPLATES);
+    } catch {
+        res.status(500).json({ message: 'Ошибка' });
+    }
+};
+
 export const testEmailSettings = async (req: Request, res: Response) => {
     const { smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from, test_to } = req.body;
     if (!smtp_host || !smtp_user || !smtp_pass || !test_to) {

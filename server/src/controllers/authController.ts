@@ -86,17 +86,8 @@ export const register = async (req: Request, res: Response) => {
                 emailVerificationToken: code,
                 emailVerificationExpiry: new Date(Date.now() + 30 * 60 * 1000),
             });
-            const { sendMail } = await import('../utils/mailer.js');
-            await sendMail(
-                email,
-                'Подтверждение почты — Lumeo',
-                `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:20px">
-                    <h2 style="color:#00aeef;margin-bottom:16px">Подтверждение email</h2>
-                    <p>Для завершения регистрации на <strong>Lumeo</strong> введите код:</p>
-                    <div style="font-size:36px;font-weight:bold;letter-spacing:10px;text-align:center;margin:24px 0;color:#111;background:#f0f0f0;padding:20px;border-radius:12px">${code}</div>
-                    <p style="color:#888;font-size:13px">Код действует <strong>30 минут</strong>. Если вы не регистрировались — проигнорируйте письмо.</p>
-                </div>`,
-            );
+            const { sendTemplateMail } = await import('../utils/mailer.js');
+            await sendTemplateMail(email, 'verify_email', { code });
             return res.status(201).json({ message: 'Код подтверждения отправлен на почту', status: 'verify_email' });
         }
 
@@ -678,20 +669,8 @@ export const forgotPassword = async (req: Request, res: Response) => {
         const CLIENT_URL = process.env.CLIENT_URL || 'https://lumeo.su';
         const link = `${CLIENT_URL}/reset-password?token=${token}`;
 
-        const { sendMail } = await import('../utils/mailer.js');
-        await sendMail(
-            user.email,
-            'Сброс пароля — Lumeo',
-            `<div style="font-family:sans-serif;max-width:480px;margin:0 auto">
-                <h2 style="color:#7c6aff">Сброс пароля</h2>
-                <p>Мы получили запрос на сброс пароля для вашего аккаунта на <strong>Lumeo</strong>.</p>
-                <p>Нажмите кнопку ниже — ссылка действует <strong>1 час</strong>.</p>
-                <a href="${link}" style="display:inline-block;margin:20px 0;padding:12px 28px;background:#7c6aff;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold">
-                    Сбросить пароль
-                </a>
-                <p style="color:#888;font-size:13px">Если вы не запрашивали сброс — просто проигнорируйте это письмо.</p>
-            </div>`,
-        );
+        const { sendTemplateMail } = await import('../utils/mailer.js');
+        await sendTemplateMail(user.email, 'reset_password', { link });
 
         addSystemLog(`Запрос сброса пароля для ${user.email}`, 'info');
         ok();
@@ -799,17 +778,8 @@ export const resendVerification = async (req: Request, res: Response) => {
         user.emailVerificationExpiry = new Date(Date.now() + 30 * 60 * 1000);
         await user.save();
 
-        const { sendMail } = await import('../utils/mailer.js');
-        await sendMail(
-            user.email,
-            'Новый код подтверждения — Lumeo',
-            `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:20px">
-                <h2 style="color:#00aeef;margin-bottom:16px">Новый код подтверждения</h2>
-                <p>Ваш новый код для активации аккаунта на <strong>Lumeo</strong>:</p>
-                <div style="font-size:36px;font-weight:bold;letter-spacing:10px;text-align:center;margin:24px 0;color:#111;background:#f0f0f0;padding:20px;border-radius:12px">${code}</div>
-                <p style="color:#888;font-size:13px">Код действует <strong>30 минут</strong>.</p>
-            </div>`,
-        );
+        const { sendTemplateMail } = await import('../utils/mailer.js');
+        await sendTemplateMail(user.email, 'resend_verification', { code });
 
         ok();
     } catch (e) {

@@ -4,6 +4,7 @@ import {
     getSystemSettings,
     toggleSystemSetting,
     testEmailSettings,
+    getEmailTemplateDefaults,
     getStorageStats,
     getSystemLogs,
     getServerStats,
@@ -38,5 +39,6 @@ router.post('/restart', restartServer);
 router.get('/settings', getSystemSettings);
 router.post('/settings/toggle', toggleSystemSetting);
 router.post('/settings/email-test', testEmailSettings);
+router.get('/settings/email-templates/defaults', getEmailTemplateDefaults);
 
 export default router;
