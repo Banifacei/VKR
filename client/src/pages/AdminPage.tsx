@@ -868,12 +868,59 @@ export const AdminPage = () => {
                     )}
                   </div>
                 )}
+
+                {/* МЕТРИКИ — строка карточек */}
+                <div className="sys-metrics-row">
+                    <div className="sys-metric-card">
+                        <div className="sys-metric-icon" style={{background: 'rgba(var(--primary-rgb),0.1)', color: 'var(--primary)'}}><Icons.Server size={20}/></div>
+                        <div className="sys-metric-body">
+                            <div className="sys-metric-label">Статус сервера</div>
+                            <div className="sys-metric-value" style={{fontSize: '15px', display: 'flex', alignItems: 'center', gap: '6px'}}>
+                                <span className="pulse-dot"></span> Online
+                            </div>
+                            <div className="sys-metric-sub">Аптайм: {serverStats.uptime}</div>
+                        </div>
+                    </div>
+                    <div className="sys-metric-card">
+                        <div className="sys-metric-icon" style={{background: 'rgba(255,200,0,0.1)', color: '#ffc800'}}><Icons.Cpu size={20}/></div>
+                        <div className="sys-metric-body">
+                            <div className="sys-metric-label">CPU</div>
+                            <div className="sys-metric-value">{serverStats.cpu.toFixed(1)}%</div>
+                            <div className="sys-metric-bar"><div style={{width: `${serverStats.cpu}%`, background: serverStats.cpu > 80 ? 'var(--danger)' : '#ffc800'}}></div></div>
+                        </div>
+                    </div>
+                    <div className="sys-metric-card">
+                        <div className="sys-metric-icon" style={{background: 'rgba(181,23,158,0.1)', color: '#b5179e'}}><Icons.Activity size={20}/></div>
+                        <div className="sys-metric-body">
+                            <div className="sys-metric-label">RAM</div>
+                            <div className="sys-metric-value">{serverStats.ram.toFixed(1)}%</div>
+                            <div className="sys-metric-bar"><div style={{width: `${serverStats.ram}%`, background: serverStats.ram > 85 ? 'var(--danger)' : '#b5179e'}}></div></div>
+                        </div>
+                    </div>
+                    <div className="sys-metric-card">
+                        <div className="sys-metric-icon" style={{background: 'rgba(0,255,136,0.1)', color: '#00ff88'}}><Icons.Database size={20}/></div>
+                        <div className="sys-metric-body">
+                            <div className="sys-metric-label">Хранилище</div>
+                            <div className="sys-metric-value">{storageUsed.toFixed(1)} <span style={{fontSize: '13px', fontWeight: 400, color: 'var(--text-muted)'}}>/ {storageTotal} GB</span></div>
+                            <div className="sys-metric-bar"><div style={{width: `${(storageUsed/storageTotal)*100}%`, background: (storageUsed/storageTotal) > 0.85 ? 'var(--danger)' : '#00ff88'}}></div></div>
+                        </div>
+                    </div>
+                    <div className="sys-metric-card">
+                        <div className="sys-metric-icon" style={{background: 'rgba(var(--primary-rgb),0.08)', color: 'var(--primary)'}}><Icons.Users size={20}/></div>
+                        <div className="sys-metric-body">
+                            <div className="sys-metric-label">Онлайн сейчас</div>
+                            <div className="sys-metric-value">{onlineUsers.length}</div>
+                            <div className="sys-metric-sub">{serverStats.connections} активных сессий</div>
+                        </div>
+                    </div>
+                </div>
+
                 <div className="dashboard-columns">
+                    {/* ЖУРНАЛ */}
                     <div className="dashboard-main">
                         <div className="admin-section log-section">
                             <div className="section-header compact" style={{flexWrap: 'wrap', gap: '10px'}}>
                                 <h2 style={{display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px'}}><Icons.Terminal /> Журнал событий</h2>
-                                
                                 <div className="log-filters">
                                     <button className={`filter-btn ${logFilter === 'all' ? 'active' : ''}`} onClick={() => setLogFilter('all')}>Все</button>
                                     <button className={`filter-btn info ${logFilter === 'info' ? 'active' : ''}`} onClick={() => setLogFilter('info')}>Инфо</button>
@@ -883,7 +930,6 @@ export const AdminPage = () => {
                                     <button className="btn-icon" style={{marginLeft: 'auto'}} onClick={fetchSystemData} title="Обновить"><Icons.Refresh /></button>
                                 </div>
                             </div>
-                            
                             <div className="section-body log-container modern-scroll">
                                 {filteredLogs.length > 0 ? (
                                     filteredLogs.map(log => (
@@ -911,41 +957,59 @@ export const AdminPage = () => {
                         </div>
                     </div>
 
+                    {/* САЙДБАР */}
                     <aside className="dashboard-sidebar">
-                        <div className="admin-section sidebar-section">
+
+                        {/* БЫСТРЫЕ ДЕЙСТВИЯ — первыми, всегда видны */}
+                        <div className="admin-section">
                             <div className="section-header compact">
-                                <h2 style={{display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px'}}><Icons.Server /> Сервер Lumeo</h2>
-                                <div className="server-status small"><span className="pulse-dot"></span> Online</div>
+                                <h2 style={{display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px'}}><Icons.Zap /> Быстрые действия</h2>
                             </div>
-                            <div className="section-body">
-                                <div style={{fontSize: '11px', color: 'var(--text-muted)', marginBottom: '15px', textAlign: 'right'}}>Аптайм: {serverStats.uptime}</div>
-                                <div className="server-monitor">
-                                    <div className="monitor-row"><span>CPU ({serverStats.cpu.toFixed(1)}%)</span><div className="progress-bar-bg"><div className="progress-bar-fill cpu" style={{width: `${serverStats.cpu}%`}}></div></div></div>
-                                    <div className="monitor-row"><span>RAM ({serverStats.ram.toFixed(1)}%)</span><div className="progress-bar-bg"><div className="progress-bar-fill ram" style={{width: `${serverStats.ram}%`}}></div></div></div>
-                                </div>
+                            <div className="section-body" style={{display: 'flex', flexDirection: 'column', gap: '10px'}}>
+                                <button className="quick-action-btn" disabled={isActionExecuting} onClick={() => handleQuickAction('clear-cache', 'Очистить кэш ИИ')} style={{display:'flex', alignItems:'center', gap:'10px'}}>
+                                    <span style={{fontSize:'18px'}}>🧹</span><div><div style={{fontWeight:600, fontSize:'13px'}}>Очистить кэш ИИ</div><div style={{fontSize:'11px', color:'var(--text-muted)', marginTop:'2px'}}>Освободить память субтитров</div></div>
+                                </button>
+                                <button className="quick-action-btn" disabled={isActionExecuting} onClick={() => handleQuickAction('backup-db', 'Сделать бэкап БД')} style={{display:'flex', alignItems:'center', gap:'10px'}}>
+                                    <span style={{fontSize:'18px'}}>💾</span><div><div style={{fontWeight:600, fontSize:'13px'}}>Бэкап базы данных</div><div style={{fontSize:'11px', color:'var(--text-muted)', marginTop:'2px'}}>Создать резервную копию</div></div>
+                                </button>
+                                <button className="quick-action-btn danger" disabled={isActionExecuting} onClick={() => handleQuickAction('restart', 'Принудительная перезагрузка')} style={{display:'flex', alignItems:'center', gap:'10px'}}>
+                                    <span style={{fontSize:'18px'}}>⚡</span><div><div style={{fontWeight:600, fontSize:'13px'}}>Перезагрузить сервер</div><div style={{fontSize:'11px', color:'var(--text-muted)', marginTop:'2px'}}>Принудительный рестарт</div></div>
+                                </button>
                             </div>
                         </div>
 
-                        <div className="admin-section sidebar-section">
-                            <div className="section-header compact"><h2 style={{display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px'}}><Icons.Database /> Хранилище (S3)</h2></div>
+                        {/* ХРАНИЛИЩЕ */}
+                        <div className="admin-section">
+                            <div className="section-header compact">
+                                <h2 style={{display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px'}}><Icons.Database /> Хранилище</h2>
+                                <span style={{fontSize:'12px', color:'var(--text-muted)'}}>{storageUsed.toFixed(1)} / {storageTotal} GB</span>
+                            </div>
                             <div className="section-body">
-                                <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '12px'}}><span style={{color: 'var(--text-main)', fontWeight: 'bold'}}>{storageUsed.toFixed(1)} GB</span><span style={{color: 'var(--text-muted)'}}>из {storageTotal} GB</span></div>
-                                <div className="storage-bar">
+                                <div className="storage-bar" style={{marginBottom:'12px'}}>
                                     <div className="storage-segment video" style={{width: `${(storageData.video / storageTotal) * 100}%`}}></div>
                                     <div className="storage-segment db" style={{width: `${(storageData.db / storageTotal) * 100}%`}}></div>
                                     <div className="storage-segment cache" style={{width: `${(storageData.cache / storageTotal) * 100}%`}}></div>
                                 </div>
-                                <div className="storage-legend">
-                                    <div className="legend-item"><div className="dot video"></div>Видео</div><div className="legend-item"><div className="dot db"></div>БД</div><div className="legend-item"><div className="dot cache"></div>Кэш (AI)</div>
+                                <div style={{display:'flex', flexDirection:'column', gap:'8px'}}>
+                                    {[{label:'Видео', val: storageData.video, cls:'video', color:'var(--primary)'},{label:'База данных', val: storageData.db, cls:'db', color:'#b5179e'},{label:'Кэш ИИ', val: storageData.cache, cls:'cache', color:'var(--warning)'}].map(item => (
+                                        <div key={item.label} style={{display:'flex', justifyContent:'space-between', alignItems:'center', fontSize:'12px'}}>
+                                            <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
+                                                <div className={`dot ${item.cls}`} style={{width:'8px', height:'8px', borderRadius:'50%', background: item.color, flexShrink:0}}></div>
+                                                <span style={{color:'var(--text-muted)'}}>{item.label}</span>
+                                            </div>
+                                            <span style={{color:'var(--text-main)', fontWeight:500}}>{item.val.toFixed(2)} GB</span>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         </div>
 
-                        <div className="admin-section sidebar-section">
+                        {/* МОДУЛИ */}
+                        <div className="admin-section">
                             <div className="section-header compact">
                                 <h2 style={{display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px'}}><Icons.Activity /> Статус модулей</h2>
                             </div>
-                            <div className="section-body">
+                            <div className="section-body" style={{padding:'12px 20px'}}>
                                 {systemModules.length === 0 ? (
                                     <div style={{ color: 'var(--text-muted)', fontSize: '12px', textAlign: 'center', padding: '10px 0' }}>Загрузка...</div>
                                 ) : systemModules.map((mod, i) => {
@@ -953,27 +1017,18 @@ export const AdminPage = () => {
                                     const isIdle = mod.status === 'idle';
                                     const color = isActive ? '#00ff88' : isIdle ? '#ffd700' : '#ff4d4d';
                                     return (
-                                        <div key={i} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', paddingBottom: '10px', borderBottom: '1px solid var(--border-color)'}}>
+                                        <div key={i} style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 0', borderBottom: i < systemModules.length - 1 ? '1px solid var(--border-color)' : 'none'}}>
                                             <div>
-                                                <div style={{color: 'var(--text-main)', fontWeight: '500', fontSize: '12px'}}>{mod.name}</div>
-                                                <div style={{color: 'var(--text-muted)', fontSize: '10px'}}>{mod.note || mod.version}</div>
+                                                <div style={{color:'var(--text-main)', fontWeight:'500', fontSize:'12px'}}>{mod.name}</div>
+                                                <div style={{color:'var(--text-muted)', fontSize:'10px', marginTop:'2px'}}>{mod.note || mod.version}</div>
                                             </div>
-                                            <div style={{color, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0}}>
-                                                <span className={isActive ? 'pulse-dot' : ''} style={{width: '6px', height: '6px', background: color, borderRadius: '50%', display: 'inline-block'}}></span>
-                                                {isActive ? 'Активен' : isIdle ? 'Ожидание' : 'Недоступен'}
+                                            <div style={{display:'flex', alignItems:'center', gap:'5px', flexShrink:0}}>
+                                                <span style={{width:'6px', height:'6px', background:color, borderRadius:'50%', display:'inline-block', boxShadow: isActive ? `0 0 6px ${color}` : 'none'}}></span>
+                                                <span style={{color, fontSize:'11px', fontWeight:500}}>{isActive ? 'Активен' : isIdle ? 'Ожидание' : 'Недоступен'}</span>
                                             </div>
                                         </div>
                                     );
                                 })}
-                            </div>
-                        </div>
-
-                        <div className="admin-section sidebar-section">
-                            <div className="section-header compact"><h2 style={{display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px'}}><Icons.Zap /> Быстрые действия</h2></div>
-                            <div className="section-body quick-actions-grid">
-                                <button className="quick-action-btn" disabled={isActionExecuting} onClick={() => handleQuickAction('clear-cache', 'Очистить кэш ИИ')}>Очистить кэш ИИ</button>
-                                <button className="quick-action-btn" disabled={isActionExecuting} onClick={() => handleQuickAction('backup-db', 'Сделать бэкап БД')}>Сделать бэкап БД</button>
-                                <button className="quick-action-btn danger" disabled={isActionExecuting} onClick={() => handleQuickAction('restart', 'Принудительная перезагрузка')}>Принудительная перезагрузка</button>
                             </div>
                         </div>
                     </aside>
