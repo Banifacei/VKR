@@ -126,6 +126,13 @@
 .dashboard-main    { display: flex; flex-direction: column; gap: 24px; }
 .dashboard-sidebar { display: flex; flex-direction: column; gap: 20px; }
 
+.sys-bottom-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-top: 24px;
+}
+
 /* Секции */
 .admin-section  { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; overflow: hidden; }
 .section-header {
@@ -517,6 +524,7 @@ label.dont-show-again input[type="checkbox"]:checked + .custom-checkbox::after {
 @media (max-width: 900px) {
     .dashboard-columns { grid-template-columns: 1fr; }
     .sys-metrics-row   { grid-template-columns: repeat(2, 1fr); }
+    .sys-bottom-row    { grid-template-columns: 1fr; }
 }
 @media (max-width: 768px) {
     .lumeo-header { padding: 0 16px; }
