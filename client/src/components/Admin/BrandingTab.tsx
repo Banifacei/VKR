@@ -33,6 +33,7 @@ export const BrandingTab = () => {
     const [defaultDensity, setDefaultDensity] = useState<Density>(globalTheme.default_density);
     const [logoFile,      setLogoFile]      = useState<File | null>(null);
     const [logoPreview,   setLogoPreview]   = useState(globalTheme.platform_logo);
+    const [logoDeleted,   setLogoDeleted]   = useState(false);
     const fileRef = useRef<HTMLInputElement>(null);
 
     const handleLogo = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -50,8 +51,10 @@ export const BrandingTab = () => {
             default_scheme:      defaultScheme,
             default_density:     defaultDensity,
             logoFile,
+            removeLogo:          logoDeleted,
         });
         setLogoFile(null);
+        setLogoDeleted(false);
     };
 
     return (
@@ -98,7 +101,7 @@ export const BrandingTab = () => {
                                     Загрузить логотип
                                 </button>
                                 {logoPreview && (
-                                    <button className="btn btn-ghost" onClick={() => { setLogoPreview(''); setLogoFile(null); }}>
+                                    <button className="btn btn-ghost" onClick={() => { setLogoPreview(''); setLogoFile(null); setLogoDeleted(true); }}>
                                         Удалить
                                     </button>
                                 )}

@@ -660,6 +660,7 @@ select.cyber-input {
    14. СВЕТЛАЯ ТЕМА
    ────────────────────────────────────────────────────── */
 html.theme-light {
+  --tour-overlay-color: rgba(0,0,0,0.35);
   --bg-deep:        #f0f2f5;
   --bg-main:        #f0f2f5;
   --bg-panel:       #ffffff;
@@ -971,15 +972,18 @@ html.theme-light .comments-count          { color: #6b7280; }
 /* ── NotificationBell.css ── */
 html.theme-light .nb-btn                  { color: #6b7280; }
 html.theme-light .nb-btn:hover            { color: #111827; background: rgba(0,0,0,0.05); }
-html.theme-light .nb-panel                { background: #fff; border-color: #e5e7eb; box-shadow: 0 8px 30px rgba(0,0,0,0.12); }
+html.theme-light .nb-dropdown             { background: #fff; border-color: #e5e7eb; box-shadow: 0 8px 30px rgba(0,0,0,0.12); }
 html.theme-light .nb-header               { border-bottom-color: #e5e7eb; color: #111827; }
+html.theme-light .nb-list                 { scrollbar-color: #e5e7eb transparent; }
 html.theme-light .nb-item                 { border-bottom-color: #f3f4f6; }
 html.theme-light .nb-item:hover           { background: rgba(0,0,0,0.02); }
-html.theme-light .nb-item-title           { color: #111827; }
-html.theme-light .nb-item-msg             { color: #6b7280; }
-html.theme-light .nb-item-date            { color: #9ca3af; }
+html.theme-light .nb-item.unread          { background: rgba(var(--primary-rgb),0.04); }
+html.theme-light .nb-type-icon            { background: rgba(0,0,0,0.05); }
+html.theme-light .nb-title                { color: #111827; }
+html.theme-light .nb-msg                  { color: #6b7280; }
+html.theme-light .nb-time                 { color: #9ca3af; }
+html.theme-light .nb-del                  { color: #9ca3af; }
 html.theme-light .nb-empty                { color: #9ca3af; }
-html.theme-light .nb-footer               { background: rgba(0,0,0,0.02); border-top-color: #e5e7eb; }
 html.theme-light .nb-mark-all             { color: var(--primary); }
 
 /* ── GlobalSearch.css ── */
@@ -2142,3 +2146,91 @@ video.controls-visible::-webkit-media-text-track-container { transform: translat
 @media (max-width: 480px) {
   .main-content { padding-left: 12px !important; padding-right: 12px !important; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   LIGHT THEME — дополнительные фиксы
+   ═══════════════════════════════════════════════════════════════ */
+
+/* view-mode-switcher (Глазами студента / Редактирование) */
+html.theme-light .view-mode-switcher    { background: #f3f4f6; border-color: #dde1e8; }
+html.theme-light .vms-btn               { color: #6b7280; background: transparent; }
+html.theme-light .vms-btn:hover         { color: #111827; background: rgba(0,0,0,0.05); }
+html.theme-light .vms-btn.active        { background: #fff; color: #111827; box-shadow: 0 1px 4px rgba(0,0,0,0.12); }
+html.theme-light .vms-btn.active-primary{ background: var(--primary); color: #fff; }
+html.theme-light .vms-settings          { background: transparent; color: #6b7280; }
+
+/* playlist-item — явный белый фон чтобы не наследовать тёмное */
+html.theme-light .playlist-item         { background: transparent; color: #111827; }
+html.theme-light .playlist-item:hover   { background: rgba(0,0,0,0.04); }
+html.theme-light .playlist-item.active  { background: rgba(var(--primary-rgb),0.08); border-color: rgba(var(--primary-rgb),0.25); }
+html.theme-light .item-title            { color: #111827; }
+html.theme-light .item-index,
+html.theme-light .item-duration,
+html.theme-light .playing-icon          { color: #9ca3af; }
+
+/* Analytics — ranking rows */
+html.theme-light .analytics-rank-row            { background: #f9fafb !important; border-color: #e5e7eb !important; color: #111827; }
+html.theme-light .analytics-rank-row:hover      { background: #f3f4f6 !important; border-color: #d1d5db !important; }
+html.theme-light .analytics-rank-row.top1       { background: linear-gradient(90deg, rgba(255,215,0,0.1) 0%, #f9fafb 100%) !important; }
+html.theme-light .analytics-rank-row .rank-name { color: #111827 !important; }
+html.theme-light .analytics-rank-row.top1 .rank-name { color: #d97706 !important; }
+html.theme-light .analytics-rank-row .rank-avatar    { background: #e5e7eb !important; color: #374151 !important; }
+
+/* Onboarding overlay — светлее в светлой теме */
+html.theme-light .tour-overlay-svg rect[fill="rgba(0,0,0,0.65)"] { fill: rgba(0,0,0,0.35); }
+html.theme-light .tour-overlay-dim { background: rgba(0,0,0,0.35) !important; }
+
+/* course-desc — нейтральный серый, не фиолетовый */
+html.theme-light .course-desc          { color: #6b7280 !important; }
+html.theme-light .course-tag           { color: #6b7280; background: rgba(0,0,0,0.04); border-color: #e5e7eb; }
+
+/* TestCards & TestRunner */
+html.theme-light .test-cards-container { background: #fff; border-color: #e5e7eb; }
+html.theme-light .test-card            { background: #fff; border-color: #e5e7eb; }
+html.theme-light .test-card-question   { color: #111827; }
+html.theme-light .test-card-badge      { background: rgba(var(--primary-rgb),0.1); color: var(--primary); }
+html.theme-light .test-option-label    { background: #f3f4f6; color: #111827; border-color: #e5e7eb; }
+html.theme-light .test-option-label:hover { background: #e5e7eb; }
+html.theme-light .test-textarea        { background: #f7f8fa; color: #111827; border-color: #dde1e8; }
+html.theme-light .test-cards-title     { color: #111827; }
+
+/* runner-container background */
+html.theme-light .runner-container     { background: transparent; }
+
+/* ── admin-layout / dashboard-container (UserPage дашборд курса) ── */
+html.theme-light .admin-layout          { background-color: #f0f2f5; color: #111827; }
+html.theme-light .dashboard-container  { background: transparent; }
+html.theme-light .course-header-big    { border-color: #e5e7eb; }
+html.theme-light .course-title-large   { color: #111827; }
+html.theme-light .course-meta-row,
+html.theme-light .course-progress-section { color: #6b7280; }
+
+/* ── content-card (карточки уроков) ── */
+html.theme-light .content-card         { background: #fff; border-color: #e5e7eb; }
+html.theme-light .card-thumbnail       { background: #f3f4f6; }
+html.theme-light .card-type-icon       { color: #fff; }
+html.theme-light .card-title           { color: #111827; }
+html.theme-light .card-meta            { color: #6b7280; }
+html.theme-light .card-body            { background: #fff; }
+
+/* ── course-cover gradient (карточки курсов) ── */
+html.theme-light .course-cover::after  { background: linear-gradient(to top, rgba(255,255,255,0.95), transparent); }
+html.theme-light .course-badge         { background: rgba(0,0,0,0.12); border-color: rgba(0,0,0,0.08); }
+html.theme-light .course-title         { color: #111827 !important; }
+html.theme-light .course-desc          { color: #6b7280 !important; }
+html.theme-light .course-tag           { color: #6b7280; background: rgba(0,0,0,0.05); border-color: #e5e7eb; }
+
+/* ── modern-textarea (Модерация — массовый импорт) ── */
+html.theme-light .modern-textarea      { background: #f7f8fa; border-color: #dde1e8; color: #111827; }
+html.theme-light .modern-textarea:focus { background: #fff; border-color: var(--primary); }
+html.theme-light .modern-textarea::placeholder { color: #9ca3af; }
+
+/* ── main-content (AnalyticsPage, AdminPage wrapper) ── */
+html.theme-light .main-content          { background-color: #f0f2f5; color: #111827; }
+
+/* ── Analytics course cover (inline style override via class) ── */
+html.theme-light .analytics-cover       { background: linear-gradient(135deg, #e5e7eb, #d1d5db) !important; border-color: #dde1e8 !important; }
+html.theme-light .analytics-cover h3   { color: #111827 !important; }
+
+/* ── course-showcase-grid карточки в аналитике ── */
+html.theme-light .course-showcase-grid .course-card-modern { background: #fff; border-color: #e5e7eb; }

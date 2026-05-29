@@ -36,6 +36,7 @@ export const HomeworkCard = () => {
 
     const deleteDemoCourse = async () => {
         await api.delete('/homework/demo-course').catch(() => {});
+        await api.patch('/auth/homework/dismiss').catch(() => {});
         updateUser({ homeworkDismissed: true });
     };
 

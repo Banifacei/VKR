@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import api from '../api/axiosInstance';
+import { useAuth } from './AuthContext';
 
 export interface TourStep {
     target: string;       // CSS-селектор или data-tour атрибут
@@ -99,6 +100,7 @@ export const getTourStepsByRole = (role: string): TourStep[] => {
 };
 
 export const TourProvider = ({ children }: { children: React.ReactNode }) => {
+    const { updateUser } = useAuth();
     const [steps, setSteps] = useState<TourStep[]>([]);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isActive, setIsActive] = useState(false);
@@ -198,7 +200,8 @@ export const TourProvider = ({ children }: { children: React.ReactNode }) => {
         setHighlight(null);
         cancelAnimationFrame(rafRef.current);
         api.patch('/auth/onboarding').catch(() => {});
-    }, []);
+        updateUser({ onboardingCompleted: true });
+    }, [updateUser]);
 
     // Следим за позицией элемента при скролле/ресайзе
     useEffect(() => {
@@ -235,13 +238,14 @@ export const TourProvider = ({ children }: { children: React.ReactNode }) => {
                 <>
                     {/* Затемнение с вырезом под элемент */}
                     <div
+                        className="tour-overlay-wrap"
                         style={{
                             position: 'fixed', inset: 0, zIndex: 10000,
                             pointerEvents: 'none',
                         }}
                     >
                         {highlight ? (
-                            <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0 }}>
+                            <svg className="tour-overlay-svg" width="100%" height="100%" style={{ position: 'absolute', inset: 0 }}>
                                 <defs>
                                     <mask id="tour-mask">
                                         <rect width="100%" height="100%" fill="white" />
@@ -256,9 +260,10 @@ export const TourProvider = ({ children }: { children: React.ReactNode }) => {
                                     </mask>
                                 </defs>
                                 <rect
+                                    className="tour-overlay-fill"
                                     width="100%"
                                     height="100%"
-                                    fill="rgba(0,0,0,0.65)"
+                                    fill="var(--tour-overlay-color, rgba(0,0,0,0.65))"
                                     mask="url(#tour-mask)"
                                 />
                                 {/* Обводка вокруг элемента */}
@@ -274,7 +279,7 @@ export const TourProvider = ({ children }: { children: React.ReactNode }) => {
                                 />
                             </svg>
                         ) : (
-                            <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.65)' }} />
+                            <div className="tour-overlay-dim" style={{ position: 'absolute', inset: 0, background: 'var(--tour-overlay-color, rgba(0,0,0,0.65))' }} />
                         )}
                     </div>
 

@@ -66,9 +66,10 @@ export const saveGlobalTheme = async (req: Request, res: Response) => {
         if (default_scheme)      updates['default_scheme']      = default_scheme;
         if (default_density)     updates['default_density']     = default_density;
 
-        // Если загружен логотип — сохраняем относительный путь (работает через nginx на любом хосте)
         if ((req as any).file) {
             updates['platform_logo'] = `/uploads/logos/${(req as any).file.filename}`;
+        } else if (req.body.remove_logo === 'true') {
+            updates['platform_logo'] = '';
         }
 
         for (const [key, value] of Object.entries(updates)) {

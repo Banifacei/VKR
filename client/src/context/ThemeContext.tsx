@@ -30,7 +30,7 @@ export interface UserTheme {
 interface ThemeContextType {
     globalTheme: GlobalTheme;
     userTheme:   UserTheme;
-    saveGlobalTheme: (data: Partial<GlobalTheme> & { logoFile?: File | null }) => Promise<void>;
+    saveGlobalTheme: (data: Partial<GlobalTheme> & { logoFile?: File | null; removeLogo?: boolean }) => Promise<void>;
     saveUserTheme:   (data: Partial<UserTheme>) => Promise<void>;
     isSaving: boolean;
 }
@@ -267,7 +267,7 @@ export const ThemeProvider = ({ children, initialUserTheme }: { children: ReactN
         return () => clearInterval(id);
     }, [userTheme.scheme, userTheme.followPlatform, globalTheme.default_scheme]);
 
-    const saveGlobalTheme = useCallback(async (data: Partial<GlobalTheme> & { logoFile?: File | null }) => {
+    const saveGlobalTheme = useCallback(async (data: Partial<GlobalTheme> & { logoFile?: File | null; removeLogo?: boolean }) => {
         setIsSaving(true);
         try {
             const formData = new FormData();
@@ -277,6 +277,7 @@ export const ThemeProvider = ({ children, initialUserTheme }: { children: ReactN
             if (data.default_scheme)              formData.append('default_scheme',       data.default_scheme);
             if (data.default_density)             formData.append('default_density',      data.default_density);
             if (data.logoFile)                    formData.append('logo',                 data.logoFile);
+            if (data.removeLogo)                  formData.append('remove_logo',           'true');
 
             const { data: result } = await api.put('/theme', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
@@ -286,7 +287,7 @@ export const ThemeProvider = ({ children, initialUserTheme }: { children: ReactN
                 ...globalTheme,
                 theme_preset:        result.theme_preset        || globalTheme.theme_preset,
                 platform_name:       result.platform_name       ?? globalTheme.platform_name,
-                platform_logo:       result.platform_logo       ?? globalTheme.platform_logo,
+                platform_logo:       data.removeLogo ? '' : (result.platform_logo ?? globalTheme.platform_logo),
                 platform_bg_pattern: result.platform_bg_pattern || globalTheme.platform_bg_pattern,
                 default_scheme:      (result.default_scheme     || globalTheme.default_scheme)  as ColorScheme,
                 default_density:     (result.default_density    || globalTheme.default_density) as Density,

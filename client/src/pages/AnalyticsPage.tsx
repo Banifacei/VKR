@@ -199,7 +199,7 @@ export const AnalyticsPage = () => {
                         <div className="course-showcase-grid">
                             {displayCourses.map(course => (
                                 <div key={course.id} className="course-card-modern" onClick={() => handleSelectCourse(course)}>
-                                    <div className="course-cover" style={{ background: 'linear-gradient(135deg, #111, #1a1a1a)', borderBottom: '1px solid #333' }}>
+                                    <div className="course-cover analytics-cover" style={{ background: 'linear-gradient(135deg, #111, #1a1a1a)', borderBottom: '1px solid #333' }}>
                                         <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '18px', zIndex: 2 }}>{course.title}</h3>
                                     </div>
                                     <div style={{ padding: '20px' }}>
@@ -312,6 +312,7 @@ export const AnalyticsPage = () => {
                                                     return (
                                                         <div
                                                             key={student.id}
+                                                            className={`analytics-rank-row${isTop1 ? ' top1' : ''}`}
                                                             style={{
                                                                 display: 'grid', gridTemplateColumns: '50px 2fr 1.5fr 1fr 30px', alignItems: 'center',
                                                                 background: isTop1 ? 'linear-gradient(90deg, rgba(255, 215, 0, 0.05) 0%, #161616 100%)' : '#161616',
@@ -325,11 +326,11 @@ export const AnalyticsPage = () => {
                                                         >
                                                             <div style={{ textAlign: 'center' }}>{rankBadge}</div>
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', overflow: 'hidden' }}>
-                                                                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: isTop1 ? 'linear-gradient(135deg, #FFD700, #FDB931)' : '#252525', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: isTop1 ? '#000' : '#fff', flexShrink: 0 }}>
+                                                                <div className="rank-avatar" style={{ width: '36px', height: '36px', borderRadius: '50%', background: isTop1 ? 'linear-gradient(135deg, #FFD700, #FDB931)' : '#252525', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: isTop1 ? '#000' : '#fff', flexShrink: 0 }}>
                                                                     {student.name.charAt(0)}
                                                                 </div>
                                                                 <div style={{ overflow: 'hidden' }}>
-                                                                    <div style={{ fontWeight: '600', color: isTop1 ? '#FFD700' : '#fff', fontSize: '14px', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{student.name}</div>
+                                                                    <div className="rank-name" style={{ fontWeight: '600', color: isTop1 ? '#FFD700' : '#fff', fontSize: '14px', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{student.name}</div>
                                                                     <div style={{ fontSize: '11px', color: 'var(--text-muted)', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{student.email}</div>
                                                                 </div>
                                                             </div>
