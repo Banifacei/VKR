@@ -245,7 +245,10 @@ export const login = async (req: Request, res: Response) => {
                 email: user.email,
                 role: user.role,
                 avatarUrl: user.avatarUrl,
-                status: user.status
+                status: user.status,
+                themeConfig: user.themeConfig || {},
+                onboardingCompleted: user.onboardingCompleted,
+                homeworkDismissed: user.homeworkDismissed,
             }
         });
 

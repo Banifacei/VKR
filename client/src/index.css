@@ -2234,3 +2234,20 @@ html.theme-light .analytics-cover h3   { color: #111827 !important; }
 
 /* ── course-showcase-grid карточки в аналитике ── */
 html.theme-light .course-showcase-grid .course-card-modern { background: #fff; border-color: #e5e7eb; }
+
+/* ── Тумблеры (lumeo-toggle / lumeo-switch) ── */
+html.theme-light .lumeo-toggle .slider,
+html.theme-light .lumeo-switch .slider { background-color: #d1d5db; }
+
+/* ── Enrollment filter tabs в CourseSettingsModal ── */
+html.theme-light .enrollment-filter-all-active { background: rgba(0,0,0,0.08) !important; color: #111827 !important; }
+html.theme-light .enrollment-filter-pending-active { background: rgba(202,138,4,0.15) !important; color: #b45309 !important; }
+html.theme-light .enrollment-filter-approved-active { background: rgba(22,163,74,0.15) !important; color: #15803d !important; }
+html.theme-light .enrollment-filter-rejected-active { background: rgba(220,38,38,0.15) !important; color: #b91c1c !important; }
+html.theme-light .enrollment-filter-banned-active { background: rgba(234,88,12,0.15) !important; color: #c2410c !important; }
+
+/* ── SortableCard в светлой теме ── */
+html.theme-light .content-card { background: #fff !important; border-color: #e5e7eb !important; }
+
+/* ── DateTimePicker ── */
+html.theme-light .datetime-trigger { background: #f7f8fa !important; border-color: #dde1e8 !important; color: #111827 !important; }

@@ -103,13 +103,13 @@ export const DateTimePicker = ({ value, onChange }: DateTimePickerProps) => {
                 style={{
                     display: 'flex', alignItems: 'center', gap: '10px',
                     padding: '11px 14px', borderRadius: '12px',
-                    background: 'rgba(0,0,0,0.3)',
-                    border: `1px solid ${open ? 'var(--primary)' : 'rgba(255,255,255,0.1)'}`,
+                    background: 'var(--bg-input)',
+                    border: `1px solid ${open ? 'var(--primary)' : 'var(--border-color)'}`,
                     cursor: 'pointer', transition: 'border-color 0.2s',
-                    color: value ? '#fff' : '#555', fontSize: '14px', userSelect: 'none',
+                    color: value ? 'var(--text-main)' : 'var(--text-muted)', fontSize: '14px', userSelect: 'none',
                 }}
             >
-                <Icons.Time size={15} color={value ? 'var(--primary)' : '#555'} />
+                <Icons.Time size={15} color={value ? 'var(--primary)' : 'var(--text-muted)'} />
                 <span style={{ flex: 1 }}>{formatDisplay(value)}</span>
                 {value && (
                     <span

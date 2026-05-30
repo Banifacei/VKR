@@ -51,10 +51,10 @@ export const SortableCard = ({ item, idx, isEditMode, completedVideoIds, testRes
         scale: isDragging ? '1.05' : '1',
         borderRadius: '16px',
         overflow: 'hidden',
-        background: isUpcoming ? '#0d0d0d' : '#111',
+        background: isUpcoming ? 'var(--bg-card)' : 'var(--bg-panel)',
         border: isUpcoming
-            ? '1px solid rgba(255,255,255,0.08)'
-            : '1px solid rgba(255,255,255,0.05)',
+            ? '1px solid var(--border-color)'
+            : '1px solid var(--border-color)',
         display: 'flex',
         flexDirection: 'column' as const,
     };
@@ -85,7 +85,7 @@ export const SortableCard = ({ item, idx, isEditMode, completedVideoIds, testRes
                 // Режим анонса
                 <div style={{
                     height: '140px',
-                    background: 'linear-gradient(160deg, #1a1a1a 0%, #0d0d0d 100%)',
+                    background: 'linear-gradient(160deg, var(--bg-input) 0%, var(--bg-card) 100%)',
                     display: 'flex', flexDirection: 'column',
                     justifyContent: 'center', alignItems: 'center',
                     position: 'relative', overflow: 'hidden',
@@ -122,7 +122,7 @@ export const SortableCard = ({ item, idx, isEditMode, completedVideoIds, testRes
                     {countdown && (
                         <div style={{
                             position: 'absolute', bottom: '10px',
-                            background: 'rgba(0,0,0,0.6)',
+                            background: 'rgba(0,0,0,0.55)',
                             backdropFilter: 'blur(8px)',
                             padding: '4px 12px', borderRadius: '20px',
                             fontSize: '13px', fontWeight: 700,
@@ -159,9 +159,9 @@ export const SortableCard = ({ item, idx, isEditMode, completedVideoIds, testRes
             <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', flex: 1 }}>
                 <h3 style={{
                     margin: '0 0 15px 0', fontSize: '16px', lineHeight: '1.4',
-                    color: isUpcoming ? 'rgba(255,255,255,0.4)' : 'var(--text-main)',
+                    color: isUpcoming ? 'var(--text-muted)' : 'var(--text-main)',
                 }}>
-                    <span style={{ color: isUpcoming ? 'rgba(255,255,255,0.2)' : 'var(--text-muted)', marginRight: '8px' }}>{idx + 1}.</span>
+                    <span style={{ color: 'var(--text-muted)', marginRight: '8px' }}>{idx + 1}.</span>
                     {item.title}
                 </h3>
 

@@ -145,6 +145,13 @@
 .sso-btn.saml:hover        { border-color: #b5179e; box-shadow: 0 0 15px rgba(181,23,158,0.2); }
 .sso-btn.openid:hover      { border-color: var(--primary); box-shadow: 0 0 15px rgba(0,174,239,0.2); }
 
+html.theme-light .auth-input                { background: #f7f8fa; color: #111827; border-color: #dde1e8; }
+html.theme-light .auth-input::placeholder   { color: #9ca3af; }
+html.theme-light .auth-input:focus          { background: #fff; border-color: var(--primary); box-shadow: 0 0 0 4px rgba(var(--primary-rgb),0.12); }
+html.theme-light .sso-btn                   { background: #f7f8fa; border-color: #dde1e8; color: #374151; }
+html.theme-light .sso-btn:hover             { background: #e5e7eb; color: #111827; }
+html.theme-light .auth-divider span         { background: #fff; }
+
 /* ── Адаптив ── */
 @media (max-width: 480px) {
     .auth-card {
