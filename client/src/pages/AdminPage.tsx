@@ -1226,7 +1226,8 @@ export const AdminPage = () => {
                                                         </span>
                                                     )}
                                                 </div>
-                                                <div style={{fontSize: '12px', color: 'var(--text-muted)'}}>{u.email} &bull; ID: {u.id}</div>
+                                                <div style={{fontSize: '12px', color: 'var(--text-muted)'}}>{u.email}</div>
+                                                <div style={{fontSize: '11px', color: 'var(--text-muted)', opacity: 0.6}}>ID: {u.id}</div>
                                             </td>
                                             <td>
                                                 <select className={`role-select ${u.role}`} value={u.role} onChange={(e) => handleRoleChange(u.id, e.target.value)}>
@@ -1236,7 +1237,7 @@ export const AdminPage = () => {
                                                 </select>
                                             </td>
                                             <td style={{textAlign: 'right'}}>
-                                                <div style={{display: 'flex', justifyContent: 'flex-end', gap: '8px', alignItems: 'center'}}>
+                                                <div className="user-actions-row" style={{display: 'flex', justifyContent: 'flex-end', gap: '8px', alignItems: 'center'}}>
                                                     {u.status === 'banned' && (
                                                         <span style={{ fontSize: '10px', color: '#ff4d4d', background: 'rgba(255,77,77,0.15)', border: '1px solid rgba(255,77,77,0.3)', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>БАН</span>
                                                     )}

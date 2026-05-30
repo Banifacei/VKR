@@ -216,9 +216,13 @@
 .table-responsive { overflow-x: auto; width: 100%; }
 .data-table { width: 100%; border-collapse: collapse; }
 .data-table th { text-align: left; padding: 16px 24px; color: var(--text-muted); font-size: 11px; text-transform: uppercase; font-weight: 600; border-bottom: 1px solid var(--border-color); background: rgba(0,0,0,0.2); }
-.data-table td { padding: 16px 24px; border-bottom: 1px solid var(--border-color); color: #eee; font-size: 14px; }
+.data-table td { padding: 16px 24px; border-bottom: 1px solid var(--border-color); color: #eee; font-size: 14px; vertical-align: middle; }
 .data-table tr:last-child td { border-bottom: none; }
 .data-table tr:hover td { background: rgba(255,255,255,0.01); }
+.user-actions-row { flex-wrap: nowrap; }
+@media (max-width: 600px) {
+    .data-table th, .data-table td { padding: 12px 14px; }
+}
 
 .role-select {
     appearance: none; background-color: #1a1a1a; border: 1px solid transparent;
@@ -526,6 +530,11 @@ label.dont-show-again input[type="checkbox"]:checked + .custom-checkbox::after {
     .sys-metrics-row   { grid-template-columns: repeat(2, 1fr); }
     .sys-bottom-row    { grid-template-columns: 1fr; }
 }
+/* глобальный фикс: admin-section без overflow:hidden (мешает скроллу таблиц и длинным спискам) */
+@media (max-width: 900px) {
+    .admin-section { overflow: visible; border-radius: 16px; }
+}
+
 @media (max-width: 768px) {
     .lumeo-header { padding: 0 16px; }
     /* ключевой фикс: constrain layout + allow child scroll */
@@ -538,8 +547,6 @@ label.dont-show-again input[type="checkbox"]:checked + .custom-checkbox::after {
     }
     .admin-tabs::-webkit-scrollbar { display: none; }
     .admin-tab  { flex-shrink: 0; padding: 8px 14px; font-size: 13px; }
-    /* убираем overflow:hidden с секций чтобы таблицы могли скроллиться */
-    .admin-section { overflow: visible; border-radius: 16px; }
     .table-responsive {
         overflow-x: auto; -webkit-overflow-scrolling: touch;
         max-width: calc(100vw - 32px);

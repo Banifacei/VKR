@@ -114,7 +114,7 @@ const SmtpSection = () => {
                     <h2>Параметры подключения</h2>
                 </div>
                 <div className="section-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px', gap: 16 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 120px', gap: 16 }}>
                         <div>
                             <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 6, fontWeight: 500 }}>SMTP хост</label>
                             <input className="modern-input" value={host} onChange={e => setHost(e.target.value)} placeholder="smtp.example.com" style={{ width: '100%' }} />
@@ -164,8 +164,8 @@ const SmtpSection = () => {
                     <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: '0 0 16px' }}>
                         Проверьте соединение — письмо отправится с текущими полями формы (до сохранения).
                     </p>
-                    <div style={{ display: 'flex', gap: 10 }}>
-                        <input className="modern-input" value={testTo} onChange={e => setTestTo(e.target.value)} placeholder="test@example.com" style={{ flex: 1 }} />
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                        <input className="modern-input" value={testTo} onChange={e => setTestTo(e.target.value)} placeholder="test@example.com" style={{ flex: 1, minWidth: 180 }} />
                         <button className="btn btn-secondary" onClick={handleTest} disabled={testing} style={{ whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 8 }}>
                             {testing ? <><Icons.Spinner size={14} /> Отправка...</> : <><Icons.Send size={14} /> Отправить тест</>}
                         </button>
@@ -320,11 +320,11 @@ const TemplatesSection = () => {
             {/* Действия */}
             <div className="admin-section">
                 <div className="section-body">
-                    <div style={{ display: 'flex', gap: 10 }}>
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                         <button className="btn btn-primary" onClick={handleSave} disabled={saving} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             {saving ? <><Icons.Spinner size={15} /> Сохранение...</> : <><Icons.Save size={15} /> Сохранить шаблоны</>}
                         </button>
-                        <button className="btn btn-ghost" onClick={handleReset} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <button className="btn btn-ghost" onClick={handleReset} style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
                             <Icons.Refresh size={14} /> Сбросить этот шаблон
                         </button>
                     </div>
