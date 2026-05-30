@@ -358,7 +358,7 @@ export const UserPage = () => {
         return (
             <div className="focus-mode-layout" style={{ background: 'var(--bg-deep)', minHeight: '100vh', overflowY: 'auto' }}>
                 <div style={{ padding: '20px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: 'var(--bg-deep)', zIndex: 10 }}>
-                    <button className="btn btn-ghost" onClick={() => setActiveItem(null)}>← Назад к курсу</button>
+                    <button className="btn btn-ghost" style={{ whiteSpace: 'nowrap' }} onClick={() => setActiveItem(null)}>← Назад к курсу</button>
                     <div style={{ color: 'var(--text-muted)' }}>
                         {activeItem.type === 'video'
                             ? <><Icons.Monitor size={16}/> Просмотр видео</>

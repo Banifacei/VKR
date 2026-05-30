@@ -1451,7 +1451,7 @@ export const AdminPage = () => {
                     </div>
                     <div className="section-body">
                         {/* Добавить одно слово */}
-                        <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+                        <div className="word-filter-row" style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
                             <input
                                 className="modern-input"
                                 style={{ flex: 1, maxWidth: 320 }}

@@ -1621,8 +1621,7 @@ const renderMainMenu = () => (
       
       <div className={`video-title-overlay ${showControls ? 'show' : ''}`}>
         <div className="video-title-text">{title || 'Лекция'}</div>
-        {/* Индикатор попыток прямо под названием */}
-        {maxAttempts !== undefined && maxAttempts > 0 && (
+        {maxAttempts !== undefined && maxAttempts > 0 && hasQuestions && (
             <div className="video-attempts-badge">
                 Попыток пересдачи: {Math.max(0, maxAttempts - attemptsUsed)} из {maxAttempts}
             </div>

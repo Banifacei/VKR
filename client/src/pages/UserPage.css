@@ -351,8 +351,15 @@
     .user-name-badge { padding: 6px 10px; font-size: 13px; }
     .video-info h1 { font-size: 18px; }
     .video-meta { font-size: 12px; }
-    /* Тест: результаты */
     .score-circle { width: 90px; height: 90px; font-size: 24px; border-width: 6px; }
     .runner-container { padding: 12px; min-height: auto; }
     .runner-card { padding: 16px; }
+    .playlist-sidebar { height: 30%; }
+    .playlist-header { padding: 12px 16px; }
+    .playlist-header h3 { font-size: 14px; }
+    .playlist-item { padding: 10px 12px; gap: 10px; }
+    .item-title { font-size: 13px; }
+    .video-stage { padding: 8px; }
+    .dashboard-container { padding: 12px; }
+    .course-header-big { margin-bottom: 20px; padding-bottom: 12px; }
 }

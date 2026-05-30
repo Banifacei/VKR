@@ -101,7 +101,15 @@
 .db-empty p  { margin: 0; font-size: 14px; }
 
 @media (max-width: 600px) {
-    .db-hero { flex-direction: column; align-items: flex-start; }
+    .db-hero { flex-direction: column; align-items: flex-start; gap: 16px; margin-bottom: 24px; }
     .db-stats-row { width: 100%; justify-content: space-between; }
     .db-stat { flex: 1; min-width: 0; padding: 10px; }
+    .db-section { margin-bottom: 28px; }
+}
+
+@media (max-width: 480px) {
+    .db-grid { grid-template-columns: 1fr; gap: 12px; }
+    .db-greeting { font-size: 20px; }
+    .db-stat-value { font-size: 20px; }
+    .db-empty { padding: 40px 16px; }
 }

@@ -529,14 +529,19 @@ label.dont-show-again input[type="checkbox"]:checked + .custom-checkbox::after {
 @media (max-width: 768px) {
     .lumeo-header { padding: 0 16px; }
     .admin-layout { padding: 20px 16px; }
-    .admin-tabs { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; }
+    .admin-tabs { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .admin-tabs::-webkit-scrollbar { display: none; }
     .admin-tab  { flex-shrink: 0; }
+    .admin-section { overflow: visible; }
     .data-table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .data-table { min-width: 600px; }
     .admin-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+    .metrics-row { grid-template-columns: repeat(2, 1fr); }
+    .sys-metrics-row { grid-template-columns: repeat(2, 1fr); }
+    .word-filter-row { flex-wrap: wrap; }
+    .word-filter-row .modern-input { max-width: 100% !important; }
 }
 @media (max-width: 600px) {
-    .metrics-row { grid-template-columns: 1fr; }
     .admin-content { padding: 16px; }
     .admin-header h1 { font-size: 24px; }
     .section-body { padding: 14px; }
@@ -551,6 +556,9 @@ label.dont-show-again input[type="checkbox"]:checked + .custom-checkbox::after {
     .data-table th, .data-table td { padding: 10px 8px; font-size: 13px; }
     .actions-row { flex-wrap: wrap; }
     .section-body { padding: 12px; }
+    .metrics-row { grid-template-columns: 1fr; }
+    .sys-metrics-row { grid-template-columns: 1fr; }
+    .dashboard-columns { grid-template-columns: 1fr; }
 }
 
 /* ========================================================

@@ -87,8 +87,8 @@ export const StarDisplay = ({ avg, total, size = 'sm' }: { avg: number; total: n
                 ))}
             </div>
             {total > 0
-                ? <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{avg.toFixed(1)} ({total})</span>
-                : <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Нет оценок</span>
+                ? <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{avg.toFixed(1)} ({total})</span>
+                : <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Нет оценок</span>
             }
         </div>
     );

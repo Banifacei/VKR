@@ -31,6 +31,17 @@
   align-items: center;
 }
 
+@media (max-width: 768px) {
+  .main-content { padding: 24px 20px; }
+  .sidebar { width: 280px; min-width: 280px; }
+}
+
+@media (max-width: 480px) {
+  .main-content { padding: 16px 12px; }
+  .admin-layout { overflow: auto; }
+  .sidebar { width: 100%; min-width: 0; border-right: none; border-bottom: 1px solid #333; }
+}
+
 .admin-title {
   font-size: 1.5rem;
   font-weight: bold;

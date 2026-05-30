@@ -2120,6 +2120,17 @@ video.controls-visible::-webkit-media-text-track-container { transform: translat
   .logo, .logo-link { font-size: 18px !important; }
   .header-search-center { display: none; }
   .gs-mobile-search-btn { display: flex; }
+  .gs-trigger { display: none; }
+}
+
+/* ── Кнопка "Назад к курсу" — не переносить текст ── */
+@media (max-width: 768px) {
+  .btn.btn-ghost[onClick] { white-space: nowrap; }
+}
+
+/* ── Комментарии: увеличенные tap targets ── */
+@media (max-width: 768px) {
+  .vc-action-btn { min-height: 36px; padding: 6px 8px; font-size: 13px; }
 }
 
 /* ── Кнопки: минимальный размер для касания на тачскрине ── */
@@ -2143,8 +2154,21 @@ video.controls-visible::-webkit-media-text-track-container { transform: translat
 }
 
 /* ── Страницы без боковой панели: безопасные поля для мобилки ── */
+@media (max-width: 768px) {
+  .main-content { padding-top: 24px !important; padding-bottom: 24px !important; }
+}
 @media (max-width: 480px) {
-  .main-content { padding-left: 12px !important; padding-right: 12px !important; }
+  .main-content { padding: 16px 12px !important; }
+}
+
+/* ── AnalyticsPage — мобильный адаптив ── */
+@media (max-width: 768px) {
+  .analytics-bento-grid  { grid-template-columns: 1fr !important; }
+  .analytics-stats-grid  { grid-template-columns: 1fr 1fr !important; gap: 12px !important; }
+}
+@media (max-width: 480px) {
+  .analytics-stats-grid  { grid-template-columns: 1fr !important; }
+  .analytics-bento-grid  { gap: 16px !important; }
 }
 
 /* ═══════════════════════════════════════════════════════════════
