@@ -2,8 +2,8 @@
 
 .vc-heading {
     display: flex; align-items: center; gap: 8px;
-    font-size: 16px; font-weight: 700; color: #fff;
-    margin: 0 0 20px;
+    font-size: 14px; font-weight: 600; color: var(--text-muted);
+    margin: 0 0 20px; text-transform: uppercase; letter-spacing: 0.06em;
 }
 .vc-count {
     background: rgba(255,255,255,0.08);
@@ -93,6 +93,25 @@
 }
 .vc-action-btn:hover { color: #aaa; }
 .vc-action-btn.danger:hover { color: #ff4d4d; }
+
+/* ── Светлая тема ── */
+html.theme-light .vc-heading               { color: #111827; }
+html.theme-light .vc-count                 { background: rgba(0,0,0,0.06); color: #6b7280; }
+html.theme-light .vc-input                 { background: #f7f8fa; border-color: #dde1e8; color: #111827; }
+html.theme-light .vc-input:focus           { border-color: var(--primary); background: #fff; }
+html.theme-light .vc-input::placeholder    { color: #9ca3af; }
+html.theme-light .vc-reply-hint            { color: #6b7280; }
+html.theme-light .vc-reply-hint button     { color: #9ca3af; }
+html.theme-light .vc-char-count            { color: #9ca3af; }
+html.theme-light .vc-login-hint            { color: #6b7280; }
+html.theme-light .vc-loading,
+html.theme-light .vc-empty                 { color: #9ca3af; }
+html.theme-light .vc-comment               { border-bottom-color: #e5e7eb; }
+html.theme-light .vc-author               { color: #111827; }
+html.theme-light .vc-date                  { color: #9ca3af; }
+html.theme-light .vc-text                  { color: #374151; }
+html.theme-light .vc-action-btn            { color: #9ca3af; }
+html.theme-light .vc-action-btn:hover      { color: #374151; }
 
 /* ── Мобиле: уменьшаем отступ вложенных ответов ── */
 @media (max-width: 480px) {

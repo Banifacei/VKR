@@ -32,6 +32,7 @@ import {
     getCourseItemAnalytics,
     generateDemoData,
     transcodeVideo,
+    reTranscodeAllVideos,
     getMyEnrollments,
     getMyProgressAll,
     reorderCourses,
@@ -61,6 +62,7 @@ router.get('/my-courses', checkAuth, getTeacherAccessibleCourses);
 router.put('/reorder', checkAuth, reorderVideos);
 router.post('/:videoId/autocaptions', checkAuth, vId, checkCourseAccess, generateSubtitles);
 router.post('/:videoId/transcode', checkAuth, vId, checkCourseAccess, transcodeVideo);
+router.post('/admin/retranscode-all', checkAuth, reTranscodeAllVideos);
 router.post('/', checkAuth, createVideo);
 router.get('/courses', checkAuth, getAllCourses);
 router.post('/courses', checkAuth, createCourse);

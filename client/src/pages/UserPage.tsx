@@ -376,12 +376,13 @@ export const UserPage = () => {
                                     key={activeItem.id} 
                                     videoId={activeItem.id}
                                     title={activeItem.title}
-                                    sources={[
-                                        { quality: 'Оригинал', url: activeItem.url, subtitles: activeItem.subtitles },
-                                        ...[...(activeItem.qualityUrls || [])]
-                                            .sort((a, b) => parseInt(b.quality) - parseInt(a.quality))
-                                            .map(q => ({ quality: q.quality, url: q.url, subtitles: activeItem.subtitles })),
-                                    ]}
+                                    sources={
+                                        activeItem.qualityUrls?.length
+                                            ? [...activeItem.qualityUrls]
+                                                .sort((a: any, b: any) => parseInt(b.quality) - parseInt(a.quality))
+                                                .map((q: any) => ({ quality: q.quality, url: q.url, subtitles: activeItem.subtitles }))
+                                            : [{ quality: 'Оригинал', url: activeItem.url, subtitles: activeItem.subtitles }]
+                                    }
                                     events={activeItem.events || []}
                                     hideResults={activeItem.hideResults}
                                     maxAttempts={activeItem.maxAttempts}

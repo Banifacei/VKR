@@ -16,34 +16,41 @@ const { inputPath, uploadsDir, base } = workerData as WorkerData;
 const ffmpegBin = (ffmpegPath as unknown as string) || 'ffmpeg';
 
 const targets = [
-    { quality: '360p', width: 640,  height: 360 },
-    { quality: '720p', width: 1280, height: 720 },
+    { quality: '360p', width: 640,  height: 360,  bandwidth: 800000  },
+    { quality: '720p', width: 1280, height: 720,  bandwidth: 2500000 },
 ];
 
-const transcodeOne = (outPath: string, width: number, height: number): Promise<void> =>
+const hlsDir = path.join(uploadsDir, `${base}_hls`);
+
+const transcodeHLS = (qualityDir: string, width: number, height: number): Promise<void> =>
     new Promise((resolve, reject) => {
+        fs.mkdirSync(qualityDir, { recursive: true });
+
         const args = [
             '-i', inputPath,
             '-vf', `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2`,
             '-c:v', 'libx264',
-            '-preset', 'ultrafast',  // Самый быстрый пресет, минимальная нагрузка на CPU
+            '-preset', 'ultrafast',
             '-crf', '28',
             '-c:a', 'aac',
             '-b:a', '128k',
-            '-threads', '2',         // Ограничиваем CPU
-            '-movflags', '+faststart',
+            '-threads', '2',
+            '-f', 'hls',
+            '-hls_time', '6',
+            '-hls_playlist_type', 'vod',
+            '-hls_segment_type', 'mpegts',
+            '-hls_segment_filename', path.join(qualityDir, 'seg%03d.ts'),
             '-y',
-            outPath,
+            path.join(qualityDir, 'index.m3u8'),
         ];
 
-        // nice -n 19 = наименьший приоритет, Node.js всегда получит CPU в первую очередь
         const trySpawn = (useNice: boolean) => {
             const cmd  = useNice ? 'nice' : ffmpegBin;
             const argv = useNice ? ['-n', '19', ffmpegBin, ...args] : args;
             const proc = spawn(cmd, argv, { stdio: 'ignore' });
             proc.on('close', code => code === 0 ? resolve() : reject(new Error(`FFmpeg exit ${code}`)));
             proc.on('error', err => {
-                if (useNice) trySpawn(false); // nice недоступен → запускаем напрямую
+                if (useNice) trySpawn(false);
                 else reject(err);
             });
         };
@@ -56,21 +63,35 @@ const run = async () => {
         return;
     }
 
+    fs.mkdirSync(hlsDir, { recursive: true });
+
     const results: { quality: string; url: string }[] = [];
 
     for (const t of targets) {
-        const outName = `${base}_${t.quality}.mp4`;
-        const outPath = path.join(uploadsDir, outName);
+        const qualityDir = path.join(hlsDir, t.quality);
         parentPort?.postMessage({ status: `transcoding_${t.quality}` });
         try {
-            await transcodeOne(outPath, t.width, t.height);
-            results.push({ quality: t.quality, url: `/uploads/${outName}` });
+            await transcodeHLS(qualityDir, t.width, t.height);
+            results.push({ quality: t.quality, url: `/uploads/${base}_hls/${t.quality}/index.m3u8` });
         } catch (e: any) {
             parentPort?.postMessage({ status: 'warn', message: `Ошибка ${t.quality}: ${e.message}` });
         }
     }
 
-    parentPort?.postMessage({ status: 'done', results });
+    // Генерируем master playlist
+    const masterPath = path.join(hlsDir, 'master.m3u8');
+    const masterLines = ['#EXTM3U', '#EXT-X-VERSION:3'];
+    for (const t of targets) {
+        const found = results.find(r => r.quality === t.quality);
+        if (found) {
+            masterLines.push(`#EXT-X-STREAM-INF:BANDWIDTH=${t.bandwidth},RESOLUTION=${t.width}x${t.height},NAME="${t.quality}"`);
+            masterLines.push(`${t.quality}/index.m3u8`);
+        }
+    }
+    fs.writeFileSync(masterPath, masterLines.join('\n') + '\n');
+
+    const hlsUrl = `/uploads/${base}_hls/master.m3u8`;
+    parentPort?.postMessage({ status: 'done', results, hlsUrl });
 };
 
 run();

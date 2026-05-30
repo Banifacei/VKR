@@ -219,6 +219,15 @@ export const deleteCourse = async (req: Request, res: Response) => {
                     }
                 }
             }
+            // HLS папка
+            if (video.hlsUrl) {
+                const ext = path.extname(video.url);
+                const base = path.basename(video.url.split('/').pop() || '', ext);
+                const hlsDir = path.join(uploadsDir, `${base}_hls`);
+                if (fs.existsSync(hlsDir)) {
+                    try { fs.rmSync(hlsDir, { recursive: true }); } catch {}
+                }
+            }
         }
 
         // Каскадное удаление из БД в транзакции
@@ -526,8 +535,13 @@ export const deleteVideo = async (req: Request, res: Response) => {
             }
         }
 
-        // Удаляем транскодированные версии качества
-        if (video.qualityUrls && Array.isArray(video.qualityUrls)) {
+        // Удаляем транскодированные версии (MP4 или HLS папку)
+        if (video.hlsUrl) {
+            const ext = path.extname(video.url);
+            const base = path.basename(video.url.split('/').pop() || '', ext);
+            const hlsDir = path.join(uploadsDir, `${base}_hls`);
+            try { fs.rmSync(hlsDir, { recursive: true }); } catch (e) {}
+        } else if (video.qualityUrls && Array.isArray(video.qualityUrls)) {
             for (const q of video.qualityUrls) {
                 if (q.url) {
                     const qName = q.url.split('/').pop();
@@ -787,18 +801,20 @@ const transcodeVideoInBackground = (videoId: number, videoUrl: string, courseId:
     worker.on('message', async (msg) => {
         if (msg.status === 'done') {
             if (msg.results && msg.results.length > 0) {
-                await Video.update({ qualityUrls: msg.results }, { where: { id: videoId } });
+                await Video.update(
+                    { qualityUrls: msg.results, hlsUrl: msg.hlsUrl || null },
+                    { where: { id: videoId } }
+                );
                 const video = await Video.findByPk(videoId);
                 subtitleDoneSse.broadcast(courseId, {
                     type: 'quality_ready',
                     videoId,
                     videoTitle: video?.title || '',
                 });
-                addSystemLog(`Транскодирование видео (ID: ${videoId}) завершено — ${msg.results.length} версии`, 'success');
+                addSystemLog(`Транскодирование видео (ID: ${videoId}) завершено — HLS`, 'success');
             }
         } else if (msg.status === 'warn') {
             console.warn('[Transcode]', msg.message);
-        } else {
         }
     });
     worker.on('error', err => console.error('[Transcode Worker Error]', err));
@@ -816,11 +832,26 @@ export const transcodeVideo = async (req: Request, res: Response) => {
         }
 
         res.status(202).json({ message: 'Транскодирование запущено' });
-        // Запускаем в фоне (не await)
         transcodeVideoInBackground(video.id, video.url, video.courseId);
     } catch (e) {
         console.error('[Transcode]', e);
         if (!res.headersSent) res.status(500).json({ message: 'Ошибка запуска транскодирования' });
+    }
+};
+
+export const reTranscodeAllVideos = async (req: Request, res: Response) => {
+    try {
+        const videos = await Video.findAll({ where: {} });
+        const local = videos.filter(v => v.url.startsWith('/uploads/'));
+        res.json({ message: `Запущено ретранскодирование ${local.length} видео в HLS`, count: local.length });
+        for (const v of local) {
+            transcodeVideoInBackground(v.id, v.url, v.courseId);
+            // небольшая пауза чтобы не перегрузить CPU
+            await new Promise(r => setTimeout(r, 3000));
+        }
+    } catch (e) {
+        console.error('[Retranscode all]', e);
+        if (!res.headersSent) res.status(500).json({ message: 'Ошибка' });
     }
 };
 

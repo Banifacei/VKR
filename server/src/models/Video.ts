@@ -47,4 +47,7 @@ export class Video extends Model {
 
   @Column({ type: DataType.BOOLEAN, defaultValue: false })
   declare noForwardSeek: boolean;
+
+  @Column({ type: DataType.STRING, allowNull: true })
+  declare hlsUrl: string | null;
 }

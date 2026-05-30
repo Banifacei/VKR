@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
+import Hls from 'hls.js';
 import { sendAnswer, resetProgress, savePlaybackProgress, getPlaybackProgress } from '../api/videoApi';
 import type { IInteractiveEvent, ISubtitle } from '../types';
 import { TestModeButton } from './TestModeButton'; // <--- ИМПОРТ НОВОЙ КНОПКИ
@@ -66,6 +67,7 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   const containerRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<number | null>(null);
+  const hlsRef = useRef<Hls | null>(null);
   const [localEvents, setLocalEvents] = useState<IInteractiveEvent[]>(events);    
   const safeSource = (sources && sources.length > 0) ? sources[0] : { quality: 'Error', url: '', subtitles: [] };
   const [currentSource, setCurrentSource] = useState(safeSource);
@@ -373,6 +375,46 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
         track.addEventListener('cuechange', onCueChange);
         return () => { track.removeEventListener('cuechange', onCueChange); };
     }, [activeSubtitle, currentSource]);
+
+  // HLS: инициализируем hls.js если источник — .m3u8
+  useEffect(() => {
+      const video = videoRef.current;
+      if (!video || currentEmbedUrl) return;
+
+      const url = normalizeUploadUrl(currentSource.url);
+      if (!url.endsWith('.m3u8')) {
+          // обычный MP4 — уничтожаем hls если был
+          if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
+          return;
+      }
+
+      if (Hls.isSupported()) {
+          if (hlsRef.current) hlsRef.current.destroy();
+          const hls = new Hls({ startLevel: -1, maxBufferLength: 30 });
+          hlsRef.current = hls;
+          hls.loadSource(url);
+          hls.attachMedia(video);
+          hls.on(Hls.Events.MANIFEST_PARSED, () => {
+              if (pendingSeekRef.current !== null) {
+                  video.currentTime = pendingSeekRef.current;
+                  anticheatTimeRef.current = pendingSeekRef.current;
+                  pendingSeekRef.current = null;
+              }
+              if (pendingPlayRef.current) {
+                  pendingPlayRef.current = false;
+                  safePlay();
+              }
+          });
+          hls.on(Hls.Events.ERROR, (_e, data) => {
+              if (data.fatal) console.error('[HLS] fatal error:', data.type, data.details);
+          });
+          return () => { hls.destroy(); hlsRef.current = null; };
+      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+          // Safari — нативная поддержка HLS
+          video.src = url;
+      }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSource.url, currentEmbedUrl]);
 
   useEffect(() => {
       if (currentEmbedUrl) {
@@ -1615,7 +1657,7 @@ const renderMainMenu = () => (
       )}
       <video
         ref={videoRef}
-        src={currentEmbedUrl ? '' : normalizeUploadUrl(currentSource.url)}
+        src={currentEmbedUrl ? '' : currentSource.url.endsWith('.m3u8') ? undefined : normalizeUploadUrl(currentSource.url)}
         style={currentEmbedUrl ? { display: 'none' } : undefined}
         className={`yt-video ${showControls ? 'controls-visible' : ''}`}
         playsInline
