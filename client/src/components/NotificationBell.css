@@ -114,7 +114,12 @@
 
 @media (max-width: 768px) {
     .nb-btn { min-width: 44px; min-height: 44px; justify-content: center; }
-}
-@media (max-width: 480px) {
-    .nb-dropdown { width: calc(100vw - 24px); right: 0; left: auto; }
+    /* dropdown не выходит за край: фиксируем к правому краю вьюпорта */
+    .nb-dropdown {
+        position: fixed;
+        top: 60px;
+        right: 12px;
+        left: 12px;
+        width: auto;
+    }
 }

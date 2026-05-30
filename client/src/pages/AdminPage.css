@@ -538,23 +538,14 @@ label.dont-show-again input[type="checkbox"]:checked + .custom-checkbox::after {
 
 @media (max-width: 768px) {
     .lumeo-header { padding: 0 16px; }
-    /* ключевой фикс: overflow-x:hidden + ширина по вьюпорту */
-    .lumeo-container { overflow-x: hidden; }
-    .admin-layout { padding: 16px; width: 100%; max-width: 100%; box-sizing: border-box; overflow-x: hidden; }
-    .admin-tabs {
-        overflow-x: auto; flex-wrap: nowrap;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: none;
-        width: 100%;
-    }
-    .admin-tabs::-webkit-scrollbar { display: none; }
-    .admin-tab  { flex-shrink: 0; padding: 8px 14px; font-size: 13px; }
-    .table-responsive {
-        overflow-x: auto; -webkit-overflow-scrolling: touch;
-        width: 100%;
-        display: block;
-    }
-    .data-table { min-width: 560px; }
+    .admin-layout { padding: 16px; }
+    /* вкладки переносятся — НЕТ горизонтального скролла, нет overflow clipping */
+    .admin-tabs { flex-wrap: wrap; gap: 6px; padding-bottom: 12px; }
+    .admin-tab  { flex: 1 1 auto; min-width: 0; padding: 8px 12px; font-size: 12px; text-align: center; justify-content: center; }
+    .section-header { flex-wrap: wrap; gap: 10px; }
+    .actions-row { flex-wrap: wrap; gap: 8px; }
+    .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; display: block; }
+    .data-table { min-width: 500px; }
     .admin-header { flex-direction: column; align-items: flex-start; gap: 10px; }
     .settings-toggle-card { width: 100%; box-sizing: border-box; }
     .metrics-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
@@ -580,9 +571,9 @@ label.dont-show-again input[type="checkbox"]:checked + .custom-checkbox::after {
     .stat-value  { font-size: 18px; }
     .stat-card.mini { padding: 12px; }
     .log-item    { gap: 8px; }
-    .data-table  { min-width: 380px; }
+    .data-table  { min-width: 360px; }
     .data-table th, .data-table td { padding: 10px 8px; font-size: 12px; }
-    .actions-row { flex-wrap: wrap; gap: 8px; }
+    .actions-row { flex-wrap: wrap; gap: 6px; }
     .section-body { padding: 10px; }
     .metrics-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
     .sys-metrics-row { grid-template-columns: 1fr; }
