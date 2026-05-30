@@ -73,6 +73,7 @@
     align-items: center;
     gap: 16px;
     transition: transform 0.2s, border-color 0.2s;
+    min-width: 0;
 }
 .stat-card.mini:hover { transform: translateY(-2px); border-color: #444; }
 
@@ -556,8 +557,8 @@ label.dont-show-again input[type="checkbox"]:checked + .custom-checkbox::after {
     .data-table { min-width: 560px; }
     .admin-header { flex-direction: column; align-items: flex-start; gap: 10px; }
     .settings-toggle-card { width: 100%; box-sizing: border-box; }
-    .metrics-row { grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px; }
-    .sys-metrics-row { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .metrics-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .sys-metrics-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
     .dashboard-columns { gap: 16px; }
     .word-filter-row { flex-wrap: wrap; }
     .word-filter-row .modern-input { max-width: 100% !important; }
@@ -583,9 +584,12 @@ label.dont-show-again input[type="checkbox"]:checked + .custom-checkbox::after {
     .data-table th, .data-table td { padding: 10px 8px; font-size: 12px; }
     .actions-row { flex-wrap: wrap; gap: 8px; }
     .section-body { padding: 10px; }
-    .metrics-row { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .metrics-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
     .sys-metrics-row { grid-template-columns: 1fr; }
     .dashboard-columns { grid-template-columns: 1fr; }
+    .stat-label { font-size: 10px; }
+    .stat-value { font-size: 18px; }
+    .stat-icon { width: 36px; height: 36px; flex-shrink: 0; }
     .admin-tab { padding: 7px 10px; font-size: 12px; gap: 5px; }
     .table-responsive { max-width: calc(100vw - 20px); }
 }
@@ -722,31 +726,4 @@ label.dont-show-again input[type="checkbox"]:checked + .custom-checkbox::after {
 .system-alert.alert-critical .alert-action-btn { color: #f87171; }
 .system-alert.alert-critical .alert-action-btn:hover { background: rgba(248, 113, 113, 0.15); }
 
-/* ==========================================================
-   МОБИЛЬНАЯ АДАПТАЦИЯ
-   ========================================================== */
-
-@media (max-width: 900px) {
-    .dashboard-columns { grid-template-columns: 1fr; }
-}
-
-@media (max-width: 768px) {
-    .admin-layout { padding: 24px 20px; }
-    .admin-header h1 { font-size: 24px; }
-    .metrics-row { grid-template-columns: repeat(2, 1fr); gap: 14px; }
-    .admin-tabs { overflow-x: auto; padding-bottom: 4px; gap: 6px; scrollbar-width: none; }
-    .admin-tabs::-webkit-scrollbar { display: none; }
-    .admin-tab { padding: 8px 14px; font-size: 13px; white-space: nowrap; }
-}
-
-@media (max-width: 480px) {
-    .admin-layout { padding: 14px 12px; }
-    .admin-header h1 { font-size: 20px; }
-    .admin-header p { font-size: 13px; }
-    .metrics-row { gap: 10px; }
-    .stat-card.mini { padding: 14px; gap: 10px; }
-    .stat-value { font-size: 20px; }
-    .section-header { padding: 14px 16px; }
-    .section-body { padding: 14px; }
-    .lumeo-header { padding: 0 14px; }
-}
+/* дубликат удалён — всё в главном блоке адаптива выше */
