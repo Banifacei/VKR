@@ -537,19 +537,20 @@ label.dont-show-again input[type="checkbox"]:checked + .custom-checkbox::after {
 
 @media (max-width: 768px) {
     .lumeo-header { padding: 0 16px; }
-    /* ключевой фикс: constrain layout + allow child scroll */
-    .admin-layout { padding: 16px; width: 100%; max-width: 100%; box-sizing: border-box; }
+    /* ключевой фикс: overflow-x:hidden + ширина по вьюпорту */
+    .lumeo-container { overflow-x: hidden; }
+    .admin-layout { padding: 16px; width: 100%; max-width: 100%; box-sizing: border-box; overflow-x: hidden; }
     .admin-tabs {
         overflow-x: auto; flex-wrap: nowrap;
         -webkit-overflow-scrolling: touch;
         scrollbar-width: none;
-        max-width: 100%;
+        width: 100%;
     }
     .admin-tabs::-webkit-scrollbar { display: none; }
     .admin-tab  { flex-shrink: 0; padding: 8px 14px; font-size: 13px; }
     .table-responsive {
         overflow-x: auto; -webkit-overflow-scrolling: touch;
-        max-width: calc(100vw - 32px);
+        width: 100%;
         display: block;
     }
     .data-table { min-width: 560px; }
