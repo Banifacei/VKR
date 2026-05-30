@@ -767,7 +767,7 @@ export const AdminPage = () => {
       <div className="lumeo-container">
         <main className="admin-layout">
             
-            <div className="admin-header" style={{ display: 'center', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div className="admin-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
                     <h1>Панель управления</h1>
                     <p>Центр мониторинга и управления образовательной платформой</p>
