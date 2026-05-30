@@ -14,6 +14,7 @@ out/
 
 # Docker
 .docker/
+docker-compose.override.yml
 # Игнорируем данные базы данных, если ты пробрасывал Volume в локальную папку
 pgdata/
 

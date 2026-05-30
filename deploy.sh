@@ -6,11 +6,11 @@ cd "$(dirname "$0")"
 echo "==> git pull"
 git pull
 
-echo "==> build server + client"
-docker compose build server client
+echo "==> pull latest images from ghcr.io"
+docker compose pull server client
 
-echo "==> restart"
+echo "==> restart server + client (db untouched)"
 docker compose up -d server client
 
-echo "==> done. logs:"
+echo "==> done."
 docker compose ps
