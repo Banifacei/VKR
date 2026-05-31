@@ -1068,18 +1068,22 @@ export const AdminPage = () => {
                 <div className="admin-section">
                     <div className="section-header">
                         <h2>База пользователей</h2>
-                        <div className="actions-row">
-                            <button className="btn btn-secondary" onClick={handleTemplateClick} title="Скачать шаблон (Excel)">
-                                <Icons.Download /> Шаблон
-                            </button>
-                            <button className="btn btn-secondary" onClick={() => fileInputRef.current?.click()} disabled={isActionExecuting}>
-                                <Icons.Upload /> {isActionExecuting ? 'Импорт...' : 'Импорт Excel'}
-                            </button>
-                            <button className="btn btn-secondary" onClick={handleExportUsers} title="Выгрузить всех пользователей в Excel" style={{color: '#00ff88', borderColor: 'rgba(0, 255, 136, 0.3)'}}>
-                                <Icons.Database /> Выгрузить БД
-                            </button>
-                            <button className="btn btn-primary" onClick={openAddModal}><Icons.Plus /> Добавить</button>
-                            <button className="btn btn-secondary" onClick={() => fetchUsers()}><Icons.Refresh /> Обновить</button>
+                        <div className="users-btn-group">
+                            <div className="users-btn-row">
+                                <button className="btn btn-secondary" onClick={handleTemplateClick} title="Скачать шаблон (Excel)">
+                                    <Icons.Download /> Шаблон
+                                </button>
+                                <button className="btn btn-secondary" onClick={() => fileInputRef.current?.click()} disabled={isActionExecuting}>
+                                    <Icons.Upload /> {isActionExecuting ? 'Импорт...' : 'Импорт Excel'}
+                                </button>
+                                <button className="btn btn-secondary" onClick={() => fetchUsers()}><Icons.Refresh /> Обновить</button>
+                            </div>
+                            <div className="users-btn-row">
+                                <button className="btn btn-secondary" onClick={handleExportUsers} title="Выгрузить всех пользователей в Excel" style={{color: '#00ff88', borderColor: 'rgba(0, 255, 136, 0.3)'}}>
+                                    <Icons.Database /> Выгрузить БД
+                                </button>
+                                <button className="btn btn-primary" onClick={openAddModal}><Icons.Plus /> Добавить</button>
+                            </div>
                         </div>
                         {/* МОДАЛЬНОЕ ОКНО ИНСТРУКЦИИ К ШАБЛОНУ */}
                         {modalMode === 'template' && (

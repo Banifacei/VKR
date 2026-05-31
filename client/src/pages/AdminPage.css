@@ -46,8 +46,8 @@
 .nav-link:hover { color: #fff; }
 
 /* --- Контейнер --- */
-.lumeo-container { flex: 1; overflow-y: auto; }
-.admin-layout     { max-width: 1400px; margin: 0 auto; padding: 40px; }
+.lumeo-container { flex: 1; overflow-y: auto; overflow-x: hidden; }
+.admin-layout     { max-width: 1400px; margin: 0 auto; padding: 40px; padding-bottom: 48px; }
 
 /* --- Заголовок --- */
 .admin-header   { margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
@@ -146,6 +146,10 @@
 .section-header h2 { margin: 0; font-size: 16px; font-weight: 600; }
 .section-body  { padding: 20px; }
 .actions-row   { display: flex; gap: 12px; }
+
+/* Кнопки базы пользователей — 2 ряда на мобиле, 1 ряд на десктопе */
+.users-btn-group { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.users-btn-row   { display: contents; } /* на десктопе: враппер невидим, кнопки в одну строку */
 
 /* ==========================================================
    ЛЕНТА АКТИВНОСТИ (ЖУРНАЛ)
@@ -556,6 +560,14 @@ label.dont-show-again input[type="checkbox"]:checked + .custom-checkbox::after {
     .request-card { flex-wrap: wrap; gap: 10px; }
     .stat-card.mini { padding: 14px; gap: 12px; }
     .section-body { padding: 14px; }
+    /* Кнопки базы пользователей — вертикально на мобиле */
+    .users-btn-group { flex-direction: column; width: 100%; }
+    .users-btn-row   { display: flex; width: 100%; gap: 8px; }
+    .users-btn-row .btn { flex: 1; justify-content: center; }
+    /* Фильтры журнала переносятся */
+    .log-filters { flex-wrap: wrap; }
+    /* padding-bottom чтоб последний элемент не прятался за браузерным баром */
+    .admin-layout { padding-bottom: 40px; }
 }
 @media (max-width: 600px) {
     .admin-layout { padding: 12px; }
