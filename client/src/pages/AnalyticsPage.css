@@ -35,6 +35,15 @@
 }
 
 /* ── Телефон ── */
+@media (max-width: 900px) {
+    /* Контент на всю ширину */
+    .analytics-page-content {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+    }
+}
+
 @media (max-width: 480px) {
     /* 2 виджета → 1 колонка */
     .analytics-stats-grid {

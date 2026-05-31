@@ -191,10 +191,10 @@ export const AnalyticsPage = () => {
                 </div>
             )}
 
-            <main className="main-content" style={{ padding: 'clamp(16px, 4vw, 40px) clamp(12px, 3vw, 20px)', maxWidth: '1600px', margin: '0 auto', width: '95%' }}>
+            <main className="main-content" style={{ padding: 'clamp(16px, 4vw, 40px) clamp(12px, 3vw, 20px)', paddingBottom: 'clamp(60px, 10vw, 80px)', maxWidth: '1600px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
 
                 {!selectedCourse ? (
-                    <div className="fade-in">
+                    <div className="fade-in" style={{ width: '100%' }}>
                         <h1 style={{ marginBottom: '10px', fontSize: 'clamp(22px, 5vw, 32px)', fontWeight: '800' }}>Центр аналитики</h1>
                         <p style={{ color: 'var(--text-muted)', marginBottom: '40px' }}>Обзор успеваемости по всем вашим курсам</p>
                         <div className="course-showcase-grid">
@@ -213,7 +213,7 @@ export const AnalyticsPage = () => {
                         </div>
                     </div>
                 ) : (
-                    <div className="fade-in">
+                    <div className="fade-in" style={{ width: '100%' }}>
                         <button className="btn btn-ghost" onClick={handleBackToDashboard} style={{ marginBottom: '20px', color: 'var(--text-muted)', padding: 0 }}>
                             ← Вернуться к списку курсов
                         </button>
