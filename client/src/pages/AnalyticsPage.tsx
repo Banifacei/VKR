@@ -330,9 +330,9 @@ export const AnalyticsPage = () => {
                                                                 <div className="rank-avatar" style={{ width: '36px', height: '36px', borderRadius: '50%', background: isTop1 ? 'linear-gradient(135deg, #FFD700, #FDB931)' : '#252525', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: isTop1 ? '#000' : '#fff', flexShrink: 0 }}>
                                                                     {student.name.charAt(0)}
                                                                 </div>
-                                                                <div style={{ overflow: 'hidden' }}>
-                                                                    <div className="rank-name" style={{ fontWeight: '600', color: isTop1 ? '#FFD700' : '#fff', fontSize: '14px', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{student.name}</div>
-                                                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{student.email}</div>
+                                                                <div style={{ overflow: 'hidden', minWidth: 0 }}>
+                                                                    <div className="rank-name" style={{ fontWeight: '600', color: isTop1 ? '#FFD700' : '#fff', fontSize: '14px', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{student.name}</div>
+                                                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{student.email}</div>
                                                                 </div>
                                                             </div>
                                                             <div style={{ paddingRight: '20px' }}>
