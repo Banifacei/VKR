@@ -357,7 +357,7 @@ export const AnalyticsPage = () => {
 
                                     {/* ПРАВАЯ КОЛОНКА: ВОРОНКА */}
                                     <div style={{ background: 'var(--bg-card)', padding: '30px', borderRadius: '20px', border: '1px solid var(--border-color)' }}>
-                                        <h2 style={{ fontSize: '20px', margin: '0 0 5px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>📉 Воронка отсева</h2>
+                                        <h2 style={{ fontSize: '20px', margin: '0 0 5px 0', display: 'flex', alignItems: 'center', gap: '10px' }}><Icons.Activity size={20}/> Воронка отсева</h2>
                                         <div style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '25px' }}>Конверсия: Начали / Закончили</div>
                                         
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', maxHeight: '550px', overflowY: 'auto', paddingRight: '5px' }} className="custom-scrollbar">
