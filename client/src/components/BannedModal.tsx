@@ -1,3 +1,5 @@
+import { Icons } from './Icons';
+
 interface Props {
     reason: string | null;
     onClose: () => void; // выход из аккаунта
@@ -15,7 +17,7 @@ export const BannedModal = ({ reason, onClose }: Props) => (
             borderRadius: 16, padding: '32px 28px', maxWidth: 440, width: '100%',
             textAlign: 'center',
         }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>🚫</div>
+            <div style={{ marginBottom: 12, color: '#ff4444', display: 'flex', justifyContent: 'center' }}><Icons.Shield size={44}/></div>
             <h2 style={{ color: '#ff4444', margin: '0 0 8px', fontSize: 20 }}>
                 Аккаунт заблокирован
             </h2>

@@ -41,7 +41,7 @@ export const ForgotPasswordPage = () => {
 
                 {sent ? (
                     <div className="auth-form" style={{ textAlign: 'center', padding: '10px 0 20px' }}>
-                        <div style={{ fontSize: 48, marginBottom: 16 }}>📬</div>
+                        <div style={{ marginBottom: 16, color: 'var(--primary)', display: 'flex', justifyContent: 'center' }}><Icons.Mail size={48}/></div>
                         <h3 style={{ marginBottom: 8 }}>Письмо отправлено</h3>
                         <p style={{ color: 'var(--text-muted)', marginBottom: 24 }}>
                             Если этот email зарегистрирован, вы получите ссылку для сброса пароля. Проверьте папку «Спам».

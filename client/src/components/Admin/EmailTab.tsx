@@ -102,7 +102,7 @@ const SmtpSection = () => {
                     </div>
                     {currentProvider?.hint && (
                         <div style={{ fontSize: 12, color: 'var(--text-muted)', background: 'var(--bg-deep)', borderRadius: 8, padding: '10px 14px', borderLeft: '3px solid rgba(var(--primary-rgb),0.4)' }}>
-                            ℹ️ {currentProvider.hint}
+                            <Icons.LogInfo size={13}/> {currentProvider.hint}
                         </div>
                     )}
                 </div>

@@ -1434,9 +1434,9 @@ const renderMainMenu = () => (
                         
                         <div style={{ marginTop: '25px', display: 'flex', gap: '15px', justifyContent: 'center' }}>
                             {activeEvent.rewindTo !== undefined && activeEvent.rewindTo !== null ? (
-                                <button className="primary-btn" onClick={handleRewind}>🔙 Пересмотреть фрагмент</button>
+                                <button className="primary-btn" onClick={handleRewind} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Icons.Back size={14}/> Пересмотреть фрагмент</button>
                             ) : activeEvent.isStrict ? (
-                                <button className="primary-btn" onClick={handleRetry}>🔄 Попробовать снова</button>
+                                <button className="primary-btn" onClick={handleRetry} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Icons.Refresh size={14}/> Попробовать снова</button>
                             ) : (
                                 <button className="primary-btn" style={{background: 'var(--bg-input)'}} onClick={() => handleContinue(false)}>Пропустить ⏭</button>
                             )}

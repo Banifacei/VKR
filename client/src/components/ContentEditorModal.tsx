@@ -92,8 +92,8 @@ const SortableOption = ({ opt, idx, isCorrect, isDuplicate, accentColor, onChang
                     type="button"
                     title="Прикрепить изображение"
                     onClick={() => imgInputRef.current?.click()}
-                    style={{ padding: '6px', color: opt.imageUrl ? accentColor : '#666', borderRadius: '8px', background: opt.imageUrl ? `rgba(${accentColor === 'var(--primary)' ? 'var(--primary-rgb)' : '255,215,0'},0.12)` : 'transparent', border: 'none', cursor: 'pointer', fontSize: 16 }}
-                >🖼</button>
+                    style={{ padding: '6px', color: opt.imageUrl ? accentColor : '#666', borderRadius: '8px', background: opt.imageUrl ? `rgba(${accentColor === 'var(--primary)' ? 'var(--primary-rgb)' : '255,215,0'},0.12)` : 'transparent', border: 'none', cursor: 'pointer', display: 'flex' }}
+                ><Icons.Image size={16}/></button>
                 <input ref={imgInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) onUploadImage(e.target.files[0]); e.target.value = ''; }} />
                 <button className="btn btn-ghost" onClick={onRemove} style={{ padding: '8px', color: 'var(--text-muted)', borderRadius: '8px' }} onMouseEnter={e => e.currentTarget.style.background='rgba(255,77,77,0.1)'} onMouseLeave={e => e.currentTarget.style.background='transparent'}>✕</button>
             </div>
@@ -1238,7 +1238,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                             <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                                                 <input ref={questionImgInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleUploadQuestionImage(e.target.files[0]); e.target.value = ''; }} />
                                                 <button type="button" className="btn btn-ghost" style={{ fontSize: 13, padding: '6px 12px', color: questionImageUrl ? accentColor : '#666' }} onClick={() => questionImgInputRef.current?.click()} disabled={isUploadingImage}>
-                                                    {isUploadingImage ? '⏳ Загрузка...' : (questionImageUrl ? '🖼 Сменить картинку' : '🖼 Добавить картинку')}
+                                                    {isUploadingImage ? <><Icons.Spinner size={13}/> Загрузка...</> : <><Icons.Image size={13}/> {questionImageUrl ? 'Сменить картинку' : 'Добавить картинку'}</>}
                                                 </button>
                                                 {questionImageUrl && (
                                                     <>

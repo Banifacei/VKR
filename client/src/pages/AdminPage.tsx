@@ -851,9 +851,9 @@ export const AdminPage = () => {
                       systemAlerts.map(alert => (
                         <div key={alert.id} className={`system-alert alert-${alert.severity}`}>
                           <span className="alert-icon">
-                            {alert.severity === 'critical' && '✕'}
-                            {alert.severity === 'warning' && '⚠'}
-                            {alert.severity === 'info' && 'i'}
+                            {alert.severity === 'critical' && <Icons.Fail size={14}/>}
+                            {alert.severity === 'warning' && <Icons.AlertTriangle size={14}/>}
+                            {alert.severity === 'info' && <Icons.LogInfo size={14}/>}
                           </span>
                           <div className="alert-body">
                             <span className="alert-title">{alert.title}</span>

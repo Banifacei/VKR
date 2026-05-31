@@ -1,4 +1,5 @@
 import { createContext, useContext, useRef, useState } from 'react';
+import { Icons } from '../components/Icons';
 
 interface ConfirmOptions {
     title?: string;
@@ -67,7 +68,10 @@ export const ConfirmProvider = ({ children }: { children: React.ReactNode }) => 
                                 ? '1px solid rgba(255,77,77,0.3)'
                                 : '1px solid rgba(var(--primary-rgb),0.3)',
                         }}>
-                            {state.danger ? '🗑' : '❓'}
+                            {state.danger
+                                ? <Icons.Trash size={22} color={state.danger ? '#ff4d4d' : undefined}/>
+                                : <Icons.HelpCircle size={22} color={'var(--primary)'}/>
+                            }
                         </div>
 
                         {state.title && (

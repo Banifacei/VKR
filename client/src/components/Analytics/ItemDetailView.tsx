@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Icons } from '../Icons';
 
 export const ItemDetailView = ({ data }: { data: any }) => {
     // Внутренний стейт для "глубокого" погружения в конкретного студента
@@ -93,7 +94,7 @@ export const ItemDetailView = ({ data }: { data: any }) => {
                     {/* Красная зона */}
                     {questionAnalytics && questionAnalytics.length > 0 && (
                         <div>
-                            <h3 style={{ fontSize: '14px', color: '#ff4d4d', textTransform: 'uppercase', marginBottom: '15px', letterSpacing: '1px' }}>🚨 Красная зона (Сложные вопросы)</h3>
+                            <h3 style={{ fontSize: '14px', color: '#ff4d4d', textTransform: 'uppercase', marginBottom: '15px', letterSpacing: '1px', display: 'flex', alignItems: 'center', gap: '8px' }}><Icons.AlertTriangle size={14} color="#ff4d4d"/> Красная зона (Сложные вопросы)</h3>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                 {questionAnalytics.slice(0, 3).map((q: any, idx: number) => (
                                     <div key={`red-${q.id || idx}-${idx}`} style={{ background: 'var(--bg-card)', padding: '15px', borderRadius: '10px', borderLeft: `3px solid ${q.correctRate < 50 ? '#ff4d4d' : '#ffd700'}` }}>
@@ -108,7 +109,7 @@ export const ItemDetailView = ({ data }: { data: any }) => {
                     )}
 
                     <div>
-                        <h3 style={{ fontSize: '14px', color: 'var(--primary)', textTransform: 'uppercase', marginBottom: '15px', letterSpacing: '1px' }}>👥 Студенты, сдавшие тест</h3>
+                        <h3 style={{ fontSize: '14px', color: 'var(--primary)', textTransform: 'uppercase', marginBottom: '15px', letterSpacing: '1px', display: 'flex', alignItems: 'center', gap: '8px' }}><Icons.Users size={14}/> Студенты, сдавшие тест</h3>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                             {results?.map((res: any, idx: number) => (
                                 <div 
@@ -135,7 +136,7 @@ export const ItemDetailView = ({ data }: { data: any }) => {
             {type === 'video' && (
                 <>
                     <div>
-                        <h3 style={{ fontSize: '14px', color: '#b5179e', textTransform: 'uppercase', marginBottom: '15px', letterSpacing: '1px' }}>👥 Студенты, отвечавшие в видео</h3>
+                        <h3 style={{ fontSize: '14px', color: '#b5179e', textTransform: 'uppercase', marginBottom: '15px', letterSpacing: '1px', display: 'flex', alignItems: 'center', gap: '8px' }}><Icons.Users size={14} color="#b5179e"/> Студенты, отвечавшие в видео</h3>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                             {uniqueVideoStudents.map((u: any, idx: number) => (
                                 <div 

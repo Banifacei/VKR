@@ -222,7 +222,7 @@ export const CourseSettingsModal = ({
                             {isOwner ? (
                                 <div style={{ position: 'relative', marginBottom: '15px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-card)', borderRadius: '12px', padding: '0 15px', border: '1px solid var(--border-color)', transition: 'border-color 0.2s', position: 'relative', zIndex: 101 }}>
-                                        <span>🔍</span>
+                                        <Icons.Search size={15} />
                                         <input 
                                             className="modern-input" 
                                             style={{ marginBottom: 0, border: 'none', background: 'transparent', boxShadow: 'none', flex: 1, padding: '15px 10px' }} 
