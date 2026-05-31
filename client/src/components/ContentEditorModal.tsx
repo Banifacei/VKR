@@ -782,7 +782,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                     <div className="cem-left" style={{ flex: '6', display: 'flex', flexDirection: 'column', padding: '40px', overflowY: 'auto' }}>
                         
                         {showStats ? (
-                            <div className="stats-container" style={{ animation: 'fadeIn 0.4s ease' }}>
+                            <div className="cem-stats-wrap stats-container" style={{ animation: 'fadeIn 0.4s ease' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
                                     <div>
                                         <h3 style={{margin: 0, color: 'var(--text-main)', fontSize: '24px'}}>Статистика успеваемости</h3>
@@ -929,9 +929,9 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                 )}
                             </div>
                         ) : (
-                            <div style={{ maxWidth: '800px', margin: '0 auto', width: '100%' }}>
+                            <div className="cem-content-wrap" style={{ maxWidth: '800px', margin: '0 auto', width: '100%' }}>
                                 {isVideo && selectedVideo && (
-                                    <div style={{ width: '100%', marginBottom: '40px', position: 'relative' }}>
+                                    <div className="cem-player-wrap" style={{ width: '100%', marginBottom: '40px', position: 'relative' }}>
                                         <div style={{ position: 'absolute', top: '10%', left: '10%', right: '10%', bottom: '10%', background: accentColor, filter: 'blur(100px)', opacity: 0.1, zIndex: 0, pointerEvents: 'none' }}></div>
                                         <div className="player-wrapper-animation" style={{ position: 'relative', zIndex: 1, borderRadius: '16px', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.6)' }}>
                                             <VideoPlayer
@@ -990,7 +990,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                 )}
 
                                 {isVideo && selectedVideo?.events && (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    <div className="cem-list-wrap" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                         {[...selectedVideo.events].sort((a, b) => a.time - b.time).map(ev => (
                                             <div key={ev.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', border: '1px solid var(--border-color)', padding: '15px 20px', borderRadius: '16px', borderLeft: `4px solid ${ev.type === 'chapter' ? 'var(--primary)' : ev.type === 'info' ? '#ffd700' : 'var(--primary)'}`, transition: 'all 0.2s ease', cursor: 'pointer' }} onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-input)'} onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-card)'}>
                                                 <div>
@@ -1008,7 +1008,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                 )}
 
                                 {!isVideo && selectedTest?.questions && (
-                                    <div style={{ paddingBottom: '50px' }}>
+                                    <div className="cem-list-wrap" style={{ paddingBottom: '50px' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                                             <span style={{ color: 'var(--text-muted)', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', fontSize: '13px' }}>Порядок вопросов:</span>
                                             <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>Перетащите ☰ для сортировки</span>

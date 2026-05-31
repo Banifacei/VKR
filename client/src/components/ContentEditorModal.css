@@ -52,33 +52,61 @@
     /* Скрываем текст в кнопках шапки, оставляем иконки */
     .cem-btn-text { display: none; }
 
-    /* Тело: вертикальная прокрутка вместо горизонтального сплита */
+    /* Тело: вертикальная колонка со скроллом */
     .cem-body {
         flex-direction: column !important;
         overflow-y: auto !important;
         overflow-x: hidden !important;
     }
 
-    /* Левая колонка */
+    /*
+     * cem-left и cem-content-wrap "растворяются" через display:contents —
+     * их дети становятся прямыми flex-потомками cem-body
+     * и участвуют в сортировке через order
+     */
     .cem-left {
-        padding: 16px !important;
-        flex: none !important;
-        overflow-y: visible !important;
+        display: contents !important;
+    }
+    .cem-content-wrap {
+        display: contents !important;
     }
 
-    /* Правая колонка: наверх, на всю ширину, без боковой рамки, сброс minWidth */
+    /* Порядок на мобиле:
+     *  1. Плеер
+     *  2. Конструктор / Настройки
+     *  3. Таймлайн / Список вопросов
+     */
+    .cem-player-wrap {
+        order: 1;
+        width: 100%;
+        padding: 14px 14px 0;
+        box-sizing: border-box;
+        margin-bottom: 0 !important;
+    }
+
     .cem-right {
-        order: -1 !important;
-        flex: none !important;
+        order: 2;
         min-width: 0 !important;
         width: 100% !important;
         border-left: none !important;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+        border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
     }
 
-    /* Левая колонка: вниз */
-    .cem-left {
-        order: 1 !important;
+    .cem-list-wrap {
+        order: 3;
+        width: 100%;
+        padding: 14px;
+        box-sizing: border-box;
+    }
+
+    /* Статистика — отдельный режим, занимает весь экран */
+    .cem-stats-wrap {
+        order: 1;
+        width: 100%;
+        padding: 14px;
+        box-sizing: border-box;
+        flex: 1;
     }
 
     /* Таблицы статистики: горизонтальный скролл */
@@ -95,9 +123,6 @@
 @media (max-width: 600px) {
     .cem-title-input {
         font-size: 15px !important;
-    }
-    .cem-left {
-        padding: 12px !important;
     }
     /* Кнопка "Закрыть": только крестик */
     .cem-close-text { display: none; }
@@ -118,5 +143,13 @@
     .cem-action-bar .btn {
         padding: 12px 10px !important;
         font-size: 13px !important;
+    }
+
+    /* Плеер — чуть меньше отступ */
+    .cem-player-wrap {
+        padding: 10px 10px 0 !important;
+    }
+    .cem-list-wrap {
+        padding: 10px !important;
     }
 }
