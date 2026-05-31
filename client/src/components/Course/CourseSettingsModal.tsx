@@ -179,7 +179,7 @@ export const CourseSettingsModal = ({
                     <button onClick={() => { setSettingsTab('team'); fetchCollaborators(); }} style={{ flex: 1, padding: 'clamp(10px, 3vw, 15px) clamp(6px, 2vw, 15px)', background: 'none', border: 'none', borderBottom: settingsTab === 'team' ? '2px solid var(--primary)' : '2px solid transparent', color: settingsTab === 'team' ? 'var(--primary)' : 'var(--text-muted)', fontWeight: 'bold', cursor: 'pointer', fontSize: 'clamp(12px, 3vw, 14px)' }}>Команда</button>
                 </div>
 
-                <div style={{ padding: 'clamp(14px, 4vw, 25px)', overflowY: 'auto', flex: 1 }}>
+                <div style={{ padding: 'clamp(14px, 4vw, 25px) clamp(14px, 5vw, 25px)', overflowY: 'auto', flex: 1 }}>
                     
                     {/* --- ВКЛАДКА 1: ОСНОВНОЕ --- */}
                     {settingsTab === 'info' && (
@@ -321,8 +321,8 @@ export const CourseSettingsModal = ({
                                 </select>
                             </div>
                             
-                            <div style={{ background: 'var(--bg-card)', padding: '15px', borderRadius: '12px', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <div>
+                            <div style={{ background: 'var(--bg-card)', padding: '15px', borderRadius: '12px', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                                <div style={{ flex: 1, minWidth: 0 }}>
                                     <div style={{ color: 'var(--text-main)', fontSize: '14px', fontWeight: 'bold' }}>Свободный доступ для коллег</div>
                                     <div style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: '4px' }}>Автоматически одобрять заявки от других преподавателей</div>
                                 </div>
