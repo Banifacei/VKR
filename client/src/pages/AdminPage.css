@@ -46,8 +46,8 @@
 .nav-link:hover { color: #fff; }
 
 /* --- Контейнер --- */
-.lumeo-container { flex: 1; overflow-y: auto; overflow-x: hidden; }
-.admin-layout     { max-width: 1400px; margin: 0 auto; padding: 40px; padding-bottom: 48px; }
+.lumeo-container { flex: 1; overflow-y: auto; overflow-x: hidden; width: 100%; max-width: 100%; }
+.admin-layout     { max-width: 1400px; margin: 0 auto; padding: 40px; padding-bottom: 48px; width: 100%; box-sizing: border-box; overflow-x: hidden; }
 
 /* --- Заголовок --- */
 .admin-header   { margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
@@ -168,7 +168,7 @@
 .log-dot.info    { background: var(--primary); box-shadow: 0 0 8px rgba(0, 174, 239, 0.4); }
 .log-dot.success { background: var(--success); box-shadow: 0 0 8px rgba(var(--success-rgb), 0.4); }
 .log-dot.error   { background: var(--danger);  box-shadow: 0 0 8px rgba(var(--danger-rgb), 0.4); }
-.log-message { font-size: 13px; color: #ccc; line-height: 1.4; }
+.log-message { font-size: 13px; color: #ccc; line-height: 1.4; word-break: break-word; overflow-wrap: break-word; }
 
 /* ХРАНИЛИЩЕ */
 .storage-bar {
@@ -309,7 +309,7 @@
 .log-badge.warning { background: rgba(var(--warning-rgb),0.15);  color: var(--warning); border: 1px solid rgba(var(--warning-rgb),0.3); }
 .log-badge.error   { background: rgba(var(--danger-rgb),0.15);  color: var(--danger);  border: 1px solid rgba(var(--danger-rgb),0.3); }
 
-.enhanced-msg { font-size: 13.5px; color: #e2e8f0; line-height: 1.4; word-break: break-word; }
+.enhanced-msg { font-size: 13.5px; color: #e2e8f0; line-height: 1.4; word-break: break-word; overflow-wrap: break-word; }
 
 .terminal-empty { font-family: 'Courier New', Courier, monospace; color: #4a5568; text-align: center; padding: 30px; font-size: 14px; }
 .pulse-cursor   { animation: blink 1s step-end infinite; font-weight: bold; color: var(--primary); }
@@ -542,10 +542,7 @@ label.dont-show-again input[type="checkbox"]:checked + .custom-checkbox::after {
     .sys-metrics-row   { grid-template-columns: repeat(2, 1fr); }
     .sys-bottom-row    { grid-template-columns: 1fr; }
 }
-/* на мобиле: горизонталь обрезаем, вертикаль открыта для контента */
-@media (max-width: 900px) {
-    .admin-section { overflow-x: hidden; overflow-y: visible; border-radius: 16px; }
-}
+/* на мобиле: admin-section остаётся overflow:hidden (не мешает table-responsive scroll) */
 
 @media (max-width: 768px) {
     .lumeo-header { padding: 0 16px; }
