@@ -1045,7 +1045,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
 
                     {/* ПРАВАЯ КОЛОНКА */}
                     <div className="cem-right" style={{ flex: '4', minWidth: '400px', background: 'var(--bg-panel)', borderLeft: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', zIndex: 10 }}>
-                        <div style={{ padding: '20px 20px 0 20px', flexShrink: 0 }}>
+                        <div className="cem-right-tabs" style={{ padding: '20px 20px 0 20px', flexShrink: 0 }}>
                             <div style={{ display: 'flex', background: 'var(--bg-input)', padding: '6px', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
                                 <button
                                     onClick={() => { setRightTab('constructor'); setShowStats(false); }}
@@ -1062,7 +1062,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                             </div>
                         </div>
 
-                        <div style={{ padding: '25px 25px', overflowY: 'auto', flex: 1 }}>
+                        <div className="cem-right-scroll" style={{ padding: '25px 25px', overflowY: 'auto', flex: 1 }}>
                             
                             {/* --- ВКЛАДКА: НАСТРОЙКИ --- */}
                             {/* --- ВКЛАДКА: НАСТРОЙКИ --- */}
@@ -1306,7 +1306,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                         </div>
                         
                         {rightTab === 'constructor' && (
-                            <div style={{ padding: '20px 25px', background: 'var(--bg-panel)', borderTop: '1px solid var(--border-color)', flexShrink: 0, display: 'flex', gap: '15px' }}>
+                            <div className="cem-action-bar" style={{ padding: '20px 25px', background: 'var(--bg-panel)', borderTop: '1px solid var(--border-color)', flexShrink: 0, display: 'flex', gap: '15px' }}>
                                 {editingEventId && (
                                     <button className="btn btn-ghost" style={{ flex: 1, background: 'var(--bg-input)', padding: '12px', borderRadius: '12px', fontWeight: 'bold' }} onClick={resetForm}>Отменить</button>
                                 )}
