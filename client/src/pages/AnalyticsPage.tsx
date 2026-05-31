@@ -191,7 +191,7 @@ export const AnalyticsPage = () => {
                 </div>
             )}
 
-            <main className="main-content" style={{ padding: 'clamp(16px, 4vw, 40px) clamp(12px, 3vw, 20px)', paddingBottom: 'clamp(60px, 10vw, 80px)', maxWidth: '1600px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
+            <main className="analytics-main">
 
                 {!selectedCourse ? (
                     <div className="fade-in" style={{ width: '100%' }}>

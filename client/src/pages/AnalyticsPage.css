@@ -2,6 +2,25 @@
    AnalyticsPage.css — центр аналитики
    ========================================================== */
 
+/* Основная обёртка — скролл */
+.analytics-main {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: clamp(16px, 4vw, 40px) clamp(12px, 3vw, 32px);
+    padding-bottom: clamp(60px, 10vw, 80px);
+    box-sizing: border-box;
+    width: 100%;
+}
+
+/* Внутренний контент — ограничиваем ширину */
+.analytics-main > .fade-in {
+    max-width: 1600px;
+    margin: 0 auto;
+    width: 100%;
+}
+
 /* ── Планшет ── */
 @media (max-width: 900px) {
     /* 3 виджета → 2 колонки */
