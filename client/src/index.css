@@ -2009,6 +2009,7 @@ video.controls-visible::-webkit-media-text-track-container { transform: translat
   width: 100%; min-height: 100px; background: #2a2a2a; border: 1px solid #444;
   color: white; padding: 15px; border-radius: 8px;
   font-family: inherit; font-size: 1rem; resize: vertical; outline: none; transition: 0.2s;
+  box-sizing: border-box;
 }
 .modern-textarea:focus { border-color: var(--primary); background: #333; }
 
