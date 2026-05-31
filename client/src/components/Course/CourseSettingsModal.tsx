@@ -313,7 +313,7 @@ export const CourseSettingsModal = ({
                                             showToast('Ошибка при сохранении режима', 'error');
                                         }
                                     }}
-                                    style={{ cursor: 'pointer', appearance: 'auto', marginBottom: 0 }}
+                                    style={{ cursor: 'pointer', marginBottom: 0 }}
                                 >
                                     <option value="open">🟢 Открытый (Свободный вход)</option>
                                     <option value="request">🟡 По заявкам (Ручная модерация)</option>
