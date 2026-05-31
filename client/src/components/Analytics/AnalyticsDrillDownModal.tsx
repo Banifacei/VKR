@@ -82,8 +82,9 @@ export const AnalyticsDrillDownModal = ({ config, courseId, onClose }: Analytics
             <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100vh', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', zIndex: 100000, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: modalVisible ? 1 : 0, transition: 'opacity 0.3s ease-in-out' }} onClick={onClose}>
                 
                 {/* 🔥 ЦЕНТРАЛЬНАЯ МОДАЛКА (AAA Класс) */}
-                <div 
-                    style={{ background: 'var(--bg-panel)', width: '900px', maxWidth: '90%', maxHeight: '90vh', borderRadius: '24px', border: '1px solid var(--border-color)', boxShadow: '0 20px 60px rgba(0,0,0,0.5)', overflow: 'hidden', transform: modalVisible ? 'scale(1)' : 'scale(0.9)', transition: 'transform 0.3s ease-in-out', display: 'flex', flexDirection: 'column' }}
+                <div
+                    className="adm-modal"
+                    style={{ background: 'var(--bg-panel)', width: '900px', maxWidth: 'calc(100vw - 24px)', maxHeight: '92dvh', borderRadius: '24px', border: '1px solid var(--border-color)', boxShadow: '0 20px 60px rgba(0,0,0,0.5)', overflow: 'hidden', transform: modalVisible ? 'scale(1)' : 'scale(0.9)', transition: 'transform 0.3s ease-in-out', display: 'flex', flexDirection: 'column' }}
                     onClick={e => e.stopPropagation()}
                 >
                     {loading ? (
@@ -93,7 +94,7 @@ export const AnalyticsDrillDownModal = ({ config, courseId, onClose }: Analytics
                     ) : !data ? null : (
                         <>
                             {/* Красивый Header */}
-                            <div style={{ padding: '25px 30px', borderBottom: '1px solid var(--border-color)', background: 'var(--bg-card)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 2 }}>
+                            <div className="adm-header" style={{ padding: 'clamp(14px, 4vw, 25px) clamp(16px, 4vw, 30px)', borderBottom: '1px solid var(--border-color)', background: 'var(--bg-card)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 2 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                                     <div style={{ width: '55px', height: '55px', borderRadius: '15px', background: 'var(--bg-input)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', fontWeight: 'bold', color: 'var(--text-main)' }}>
                                         {header.icon}
@@ -107,7 +108,7 @@ export const AnalyticsDrillDownModal = ({ config, courseId, onClose }: Analytics
                             </div>
 
                             {/* Скроллящийся контент */}
-                            <div style={{ flex: 1, overflowY: 'auto', padding: '10px 30px 30px 30px' }}>
+                            <div style={{ flex: 1, overflowY: 'auto', padding: 'clamp(10px, 3vw, 10px) clamp(14px, 4vw, 30px) clamp(16px, 4vw, 30px)' }}>
                                 {config.type === 'student' && <StudentDetailView data={data} />}
                                 {(config.type === 'test' || config.type === 'video') && <ItemDetailView data={data} />}
                             </div>

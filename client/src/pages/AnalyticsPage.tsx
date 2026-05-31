@@ -8,8 +8,9 @@ import '../components/GlobalSearch.css';
 import { ExportModal } from '../components/Analytics/ExportModal';
 import { AnalyticsDrillDownModal } from '../components/Analytics/AnalyticsDrillDownModal';
 
-import './ProfilePage.css'; 
+import './ProfilePage.css';
 import './CoursesPage.css';
+import './AnalyticsPage.css';
 
 const DEMO_COURSES = [
     { id: -1, title: 'Администрирование Linux-серверов', description: 'Базовые и продвинутые навыки работы с Linux: файловая система, сервисы, сеть, безопасность.' },
