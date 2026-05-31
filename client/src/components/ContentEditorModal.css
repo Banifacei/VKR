@@ -66,13 +66,19 @@
         overflow-y: visible !important;
     }
 
-    /* Правая колонка: на всю ширину, без боковой рамки, сброс minWidth */
+    /* Правая колонка: наверх, на всю ширину, без боковой рамки, сброс minWidth */
     .cem-right {
+        order: -1 !important;
         flex: none !important;
         min-width: 0 !important;
         width: 100% !important;
         border-left: none !important;
-        border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+    }
+
+    /* Левая колонка: вниз */
+    .cem-left {
+        order: 1 !important;
     }
 
     /* Таблицы статистики: горизонтальный скролл */
