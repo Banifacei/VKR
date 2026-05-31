@@ -542,9 +542,9 @@ label.dont-show-again input[type="checkbox"]:checked + .custom-checkbox::after {
     .sys-metrics-row   { grid-template-columns: repeat(2, 1fr); }
     .sys-bottom-row    { grid-template-columns: 1fr; }
 }
-/* глобальный фикс: admin-section без overflow:hidden (мешает скроллу таблиц и длинным спискам) */
+/* на мобиле: горизонталь обрезаем, вертикаль открыта для контента */
 @media (max-width: 900px) {
-    .admin-section { overflow: visible; border-radius: 16px; }
+    .admin-section { overflow-x: hidden; overflow-y: visible; border-radius: 16px; }
 }
 
 @media (max-width: 768px) {

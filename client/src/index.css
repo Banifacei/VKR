@@ -5,6 +5,7 @@
 
 html, body, * { scrollbar-width: none; }
 html::-webkit-scrollbar, body::-webkit-scrollbar, *::-webkit-scrollbar { display: none; }
+html, body { overflow-x: hidden; max-width: 100vw; }
 
 /* ──────────────────────────────────────────────────────
    1. DESIGN TOKENS (CSS Variables)
