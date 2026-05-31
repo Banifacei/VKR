@@ -301,13 +301,20 @@ export const AnalyticsPage = () => {
                                                 return filteredStudents.map((student: any) => {
                                                     const originalRank = analytics.studentsProgress.findIndex((s: any) => s.id === student.id);
                                                     const isTop1 = originalRank === 0;
-                                                    const isTop2 = originalRank === 1;
-                                                    const isTop3 = originalRank === 2;
 
-                                                    let rankBadge = <span style={{ color: 'var(--text-muted)', fontWeight: 'bold', fontSize: '15px' }}>{originalRank + 1}</span>;
-                                                    if (isTop1) rankBadge = <span style={{ fontSize: '22px', filter: 'drop-shadow(0 0 10px rgba(255, 215, 0, 0.4))' }}>🥇</span>;
-                                                    if (isTop2) rankBadge = <span style={{ fontSize: '22px', filter: 'drop-shadow(0 0 10px rgba(192, 192, 192, 0.2))' }}>🥈</span>;
-                                                    if (isTop3) rankBadge = <span style={{ fontSize: '22px', filter: 'drop-shadow(0 0 10px rgba(205, 127, 50, 0.2))' }}>🥉</span>;
+                                                    const rankStyles: Record<number, { bg: string; border: string; color: string }> = {
+                                                        0: { bg: 'rgba(255,215,0,0.15)',   border: 'rgba(255,215,0,0.5)',   color: '#FFD700' },
+                                                        1: { bg: 'rgba(192,192,192,0.12)', border: 'rgba(192,192,192,0.4)', color: '#C0C0C0' },
+                                                        2: { bg: 'rgba(205,127,50,0.12)',  border: 'rgba(205,127,50,0.4)',  color: '#CD7F32' },
+                                                    };
+                                                    const topStyle = rankStyles[originalRank];
+                                                    const rankBadge = topStyle ? (
+                                                        <div style={{ width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0, background: topStyle.bg, border: `1px solid ${topStyle.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: topStyle.color, fontWeight: '800', fontSize: '13px', boxShadow: `0 0 8px ${topStyle.border}` }}>
+                                                            {originalRank + 1}
+                                                        </div>
+                                                    ) : (
+                                                        <span style={{ color: 'var(--text-muted)', fontWeight: 'bold', fontSize: '14px' }}>{originalRank + 1}</span>
+                                                    );
 
                                                     return (
                                                         <div
