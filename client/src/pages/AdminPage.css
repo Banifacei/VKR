@@ -320,12 +320,19 @@
 .log-section { display: flex; flex-direction: column; }
 
 .log-filters {
-    display: flex; gap: 8px;
+    display: flex; gap: 4px;
     background: rgba(0,0,0,0.2);
     padding: 4px; border-radius: 8px;
     border: 1px solid var(--border-color);
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    min-width: 0;
+    flex: 1;
 }
-.filter-btn { background: transparent; border: none; color: var(--text-muted); font-size: 11px; font-weight: 600; text-transform: uppercase; padding: 6px 12px; border-radius: 6px; cursor: pointer; transition: all 0.2s ease; }
+.log-filters::-webkit-scrollbar { display: none; }
+.filter-btn { background: transparent; border: none; color: var(--text-muted); font-size: 11px; font-weight: 600; text-transform: uppercase; padding: 6px 10px; border-radius: 6px; cursor: pointer; transition: all 0.2s ease; white-space: nowrap; flex-shrink: 0; }
 .filter-btn:hover      { color: #fff; background: rgba(255,255,255,0.05); }
 .filter-btn.active     { background: #333; color: #fff; }
 .filter-btn.info.active    { background: rgba(0,174,239,0.15); color: var(--primary); border: 1px solid rgba(0,174,239,0.3); }
@@ -564,13 +571,11 @@ label.dont-show-again input[type="checkbox"]:checked + .custom-checkbox::after {
     .users-btn-group { flex-direction: column; width: 100%; }
     .users-btn-row   { display: flex; width: 100%; gap: 8px; }
     .users-btn-row .btn { flex: 1; justify-content: center; }
-    /* Фильтры журнала переносятся */
-    .log-filters { flex-wrap: wrap; }
     /* padding-bottom чтоб последний элемент не прятался за браузерным баром */
     .admin-layout { padding-bottom: 40px; }
 }
 @media (max-width: 600px) {
-    .admin-layout { padding: 12px; }
+    .admin-layout { padding: 12px 12px 48px; }
     .admin-header h1 { font-size: 22px; }
     .section-body { padding: 12px; }
     .admin-header p { font-size: 13px; }
@@ -578,7 +583,7 @@ label.dont-show-again input[type="checkbox"]:checked + .custom-checkbox::after {
 }
 @media (max-width: 480px) {
     .lumeo-header { height: 52px; padding: 0 12px; }
-    .admin-layout { padding: 10px; }
+    .admin-layout { padding: 10px 10px 56px; }
     .admin-header h1 { font-size: 20px; }
     .stat-value  { font-size: 18px; }
     .stat-card.mini { padding: 12px; }
@@ -595,6 +600,13 @@ label.dont-show-again input[type="checkbox"]:checked + .custom-checkbox::after {
     .stat-icon { width: 36px; height: 36px; flex-shrink: 0; }
     .admin-tab { padding: 7px 10px; font-size: 12px; gap: 5px; }
     .table-responsive { max-width: calc(100vw - 20px); }
+    /* textarea в модерации не растягивает страницу */
+    .modern-textarea { resize: none; max-width: 100%; box-sizing: border-box; }
+    /* карточки метрик не выходят за границы */
+    .stat-card.mini { overflow: hidden; }
+    .sys-metric-card { overflow: hidden; min-width: 0; }
+    .stat-info { min-width: 0; overflow: hidden; }
+    .stat-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 }
 
 /* ========================================================
