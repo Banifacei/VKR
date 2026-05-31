@@ -69,7 +69,7 @@ export const HomeworkCard = () => {
                 <div style={{ textAlign: 'center', fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
                     Хотите удалить учебный курс или оставить его как пример для студентов?
                 </div>
-                <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '4px' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'center', marginTop: '4px' }}>
                     <button
                         onClick={deleteDemoCourse}
                         style={{

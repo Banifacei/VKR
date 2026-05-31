@@ -8,6 +8,7 @@
     padding: 40px;
     overflow-y: auto;
     flex: 1;
+    box-sizing: border-box;
 }
 .courses-page-title {
     font-size: 32px;
@@ -22,11 +23,11 @@
 }
 
 @media (max-width: 768px) {
-    .courses-content { padding: 24px 20px; }
+    .courses-content { padding: 24px 20px 56px; }
     .courses-page-title { font-size: 26px; }
 }
 @media (max-width: 480px) {
-    .courses-content { padding: 16px 12px; }
+    .courses-content { padding: 16px 12px 60px; }
     .courses-page-title { font-size: 22px; }
     .courses-page-subtitle { font-size: 13px; margin-bottom: 20px; }
 }
@@ -120,7 +121,7 @@
 
 /* ── Адаптив ── */
 @media (max-width: 768px) {
-    .course-showcase-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+    .course-showcase-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-top: 20px; }
 }
 @media (max-width: 480px) {
     .course-showcase-grid { grid-template-columns: 1fr; gap: 12px; margin-top: 16px; }
