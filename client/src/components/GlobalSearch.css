@@ -246,11 +246,12 @@
     color: #444;
 }
 
-/* ── Mobile: hide kbd hint, make trigger icon-only ───────────────────────── */
+/* ── Mobile: скрываем центральный поиск, показываем иконку справа ──────── */
 @media (max-width: 600px) {
+    .header-search-center { display: none; }
+    .gs-trigger { display: none; }
     .gs-trigger span { display: none; }
     .gs-trigger kbd  { display: none; }
-    .gs-trigger { padding: 8px; }
 
     .gs-modal { border-radius: 12px; }
     .gs-input  { font-size: 15px; }
