@@ -33,6 +33,13 @@ export const CourseSettingsModal = ({
     
     const [enrollmentFilter, setEnrollmentFilter] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'banned'>('all');
     const [isMassApproving, setIsMassApproving] = useState(false);
+    const [enrollmentDropdownOpen, setEnrollmentDropdownOpen] = useState(false);
+
+    const enrollmentOptions = [
+        { value: 'open',    label: '🟢 Открытый (Свободный вход)' },
+        { value: 'request', label: '🟡 По заявкам (Ручная модерация)' },
+        { value: 'closed',  label: '🔴 Закрытый (Запись остановлена)' },
+    ];
     const [courseBans, setCourseBans] = useState<any[]>([]);
 
     const loadCourseBans = async () => {
@@ -299,26 +306,45 @@ export const CourseSettingsModal = ({
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                             <div style={{ background: 'var(--bg-card)', padding: '15px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
                                 <label style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px', display: 'block' }}>Режим доступа к курсу</label>
-                                <select 
-                                    className="modern-input" 
-                                    value={editCourseData.enrollmentType} 
-                                    onChange={async (e) => {
-                                        const newType = e.target.value as 'open' | 'request' | 'closed';
-                                        setEditCourseData({...editCourseData, enrollmentType: newType});
-                                        try {
-                                            await updateCourseApi(course.id, { enrollmentType: newType });
-                                            onCourseUpdated(); 
-                                            showToast('Режим доступа успешно изменен!', 'success');
-                                        } catch (error) {
-                                            showToast('Ошибка при сохранении режима', 'error');
-                                        }
-                                    }}
-                                    style={{ cursor: 'pointer', marginBottom: 0 }}
-                                >
-                                    <option value="open">🟢 Открытый (Свободный вход)</option>
-                                    <option value="request">🟡 По заявкам (Ручная модерация)</option>
-                                    <option value="closed">🔴 Закрытый (Запись остановлена)</option>
-                                </select>
+                                <div style={{ position: 'relative' }}>
+                                    <div
+                                        onClick={() => setEnrollmentDropdownOpen(o => !o)}
+                                        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-input)', border: '1px solid #333', borderRadius: '8px', padding: '12px 16px', cursor: 'pointer', fontSize: '14px', color: 'var(--text-main)', userSelect: 'none' }}
+                                    >
+                                        <span>{enrollmentOptions.find(o => o.value === editCourseData.enrollmentType)?.label}</span>
+                                        <span style={{ marginLeft: '10px', color: 'var(--text-muted)', fontSize: '12px', transition: 'transform 0.2s', display: 'inline-block', transform: enrollmentDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</span>
+                                    </div>
+                                    {enrollmentDropdownOpen && (
+                                        <>
+                                            <div style={{ position: 'fixed', inset: 0, zIndex: 10 }} onClick={() => setEnrollmentDropdownOpen(false)} />
+                                            <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px', overflow: 'hidden', zIndex: 11, boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}>
+                                                {enrollmentOptions.map(opt => (
+                                                    <div
+                                                        key={opt.value}
+                                                        onClick={async () => {
+                                                            setEnrollmentDropdownOpen(false);
+                                                            if (opt.value === editCourseData.enrollmentType) return;
+                                                            const newType = opt.value as 'open' | 'request' | 'closed';
+                                                            setEditCourseData({...editCourseData, enrollmentType: newType});
+                                                            try {
+                                                                await updateCourseApi(course.id, { enrollmentType: newType });
+                                                                onCourseUpdated();
+                                                                showToast('Режим доступа успешно изменен!', 'success');
+                                                            } catch {
+                                                                showToast('Ошибка при сохранении режима', 'error');
+                                                            }
+                                                        }}
+                                                        style={{ padding: '12px 16px', cursor: 'pointer', fontSize: '14px', color: opt.value === editCourseData.enrollmentType ? 'var(--primary)' : 'var(--text-main)', background: opt.value === editCourseData.enrollmentType ? 'rgba(var(--primary-rgb),0.08)' : 'transparent', borderBottom: '1px solid var(--border-color)', transition: 'background 0.15s' }}
+                                                        onMouseEnter={e => { if (opt.value !== editCourseData.enrollmentType) e.currentTarget.style.background = 'var(--bg-input)'; }}
+                                                        onMouseLeave={e => { e.currentTarget.style.background = opt.value === editCourseData.enrollmentType ? 'rgba(var(--primary-rgb),0.08)' : 'transparent'; }}
+                                                    >
+                                                        {opt.label}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
                             </div>
                             
                             <div style={{ background: 'var(--bg-card)', padding: '15px', borderRadius: '12px', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
