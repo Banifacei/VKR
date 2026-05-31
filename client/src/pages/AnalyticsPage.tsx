@@ -229,7 +229,7 @@ export const AnalyticsPage = () => {
                                     📥 Детальный .xlsx
                                 </button>
                                 <button className="btn btn-primary" style={{ height: '45px', padding: '0 25px', display: 'flex', alignItems: 'center', gap: '8px' }} onClick={() => setExportModalConfig({ isOpen: true, type: 'gost' })}>
-                                    🖨️ Ведомость (ГОСТ)
+                                    {'🖨'} Ведомость (ГОСТ)
                                 </button>
                             </div>
                         </div>
@@ -353,7 +353,6 @@ export const AnalyticsPage = () => {
                                                 });
                                             })()}
                                         </div>
-                                        </div>{/* end overflow-x wrapper */}
                                     </div>
 
                                     {/* ПРАВАЯ КОЛОНКА: ВОРОНКА */}
