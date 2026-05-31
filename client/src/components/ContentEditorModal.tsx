@@ -178,6 +178,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
     // --- КОНСТРУКТОР ---
     const [currentTime, setCurrentTime] = useState(0);
     const [eventType, setEventType] = useState<'single_choice' | 'multiple_choice' | 'free_text' | 'info'>('single_choice');
+    const [typeDropdownOpen, setTypeDropdownOpen] = useState(false);
     const [questionText, setQuestionText] = useState('');
     const [options, setOptions] = useState<{ text: string; isCorrect: boolean; imageUrl?: string }[]>([{ text: '', isCorrect: false }, { text: '', isCorrect: false }]);
     const [freeTextAnswer, setFreeTextAnswer] = useState(''); 
@@ -1181,14 +1182,43 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', animation: 'fadeIn 0.2s ease', paddingBottom: '100px' }}>
                                     
                                     <div style={{ display: 'flex', gap: '15px' }}>
-                                        <div style={{ flex: 1 }}>
+                                        <div style={{ flex: 1, position: 'relative' }}>
                                             <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>Тип элемента</label>
-                                            <select className="deck-input" style={{ width: '100%', background: 'var(--bg-input)', padding: '12px', fontSize: '14px', border: '1px solid var(--border-color)' }} value={eventType} onChange={(e) => setEventType(e.target.value as any)}>
-                                                <option value="single_choice">Один из списка</option>
-                                                <option value="multiple_choice">Несколько ответов</option>
-                                                <option value="free_text">ИИ Проверка текста</option>
-                                                {isVideo && <option value="info">Инфо-карточка (пауза)</option>}
-                                            </select>
+                                            <div
+                                                onClick={() => setTypeDropdownOpen(o => !o)}
+                                                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '12px', cursor: 'pointer', fontSize: '14px', color: 'var(--text-main)', userSelect: 'none' }}
+                                            >
+                                                <span>
+                                                    {eventType === 'single_choice' && 'Один из списка'}
+                                                    {eventType === 'multiple_choice' && 'Несколько ответов'}
+                                                    {eventType === 'free_text' && 'ИИ Проверка текста'}
+                                                    {eventType === 'info' && 'Инфо-карточка (пауза)'}
+                                                </span>
+                                                <span style={{ marginLeft: '8px', color: 'var(--text-muted)', fontSize: '12px', transition: 'transform 0.2s', display: 'inline-block', transform: typeDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</span>
+                                            </div>
+                                            {typeDropdownOpen && (
+                                                <>
+                                                    <div style={{ position: 'fixed', inset: 0, zIndex: 10 }} onClick={() => setTypeDropdownOpen(false)} />
+                                                    <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '10px', overflow: 'hidden', zIndex: 11, boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}>
+                                                        {([
+                                                            { value: 'single_choice', label: 'Один из списка' },
+                                                            { value: 'multiple_choice', label: 'Несколько ответов' },
+                                                            { value: 'free_text', label: 'ИИ Проверка текста' },
+                                                            ...(isVideo ? [{ value: 'info', label: 'Инфо-карточка (пауза)' }] : []),
+                                                        ] as { value: typeof eventType; label: string }[]).map(opt => (
+                                                            <div
+                                                                key={opt.value}
+                                                                onClick={() => { setTypeDropdownOpen(false); setEventType(opt.value); }}
+                                                                style={{ padding: '11px 14px', cursor: 'pointer', fontSize: '14px', color: opt.value === eventType ? accentColor : 'var(--text-main)', background: opt.value === eventType ? `rgba(${accentRgb},0.08)` : 'transparent', borderBottom: '1px solid var(--border-color)', transition: 'background 0.15s' }}
+                                                                onMouseEnter={e => { if (opt.value !== eventType) e.currentTarget.style.background = 'var(--bg-input)'; }}
+                                                                onMouseLeave={e => { e.currentTarget.style.background = opt.value === eventType ? `rgba(${accentRgb},0.08)` : 'transparent'; }}
+                                                            >
+                                                                {opt.label}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </>
+                                            )}
                                         </div>
                                         {isVideo && (
                                             <div style={{ width: '100px' }}>
