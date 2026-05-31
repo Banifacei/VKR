@@ -205,7 +205,7 @@ export const AnalyticsPage = () => {
                                     </div>
                                     <div style={{ padding: '20px' }}>
                                         <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '15px', height: '40px', overflow: 'hidden' }}>{course.description || 'Нет описания'}</p>
-                                        <button className="btn btn-primary" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}><Icons.BarChart2 size={15}/> Глубокая аналитика</button>
+                                        <button className="btn btn-primary" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>📊 Глубокая аналитика</button>
                                     </div>
                                 </div>
                             ))}
@@ -226,10 +226,10 @@ export const AnalyticsPage = () => {
 
                             <div className="analytics-export-btns" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                                 <button className="btn btn-secondary" style={{ background: 'rgba(77, 255, 136, 0.05)', color: '#4dff88', borderColor: 'rgba(77, 255, 136, 0.2)', height: '45px', display: 'flex', alignItems: 'center', gap: '8px' }} onClick={() => setExportModalConfig({ isOpen: true, type: 'detailed' })}>
-                                    <Icons.Download size={15}/> Детальный .xlsx
+                                    📥 Детальный .xlsx
                                 </button>
                                 <button className="btn btn-primary" style={{ height: '45px', padding: '0 25px', display: 'flex', alignItems: 'center', gap: '8px' }} onClick={() => setExportModalConfig({ isOpen: true, type: 'gost' })}>
-                                    <Icons.Printer size={15}/> Ведомость (ГОСТ)
+                                    🖨️ Ведомость (ГОСТ)
                                 </button>
                             </div>
                         </div>
@@ -247,11 +247,11 @@ export const AnalyticsPage = () => {
                                         <div><div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Студентов на курсе</div><div style={{ fontSize: '28px', fontWeight: '800' }}>{analytics.totalStudents}</div></div>
                                     </div>
                                     <div style={{ background: 'var(--bg-card)', padding: '25px', borderRadius: '20px', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '20px' }}>
-                                        <div style={{ background: 'rgba(var(--primary-rgb),0.1)', color: 'var(--primary)', width: '60px', height: '60px', borderRadius: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icons.TrendingUp size={28}/></div>
+                                        <div style={{ fontSize: '30px', background: 'rgba(var(--primary-rgb),0.1)', width: '60px', height: '60px', borderRadius: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>📈</div>
                                         <div><div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Средний прогресс</div><div style={{ fontSize: '28px', fontWeight: '800', color: 'var(--primary)' }}>{analytics.globalAvgProgress}%</div></div>
                                     </div>
                                     <div style={{ background: 'var(--bg-card)', padding: '25px', borderRadius: '20px', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '20px' }}>
-                                        <div style={{ background: 'rgba(77,255,136,0.1)', color: '#4dff88', width: '60px', height: '60px', borderRadius: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icons.Star size={28}/></div>
+                                        <div style={{ fontSize: '30px', background: 'rgba(77,255,136,0.1)', width: '60px', height: '60px', borderRadius: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>⭐</div>
                                         <div><div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Средний балл тестов</div><div style={{ fontSize: '28px', fontWeight: '800', color: '#4dff88' }}>{analytics.globalAvgScore}%</div></div>
                                     </div>
                                 </div>
@@ -263,12 +263,12 @@ export const AnalyticsPage = () => {
                                     <div style={{ background: 'var(--bg-card)', padding: 'clamp(16px, 3vw, 30px)', borderRadius: '20px', border: '1px solid var(--border-color)' }}>
                                         <div className="analytics-ranking-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '25px', gap: '12px', flexWrap: 'wrap' }}>
                                             <div>
-                                                <h2 style={{ fontSize: 'clamp(16px, 3vw, 22px)', margin: '0 0 5px 0', display: 'flex', alignItems: 'center', gap: '10px' }}><Icons.Trophy size={20}/> Рейтинг потока</h2>
+                                                <h2 style={{ fontSize: 'clamp(16px, 3vw, 22px)', margin: '0 0 5px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>🏆 Рейтинг потока</h2>
                                                 <div style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Общая успеваемость студентов</div>
                                             </div>
                                             <div style={{ position: 'relative' }}>
-                                                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', display: 'flex', pointerEvents: 'none' }}>
-                                                    <Icons.Search size={14} />
+                                                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '14px', pointerEvents: 'none' }}>
+                                                    🔍
                                                 </span>
                                                 <input
                                                     type="text" placeholder="Поиск студента..."
@@ -280,16 +280,15 @@ export const AnalyticsPage = () => {
                                             </div>
                                         </div>
 
-                                        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' as any }}>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '50px 2fr 1.5fr 1fr 30px', padding: '0 15px 12px', color: 'var(--text-muted)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold', minWidth: '380px' }}>
+                                        <div className="analytics-rank-header" style={{ display: 'grid', gridTemplateColumns: '50px 2fr 1.5fr 1fr 30px', padding: '0 15px 12px', color: 'var(--text-muted)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>
                                             <div style={{ textAlign: 'center' }}>Ранг</div>
                                             <div>Студент</div>
-                                            <div>Прогресс курса</div>
+                                            <div className="analytics-rank-progress-col">Прогресс курса</div>
                                             <div style={{ textAlign: 'right' }}>Ср. балл</div>
                                             <div></div>
                                         </div>
 
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '550px', overflowY: 'auto', paddingRight: '5px', minWidth: '380px' }} className="custom-scrollbar">
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '550px', overflowY: 'auto', paddingRight: '5px' }} className="custom-scrollbar">
                                             {(() => {
                                                 const filteredStudents = analytics.studentsProgress.filter((s: any) =>
                                                     s.name.toLowerCase().includes(studentSearch.toLowerCase()) ||
@@ -335,7 +334,7 @@ export const AnalyticsPage = () => {
                                                                     <div style={{ fontSize: '11px', color: 'var(--text-muted)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{student.email}</div>
                                                                 </div>
                                                             </div>
-                                                            <div style={{ paddingRight: '20px' }}>
+                                                            <div className="analytics-rank-progress-col" style={{ paddingRight: '20px' }}>
                                                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '4px' }}>
                                                                     <span style={{ color: 'var(--primary)', fontWeight: 'bold' }}>{student.progressPercent}%</span>
                                                                 </div>
@@ -375,7 +374,7 @@ export const AnalyticsPage = () => {
                                                     >
                                                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '13px', alignItems: 'flex-start' }}>
                                                             <div style={{ color: 'var(--text-main)', fontWeight: '500', paddingRight: '10px', lineHeight: '1.4' }}>
-                                                                {item.type === 'video' ? <Icons.Monitor size={13}/> : <Icons.FileText size={13}/>} {index + 1}. {item.title}
+                                                                {item.type === 'video' ? '🎬' : '📝'} {index + 1}. {item.title}
                                                             </div>
                                                             <div style={{ color: 'var(--text-muted)', flexShrink: 0, fontSize: '12px' }}>
                                                                 <strong style={{ color: item.completionRate < 30 ? '#ff4d4d' : '#fff', fontSize: '14px' }}>{item.completionRate}%</strong> / {item.startedRate}%

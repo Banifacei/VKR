@@ -63,6 +63,20 @@
     }
 }
 
+/* ── Рейтинг на мобиле: убираем колонку прогресса ── */
+@media (max-width: 600px) {
+    .analytics-rank-header,
+    .analytics-rank-row {
+        grid-template-columns: 40px 1fr 56px 24px !important;
+        min-width: 0 !important;
+        padding-left: 10px !important;
+        padding-right: 10px !important;
+    }
+    .analytics-rank-progress-col {
+        display: none !important;
+    }
+}
+
 @media (max-width: 480px) {
     /* 2 виджета → 1 колонка */
     .analytics-stats-grid {
