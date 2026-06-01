@@ -554,9 +554,25 @@ label.dont-show-again input[type="checkbox"]:checked + .custom-checkbox::after {
 /* на мобиле: admin-section остаётся overflow:hidden (не мешает table-responsive scroll) */
 
 @media (max-width: 768px) {
+    /* На мобиле убираем вложенный скролл — даём скроллить сам lumeo-layout.
+       Это надёжнее на iOS Safari, чем overflow-y:auto внутри overflow:hidden родителя. */
+    .admin-page.lumeo-layout {
+        height: auto;
+        min-height: 100dvh;
+        overflow-y: auto;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior-y: contain;
+    }
+    .admin-page .lumeo-container {
+        overflow: visible;
+        height: auto;
+        flex: none;
+    }
+
     .admin-page .lumeo-header { padding: 0 16px; }
-    .admin-layout { padding: 16px; }
-    /* вкладки переносятся — НЕТ горизонтального скролла, нет overflow clipping */
+    .admin-layout { padding: 16px; padding-bottom: max(80px, calc(env(safe-area-inset-bottom) + 60px)); }
+    /* вкладки переносятся */
     .admin-tabs { flex-wrap: wrap; gap: 6px; padding-bottom: 12px; }
     .admin-tab  { flex: 1 1 auto; min-width: 0; padding: 8px 12px; font-size: 12px; text-align: center; justify-content: center; }
     .section-header { flex-wrap: wrap; gap: 10px; }
@@ -573,14 +589,12 @@ label.dont-show-again input[type="checkbox"]:checked + .custom-checkbox::after {
     .request-card { flex-wrap: wrap; gap: 10px; }
     .stat-card.mini { padding: 14px; gap: 12px; }
     .section-body { padding: 14px; }
-    /* Кнопки базы пользователей — вертикально на мобиле */
     .users-btn-group { flex-direction: column; width: 100%; }
     .users-btn-row   { display: flex; width: 100%; gap: 8px; }
     .users-btn-row .btn { flex: 1; justify-content: center; }
-    .admin-layout { padding-bottom: max(40px, calc(env(safe-area-inset-bottom) + 24px)); }
 }
 @media (max-width: 600px) {
-    .admin-layout { padding: 12px 12px max(48px, calc(env(safe-area-inset-bottom) + 32px)); }
+    .admin-layout { padding: 12px 12px max(80px, calc(env(safe-area-inset-bottom) + 60px)); }
     .admin-header h1 { font-size: 22px; }
     .section-body { padding: 12px; }
     .admin-header p { font-size: 13px; }
@@ -588,7 +602,7 @@ label.dont-show-again input[type="checkbox"]:checked + .custom-checkbox::after {
 }
 @media (max-width: 480px) {
     .admin-page .lumeo-header { height: 52px; padding: 0 12px; }
-    .admin-layout { padding: 10px 10px max(56px, calc(env(safe-area-inset-bottom) + 40px)); }
+    .admin-layout { padding: 10px 10px max(100px, calc(env(safe-area-inset-bottom) + 80px)); }
     .admin-header h1 { font-size: 20px; }
     .stat-value  { font-size: 18px; }
     .stat-card.mini { padding: 12px; }
