@@ -554,15 +554,12 @@ label.dont-show-again input[type="checkbox"]:checked + .custom-checkbox::after {
 /* на мобиле: admin-section остаётся overflow:hidden (не мешает table-responsive scroll) */
 
 @media (max-width: 768px) {
-    /* На мобиле убираем вложенный скролл — даём скроллить сам lumeo-layout.
-       Это надёжнее на iOS Safari, чем overflow-y:auto внутри overflow:hidden родителя. */
+    /* На мобиле убираем вложенный скролл — скроллит body.
+       overflow: visible → элемент не создаёт скролл-контекст, body скроллит на iOS и Android. */
     .admin-page.lumeo-layout {
         height: auto;
         min-height: 100dvh;
-        overflow-y: auto;
-        overflow-x: hidden;
-        -webkit-overflow-scrolling: touch;
-        overscroll-behavior-y: contain;
+        overflow: visible;
     }
     .admin-page .lumeo-container {
         overflow: visible;
