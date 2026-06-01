@@ -370,7 +370,8 @@ export const getSystemModules = async (_req: Request, res: Response) => {
 
     // 3. FFmpeg — проверяем через ffmpeg-static (встроенный бинарник), а не системный
     try {
-        const { default: ffmpegPath } = await import('ffmpeg-static');
+        const { default: ffmpegPathRaw } = await import('ffmpeg-static');
+        const ffmpegPath = ffmpegPathRaw as unknown as string | null;
         if (ffmpegPath && fss.existsSync(ffmpegPath)) {
             // Получаем версию из бинарника
             const ffmpegVer = execSync(`"${ffmpegPath}" -version 2>&1`, { timeout: 3000 })
