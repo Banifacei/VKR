@@ -3,8 +3,8 @@
    Общие токены, кнопки, инпуты, модалки — в index.css
    ========================================================== */
 
-/* --- Лейаут --- */
-.lumeo-layout {
+/* --- Лейаут (скопировано под .admin-page чтобы не конфликтовать с UserPage.css) --- */
+.admin-page.lumeo-layout {
     display: flex;
     flex-direction: column;
     height: 100vh;
@@ -16,7 +16,7 @@
 }
 
 /* --- Шапка --- */
-.lumeo-header {
+.admin-page .lumeo-header {
     height: 70px;
     background: rgba(5, 5, 5, 0.8);
     backdrop-filter: blur(10px);
@@ -46,7 +46,8 @@
 .nav-link:hover { color: #fff; }
 
 /* --- Контейнер --- */
-.lumeo-container {
+/* .admin-page — уникальный класс AdminPage, чтобы не конфликтовать с UserPage.css */
+.admin-page .lumeo-container {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
@@ -553,7 +554,7 @@ label.dont-show-again input[type="checkbox"]:checked + .custom-checkbox::after {
 /* на мобиле: admin-section остаётся overflow:hidden (не мешает table-responsive scroll) */
 
 @media (max-width: 768px) {
-    .lumeo-header { padding: 0 16px; }
+    .admin-page .lumeo-header { padding: 0 16px; }
     .admin-layout { padding: 16px; }
     /* вкладки переносятся — НЕТ горизонтального скролла, нет overflow clipping */
     .admin-tabs { flex-wrap: wrap; gap: 6px; padding-bottom: 12px; }
@@ -586,7 +587,7 @@ label.dont-show-again input[type="checkbox"]:checked + .custom-checkbox::after {
     .sys-bottom-row { grid-template-columns: 1fr; }
 }
 @media (max-width: 480px) {
-    .lumeo-header { height: 52px; padding: 0 12px; }
+    .admin-page .lumeo-header { height: 52px; padding: 0 12px; }
     .admin-layout { padding: 10px 10px max(56px, calc(env(safe-area-inset-bottom) + 40px)); }
     .admin-header h1 { font-size: 20px; }
     .stat-value  { font-size: 18px; }

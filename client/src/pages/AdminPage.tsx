@@ -518,7 +518,7 @@ export const AdminPage = () => {
   };
 
   return (
-    <div className="lumeo-layout">
+    <div className="lumeo-layout admin-page">
       {/* Модалка бана пользователя */}
       {banModalUser && (
           <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
