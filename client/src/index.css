@@ -1104,7 +1104,7 @@ html[data-density="compact"] .btn                 { padding: 6px 12px; font-size
    ────────────────────────────────────────────────────── */
 .lumeo-powered {
   position: fixed;
-  bottom: 12px;
+  bottom: max(12px, calc(env(safe-area-inset-bottom) + 6px));
   left: 50%;
   transform: translateX(-50%);
   font-size: 10px;
@@ -1627,8 +1627,8 @@ input[type="file"]::file-selector-button:hover { background: #333; color: #fff; 
 
 .lumeo-toast {
     position: fixed;
-    bottom: 30px;
-    right: 30px;
+    bottom: max(30px, calc(env(safe-area-inset-bottom) + 16px));
+    right: max(30px, calc(env(safe-area-inset-right) + 16px));
     background: rgba(15, 15, 15, 0.95);
     backdrop-filter: blur(16px);
     border: 1px solid rgba(255, 255, 255, 0.1);
