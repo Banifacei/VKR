@@ -46,8 +46,16 @@
 .nav-link:hover { color: #fff; }
 
 /* --- Контейнер --- */
-.lumeo-container { flex: 1; overflow-y: auto; overflow-x: hidden; width: 100%; max-width: 100%; }
-.admin-layout     { max-width: 1400px; margin: 0 auto; padding: 40px; padding-bottom: 48px; width: 100%; box-sizing: border-box; overflow-x: hidden; }
+.lumeo-container {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+.admin-layout { max-width: 1400px; margin: 0 auto; padding: 40px; padding-bottom: max(48px, calc(env(safe-area-inset-bottom) + 24px)); width: 100%; box-sizing: border-box; overflow-x: hidden; }
 
 /* --- Заголовок --- */
 .admin-header   { margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
@@ -568,11 +576,10 @@ label.dont-show-again input[type="checkbox"]:checked + .custom-checkbox::after {
     .users-btn-group { flex-direction: column; width: 100%; }
     .users-btn-row   { display: flex; width: 100%; gap: 8px; }
     .users-btn-row .btn { flex: 1; justify-content: center; }
-    /* padding-bottom чтоб последний элемент не прятался за браузерным баром */
-    .admin-layout { padding-bottom: 40px; }
+    .admin-layout { padding-bottom: max(40px, calc(env(safe-area-inset-bottom) + 24px)); }
 }
 @media (max-width: 600px) {
-    .admin-layout { padding: 12px 12px 48px; }
+    .admin-layout { padding: 12px 12px max(48px, calc(env(safe-area-inset-bottom) + 32px)); }
     .admin-header h1 { font-size: 22px; }
     .section-body { padding: 12px; }
     .admin-header p { font-size: 13px; }
@@ -580,7 +587,7 @@ label.dont-show-again input[type="checkbox"]:checked + .custom-checkbox::after {
 }
 @media (max-width: 480px) {
     .lumeo-header { height: 52px; padding: 0 12px; }
-    .admin-layout { padding: 10px 10px 56px; }
+    .admin-layout { padding: 10px 10px max(56px, calc(env(safe-area-inset-bottom) + 40px)); }
     .admin-header h1 { font-size: 20px; }
     .stat-value  { font-size: 18px; }
     .stat-card.mini { padding: 12px; }

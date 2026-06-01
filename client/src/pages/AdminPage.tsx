@@ -1503,9 +1503,9 @@ export const AdminPage = () => {
                                                     ? <img src={u.avatarUrl} style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
                                                     : <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#fff', flexShrink: 0 }}>{initials}</div>
                                                 }
-                                                <div style={{ flex: 1, minWidth: 0 }}>
-                                                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-main)' }}>{u?.firstName} {u?.lastName}</div>
-                                                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{u?.email}</div>
+                                                <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                                                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u?.firstName} {u?.lastName}</div>
+                                                    <div style={{ fontSize: 12, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u?.email}</div>
                                                 </div>
                                                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
                                                     <div style={{ fontSize: 18, fontWeight: 700, color: '#ff4b4b' }}>{o.count}</div>
