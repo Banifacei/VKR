@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getCourses, reorderCourses } from '../api/videoApi';
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
+import { DndContext, closestCenter, MouseSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { getUserCourseProgress } from '../api/testApi';
@@ -88,7 +88,10 @@ export const CoursesPage = () => {
     const [isCreating, setIsCreating] = useState(false);
     const [newCourseData, setNewCourseData] = useState({ title: '', description: '', instructor: '' });
 
-    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+    const sensors = useSensors(
+        useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+        useSensor(TouchSensor,  { activationConstraint: { delay: 200, tolerance: 8 } })
+    );
 
     const handleCourseDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event;

@@ -14,7 +14,7 @@ import { Icons } from './Icons';
 import { DateTimePicker } from './DateTimePicker';
 
 // Drag & Drop
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
+import { DndContext, closestCenter, KeyboardSensor, MouseSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
@@ -706,7 +706,11 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
     }, [selectedVideo?.id, selectedVideo?.courseId]);
 
     // --- Drag and Drop ---
-    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
+    const sensors = useSensors(
+        useSensor(MouseSensor,    { activationConstraint: { distance: 5 } }),
+        useSensor(TouchSensor,    { activationConstraint: { delay: 200, tolerance: 8 } }),
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    );
     
     const handleDragEndTest = async (event: DragEndEvent) => {
         const { active, over } = event;

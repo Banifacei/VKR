@@ -1,4 +1,4 @@
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { DndContext, closestCenter, MouseSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { Icons } from './Icons';
 import { arrayMove, SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -26,7 +26,7 @@ const SortableItem = ({ video, index, isActive, onClick, onEdit, onDelete }: Sor
 
     return (
         <div ref={setNodeRef} style={style} className={`video-item ${isActive ? 'active' : ''}`} onClick={onClick}>
-            <div {...attributes} {...listeners} style={{ cursor: 'grab', marginRight: '10px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }} title="Потяните, чтобы изменить порядок">
+            <div {...attributes} {...listeners} style={{ cursor: 'grab', marginRight: '10px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none', padding: '8px 4px', margin: '-8px 6px -8px -4px' }} title="Потяните, чтобы изменить порядок">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="4" y1="8" x2="20" y2="8"></line><line x1="4" y1="16" x2="20" y2="16"></line>
                 </svg>
@@ -76,7 +76,10 @@ interface DraggableVideoListProps {
 }
 
 export const DraggableVideoList = ({ videos, selectedVideoId, onSelectVideo, onReorder, onEdit, onDelete }: DraggableVideoListProps) => {
-    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+    const sensors = useSensors(
+        useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+        useSensor(TouchSensor,  { activationConstraint: { delay: 200, tolerance: 8 } })
+    );
 
     const handleDragEnd = (event: any) => {
         const { active, over } = event;

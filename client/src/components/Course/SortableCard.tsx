@@ -52,11 +52,12 @@ export const SortableCard = ({ item, idx, isEditMode, completedVideoIds, testRes
         borderRadius: '16px',
         overflow: 'hidden',
         background: isUpcoming ? 'var(--bg-card)' : 'var(--bg-panel)',
-        border: isUpcoming
-            ? '1px solid var(--border-color)'
-            : '1px solid var(--border-color)',
+        border: '1px solid var(--border-color)',
         display: 'flex',
         flexDirection: 'column' as const,
+        touchAction: isEditMode ? 'none' : 'auto',
+        WebkitUserSelect: isEditMode ? 'none' as const : 'auto' as const,
+        userSelect: isEditMode ? 'none' as const : 'auto' as const,
     };
 
     return (

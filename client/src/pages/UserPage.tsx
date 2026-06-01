@@ -7,7 +7,7 @@ import { VideoPlayer } from '../components/VideoPlayer';
 import { TestRunner } from '../components/TestRunner';
 import { AuthModal } from '../components/AuthModal';
 import { TestCards } from '../components/TestCards';
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
+import { DndContext, closestCenter, KeyboardSensor, MouseSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, rectSortingStrategy} from '@dnd-kit/sortable';
 import { ContentEditorModal } from '../components/ContentEditorModal';
 import './UserPage.css';
@@ -155,9 +155,10 @@ export const UserPage = () => {
         setShowAuthModal(false);
         showToast('Вы успешно вошли!', 'success');
     };
-    // Настройки сенсоров для Drag&Drop (чтобы клики не путались с перетаскиванием)
+    // Настройки сенсоров для Drag&Drop
     const sensors = useSensors(
-        useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+        useSensor(MouseSensor,    { activationConstraint: { distance: 5 } }),
+        useSensor(TouchSensor,    { activationConstraint: { delay: 200, tolerance: 8 } }),
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
     );
 
