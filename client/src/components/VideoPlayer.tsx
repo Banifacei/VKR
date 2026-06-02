@@ -142,6 +142,7 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   const lastQualitySwitchRef = useRef(0);     // Время последнего авто-переключения качества
 
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isCSSFullscreen, setIsCSSFullscreen] = useState(false);
   const [isZoomFill, setIsZoomFill] = useState(false);
   const [currentMenu, setCurrentMenu] = useState<'main' | 'speed' | 'quality' | 'captions' | 'chapters'>('main');
   const [activeSubtitle, setActiveSubtitle] = useState<string>('off');
@@ -396,6 +397,8 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
           hls.loadSource(url);
           hls.attachMedia(video);
           hls.on(Hls.Events.MANIFEST_PARSED, () => {
+              const d = video.duration;
+              if (d && isFinite(d) && d > 0) setDuration(d);
               if (pendingSeekRef.current !== null) {
                   video.currentTime = pendingSeekRef.current;
                   anticheatTimeRef.current = pendingSeekRef.current;
@@ -664,10 +667,22 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
           isLongPressActiveRef.current = false;
           wasLongPressRef.current = false;
       }
-      // 3. Если ускорения НЕ было -> Значит это обычный КЛИК -> Пауза/Плей
+      // 3. Если ускорения НЕ было -> Значит это обычный КЛИК
       else {
           if (!activeEvent && !wasLongPressRef.current) {
-              togglePlay();
+              const isPaused = currentEmbedUrl ? !isPlaying : !!videoRef.current?.paused;
+              if (isPaused) {
+                  // На паузе: тап по пустому месту — показать/скрыть интерфейс
+                  if (showControls) {
+                      if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
+                      setShowControls(false);
+                  } else {
+                      showControlsTemporarily();
+                  }
+              } else {
+                  // Играет: тап по пустому месту — поставить на паузу
+                  togglePlay();
+              }
           }
           wasLongPressRef.current = false;
       }
@@ -1017,20 +1032,23 @@ const handleVideoDoubleClick = (e: React.MouseEvent) => {
     };
   const toggleFullscreen = () => {
       const container = containerRef.current;
-      const video = videoRef.current;
-      const isFs = !!(document.fullscreenElement || (document as any).webkitFullscreenElement);
-      if (!isFs) {
+      const isNativeFs = !!(document.fullscreenElement || (document as any).webkitFullscreenElement);
+
+      if (!isNativeFs && !isCSSFullscreen) {
           if (container?.requestFullscreen) {
-              container.requestFullscreen();
+              container.requestFullscreen().catch(() => setIsCSSFullscreen(true));
           } else if ((container as any)?.webkitRequestFullscreen) {
-              (container as any).webkitRequestFullscreen();
-          } else if (video && (video as any).webkitEnterFullscreen) {
-              // iOS Safari: fullscreen работает только на <video>
-              (video as any).webkitEnterFullscreen();
+              try { (container as any).webkitRequestFullscreen(); } catch { setIsCSSFullscreen(true); }
+          } else {
+              // iOS fallback: CSS fullscreen — нативный webkitEnterFullscreen скрывает наш UI
+              setIsCSSFullscreen(true);
           }
       } else {
-          if (document.exitFullscreen) document.exitFullscreen();
-          else if ((document as any).webkitExitFullscreen) (document as any).webkitExitFullscreen();
+          if (isNativeFs) {
+              if (document.exitFullscreen) document.exitFullscreen();
+              else if ((document as any).webkitExitFullscreen) (document as any).webkitExitFullscreen();
+          }
+          setIsCSSFullscreen(false);
       }
   };
 
@@ -1402,7 +1420,7 @@ const renderMainMenu = () => (
 );
 
   return (
-    <div ref={containerRef} tabIndex={0} style={{ outline: 'none' }} className={`yt-player-container ${isZoomFill ? 'zoom-active' : ''} ${isFullscreen ? 'is-fullscreen' : ''}`} onMouseMove={showControlsTemporarily} onTouchStart={showControlsTemporarily} onMouseLeave={() => {
+    <div ref={containerRef} tabIndex={0} style={{ outline: 'none' }} className={`yt-player-container ${isZoomFill ? 'zoom-active' : ''} ${isFullscreen ? 'is-fullscreen' : ''} ${isCSSFullscreen ? 'is-css-fullscreen' : ''}`} onMouseMove={showControlsTemporarily} onTouchStart={showControlsTemporarily} onMouseLeave={() => {
         if (Date.now() - lastTouchTimeRef.current < 500) return;
         if (!showSettings) setShowControls(false);
       }}>
@@ -1676,6 +1694,10 @@ const renderMainMenu = () => (
                 safePlay();
             }
         }}
+        onDurationChange={() => {
+            const d = videoRef.current?.duration;
+            if (d && isFinite(d) && d > 0) setDuration(d);
+        }}
         onLoadStart={() => { setIsBuffering(true); isSeekingRef.current = false; }}
         onLoadedData={() => setIsBuffering(false)}
         onPlay={() => setIsPlaying(true)}
@@ -1805,7 +1827,7 @@ const renderMainMenu = () => (
       {!isPlaying && !isBuffering && !activeEvent && !showEndScreen && (
         <div
           className="center-play-overlay-static"
-          style={{ zIndex: 5, opacity: showControls ? 1 : 0, transition: 'opacity 0.3s' }}
+          style={{ zIndex: 5, opacity: showControls ? 1 : 0, transition: 'opacity 0.3s', pointerEvents: showControls ? 'auto' : 'none' }}
           onTouchEnd={(e) => { e.stopPropagation(); e.preventDefault(); lastTouchTimeRef.current = Date.now(); togglePlay(); }}
           onClick={togglePlay}
         >
