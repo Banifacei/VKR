@@ -197,6 +197,60 @@
 
 .course-progress-bar-wrap { min-width: 200px; flex: 1; }
 
+/* Строка 2: мета-чипсы */
+.course-meta-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 14px 0 0;
+}
+.course-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 20px;
+    padding: 5px 12px;
+    font-size: 13px;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+/* Строка 3: описание */
+.course-description-text {
+    color: var(--text-muted);
+    margin: 14px 0 0;
+    max-width: 800px;
+    line-height: 1.6;
+    font-size: 14px;
+}
+
+/* Строка 4: прогресс */
+.course-progress-full {
+    margin-top: 18px;
+    max-width: 480px;
+}
+.course-progress-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 7px;
+}
+.course-progress-percent { font-weight: 700; }
+.course-progress-track {
+    background: var(--bg-input);
+    border-radius: 10px;
+    height: 7px;
+    overflow: hidden;
+}
+.course-progress-fill {
+    height: 100%;
+    border-radius: 10px;
+    transition: width 0.8s ease;
+}
+
 /* Сетка карточек контента */
 .content-grid {
     display: grid;
@@ -359,6 +413,7 @@
     .dashboard-container { padding: 16px 12px; }
     .course-title-large { font-size: 1.6rem; }
     .course-header-big { padding: 20px 20px; }
+    .course-progress-full { max-width: 100%; }
     .content-grid { gap: 12px; }
     .runner-card { padding: 20px; }
     .question-text { font-size: 16px; margin: 20px 0; }

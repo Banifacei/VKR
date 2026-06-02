@@ -2258,6 +2258,8 @@ html.theme-light .course-header-big    { border-color: #e5e7eb; }
 html.theme-light .course-meta-row,
 html.theme-light .course-progress-section { color: #6b7280; }
 html.theme-light .course-meta-row > span { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.08); color: #374151; }
+html.theme-light .course-chip { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.08); color: #374151; }
+html.theme-light .course-description-text { color: #6b7280; }
 
 /* ── content-card (карточки уроков) ── */
 html.theme-light .content-card         { background: #fff; border-color: #e5e7eb; }

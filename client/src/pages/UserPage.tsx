@@ -20,7 +20,7 @@ import { CourseLanding } from '../components/Course/CourseLanding';
 import { SortableCard } from '../components/Course/SortableCard';
 import { AddContentModal } from '../components/Course/AddContentModal';
 import { CourseSettingsModal } from '../components/Course/CourseSettingsModal';
-import { Icons } from '../components/Icons';
+import { Icons, CorsesIcons } from '../components/Icons';
 import { VideoComments } from '../components/VideoComments';
 import { VideoBookmarks } from '../components/VideoBookmarks';
 import { StarRating } from '../components/StarRating';
@@ -515,55 +515,80 @@ export const UserPage = () => {
                         </div>
                     ) : (
                         <>
+                            {/* Строка 1: Заголовок */}
                             <h1 className="course-title-large">{course?.title}</h1>
-                            <div className="course-progress-section">
-                                {canEdit && (
-                                    <div className="view-mode-switcher">
-                                        <button
-                                            className={`vms-btn ${!isEditMode ? 'active' : ''}`}
-                                            onClick={() => setIsEditMode(false)}
-                                        >
-                                            <Icons.Eye size={14}/>
-                                            <span className="vms-label-full">Глазами студента</span>
-                                            <span className="vms-label-short">Студент</span>
-                                        </button>
-                                        <button
-                                            className={`vms-btn ${isEditMode ? 'active-primary' : ''}`}
-                                            onClick={() => setIsEditMode(true)}
-                                        >
-                                            <Icons.Edit size={14}/>
-                                            <span className="vms-label-full">Редактирование</span>
-                                            <span className="vms-label-short">Редактор</span>
-                                        </button>
-                                        <button className="vms-btn vms-settings" onClick={() => setShowCourseSettings(true)}>
-                                            <Icons.Settings size={14}/>
-                                            <span className="vms-label-full">Настройки</span>
-                                            <span className="vms-label-short">Настройки</span>
-                                            {pendingCount > 0 && <span className="vms-badge">{pendingCount}</span>}
-                                        </button>
-                                    </div>
-                                )}
-                                <div className="course-meta-row">
-                                    <div className="course-progress-bar-wrap">
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '13px', color: 'var(--text-muted)' }}>
-                                            <span>Прогресс курса</span>
-                                            <span style={{ color: progressPercent === 100 ? '#4dff88' : 'var(--primary)', fontWeight: 'bold' }}>{progressPercent}%</span>
-                                        </div>
-                                        <div style={{ background: 'var(--bg-input)', borderRadius: '10px', height: '6px', overflow: 'hidden' }}>
-                                            <div style={{ width: `${progressPercent}%`, background: progressPercent === 100 ? 'linear-gradient(90deg,#4dff88,#00c853)' : 'linear-gradient(90deg, var(--primary), var(--primary-hover))', height: '100%', transition: 'width 0.8s ease', borderRadius: '10px' }} />
-                                        </div>
-                                    </div>
-                                    <span><Icons.Teacher size={13}/> {course?.instructor}</span>
-                                    <span>{(() => { const n = displayItems.filter(i => i.type === 'video').length; return `📹 ${n} ${pluralizeRu(n, 'урок', 'урока', 'уроков')}`; })()}</span>
-                                    <span>{(() => { const n = displayItems.filter(i => i.type === 'test').length; return `📝 ${n} ${pluralizeRu(n, 'тест', 'теста', 'тестов')}`; })()}</span>
+
+                            {/* Строка 2: Мета-чипсы */}
+                            <div className="course-meta-chips">
+                                <div className="course-chip">
+                                    <CorsesIcons.Teacher size={13}/>
+                                    {course?.instructor}
                                 </div>
+                                {(() => { const n = displayItems.filter(i => i.type === 'video').length; return n > 0 ? (
+                                    <div className="course-chip">
+                                        <CorsesIcons.Video size={13}/>
+                                        {n} {pluralizeRu(n, 'урок', 'урока', 'уроков')}
+                                    </div>
+                                ) : null; })()}
+                                {(() => { const n = displayItems.filter(i => i.type === 'test').length; return n > 0 ? (
+                                    <div className="course-chip">
+                                        <CorsesIcons.Test size={13}/>
+                                        {n} {pluralizeRu(n, 'тест', 'теста', 'тестов')}
+                                    </div>
+                                ) : null; })()}
                             </div>
-                            <p style={{ color: 'var(--text-main)', marginTop: '15px', maxWidth: '800px', lineHeight: '1.5' }}>
-                                {course?.description}
-                            </p>
+
+                            {/* Строка 3: Описание */}
+                            {course?.description && (
+                                <p className="course-description-text">{course.description}</p>
+                            )}
+
+                            {/* Строка 4: Прогресс-бар (только для студентов) */}
+                            {enrollStatus === 'approved' && (
+                                <div className="course-progress-full">
+                                    <div className="course-progress-labels">
+                                        <span>Прогресс курса</span>
+                                        <span className="course-progress-percent" style={{ color: progressPercent === 100 ? '#4dff88' : 'var(--primary)' }}>
+                                            {progressPercent}%
+                                        </span>
+                                    </div>
+                                    <div className="course-progress-track">
+                                        <div className="course-progress-fill" style={{
+                                            width: `${progressPercent}%`,
+                                            background: progressPercent === 100
+                                                ? 'linear-gradient(90deg, #4dff88, #00c853)'
+                                                : 'linear-gradient(90deg, var(--primary), var(--primary-hover))'
+                                        }}/>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Рейтинг */}
                             {userData?.role === 'student' && course && (
-                                <div style={{ marginTop: 16 }}>
+                                <div style={{ marginTop: 12 }}>
                                     <StarRating courseId={course.id} />
+                                </div>
+                            )}
+
+                            {/* Строка 5: Переключатель режимов (teacher/admin) */}
+                            {canEdit && (
+                                <div className="view-mode-switcher">
+                                    <button className={`vms-btn ${!isEditMode ? 'active' : ''}`} onClick={() => setIsEditMode(false)}>
+                                        <Icons.Eye size={14}/>
+                                        <span className="vms-label-full">Глазами студента</span>
+                                        <span className="vms-label-short">Студент</span>
+                                    </button>
+                                    <button className={`vms-btn ${isEditMode ? 'active-primary' : ''}`} onClick={() => setIsEditMode(true)}>
+                                        <Icons.Edit size={14}/>
+                                        <span className="vms-label-full">Редактирование</span>
+                                        <span className="vms-label-short">Редактор</span>
+                                    </button>
+                                    <button className="vms-btn vms-settings" onClick={() => setShowCourseSettings(true)}>
+                                        <Icons.Settings size={14}/>
+                                        <span className="vms-label-full">Настройки</span>
+                                        <span className="vms-label-short">Настройки</span>
+                                        {pendingCount > 0 && <span className="vms-badge">{pendingCount}</span>}
+                                    </button>
                                 </div>
                             )}
                         </>
