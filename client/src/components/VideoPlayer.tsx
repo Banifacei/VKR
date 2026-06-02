@@ -871,6 +871,8 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   const handleTimeUpdate = () => {
     if (!videoRef.current) return;
     const time = videoRef.current.currentTime;
+    // Время обновляется — видео точно играет, сбрасываем застрявший спиннер
+    if (isBuffering) setIsBuffering(false);
 
     // Защита от читеров: використовуємо ref (не stale React state!)
     // Також чекаємо поки прогрес завантажиться, щоб не блокувати відновлення позиції
