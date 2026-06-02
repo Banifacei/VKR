@@ -143,6 +143,7 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   const wasPlayingRef = useRef(false);        // Флаг: играло ли видео ДО нажатия?
   const isSeekingRef = useRef(false);         // Флаг: идёт перемотка
   const lastTouchTimeRef = useRef(0);         // Время последнего touch — для игнора синтетического mouseleave
+  const pressStartedRef = useRef(false);      // Флаг: был ли валидный handlePressStart (не синтетический mouse после touch)
   const lastQualitySwitchRef = useRef(0);     // Время последнего авто-переключения качества
 
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -609,8 +610,15 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   // --- ЛОГИКА НАЖАТИЯ (Smart Touch/Click) ---
   
   const handlePressStart = (e?: React.TouchEvent<any> | React.MouseEvent<any>) => {
-      isTouchPressRef.current = !!(e && 'touches' in e);
-      if (isTouchPressRef.current) lastTouchTimeRef.current = Date.now();
+      const isTouch = !!(e && 'touches' in e);
+      // Игнорируем синтетические mouse-события которые браузер стреляет после touch
+      if (!isTouch && Date.now() - lastTouchTimeRef.current < 600) {
+          pressStartedRef.current = false;
+          return;
+      }
+      pressStartedRef.current = true;
+      isTouchPressRef.current = isTouch;
+      if (isTouch) lastTouchTimeRef.current = Date.now();
       controlsVisibleOnPressRef.current = showControlsRef.current;
       if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
 
@@ -645,6 +653,10 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   
   // Вызывается ТОЛЬКО когда отпустили кнопку мыши НАД видео (MouseUp / TouchEnd)
   const handlePressEnd = () => {
+      // Игнорируем если handlePressStart был пропущен (синтетический mouse после touch)
+      if (!pressStartedRef.current) return;
+      pressStartedRef.current = false;
+
       // 1. Сбрасываем таймер (если не успел сработать long press)
       if (longPressTimerRef.current) {
           clearTimeout(longPressTimerRef.current);
@@ -695,6 +707,8 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   // Вызывается, если мышь ушла с видео или тач сорвался (MouseLeave / TouchCancel)
   // ОТЛИЧИЕ: Здесь мы НИКОГДА не делаем togglePlay (не ставим на паузу/плей при уходе мыши)
   const handlePressCancel = () => {
+      if (!pressStartedRef.current) return;
+      pressStartedRef.current = false;
       // Сбрасываем таймер
       if (longPressTimerRef.current) {
           clearTimeout(longPressTimerRef.current);
