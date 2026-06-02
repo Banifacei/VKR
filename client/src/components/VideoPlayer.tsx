@@ -145,6 +145,9 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   const lastTouchTimeRef = useRef(0);         // Время последнего touch — для игнора синтетического mouseleave
   const pressStartedRef = useRef(false);      // Флаг: был ли валидный handlePressStart (не синтетический mouse после touch)
   const lastQualitySwitchRef = useRef(0);     // Время последнего авто-переключения качества
+  const tapXRef = useRef(0);                  // X позиция последнего тапа (для определения стороны двойного тапа)
+  const lastTapTimeRef = useRef(0);           // Время последнего одиночного тапа (для детекции двойного)
+  const lastTapSideRef = useRef<'left' | 'right' | null>(null); // Сторона последнего тапа
 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isCSSFullscreen, setIsCSSFullscreen] = useState(false);
@@ -162,6 +165,7 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null);
   const [score, setScore] = useState(0);
   const [showEndScreen, setShowEndScreen] = useState(false);
+  const [seekFeedback, setSeekFeedback] = useState<{ direction: 'left' | 'right'; key: number } | null>(null);
   const lastSavedTimeRef = useRef<number>(0);
   const maxReachedTimeRef = useRef<number>(0); // Максимум просмотренного времени (для noForwardSeek)
   // --- HOVER STATE (Для тултипа и подсветки блоков) ---
@@ -620,6 +624,8 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
       isTouchPressRef.current = isTouch;
       if (isTouch) lastTouchTimeRef.current = Date.now();
       controlsVisibleOnPressRef.current = showControlsRef.current;
+      if (e && 'touches' in e && e.touches.length > 0) tapXRef.current = e.touches[0].clientX;
+      else if (e && 'clientX' in e) tapXRef.current = (e as React.MouseEvent).clientX;
       if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
 
       // Запоминаем состояние (играло или нет), чтобы вернуть его при отмене
@@ -687,17 +693,32 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
       // 3. Если ускорения НЕ было -> Значит это обычный КЛИК
       else {
           if (!activeEvent && !wasLongPressRef.current) {
-              if (wasPlayingRef.current) {
-                  // Видео играло — поставить на паузу
-                  togglePlay();
-              } else {
-                  // Видео было на паузе — показать/скрыть интерфейс
-                  if (controlsVisibleOnPressRef.current) {
-                      if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
-                      setShowControls(false);
+              if (isTouchPressRef.current) {
+                  // Мобайл: определяем одиночный или двойной тап
+                  const now = Date.now();
+                  const rect = containerRef.current?.getBoundingClientRect();
+                  const side = rect && (tapXRef.current - rect.left) / rect.width < 0.5 ? 'left' : 'right';
+
+                  if (now - lastTapTimeRef.current < 300 && lastTapSideRef.current === side) {
+                      // Двойной тап — перемотка как на YouTube
+                      lastTapTimeRef.current = 0;
+                      lastTapSideRef.current = null;
+                      skipTime(side === 'left' ? -10 : 10);
+                      setSeekFeedback({ direction: side, key: now });
                   } else {
-                      showControlsTemporarily();
+                      // Одиночный тап — показать/скрыть интерфейс
+                      lastTapTimeRef.current = now;
+                      lastTapSideRef.current = side;
+                      if (controlsVisibleOnPressRef.current) {
+                          if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
+                          setShowControls(false);
+                      } else {
+                          showControlsTemporarily();
+                      }
                   }
+              } else {
+                  // Десктоп: клик мышью — пауза/плей
+                  togglePlay();
               }
           }
           wasLongPressRef.current = false;
@@ -1870,6 +1891,13 @@ const renderMainMenu = () => (
                       width: '100%',
                   }}>{line}</div>
               ))}
+          </div>
+      )}
+
+      {seekFeedback && (
+          <div key={seekFeedback.key} className={`seek-feedback seek-feedback-${seekFeedback.direction}`}
+              onAnimationEnd={() => setSeekFeedback(null)}>
+              {seekFeedback.direction === 'left' ? '« 10с' : '10с »'}
           </div>
       )}
 
