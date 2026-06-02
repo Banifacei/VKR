@@ -1066,6 +1066,8 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
 
 // 2. Добавляем функцию двойного клика
 const handleVideoDoubleClick = (e: React.MouseEvent) => {
+        // На мобайле двойной тап синтезирует dblclick — игнорируем, там своя логика перемотки
+        if (Date.now() - lastTouchTimeRef.current < 600) return;
         e.preventDefault();
         toggleFullscreen();
     };
@@ -1773,9 +1775,11 @@ const renderMainMenu = () => (
         onPlay={() => setIsPlaying(true)}
         onPlaying={() => setIsBuffering(false)}
         onCanPlay={() => setIsBuffering(false)}
+        onCanPlayThrough={() => setIsBuffering(false)}
         onStalled={() => setIsBuffering(true)}
         onPause={() => {
             setIsPlaying(false);
+            setIsBuffering(false);
             if (videoId && videoRef.current) {
                 savePlaybackProgress(videoId, videoRef.current.currentTime, false);
                 lastSavedTimeRef.current = videoRef.current.currentTime;
@@ -1901,14 +1905,14 @@ const renderMainMenu = () => (
           </div>
       )}
 
-      {!isPlaying && !isBuffering && !activeEvent && !showEndScreen && (
+      {!isBuffering && !activeEvent && !showEndScreen && (
         <div
           className="center-play-overlay-static"
           style={{ zIndex: 5, opacity: showControls ? 1 : 0, transition: 'opacity 0.3s', pointerEvents: showControls ? 'auto' : 'none' }}
           onTouchEnd={(e) => { e.stopPropagation(); e.preventDefault(); lastTouchTimeRef.current = Date.now(); togglePlay(); }}
           onClick={togglePlay}
         >
-          <VideoPlayeIcons.Play />
+          {isPlaying ? <VideoPlayeIcons.Pause /> : <VideoPlayeIcons.Play />}
         </div>
       )}
 
