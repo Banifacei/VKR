@@ -129,6 +129,15 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   const [showControls, setShowControls] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   
+  const showControlsRef = useRef(true);
+  showControlsRef.current = showControls;
+  const controlsVisibleOnPressRef = useRef(false); // showControls на момент нажатия
+
+  const isIOS = useMemo(() =>
+      /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1),
+  []);
+
   const [isSpeedingUp, setIsSpeedingUp] = useState(false);  // Показывает плашку "2x"
   const longPressTimerRef = useRef<number | null>(null);    // Таймер зажатия
   const wasLongPressRef = useRef(false);                    // Флаг: было ли удержание?
@@ -607,6 +616,7 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   const handlePressStart = (e?: React.TouchEvent<any> | React.MouseEvent<any>) => {
       isTouchPressRef.current = !!(e && 'touches' in e);
       if (isTouchPressRef.current) lastTouchTimeRef.current = Date.now();
+      controlsVisibleOnPressRef.current = showControlsRef.current;
       if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
 
       // Запоминаем состояние (играло или нет), чтобы вернуть его при отмене
@@ -673,7 +683,7 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
               const isPaused = currentEmbedUrl ? !isPlaying : !!videoRef.current?.paused;
               if (isPaused) {
                   // На паузе: тап по пустому месту — показать/скрыть интерфейс
-                  if (showControls) {
+                  if (controlsVisibleOnPressRef.current) {
                       if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
                       setShowControls(false);
                   } else {
@@ -1035,12 +1045,15 @@ const handleVideoDoubleClick = (e: React.MouseEvent) => {
       const isNativeFs = !!(document.fullscreenElement || (document as any).webkitFullscreenElement);
 
       if (!isNativeFs && !isCSSFullscreen) {
-          if (container?.requestFullscreen) {
+          if (isIOS) {
+              // iOS: нативный fullscreen скрывает наш UI — всегда используем CSS
+              setIsCSSFullscreen(true);
+              document.body.style.overflow = 'hidden';
+          } else if (container?.requestFullscreen) {
               container.requestFullscreen().catch(() => setIsCSSFullscreen(true));
           } else if ((container as any)?.webkitRequestFullscreen) {
               try { (container as any).webkitRequestFullscreen(); } catch { setIsCSSFullscreen(true); }
           } else {
-              // iOS fallback: CSS fullscreen — нативный webkitEnterFullscreen скрывает наш UI
               setIsCSSFullscreen(true);
           }
       } else {
@@ -1049,6 +1062,7 @@ const handleVideoDoubleClick = (e: React.MouseEvent) => {
               else if ((document as any).webkitExitFullscreen) (document as any).webkitExitFullscreen();
           }
           setIsCSSFullscreen(false);
+          document.body.style.overflow = '';
       }
   };
 
@@ -1062,6 +1076,7 @@ const handleVideoDoubleClick = (e: React.MouseEvent) => {
       return () => {
           document.removeEventListener('fullscreenchange', onFsChange);
           document.removeEventListener('webkitfullscreenchange', onFsChange);
+          document.body.style.overflow = ''; // cleanup если компонент умер в CSS fullscreen
       };
   }, []);
   
