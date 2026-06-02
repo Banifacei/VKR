@@ -138,6 +138,7 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   const isTouchPressRef = useRef(false);      // Флаг: текущий press начался с touch (не mouse)?
   const wasPlayingRef = useRef(false);        // Флаг: играло ли видео ДО нажатия?
   const isSeekingRef = useRef(false);         // Флаг: идёт перемотка
+  const lastTouchTimeRef = useRef(0);         // Время последнего touch — для игнора синтетического mouseleave
   const lastQualitySwitchRef = useRef(0);     // Время последнего авто-переключения качества
 
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -602,6 +603,7 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   
   const handlePressStart = (e?: React.TouchEvent<any> | React.MouseEvent<any>) => {
       isTouchPressRef.current = !!(e && 'touches' in e);
+      if (isTouchPressRef.current) lastTouchTimeRef.current = Date.now();
       if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
 
       // Запоминаем состояние (играло или нет), чтобы вернуть его при отмене
@@ -1397,7 +1399,10 @@ const renderMainMenu = () => (
 );
 
   return (
-    <div ref={containerRef} tabIndex={0} style={{ outline: 'none' }} className={`yt-player-container ${isZoomFill ? 'zoom-active' : ''} ${isFullscreen ? 'is-fullscreen' : ''}`} onMouseMove={showControlsTemporarily} onTouchStart={showControlsTemporarily} onMouseLeave={() => !showSettings && setShowControls(false)}>
+    <div ref={containerRef} tabIndex={0} style={{ outline: 'none' }} className={`yt-player-container ${isZoomFill ? 'zoom-active' : ''} ${isFullscreen ? 'is-fullscreen' : ''}`} onMouseMove={showControlsTemporarily} onTouchStart={showControlsTemporarily} onMouseLeave={() => {
+        if (Date.now() - lastTouchTimeRef.current < 500) return;
+        if (!showSettings) setShowControls(false);
+      }}>
       {/* --- ОВЕРЛЕЙ ИНТЕРАКТИВА (ИСПРАВЛЕННЫЙ) --- */}
       {activeEvent && (
         <div 
@@ -1794,7 +1799,16 @@ const renderMainMenu = () => (
           </div>
       )}
 
-      {!isPlaying && !isBuffering && showControls && !activeEvent && !showEndScreen && (<div className="center-play-overlay-static" onClick={togglePlay}><VideoPlayeIcons.Play /></div>)}
+      {!isPlaying && !isBuffering && !activeEvent && !showEndScreen && (
+        <div
+          className="center-play-overlay-static"
+          style={{ zIndex: 5, opacity: showControls ? 1 : 0, transition: 'opacity 0.3s' }}
+          onTouchEnd={(e) => { e.stopPropagation(); lastTouchTimeRef.current = Date.now(); togglePlay(); }}
+          onClick={togglePlay}
+        >
+          <VideoPlayeIcons.Play />
+        </div>
+      )}
 
       <div className={`yt-controls ${showControls && !activeEvent ? 'show' : ''}`} style={{ zIndex: 100 }}>
         
