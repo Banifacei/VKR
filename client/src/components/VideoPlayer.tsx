@@ -148,6 +148,7 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isCSSFullscreen, setIsCSSFullscreen] = useState(false);
+  const [isIOSNativeFullscreen, setIsIOSNativeFullscreen] = useState(false);
   const [isZoomFill, setIsZoomFill] = useState(false);
   const [currentMenu, setCurrentMenu] = useState<'main' | 'speed' | 'quality' | 'captions' | 'chapters'>('main');
   const [activeSubtitle, setActiveSubtitle] = useState<string>('off');
@@ -1050,32 +1051,86 @@ const handleVideoDoubleClick = (e: React.MouseEvent) => {
     };
   const toggleFullscreen = () => {
       const container = containerRef.current;
+      const video = videoRef.current;
       const isNativeFs = !!(document.fullscreenElement || (document as any).webkitFullscreenElement);
 
-      if (!isNativeFs && !isCSSFullscreen) {
-          if (container?.requestFullscreen) {
-              // iOS 16+ и все десктопные браузеры поддерживают requestFullscreen на div
-              container.requestFullscreen().catch(() => {
-                  // iOS 15 и ниже — fallback на CSS fullscreen
+      if (!isNativeFs && !isCSSFullscreen && !isIOSNativeFullscreen) {
+          const tryIOSNative = () => {
+              if (video && (video as any).webkitEnterFullscreen) {
+                  (video as any).webkitEnterFullscreen();
+              } else {
                   setIsCSSFullscreen(true);
                   document.body.style.overflow = 'hidden';
-              });
+              }
+          };
+          if (container?.requestFullscreen) {
+              container.requestFullscreen()
+                  .then(() => {
+                      // Проверяем через 400мс что fullscreen реально сработал
+                      setTimeout(() => {
+                          if (!document.fullscreenElement && !(document as any).webkitFullscreenElement && !isIOSNativeFullscreen) {
+                              tryIOSNative();
+                          }
+                      }, 400);
+                  })
+                  .catch(tryIOSNative);
           } else if ((container as any)?.webkitRequestFullscreen) {
               try { (container as any).webkitRequestFullscreen(); }
-              catch { setIsCSSFullscreen(true); document.body.style.overflow = 'hidden'; }
+              catch { tryIOSNative(); }
           } else {
-              setIsCSSFullscreen(true);
-              document.body.style.overflow = 'hidden';
+              tryIOSNative();
           }
       } else {
           if (isNativeFs) {
               if (document.exitFullscreen) document.exitFullscreen();
               else if ((document as any).webkitExitFullscreen) (document as any).webkitExitFullscreen();
           }
+          if (isIOSNativeFullscreen && video) {
+              (video as any).webkitExitFullscreen?.();
+          }
           setIsCSSFullscreen(false);
           document.body.style.overflow = '';
       }
   };
+
+  // CSS fullscreen: динамически подгоняем высоту под реальный window.innerHeight
+  // В ландшафте на iPhone url бар сам схлопывается — innerHeight увеличивается → плеер заполняет экран
+  useEffect(() => {
+      if (!isCSSFullscreen || !containerRef.current) return;
+      const update = () => {
+          if (containerRef.current) containerRef.current.style.height = `${window.innerHeight}px`;
+      };
+      update();
+      window.addEventListener('resize', update);
+      window.addEventListener('orientationchange', update);
+      return () => {
+          window.removeEventListener('resize', update);
+          window.removeEventListener('orientationchange', update);
+          if (containerRef.current) containerRef.current.style.height = '';
+      };
+  }, [isCSSFullscreen]);
+
+  // Слушаем iOS native fullscreen события на video элементе
+  useEffect(() => {
+      const video = videoRef.current;
+      if (!video) return;
+      const onBegin = () => setIsIOSNativeFullscreen(true);
+      const onEnd = () => setIsIOSNativeFullscreen(false);
+      video.addEventListener('webkitbeginfullscreen', onBegin);
+      video.addEventListener('webkitendfullscreen', onEnd);
+      return () => {
+          video.removeEventListener('webkitbeginfullscreen', onBegin);
+          video.removeEventListener('webkitendfullscreen', onEnd);
+      };
+  }, []);
+
+  // Когда появляется вопрос или экран результатов — выходим из iOS native fullscreen
+  // чтобы показать наш HTML overlay
+  useEffect(() => {
+      if ((activeEvent || showEndScreen) && isIOSNativeFullscreen && videoRef.current) {
+          (videoRef.current as any).webkitExitFullscreen?.();
+      }
+  }, [activeEvent, showEndScreen, isIOSNativeFullscreen]);
 
   // Синхронизируем isFullscreen с реальным состоянием браузера
   useEffect(() => {
@@ -1446,7 +1501,7 @@ const renderMainMenu = () => (
 );
 
   return (
-    <div ref={containerRef} tabIndex={0} style={{ outline: 'none' }} className={`yt-player-container ${isZoomFill ? 'zoom-active' : ''} ${isFullscreen ? 'is-fullscreen' : ''} ${isCSSFullscreen ? 'is-css-fullscreen' : ''}`} onMouseMove={showControlsTemporarily} onTouchStart={showControlsTemporarily} onMouseLeave={() => {
+    <div ref={containerRef} tabIndex={0} style={{ outline: 'none' }} className={`yt-player-container ${isZoomFill ? 'zoom-active' : ''} ${(isFullscreen || isCSSFullscreen || isIOSNativeFullscreen) ? 'is-fullscreen' : ''} ${isCSSFullscreen ? 'is-css-fullscreen' : ''}`} onMouseMove={showControlsTemporarily} onTouchStart={showControlsTemporarily} onMouseLeave={() => {
         if (Date.now() - lastTouchTimeRef.current < 500) return;
         if (!showSettings) setShowControls(false);
       }}>
@@ -2079,7 +2134,7 @@ const renderMainMenu = () => (
               )}
           </div>
             <button className="yt-btn" onClick={toggleFullscreen} title={isFullscreen ? 'Выйти из полного экрана (f)' : 'Полный экран (f)'}>
-                {isFullscreen ? <VideoPlayeIcons.FullscreenExit /> : <VideoPlayeIcons.Fullscreen />}
+                {(isFullscreen || isCSSFullscreen || isIOSNativeFullscreen) ? <VideoPlayeIcons.FullscreenExit /> : <VideoPlayeIcons.Fullscreen />}
             </button>
           </div>
         </div>
