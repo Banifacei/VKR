@@ -1492,7 +1492,7 @@ const renderMainMenu = () => (
 );
 
   return (
-    <div ref={containerRef} tabIndex={0} style={{ outline: 'none' }} className={`yt-player-container ${isZoomFill ? 'zoom-active' : ''} ${(isFullscreen || isCSSFullscreen) ? 'is-fullscreen' : ''} ${isCSSFullscreen ? 'is-css-fullscreen' : ''}`} onMouseMove={showControlsTemporarily} onTouchStart={showControlsTemporarily} onMouseLeave={() => {
+    <div ref={containerRef} tabIndex={0} style={{ outline: 'none' }} className={`yt-player-container ${isZoomFill ? 'zoom-active' : ''} ${(isFullscreen || isCSSFullscreen) ? 'is-fullscreen' : ''} ${isCSSFullscreen ? 'is-css-fullscreen' : ''}`} onMouseMove={() => { if (Date.now() - lastTouchTimeRef.current < 600) return; showControlsTemporarily(); }} onTouchStart={showControlsTemporarily} onMouseLeave={() => {
         if (Date.now() - lastTouchTimeRef.current < 500) return;
         if (!showSettings) setShowControls(false);
       }}>
