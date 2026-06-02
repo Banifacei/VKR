@@ -545,19 +545,17 @@ export const UserPage = () => {
                                 )}
                                 <div className="course-meta-row">
                                     <div className="course-progress-bar-wrap">
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '14px', color: 'var(--text-muted)' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '13px', color: 'var(--text-muted)' }}>
                                             <span>Прогресс курса</span>
                                             <span style={{ color: progressPercent === 100 ? '#4dff88' : 'var(--primary)', fontWeight: 'bold' }}>{progressPercent}%</span>
                                         </div>
-                                        <div style={{ background: 'var(--bg-input)', borderRadius: '10px', height: '8px', overflow: 'hidden' }}>
-                                            <div style={{ width: `${progressPercent}%`, background: progressPercent === 100 ? '#4dff88' : 'var(--primary)', height: '100%', transition: 'width 0.8s ease' }} />
+                                        <div style={{ background: 'var(--bg-input)', borderRadius: '10px', height: '6px', overflow: 'hidden' }}>
+                                            <div style={{ width: `${progressPercent}%`, background: progressPercent === 100 ? 'linear-gradient(90deg,#4dff88,#00c853)' : 'linear-gradient(90deg, var(--primary), var(--primary-hover))', height: '100%', transition: 'width 0.8s ease', borderRadius: '10px' }} />
                                         </div>
                                     </div>
-                                    <span><Icons.Teacher size={14}/> {course?.instructor}</span>
-                                    <span>•</span>
-                                    <span>{(() => { const n = displayItems.filter(i => i.type === 'video').length; return `${n} ${pluralizeRu(n, 'урок', 'урока', 'уроков')}`; })()}</span>
-                                    <span>•</span>
-                                    <span>{(() => { const n = displayItems.filter(i => i.type === 'test').length; return `${n} ${pluralizeRu(n, 'тест', 'теста', 'тестов')}`; })()}</span>
+                                    <span><Icons.Teacher size={13}/> {course?.instructor}</span>
+                                    <span>{(() => { const n = displayItems.filter(i => i.type === 'video').length; return `📹 ${n} ${pluralizeRu(n, 'урок', 'урока', 'уроков')}`; })()}</span>
+                                    <span>{(() => { const n = displayItems.filter(i => i.type === 'test').length; return `📝 ${n} ${pluralizeRu(n, 'тест', 'теста', 'тестов')}`; })()}</span>
                                 </div>
                             </div>
                             <p style={{ color: 'var(--text-main)', marginTop: '15px', maxWidth: '800px', lineHeight: '1.5' }}>

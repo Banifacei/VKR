@@ -132,24 +132,70 @@
 
 .course-header-big {
     margin-bottom: 40px;
-    border-bottom: 1px solid #333;
-    padding-bottom: 20px;
+    padding: 28px 32px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.08) 0%, transparent 60%),
+                var(--bg-panel);
+    border: 1px solid rgba(var(--primary-rgb), 0.15);
+    position: relative;
+    overflow: hidden;
 }
-.course-title-large    { font-size: 2.5rem; color: #fff; margin: 0 0 10px 0; }
-.course-progress-section { display: flex; align-items: center; gap: 15px; color: #888; font-size: 14px; flex-wrap: wrap; }
+/* Декоративная полоса слева */
+.course-header-big::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 4px;
+    background: linear-gradient(180deg, var(--primary), transparent);
+    border-radius: 16px 0 0 16px;
+}
 
-/* Блок прогресс-бара + мета-инфо курса */
-.course-meta-row {
+.course-title-large {
+    font-size: 2.2rem;
+    font-weight: 700;
+    margin: 0 0 16px 0;
+    background: linear-gradient(135deg, #fff 60%, rgba(var(--primary-rgb), 0.8));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1.2;
+}
+
+.course-progress-section {
     display: flex;
     align-items: center;
     gap: 15px;
     color: #888;
     font-size: 14px;
     flex-wrap: wrap;
+}
+
+/* Блок прогресс-бара + мета-инфо курса */
+.course-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #888;
+    font-size: 13px;
+    flex-wrap: wrap;
     flex: 1;
     min-width: 0;
 }
-.course-progress-bar-wrap { min-width: 180px; flex: 1; }
+/* Мета-чипсы (преподаватель, уроки, тесты) */
+.course-meta-row > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 20px;
+    padding: 4px 10px;
+    white-space: nowrap;
+}
+/* Разделитель • убираем из чипсов */
+.course-meta-row > span:empty { display: none; }
+
+.course-progress-bar-wrap { min-width: 200px; flex: 1; }
 
 /* Сетка карточек контента */
 .content-grid {
@@ -312,6 +358,7 @@
     .player-wrapper-animation { border-radius: 0; }
     .dashboard-container { padding: 16px 12px; }
     .course-title-large { font-size: 1.6rem; }
+    .course-header-big { padding: 20px 20px; }
     .content-grid { gap: 12px; }
     .runner-card { padding: 20px; }
     .question-text { font-size: 16px; margin: 20px 0; }
@@ -348,6 +395,8 @@
     .content-grid { grid-template-columns: 1fr; }
     .content-card { height: auto; min-height: 180px; }
     .course-title-large { font-size: 1.3rem; }
+    .course-header-big { padding: 16px; border-radius: 12px; }
+    .course-meta-row > span { font-size: 12px; padding: 3px 8px; }
     .user-name-badge { padding: 6px 10px; font-size: 13px; }
     .video-info h1 { font-size: 18px; }
     .video-meta { font-size: 12px; }
