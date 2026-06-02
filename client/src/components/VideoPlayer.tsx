@@ -680,18 +680,17 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
       // 3. Если ускорения НЕ было -> Значит это обычный КЛИК
       else {
           if (!activeEvent && !wasLongPressRef.current) {
-              const isPaused = currentEmbedUrl ? !isPlaying : !!videoRef.current?.paused;
-              if (isPaused) {
-                  // На паузе: тап по пустому месту — показать/скрыть интерфейс
+              if (wasPlayingRef.current) {
+                  // Видео играло — поставить на паузу
+                  togglePlay();
+              } else {
+                  // Видео было на паузе — показать/скрыть интерфейс
                   if (controlsVisibleOnPressRef.current) {
                       if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
                       setShowControls(false);
                   } else {
                       showControlsTemporarily();
                   }
-              } else {
-                  // Играет: тап по пустому месту — поставить на паузу
-                  togglePlay();
               }
           }
           wasLongPressRef.current = false;
@@ -1045,16 +1044,19 @@ const handleVideoDoubleClick = (e: React.MouseEvent) => {
       const isNativeFs = !!(document.fullscreenElement || (document as any).webkitFullscreenElement);
 
       if (!isNativeFs && !isCSSFullscreen) {
-          if (isIOS) {
-              // iOS: нативный fullscreen скрывает наш UI — всегда используем CSS
-              setIsCSSFullscreen(true);
-              document.body.style.overflow = 'hidden';
-          } else if (container?.requestFullscreen) {
-              container.requestFullscreen().catch(() => setIsCSSFullscreen(true));
+          if (container?.requestFullscreen) {
+              // iOS 16+ и все десктопные браузеры поддерживают requestFullscreen на div
+              container.requestFullscreen().catch(() => {
+                  // iOS 15 и ниже — fallback на CSS fullscreen
+                  setIsCSSFullscreen(true);
+                  document.body.style.overflow = 'hidden';
+              });
           } else if ((container as any)?.webkitRequestFullscreen) {
-              try { (container as any).webkitRequestFullscreen(); } catch { setIsCSSFullscreen(true); }
+              try { (container as any).webkitRequestFullscreen(); }
+              catch { setIsCSSFullscreen(true); document.body.style.overflow = 'hidden'; }
           } else {
               setIsCSSFullscreen(true);
+              document.body.style.overflow = 'hidden';
           }
       } else {
           if (isNativeFs) {
