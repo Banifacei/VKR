@@ -133,11 +133,6 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   showControlsRef.current = showControls;
   const controlsVisibleOnPressRef = useRef(false); // showControls на момент нажатия
 
-  const isIOS = useMemo(() =>
-      /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1),
-  []);
-
   const [isSpeedingUp, setIsSpeedingUp] = useState(false);  // Показывает плашку "2x"
   const longPressTimerRef = useRef<number | null>(null);    // Таймер зажатия
   const wasLongPressRef = useRef(false);                    // Флаг: было ли удержание?
