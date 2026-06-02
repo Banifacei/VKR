@@ -61,6 +61,7 @@ const SortableCourseCard = ({ course, rating, onClick }: {
                     <div className="course-tags">
                         <div className="course-tag"><CorsesIcons.Teacher /> {course.instructor}</div>
                         <div className="course-tag"><CorsesIcons.Video /> {course.videos?.length || 0} {pluralizeRu(course.videos?.length || 0, 'урок', 'урока', 'уроков')}</div>
+                        {(course.tests?.length ?? 0) > 0 && <div className="course-tag"><CorsesIcons.Test /> {course.tests!.length} {pluralizeRu(course.tests!.length, 'тест', 'теста', 'тестов')}</div>}
                     </div>
                     {rating !== undefined && (
                         <div style={{ marginTop: 8 }}>

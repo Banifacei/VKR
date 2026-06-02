@@ -641,6 +641,13 @@ export const CorsesIcons = {
         </svg>
     ),
 
+    Test: ({ size = 14, color, className, strokeWidth = 2 }: IconProps = {}) => (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color ?? 'currentColor'} strokeWidth={strokeWidth} className={className}>
+            <path d="M9 11l3 3L22 4"/>
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+        </svg>
+    ),
+
     Plus: ({ size = 32, color, className, strokeWidth = 2 }: IconProps = {}) => (
         <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color ?? 'currentColor'} strokeWidth={strokeWidth} className={className}>
             <line x1="12" y1="5" x2="12" y2="19"/>

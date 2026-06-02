@@ -270,7 +270,7 @@ export const deleteCourse = async (req: Request, res: Response) => {
 export const getAllCourses = async (req: Request, res: Response) => {
     try {
         const courses = await Course.findAll({
-            include: [Video],
+            include: [Video, CourseTest],
             order: [['orderIndex', 'ASC'], ['createdAt', 'ASC']],
             limit: 500,
         });

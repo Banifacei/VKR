@@ -774,8 +774,8 @@ html.theme-light .playlist-header           { border-color: var(--border-color);
 html.theme-light .playlist-header .count    { color: var(--text-muted); }
 html.theme-light .user-name-badge           { background: #f3f4f6; color: #374151; }
 html.theme-light .user-name-badge:hover     { background: #e5e7eb; }
-html.theme-light .course-header-big         { border-color: var(--border-color); }
-html.theme-light .course-title-large        { color: #111827; }
+html.theme-light .course-header-big         { border-color: var(--border-color); background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.05) 0%, transparent 60%), var(--bg-panel); }
+html.theme-light .course-title-large        { background: linear-gradient(135deg, #111827 60%, var(--primary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
 html.theme-light .course-progress-section   { color: var(--text-muted); }
 html.theme-light .card-thumbnail            { background: #f3f4f6; }
 html.theme-light .card-title               { color: #111827; }
@@ -907,7 +907,6 @@ html.theme-light .item-title              { color: #111827; }
 html.theme-light .item-index,
 html.theme-light .item-duration           { color: #9ca3af; }
 html.theme-light .playlist-header         { border-bottom-color: #e5e7eb; }
-html.theme-light .course-title-large      { color: #111827; }
 html.theme-light .course-progress-section { color: #6b7280; }
 html.theme-light .card-thumbnail          { background: #e5e7eb; }
 html.theme-light .card-title              { color: #111827; }
@@ -2256,9 +2255,9 @@ html.theme-light .runner-container     { background: transparent; }
 html.theme-light .admin-layout          { background-color: #f0f2f5; color: #111827; }
 html.theme-light .dashboard-container  { background: transparent; }
 html.theme-light .course-header-big    { border-color: #e5e7eb; }
-html.theme-light .course-title-large   { color: #111827; }
 html.theme-light .course-meta-row,
 html.theme-light .course-progress-section { color: #6b7280; }
+html.theme-light .course-meta-row > span { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.08); color: #374151; }
 
 /* ── content-card (карточки уроков) ── */
 html.theme-light .content-card         { background: #fff; border-color: #e5e7eb; }

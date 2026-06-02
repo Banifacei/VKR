@@ -49,6 +49,7 @@ export interface ICourse {
     instructor: string;
     ownerId?: number;
     videos?: IVideo[];
+    tests?: { id: number }[];
     enrollmentType?: 'open' | 'request' | 'closed';
     allowTeachersFreeAccess?: boolean;
 }
