@@ -613,6 +613,7 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
 
       longPressTimerRef.current = window.setTimeout(() => {
           isLongPressActiveRef.current = true;
+          wasLongPressRef.current = true;
           if (currentEmbedUrl) {
               // Внешние плееры: YouTube API или postMessage
               originalRateRef.current = playbackRate;
@@ -661,12 +662,14 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
               if (!wasPlayingRef.current) videoRef.current.pause();
           }
           isLongPressActiveRef.current = false;
+          wasLongPressRef.current = false;
       }
       // 3. Если ускорения НЕ было -> Значит это обычный КЛИК -> Пауза/Плей
       else {
-          if (!activeEvent) {
+          if (!activeEvent && !wasLongPressRef.current) {
               togglePlay();
           }
+          wasLongPressRef.current = false;
       }
   };
 
@@ -1656,7 +1659,7 @@ const renderMainMenu = () => (
       <video
         ref={videoRef}
         src={currentEmbedUrl ? '' : currentSource.url.endsWith('.m3u8') ? undefined : normalizeUploadUrl(currentSource.url)}
-        style={currentEmbedUrl ? { display: 'none' } : undefined}
+        style={currentEmbedUrl ? { display: 'none' } : { pointerEvents: 'none' }}
         className={`yt-video ${showControls ? 'controls-visible' : ''}`}
         playsInline
         preload="metadata"
@@ -1713,7 +1716,7 @@ const renderMainMenu = () => (
           чтобы iOS Safari не мог перехватить тап для нативных видео-контролов */}
       {!currentEmbedUrl && (
           <div
-              style={{ position: 'absolute', inset: 0, zIndex: 2, cursor: 'pointer', touchAction: 'manipulation' }}
+              style={{ position: 'absolute', inset: 0, zIndex: 2, cursor: 'pointer', touchAction: 'manipulation', background: 'rgba(0,0,0,0.001)' }}
               onDoubleClick={handleVideoDoubleClick}
               onMouseDown={(e) => { containerRef.current?.focus(); handlePressStart(e); }}
               onMouseUp={handlePressEnd}
@@ -1803,7 +1806,7 @@ const renderMainMenu = () => (
         <div
           className="center-play-overlay-static"
           style={{ zIndex: 5, opacity: showControls ? 1 : 0, transition: 'opacity 0.3s' }}
-          onTouchEnd={(e) => { e.stopPropagation(); lastTouchTimeRef.current = Date.now(); togglePlay(); }}
+          onTouchEnd={(e) => { e.stopPropagation(); e.preventDefault(); lastTouchTimeRef.current = Date.now(); togglePlay(); }}
           onClick={togglePlay}
         >
           <VideoPlayeIcons.Play />
