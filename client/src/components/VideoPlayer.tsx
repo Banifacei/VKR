@@ -663,13 +663,7 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
       // 3. Если ускорения НЕ было -> Значит это обычный КЛИК -> Пауза/Плей
       else {
           if (!activeEvent) {
-              // YouTube-стиль для touch: первый тап при скрытых контролах — показать контролы,
-              // второй тап (контролы уже видны) — пауза/плей. Mouse-клик всегда переключает.
-              if (isTouchPressRef.current && !showControls) {
-                  showControlsTemporarily();
-              } else {
-                  togglePlay();
-              }
+              togglePlay();
           }
       }
   };
