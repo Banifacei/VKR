@@ -23,6 +23,7 @@ interface IOnlineUser {
   page?: string;
   avatarUrl?: string;
   lastSeen?: number;
+  ip?: string;
 }
 
 function formatPage(page?: string): string {
@@ -1555,10 +1556,12 @@ export const AdminPage = () => {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <div>
               <h3 style={{ margin: 0, fontSize: 17 }}>Онлайн сейчас</h3>
-              <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{onlineUsers.length} активных сессий</span>
+              <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                {onlineUsers.filter(u => u.userId).length} польз. · {onlineUsers.filter(u => !u.userId).length} гост.
+              </span>
             </div>
-            <div style={{ display: 'flex', gap: 6 }}>
-              {(['all', 'student', 'teacher', 'admin'] as const).map(r => (
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {(['all', 'student', 'teacher', 'admin', 'guest'] as const).map(r => (
                 <button
                   key={r}
                   onClick={() => setOnlineRoleFilter(r)}
@@ -1567,7 +1570,7 @@ export const AdminPage = () => {
                     background: onlineRoleFilter === r ? 'var(--primary)' : 'var(--card-bg)',
                     color: onlineRoleFilter === r ? '#fff' : 'var(--text-secondary)',
                   }}
-                >{r === 'all' ? 'Все' : ROLE_LABELS[r]}</button>
+                >{r === 'all' ? 'Все' : r === 'guest' ? 'Гости' : ROLE_LABELS[r]}</button>
               ))}
             </div>
             <button onClick={() => setShowOnlineModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: 4 }}>
@@ -1575,20 +1578,33 @@ export const AdminPage = () => {
             </button>
           </div>
           <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {onlineUsers.filter(u => onlineRoleFilter === 'all' || u.role === onlineRoleFilter).length === 0 ? (
+            {onlineUsers.filter(u => {
+              if (onlineRoleFilter === 'all') return true;
+              if (onlineRoleFilter === 'guest') return !u.userId;
+              return u.role === onlineRoleFilter;
+            }).length === 0 ? (
               <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '30px 0', fontSize: 14 }}>
                 Нет активных пользователей
               </div>
             ) : (
               onlineUsers
-                .filter(u => onlineRoleFilter === 'all' || u.role === onlineRoleFilter)
+                .filter(u => {
+                  if (onlineRoleFilter === 'all') return true;
+                  if (onlineRoleFilter === 'guest') return !u.userId;
+                  return u.role === onlineRoleFilter;
+                })
                 .sort((a, b) => (b.lastSeen ?? 0) - (a.lastSeen ?? 0))
                 .map((u, i) => {
+                  const isGuest = !u.userId;
                   const initials = `${u.firstName?.[0] ?? ''}${u.lastName?.[0] ?? ''}`.toUpperCase() || '?';
-                  const roleColor = ROLE_COLORS[u.role ?? ''] ?? '#888';
+                  const roleColor = isGuest ? '#888' : (ROLE_COLORS[u.role ?? ''] ?? '#888');
                   return (
-                    <div key={u.userId ?? i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 10, background: 'var(--card-bg)' }}>
-                      {u.avatarUrl ? (
+                    <div key={u.userId ?? u.ip ?? i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 10, background: 'var(--card-bg)' }}>
+                      {isGuest ? (
+                        <div style={{ width: 38, height: 38, borderRadius: '50%', background: '#88888822', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <Icons.Globe size={18} color="#888" />
+                        </div>
+                      ) : u.avatarUrl ? (
                         <img src={u.avatarUrl} alt="" style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
                       ) : (
                         <div style={{ width: 38, height: 38, borderRadius: '50%', background: roleColor + '33', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 600, color: roleColor, flexShrink: 0 }}>
@@ -1597,15 +1613,15 @@ export const AdminPage = () => {
                       )}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : `Пользователь #${u.userId}`}
+                          {isGuest ? (u.ip ?? 'Неизвестный IP') : (u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : `Пользователь #${u.userId}`)}
                         </div>
                         <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
-                          {formatPage(u.page)}
+                          {isGuest ? 'Не авторизован' : formatPage(u.page)}
                         </div>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
                         <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: roleColor + '22', color: roleColor, fontWeight: 500 }}>
-                          {ROLE_LABELS[u.role ?? ''] ?? u.role}
+                          {isGuest ? 'Гость' : (ROLE_LABELS[u.role ?? ''] ?? u.role)}
                         </span>
                         <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
                           {formatLastSeen(u.lastSeen)}

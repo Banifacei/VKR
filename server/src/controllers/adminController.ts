@@ -18,6 +18,7 @@ type SessionData = {
     role?: string;
     page?: string;
     avatarUrl?: string;
+    ip?: string;
 };
 export const activeSessions = new Map<string, SessionData>();
 
@@ -41,12 +42,12 @@ export const trackActivityMiddleware = (req: Request, res: Response, next: NextF
         } else {
             const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown') as string;
             key = `ip:${ip}`;
-            activeSessions.set(key, { lastSeen: Date.now() });
+            activeSessions.set(key, { lastSeen: Date.now(), ip });
         }
     } catch {
         const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown') as string;
         key = `ip:${ip}`;
-        activeSessions.set(key, { lastSeen: Date.now() });
+        activeSessions.set(key, { lastSeen: Date.now(), ip });
     }
     next();
 };
@@ -60,7 +61,6 @@ function getCurrentOnlineUsers(): SessionData[] {
     const now = Date.now();
     const result: SessionData[] = [];
     for (const [key, data] of activeSessions.entries()) {
-        if (!key.startsWith('user:')) continue;
         if (now - data.lastSeen < FIVE_MINUTES) {
             result.push(data);
         } else {
