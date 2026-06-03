@@ -76,10 +76,13 @@ export const StudentDetailView = ({ data }: { data: any }) => {
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                             {questions.map((q: any, idx: number) => {
-                                const ans = studentAnswers[q.id];
-                                // Обработка массивов (если вопрос с множественным выбором)
-                                const ansString = Array.isArray(ans) ? ans.join(', ') : String(ans || 'Нет ответа');
-                                const isCorrect = String(ans) === String(q.correctAnswer);
+                                const ansData = studentAnswers[q.id];
+                                // Сервер сохраняет { answer, isCorrect, similarity }, старые записи — plain value
+                                const ans = (ansData && typeof ansData === 'object' && 'answer' in ansData) ? ansData.answer : ansData;
+                                const isCorrect = (ansData && typeof ansData === 'object' && 'isCorrect' in ansData)
+                                    ? ansData.isCorrect
+                                    : String(ans) === String(q.correctAnswer);
+                                const ansString = Array.isArray(ans) ? ans.join(', ') : String(ans ?? 'Нет ответа');
 
                                 return (
                                     <div key={q.id} style={{ background: 'var(--bg-card)', padding: '15px', borderRadius: '12px', borderLeft: `3px solid ${isCorrect ? '#4dff88' : '#ff4d4d'}` }}>
