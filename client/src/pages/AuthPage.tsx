@@ -431,6 +431,9 @@ export const AuthPage = () => {
                                     Политика конфиденциальности
                                 </a>
                             </div>
+                            <div style={{ marginTop: 12, textAlign: 'center', fontSize: 11, color: 'var(--text-muted)', opacity: 0.6, lineHeight: 1.5 }}>
+                                © 2026 Lumeo · Свид. о рег. ПО № 2026615131
+                            </div>
                         </>
                     )}
                 </div>
