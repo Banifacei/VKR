@@ -1,8 +1,7 @@
 /* ==========================================================
-   AnalyticsPage.css — центр аналитики
+   AnalyticsPage.css
    ========================================================== */
 
-/* Основная обёртка — скролл */
 .analytics-main {
     flex: 1;
     min-height: 0;
@@ -14,35 +13,47 @@
     width: 100%;
 }
 
-/* Внутренний контент — ограничиваем ширину */
 .analytics-main > .fade-in {
     max-width: 1600px;
     margin: 0 auto;
     width: 100%;
 }
 
-/* ── Планшет ── */
-@media (max-width: 900px) {
-    /* 3 виджета → 2 колонки */
+/* ── Рейтинг — ряд ── */
+.analytics-rank-row {
+    transition: all 0.2s;
+}
+.analytics-rank-row:hover {
+    background: #1a1a1a !important;
+    border-color: #333 !important;
+}
+
+/* ── Планшет (≤ 1100px): 5 виджетов → 3+2 ── */
+@media (max-width: 1100px) {
     .analytics-stats-grid {
-        grid-template-columns: 1fr 1fr !important;
-        gap: 14px !important;
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 12px !important;
+    }
+}
+
+/* ── Планшет (≤ 900px) ── */
+@media (max-width: 900px) {
+    .analytics-stats-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 12px !important;
     }
 
-    /* Bento grid → 1 колонка */
     .analytics-bento-grid {
         grid-template-columns: 1fr !important;
-        gap: 20px !important;
+        gap: 16px !important;
     }
 
-    /* Заголовок курса + кнопки → колонка */
     .analytics-course-header-row {
         flex-direction: column !important;
         align-items: flex-start !important;
         gap: 16px !important;
     }
 
-    /* Кнопки экспорта — на всю ширину */
     .analytics-export-btns {
         width: 100% !important;
     }
@@ -53,66 +64,46 @@
     }
 }
 
-/* ── Телефон ── */
-@media (max-width: 900px) {
-    /* Контент на всю ширину */
-    .analytics-page-content {
-        width: 100% !important;
-        max-width: 100% !important;
-        margin: 0 !important;
-    }
-}
-
-/* ── Рейтинг на мобиле: убираем колонку прогресса ── */
+/* ── Телефон (≤ 600px): убираем колонку прогресса ── */
 @media (max-width: 600px) {
     .analytics-rank-header,
     .analytics-rank-row {
-        grid-template-columns: 40px 1fr 56px 24px !important;
+        grid-template-columns: 36px 1fr 52px 22px !important;
         min-width: 0 !important;
-        padding-left: 10px !important;
-        padding-right: 10px !important;
+        padding-left: 8px !important;
+        padding-right: 8px !important;
     }
     .analytics-rank-progress-col {
         display: none !important;
     }
-}
 
-@media (max-width: 480px) {
-    /* 2 виджета → 1 колонка */
+    /* 5 виджетов → 1 колонка */
     .analytics-stats-grid {
-        grid-template-columns: 1fr !important;
+        grid-template-columns: 1fr 1fr !important;
         gap: 10px !important;
-        margin-bottom: 20px !important;
+        margin-bottom: 16px !important;
     }
 
-    /* Виджеты — компактнее */
     .analytics-stats-grid > div {
-        padding: 16px !important;
-        gap: 14px !important;
+        padding: 14px !important;
+        gap: 12px !important;
         border-radius: 14px !important;
     }
-
-    /* Иконка в виджете */
     .analytics-stats-grid > div > div:first-child {
-        width: 46px !important;
-        height: 46px !important;
+        width: 42px !important;
+        height: 42px !important;
         border-radius: 12px !important;
-        font-size: 22px !important;
         flex-shrink: 0 !important;
     }
-
-    /* Цифра в виджете */
     .analytics-stats-grid > div > div:last-child > div:last-child {
-        font-size: 22px !important;
+        font-size: 20px !important;
     }
 
-    /* Воронка и рейтинг — меньше паддинг */
     .analytics-bento-grid > div {
         padding: 16px !important;
         border-radius: 14px !important;
     }
 
-    /* Кнопки экспорта — столбиком на очень узких */
     .analytics-export-btns {
         flex-direction: column !important;
     }
@@ -120,8 +111,28 @@
         width: 100% !important;
     }
 
-    /* Воронка: убираем ограничение высоты */
-    .analytics-bento-grid > div > div[class="custom-scrollbar"] {
-        max-height: none !important;
+    /* Распределение баллов → 1 ряд на мобиле */
+    .score-dist-grid {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
     }
+}
+
+/* ── Очень маленький (≤ 420px) ── */
+@media (max-width: 420px) {
+    .analytics-stats-grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* ── Светлая тема ── */
+[data-theme="light"] .analytics-rank-row {
+    background: var(--bg-input) !important;
+}
+[data-theme="light"] .analytics-rank-row:hover {
+    background: var(--bg-card) !important;
+    border-color: var(--border-color) !important;
+}
+[data-theme="light"] .analytics-rank-row.top1 {
+    background: linear-gradient(90deg, rgba(255,215,0,0.08) 0%, var(--bg-input) 100%) !important;
 }
