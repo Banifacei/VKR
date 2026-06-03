@@ -1750,6 +1750,10 @@ input[type="file"]::file-selector-button:hover { background: #333; color: #fff; 
   background: #000; overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.yt-player-container * {
+  -webkit-tap-highlight-color: transparent;
 }
 .yt-player-container.is-fullscreen { width: 100vw; height: 100vh; }
 .yt-player-container.is-css-fullscreen {

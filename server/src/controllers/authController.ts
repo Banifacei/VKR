@@ -569,6 +569,14 @@ export const googleCallback = async (req: Request, res: Response) => {
 
 // ==================== SAML 2.0 (ENTERPRISE) ====================
 
+// Нормализует сертификат: убирает PEM-заголовки и лишние пробелы/переносы,
+// оставляет только голый base64 — именно такой формат ждёт passport-saml v3.
+const normalizeSamlCert = (raw: string): string =>
+    raw
+        .replace(/-----BEGIN CERTIFICATE-----/g, '')
+        .replace(/-----END CERTIFICATE-----/g, '')
+        .replace(/\s+/g, '');
+
 // --- РЕДИРЕКТ НА КОРПОРАТИВНЫЙ ПОРТАЛ (IDP) ---
 export const samlLoginRedirect = async (req: Request, res: Response, next: any) => {
     try {
@@ -579,12 +587,11 @@ export const samlLoginRedirect = async (req: Request, res: Response, next: any) 
             return res.status(500).send('SAML не настроен администратором.');
         }
 
-        // Генерируем стратегию "на лету", чтобы читать свежие настройки из БД
         const strategy = new SamlStrategy({
             path: '/api/auth/saml/callback',
             entryPoint: entryPoint.value,
-            issuer: 'lumeo-web', // Имя нашего приложения для корпоративного сервера
-            cert: cert.value
+            issuer: 'lumeo-web',
+            cert: normalizeSamlCert(cert.value)
         }, (profile: any, done: any) => done(null, profile));
 
         passport.authenticate(strategy, { session: false })(req, res, next);
@@ -603,7 +610,7 @@ export const samlCallback = async (req: Request, res: Response, next: any) => {
             path: '/api/auth/saml/callback',
             entryPoint: entryPoint?.value || '',
             issuer: 'lumeo-web',
-            cert: cert?.value || ''
+            cert: normalizeSamlCert(cert?.value || '')
         }, async (profile: any, done: any) => {
             try {
                 // Корпоративные серверы могут отдавать email в разных полях
@@ -639,7 +646,7 @@ export const samlCallback = async (req: Request, res: Response, next: any) => {
         // Запускаем проверку XML-подписи
         passport.authenticate(strategy, { session: false }, (err: any, user: any) => {
             if (err || !user) {
-                console.error("Ошибка SAML валидации:", err);
+                console.error("[SAML] Ошибка валидации:", err?.message || err, "\nStack:", err?.stack);
                 return res.redirect(`${CLIENT_URL}/auth?error=saml_rejected`);
             }
             
