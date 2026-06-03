@@ -1566,6 +1566,12 @@ export const getStudentCourseDetails = async (req: Request, res: Response) => {
             order: [['createdAt', 'DESC']]
         });
 
+        // Сортируем вопросы по orderIndex чтобы порядок был стабильным
+        for (const result of testResults) {
+            const qs = (result as any).test?.questions || (result as any).test?.TestQuestions;
+            if (Array.isArray(qs)) qs.sort((a: any, b: any) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
+        }
+
         res.json({ student, videoProgress, testResults, interactiveAnswers });
     } catch (e) {
         console.error('Ошибка детализации студента:', e);
