@@ -236,7 +236,7 @@ const getDemoDrilldownData = (config: { id: number, type: string }, courseId: nu
             video: { id: v.id, title: v.title },
         }));
 
-        const testResults = items.tests.slice(0, testsDone).map((t: any, i: number) => {
+        const testResults = items.tests.slice(0, testsDone).map((t: any) => {
             const score = Math.max(0, Math.min(100, s.avgScore + demoVar(s.id, t.id)));
             const answers: Record<number, string> = {};
             t.questions.forEach((q: any, qi: number) => {
