@@ -55,21 +55,16 @@ export const AppHeader = ({
         <header className="lumeo-header">
             {/* Левая часть: логотип + бейдж/подпись */}
             <div className="logo-group" style={{ flex: 1 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    <Link to={logoTo} className="logo" style={{ textDecoration: 'none' }}>
-                        {globalTheme.platform_logo && (
-                            <img
-                                src={globalTheme.platform_logo}
-                                alt="logo"
-                                style={{ height: 28, marginRight: 8, verticalAlign: 'middle' }}
-                            />
-                        )}
-                        {globalTheme.platform_name}<span className="dot">.</span>
-                    </Link>
-                    <span style={{ fontSize: 9, color: 'var(--text-muted)', opacity: 0.45, letterSpacing: 0.2, lineHeight: 1, userSelect: 'none' }}>
-                        © 2026 · Свид. ПО № 2026615131
-                    </span>
-                </div>
+                <Link to={logoTo} className="logo" style={{ textDecoration: 'none' }}>
+                    {globalTheme.platform_logo && (
+                        <img
+                            src={globalTheme.platform_logo}
+                            alt="logo"
+                            style={{ height: 28, marginRight: 8, verticalAlign: 'middle' }}
+                        />
+                    )}
+                    {globalTheme.platform_name}<span className="dot">.</span>
+                </Link>
 
                 {badge && (
                     <span style={{

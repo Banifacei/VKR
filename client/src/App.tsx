@@ -89,6 +89,9 @@ function App() {
             <BrowserRouter>
                 <HeartbeatSender />
                 <OnboardingLauncher />
+                <div style={{ position: 'fixed', bottom: 8, right: 12, fontSize: 10, color: 'rgba(255,255,255,0.18)', pointerEvents: 'none', zIndex: 9999, userSelect: 'none', letterSpacing: 0.2 }}>
+                    © 2026 Lumeo · Свид. ПО № 2026615131
+                </div>
                 <SearchProvider>
                 <GlobalSearch />
                 <Suspense fallback={null}>
