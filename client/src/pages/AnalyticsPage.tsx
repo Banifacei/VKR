@@ -459,13 +459,15 @@ export const AnalyticsPage = () => {
     return (
         <div className="lumeo-layout">
             <AppHeader subtitle="Аналитика">
-                <button
-                    className="btn btn-ghost"
-                    style={{ fontSize: 13, color: isDemoMode ? '#b5179e' : undefined, borderColor: isDemoMode ? 'rgba(181,23,158,0.4)' : undefined, background: isDemoMode ? 'rgba(181,23,158,0.08)' : undefined }}
-                    onClick={handleToggleDemo}
-                >
-                    {isDemoMode ? '✕ Выйти из демо' : '✦ Демо-режим'}
-                </button>
+                {isDemoMode && (
+                    <button
+                        className="btn btn-ghost"
+                        style={{ fontSize: 13, color: '#b5179e', borderColor: 'rgba(181,23,158,0.4)', background: 'rgba(181,23,158,0.08)' }}
+                        onClick={handleToggleDemo}
+                    >
+                        ✕ Выйти из демо
+                    </button>
+                )}
                 <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={() => navigate('/')}>Мои курсы</button>
             </AppHeader>
 
