@@ -591,7 +591,8 @@ export const samlLoginRedirect = async (req: Request, res: Response, next: any) 
             path: '/api/auth/saml/callback',
             entryPoint: entryPoint.value,
             issuer: 'lumeo-web',
-            cert: normalizeSamlCert(cert.value)
+            cert: normalizeSamlCert(cert.value),
+            acceptedClockSkewMs: 300000,
         }, (profile: any, done: any) => done(null, profile));
 
         passport.authenticate(strategy, { session: false })(req, res, next);
@@ -610,7 +611,8 @@ export const samlCallback = async (req: Request, res: Response, next: any) => {
             path: '/api/auth/saml/callback',
             entryPoint: entryPoint?.value || '',
             issuer: 'lumeo-web',
-            cert: normalizeSamlCert(cert?.value || '')
+            cert: normalizeSamlCert(cert?.value || ''),
+            acceptedClockSkewMs: 300000,
         }, async (profile: any, done: any) => {
             try {
                 // Корпоративные серверы могут отдавать email в разных полях
