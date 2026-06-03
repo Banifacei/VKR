@@ -54,6 +54,7 @@ const UserPage      = lazy(() => import('./pages/UserPage').then(m => ({ default
 const AdminPage     = lazy(() => import('./pages/AdminPage').then(m => ({ default: m.AdminPage })));
 const ProfilePage   = lazy(() => import('./pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
 const HistoryPage   = lazy(() => import('./pages/HistoryPage').then(m => ({ default: m.HistoryPage })));
+import { NotFoundPage } from './pages/NotFoundPage';
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage').then(m => ({ default: m.AnalyticsPage })));
 // Обновленный ProtectedRoute с поддержкой проверки ролей
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) => {
@@ -120,7 +121,7 @@ function App() {
                         </ProtectedRoute>
                     } />
 
-                    <Route path="*" element={<Navigate to="/" replace />} />
+                    <Route path="*" element={<NotFoundPage />} />
                 </Routes>
                 </Suspense>
                 </SearchProvider>

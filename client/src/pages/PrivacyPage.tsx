@@ -13,7 +13,7 @@ export const PrivacyPage = () => {
                     Политика конфиденциальности
                 </h1>
                 <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 40 }}>
-                    Последнее обновление: апрель 2025 г. &nbsp;|&nbsp; Платформа {platformName}
+                    Последнее обновление: февраль 2026 г. &nbsp;|&nbsp; Платформа {platformName}
                 </p>
 
                 <Section title="1. Общие положения">
@@ -118,8 +118,36 @@ export const PrivacyPage = () => {
                     </p>
                 </Section>
 
-                <div style={{ marginTop: 48, padding: '20px 0', borderTop: '1px solid var(--border-color)', fontSize: 12, color: 'var(--text-muted)', textAlign: 'center' }}>
-                    © {new Date().getFullYear()} {platformName} — Образовательная платформа
+                {/* Свидетельство о государственной регистрации */}
+                <div style={{ marginTop: 48, padding: '24px 28px', borderRadius: '16px', background: 'rgba(124,58,237,0.06)', border: '1px solid rgba(124,58,237,0.2)' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
+                        <div style={{ fontSize: '28px', flexShrink: 0 }}>📜</div>
+                        <div>
+                            <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)', marginBottom: '10px' }}>
+                                Свидетельство о государственной регистрации программы для ЭВМ
+                            </div>
+                            <div style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: 1.8, display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '0 12px' }}>
+                                <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>Номер:</span>
+                                <span>№ 2026615131</span>
+                                <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>Наименование:</span>
+                                <span>Отечественная веб-платформа интерактивного видеообучения «Lumeo»</span>
+                                <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>Правообладатель:</span>
+                                <span>Воротников Владимир Вячеславович (RU)</span>
+                                <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>Автор:</span>
+                                <span>Воротников Владимир Вячеславович (RU)</span>
+                                <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>Заявка:</span>
+                                <span>№ 2026614099 от 15 февраля 2026 г.</span>
+                                <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>Дата регистрации:</span>
+                                <span>24 февраля 2026 г.</span>
+                                <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>Реестр:</span>
+                                <span>Реестр программ для ЭВМ, Роспатент</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style={{ marginTop: 24, padding: '20px 0', borderTop: '1px solid var(--border-color)', fontSize: 12, color: 'var(--text-muted)', textAlign: 'center' }}>
+                    © 2026 {platformName} — Все права защищены. Свидетельство о гос. регистрации программы для ЭВМ № 2026615131.
                 </div>
             </div>
         </div>

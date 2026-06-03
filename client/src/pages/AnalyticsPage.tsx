@@ -550,8 +550,22 @@ export const AnalyticsPage = () => {
                                 );
                             })}
                             {!isDemoMode && courses.length === 0 && (
-                                <div style={{ gridColumn: '1/-1', color: 'var(--text-muted)', padding: '60px', textAlign: 'center', border: '1px dashed var(--border-color)', borderRadius: '20px' }}>
-                                    <Icons.BarChart2 size={40} /><br/><br/>У вас пока нет курсов для анализа
+                                <div style={{ gridColumn: '1/-1', padding: '60px 40px', textAlign: 'center', border: '1px dashed var(--border-color)', borderRadius: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+                                    <div style={{ width: '64px', height: '64px', borderRadius: '18px', background: 'rgba(181,23,158,0.1)', border: '1px solid rgba(181,23,158,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Icons.BarChart2 size={28} color="#b5179e" />
+                                    </div>
+                                    <div>
+                                        <div style={{ fontWeight: 700, fontSize: '18px', marginBottom: '8px' }}>Нет доступных курсов</div>
+                                        <div style={{ color: 'var(--text-muted)', fontSize: '14px', maxWidth: '360px', lineHeight: 1.6 }}>
+                                            У вас пока нет курсов для анализа. Включите демо-режим, чтобы посмотреть как работает аналитика.
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={handleToggleDemo}
+                                        style={{ marginTop: '4px', padding: '12px 32px', borderRadius: '14px', fontWeight: '700', fontSize: '14px', cursor: 'pointer', background: 'linear-gradient(135deg, #7c3aed, #b5179e)', border: 'none', color: '#fff', boxShadow: '0 4px 20px rgba(124,58,237,0.35)' }}
+                                    >
+                                        ✦ Включить демо-режим
+                                    </button>
                                 </div>
                             )}
                         </div>
