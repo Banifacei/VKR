@@ -354,7 +354,7 @@ export const AnalyticsPage = () => {
     const [drillDownConfig, setDrillDownConfig] = useState<{ id: number | null, type: 'student' | 'test' | 'video' | null } | null>(null);
     const [exportModalConfig, setExportModalConfig] = useState<{isOpen: boolean, type: 'gost' | 'detailed' | null}>({ isOpen: false, type: null });
     const [studentSearch, setStudentSearch] = useState('');
-    const [isDemoMode, setIsDemoMode] = useState(false);
+    const [isDemoMode, setIsDemoMode] = useState(() => localStorage.getItem('lumeo_analytics_demo') === 'true');
     const [sortField, setSortField] = useState<'progress' | 'score' | 'activity'>('progress');
     const [showRisk, setShowRisk] = useState(false);
 
@@ -375,6 +375,7 @@ export const AnalyticsPage = () => {
     const handleToggleDemo = () => {
         const entering = !isDemoMode;
         setIsDemoMode(entering);
+        localStorage.setItem('lumeo_analytics_demo', String(entering));
         setSelectedCourse(null);
         setAnalytics(null);
         setStudentSearch('');
