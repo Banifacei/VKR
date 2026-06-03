@@ -96,6 +96,235 @@ const DEMO_ANALYTICS: Record<number, any> = {
     },
 };
 
+// ── Демо: метаданные контента курсов (для drill-down в демо-режиме) ──────────
+const DEMO_COURSE_ITEMS: Record<number, { videos: any[], tests: any[], videoQuestions: Record<number, any[]> }> = {
+    [-1]: {
+        videos: [
+            { id: 1, title: 'Введение в Linux. Файловая система' },
+            { id: 2, title: 'Управление пользователями и правами' },
+            { id: 3, title: 'Сервисы systemd и автозапуск' },
+            { id: 4, title: 'Настройка сети: IP, маршруты, DNS' },
+            { id: 5, title: 'SSH, ключи, безопасность сервера' },
+        ],
+        tests: [
+            { id: 1, title: 'Тест: базовые команды', passingScore: 70, questions: [
+                { id: 11, text: 'Команда для просмотра содержимого директории?', correctAnswer: 'ls', orderIndex: 0 },
+                { id: 12, text: 'Команда для смены прав доступа к файлу?', correctAnswer: 'chmod', orderIndex: 1 },
+                { id: 13, text: 'Команда для отображения текущей директории?', correctAnswer: 'pwd', orderIndex: 2 },
+                { id: 14, text: 'Команда для копирования файла?', correctAnswer: 'cp', orderIndex: 3 },
+                { id: 15, text: 'Команда для удаления директории с содержимым?', correctAnswer: 'rm -rf', orderIndex: 4 },
+            ]},
+            { id: 2, title: 'Тест: сеть и сервисы', passingScore: 70, questions: [
+                { id: 21, text: 'Команда для проверки сетевого соединения?', correctAnswer: 'ping', orderIndex: 0 },
+                { id: 22, text: 'Какой порт использует SSH по умолчанию?', correctAnswer: '22', orderIndex: 1 },
+                { id: 23, text: 'Утилита управления сервисами в systemd?', correctAnswer: 'systemctl', orderIndex: 2 },
+                { id: 24, text: 'Команда для просмотра активных сетевых соединений?', correctAnswer: 'netstat', orderIndex: 3 },
+            ]},
+            { id: 3, title: 'Итоговый тест', passingScore: 75, questions: [
+                { id: 31, text: 'Как называется файл конфигурации SSH-сервера?', correctAnswer: 'sshd_config', orderIndex: 0 },
+                { id: 32, text: 'Команда для добавления пользователя в группу?', correctAnswer: 'usermod -aG', orderIndex: 1 },
+                { id: 33, text: 'Что означает chmod 755?', correctAnswer: 'rwxr-xr-x', orderIndex: 2 },
+                { id: 34, text: 'Команда для проверки использования диска?', correctAnswer: 'df -h', orderIndex: 3 },
+                { id: 35, text: 'Как посмотреть хвост лога в реальном времени?', correctAnswer: 'tail -f', orderIndex: 4 },
+            ]},
+        ],
+        videoQuestions: {
+            1: [
+                { id: 101, question: 'Что такое inode в файловой системе Linux?', type: 'free_text', correctAnswer: 'индексный дескриптор', aiThreshold: 60 },
+                { id: 102, question: 'Какая команда показывает дерево директорий?', type: 'single', correctAnswer: 'tree', aiThreshold: 0 },
+            ],
+            3: [
+                { id: 103, question: 'Как называется целевой уровень по умолчанию в systemd?', type: 'free_text', correctAnswer: 'default.target', aiThreshold: 70 },
+            ],
+            5: [
+                { id: 104, question: 'Как сгенерировать пару SSH-ключей?', type: 'free_text', correctAnswer: 'ssh-keygen', aiThreshold: 60 },
+                { id: 105, question: 'Где хранятся авторизованные ключи SSH?', type: 'single', correctAnswer: '~/.ssh/authorized_keys', aiThreshold: 0 },
+            ],
+        },
+    },
+    [-2]: {
+        videos: [
+            { id: 1, title: 'Модель OSI и TCP/IP' },
+            { id: 2, title: 'IP-адресация и подсети' },
+            { id: 3, title: 'Маршрутизация: OSPF, RIP' },
+        ],
+        tests: [
+            { id: 1, title: 'Тест: адресация', passingScore: 70, questions: [
+                { id: 11, text: 'Сколько уровней в модели OSI?', correctAnswer: '7', orderIndex: 0 },
+                { id: 12, text: 'Маска подсети для /24?', correctAnswer: '255.255.255.0', orderIndex: 1 },
+                { id: 13, text: 'Протокол динамической адресации?', correctAnswer: 'DHCP', orderIndex: 2 },
+                { id: 14, text: 'Что расшифровывается TCP?', correctAnswer: 'Transmission Control Protocol', orderIndex: 3 },
+            ]},
+            { id: 2, title: 'Итоговый тест', passingScore: 75, questions: [
+                { id: 21, text: 'На каком уровне OSI работает маршрутизатор?', correctAnswer: '3 (сетевой)', orderIndex: 0 },
+                { id: 22, text: 'Протокол разрешения IP в MAC-адрес?', correctAnswer: 'ARP', orderIndex: 1 },
+                { id: 23, text: 'Алгоритм маршрутизации OSPF основан на?', correctAnswer: 'алгоритм Дейкстры', orderIndex: 2 },
+                { id: 24, text: 'Максимальное количество хостов в /25?', correctAnswer: '126', orderIndex: 3 },
+            ]},
+        ],
+        videoQuestions: {
+            1: [
+                { id: 201, question: 'На каком уровне OSI работает коммутатор?', type: 'single', correctAnswer: '2 (канальный)', aiThreshold: 0 },
+            ],
+            2: [
+                { id: 202, question: 'Как вычислить адрес сети по IP и маске?', type: 'free_text', correctAnswer: 'операция AND', aiThreshold: 60 },
+            ],
+        },
+    },
+    [-3]: {
+        videos: [
+            { id: 1, title: 'Введение в React: компоненты и JSX' },
+            { id: 2, title: 'Состояние и хуки (useState, useEffect)' },
+            { id: 3, title: 'REST API на Node.js + Express' },
+            { id: 4, title: 'PostgreSQL и Sequelize ORM' },
+            { id: 5, title: 'Аутентификация: JWT + bcrypt' },
+        ],
+        tests: [
+            { id: 1, title: 'Тест: основы React', passingScore: 70, questions: [
+                { id: 11, text: 'Хук для управления состоянием?', correctAnswer: 'useState', orderIndex: 0 },
+                { id: 12, text: 'Что такое JSX?', correctAnswer: 'синтаксическое расширение JavaScript', orderIndex: 1 },
+                { id: 13, text: 'Хук для выполнения побочных эффектов?', correctAnswer: 'useEffect', orderIndex: 2 },
+                { id: 14, text: 'Что передаётся компоненту через props?', correctAnswer: 'данные от родителя', orderIndex: 3 },
+            ]},
+            { id: 2, title: 'Тест: бэкенд и БД', passingScore: 70, questions: [
+                { id: 21, text: 'Какой HTTP-метод используется для создания ресурса?', correctAnswer: 'POST', orderIndex: 0 },
+                { id: 22, text: 'Что такое ORM?', correctAnswer: 'Object-Relational Mapping', orderIndex: 1 },
+                { id: 23, text: 'Для чего используется bcrypt?', correctAnswer: 'хэширование паролей', orderIndex: 2 },
+                { id: 24, text: 'Что такое REST API?', correctAnswer: 'архитектурный стиль для веб-сервисов', orderIndex: 3 },
+            ]},
+            { id: 3, title: 'Финальный проект', passingScore: 80, questions: [
+                { id: 31, text: 'Что такое JWT?', correctAnswer: 'JSON Web Token', orderIndex: 0 },
+                { id: 32, text: 'Из каких частей состоит JWT?', correctAnswer: 'header.payload.signature', orderIndex: 1 },
+                { id: 33, text: 'Метод Sequelize для поиска одной записи?', correctAnswer: 'findOne', orderIndex: 2 },
+                { id: 34, text: 'Статус-код успешного создания ресурса?', correctAnswer: '201', orderIndex: 3 },
+                { id: 35, text: 'Middleware для CORS в Express?', correctAnswer: 'cors', orderIndex: 4 },
+            ]},
+        ],
+        videoQuestions: {
+            1: [
+                { id: 301, question: 'Что такое виртуальный DOM в React?', type: 'free_text', correctAnswer: 'in-memory представление реального DOM', aiThreshold: 60 },
+                { id: 302, question: 'Хук для выполнения побочных эффектов?', type: 'single', correctAnswer: 'useEffect', aiThreshold: 0 },
+            ],
+            3: [
+                { id: 303, question: 'Что делает middleware в Express?', type: 'free_text', correctAnswer: 'промежуточная обработка запросов', aiThreshold: 65 },
+            ],
+            5: [
+                { id: 304, question: 'Зачем разделять access и refresh токены?', type: 'free_text', correctAnswer: 'безопасность и управление сессиями', aiThreshold: 60 },
+            ],
+        },
+    },
+};
+
+// Детерминированная "случайность" для стабильных демо-данных
+const demoVar = (a: number, b: number) => ((a * 37 + b * 13) % 21) - 10;
+
+const getDemoDrilldownData = (config: { id: number, type: string }, courseId: number): any => {
+    const demoA = DEMO_ANALYTICS[courseId];
+    const items = DEMO_COURSE_ITEMS[courseId];
+    if (!demoA || !items) return null;
+
+    // ── СТУДЕНТ ──────────────────────────────────────────────────────
+    if (config.type === 'student') {
+        const s = demoA.studentsProgress.find((x: any) => x.id === config.id);
+        if (!s) return null;
+        const [lastName, firstName] = s.name.split(' ');
+        const watchedCount = Math.min(Math.round((s.progressPercent / 100) * items.videos.length), items.videos.length);
+        const testsDone   = Math.min(Math.round((Math.max(0, s.progressPercent - 20) / 80) * items.tests.length), items.tests.length);
+
+        const videoProgress = items.videos.slice(0, watchedCount).map((v: any) => ({
+            id: v.id * 1000 + s.id, videoId: v.id, isWatched: true,
+            video: { id: v.id, title: v.title },
+        }));
+
+        const testResults = items.tests.slice(0, testsDone).map((t: any, i: number) => {
+            const score = Math.max(0, Math.min(100, s.avgScore + demoVar(s.id, t.id)));
+            const answers: Record<number, string> = {};
+            t.questions.forEach((q: any, qi: number) => {
+                answers[q.id] = qi < Math.ceil(t.questions.length * score / 100) ? q.correctAnswer : 'нет ответа';
+            });
+            return { id: t.id * 10000 + s.id, testId: t.id, score: Math.round(score), answers,
+                test: { id: t.id, title: t.title, passingScore: t.passingScore, questions: t.questions } };
+        });
+
+        const interactiveAnswers: any[] = [];
+        videoProgress.forEach((vp: any) => {
+            (items.videoQuestions[vp.videoId] || []).forEach((q: any) => {
+                const correct = s.avgScore >= 70;
+                interactiveAnswers.push({
+                    id: q.id * 1000 + s.id, videoId: vp.videoId,
+                    answer: correct ? q.correctAnswer : 'не уверен',
+                    isCorrect: correct,
+                    similarity: q.type === 'free_text' ? (correct ? 78 : 35) : null,
+                    event: { question: q.question, type: q.type, correctAnswer: q.correctAnswer, aiThreshold: q.aiThreshold },
+                    video: { title: items.videos.find((v: any) => v.id === vp.videoId)?.title || '' },
+                });
+            });
+        });
+
+        return { student: { id: s.id, firstName, lastName, email: s.email, avatarUrl: null, lastLogin: s.lastLogin },
+            videoProgress, testResults, interactiveAnswers };
+    }
+
+    // ── ТЕСТ ─────────────────────────────────────────────────────────
+    if (config.type === 'test') {
+        const test = items.tests.find((t: any) => t.id === config.id);
+        if (!test) return null;
+        const funnel = demoA.funnel.find((f: any) => f.type === 'test' && f.realId === config.id);
+        const passRate = funnel ? funnel.completionRate : 60;
+        const respondents = demoA.studentsProgress.slice(0, Math.ceil(demoA.studentsProgress.length * passRate / 100));
+
+        const results = respondents.map((s: any) => {
+            const score = Math.max(0, Math.min(100, s.avgScore + demoVar(s.id, test.id)));
+            const answers: Record<number, string> = {};
+            test.questions.forEach((q: any, qi: number) => {
+                answers[q.id] = qi < Math.ceil(test.questions.length * score / 100) ? q.correctAnswer : 'нет ответа';
+            });
+            const [lastName, firstName] = s.name.split(' ');
+            return { id: test.id * 10000 + s.id, testId: test.id, userId: s.id, score: Math.round(score), answers,
+                user: { id: s.id, firstName, lastName, email: s.email } };
+        });
+
+        const questionAnalytics = test.questions.map((q: any) => ({
+            id: q.id, question: q.text,
+            correctRate: Math.max(20, Math.min(95, passRate + ((q.id * 7) % 30) - 12)),
+        })).sort((a: any, b: any) => a.correctRate - b.correctRate);
+
+        return { item: test, type: 'test', results, questionAnalytics, totalStudents: demoA.totalStudents };
+    }
+
+    // ── ВИДЕО ─────────────────────────────────────────────────────────
+    if (config.type === 'video') {
+        const video = items.videos.find((v: any) => v.id === config.id);
+        if (!video) return null;
+        const questions = items.videoQuestions[config.id] || [];
+        if (questions.length === 0) return { item: video, type: 'video', responses: [], totalStudents: demoA.totalStudents };
+
+        const funnel = demoA.funnel.find((f: any) => f.type === 'video' && f.realId === config.id);
+        const rate = funnel ? funnel.completionRate : 50;
+        const respondents = demoA.studentsProgress.slice(0, Math.ceil(demoA.studentsProgress.length * rate / 100));
+
+        const responses: any[] = [];
+        respondents.forEach((s: any) => {
+            const [lastName, firstName] = s.name.split(' ');
+            questions.forEach((q: any) => {
+                const correct = s.avgScore + demoVar(s.id, q.id) >= 65;
+                responses.push({
+                    id: q.id * 1000 + s.id, videoId: video.id, userId: s.id,
+                    answer: correct ? q.correctAnswer : 'затрудняюсь ответить',
+                    isCorrect: correct,
+                    similarity: q.type === 'free_text' ? (correct ? 76 : 32) : null,
+                    event: { question: q.question, type: q.type, correctAnswer: q.correctAnswer, aiThreshold: q.aiThreshold },
+                    user: { id: s.id, firstName, lastName, email: s.email },
+                });
+            });
+        });
+
+        return { item: video, type: 'video', responses, totalStudents: demoA.totalStudents };
+    }
+
+    return null;
+};
+
 const COURSE_ACCENTS = [
     { from: '#7c3aed', to: '#4f46e5' },
     { from: '#b5179e', to: '#7209b7' },
@@ -623,6 +852,8 @@ export const AnalyticsPage = () => {
                 config={drillDownConfig}
                 courseId={selectedCourse?.id}
                 onClose={() => setDrillDownConfig(null)}
+                isDemoMode={isDemoMode}
+                demoResolver={(cfg) => getDemoDrilldownData(cfg, selectedCourse?.id)}
             />
             <ExportModal
                 isOpen={exportModalConfig.isOpen}

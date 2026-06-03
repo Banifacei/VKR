@@ -9,9 +9,11 @@ interface AnalyticsDrillDownModalProps {
     config: { id: number | null, type: 'student' | 'test' | 'video' | null } | null;
     courseId: number | undefined;
     onClose: () => void;
+    isDemoMode?: boolean;
+    demoResolver?: (config: { id: number, type: string }) => any;
 }
 
-export const AnalyticsDrillDownModal = ({ config, courseId, onClose }: AnalyticsDrillDownModalProps) => {
+export const AnalyticsDrillDownModal = ({ config, courseId, onClose, isDemoMode, demoResolver }: AnalyticsDrillDownModalProps) => {
     const { showToast } = useToast();
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(false);
@@ -29,13 +31,19 @@ export const AnalyticsDrillDownModal = ({ config, courseId, onClose }: Analytics
             setLoading(true);
             setData(null);
             try {
-                let url = '';
-                if (config.type === 'student') url = `/videos/courses/${courseId}/analytics/student/${config.id}`;
-                else url = `/videos/courses/${courseId}/analytics/item/${config.type}/${config.id}`;
-                
-                const res = await api.get(url);
-                setData(res.data);
-                setTimeout(() => setModalVisible(true), 50); // Плавное открытие
+                let resolved: any;
+                if (isDemoMode && demoResolver) {
+                    await new Promise(r => setTimeout(r, 350));
+                    resolved = demoResolver({ id: config.id!, type: config.type! });
+                } else {
+                    let url = '';
+                    if (config.type === 'student') url = `/videos/courses/${courseId}/analytics/student/${config.id}`;
+                    else url = `/videos/courses/${courseId}/analytics/item/${config.type}/${config.id}`;
+                    const res = await api.get(url);
+                    resolved = res.data;
+                }
+                setData(resolved);
+                setTimeout(() => setModalVisible(true), 50);
             } catch (e) {
                 showToast('Ошибка загрузки данных', 'error');
                 onClose();
