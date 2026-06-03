@@ -648,7 +648,9 @@ export const samlCallback = async (req: Request, res: Response, next: any) => {
         // Запускаем проверку XML-подписи
         passport.authenticate(strategy, { session: false }, (err: any, user: any) => {
             if (err || !user) {
-                console.error("[SAML] Ошибка валидации:", err?.message || err, "\nStack:", err?.stack);
+                const errMsg = err?.message || String(err) || 'user is null';
+                console.error("[SAML] Ошибка валидации:", errMsg, "\nStack:", err?.stack);
+                addSystemLog(`[SAML] Ошибка входа: ${errMsg}`, 'error');
                 return res.redirect(`${CLIENT_URL}/auth?error=saml_rejected`);
             }
             
