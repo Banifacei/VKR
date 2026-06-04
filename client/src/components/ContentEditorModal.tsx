@@ -132,6 +132,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
         shuffleQuestions: (item as any).shuffleQuestions || false,
         shuffleAnswers: (item as any).shuffleAnswers || false,
         noForwardSeek: (item as any).noForwardSeek || false,
+        timeLimit: (item as any).timeLimit ?? null,
     });
     const [isSavingSettings, setIsSavingSettings] = useState(false);
 
@@ -186,7 +187,8 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
         settingsData.unlockDate !== (item.unlockDate || null) ||
         settingsData.shuffleQuestions !== ((item as any).shuffleQuestions || false) ||
         settingsData.shuffleAnswers !== ((item as any).shuffleAnswers || false) ||
-        settingsData.noForwardSeek !== ((item as any).noForwardSeek || false);
+        settingsData.noForwardSeek !== ((item as any).noForwardSeek || false) ||
+        settingsData.timeLimit !== ((item as any).timeLimit ?? null);
 
     const handleSaveSettings = async () => {
         const ps = Number(settingsData.passingScore);
@@ -1115,13 +1117,31 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', animation: 'fadeIn 0.2s ease' }}>
                                     <div style={{ background: 'var(--bg-card)', padding: '20px', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
                                         <h4 style={{ margin: '0 0 15px 0', color: 'var(--text-main)', fontSize: '16px' }}>Правила прохождения</h4>
-                                        <label style={{ fontSize: '13px', color: Number(settingsData.maxAttempts) < 0 ? '#ff4d4d' : 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>Попыток сдачи (0 = безлимит):</label>
-                                        <input
-                                            type="number" className="deck-input" min="0"
-                                            value={settingsData.maxAttempts}
-                                            onChange={e => setSettingsData({...settingsData, maxAttempts: e.target.value === '' ? '' : Number(e.target.value)})}
-                                            style={{ background: 'var(--bg-input)', width: '100%', fontSize: '16px', padding: '12px', borderColor: Number(settingsData.maxAttempts) < 0 ? '#ff4d4d' : undefined, outline: Number(settingsData.maxAttempts) < 0 ? '1px solid #ff4d4d' : undefined }}
-                                        />
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '4px' }}>
+                                            <div>
+                                                <label style={{ fontSize: '13px', color: Number(settingsData.maxAttempts) < 0 ? '#ff4d4d' : 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>Попыток (0 = ∞):</label>
+                                                <input
+                                                    type="number" className="deck-input" min="0"
+                                                    value={settingsData.maxAttempts}
+                                                    onChange={e => setSettingsData({...settingsData, maxAttempts: e.target.value === '' ? '' : Number(e.target.value)})}
+                                                    style={{ background: 'var(--bg-input)', width: '100%', fontSize: '15px', padding: '10px 12px', borderColor: Number(settingsData.maxAttempts) < 0 ? '#ff4d4d' : undefined }}
+                                                />
+                                            </div>
+                                            {!isVideo && (
+                                                <div>
+                                                    <label style={{ fontSize: '13px', color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>
+                                                        Лимит времени (мин, 0 = без лимита):
+                                                    </label>
+                                                    <input
+                                                        type="number" className="deck-input" min="0"
+                                                        value={settingsData.timeLimit ?? ''}
+                                                        placeholder="Без лимита"
+                                                        onChange={e => setSettingsData({...settingsData, timeLimit: e.target.value === '' || Number(e.target.value) === 0 ? null : Number(e.target.value)})}
+                                                        style={{ background: 'var(--bg-input)', width: '100%', fontSize: '15px', padding: '10px 12px' }}
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
                                         {Number(settingsData.maxAttempts) < 0 && (
                                             <span style={{ fontSize: '12px', color: '#ff4d4d', marginTop: '5px', display: 'block' }}>⚠ Не может быть отрицательным</span>
                                         )}

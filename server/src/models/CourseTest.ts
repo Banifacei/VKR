@@ -47,4 +47,8 @@ export class CourseTest extends Model {
 
   @Column({ type: DataType.BOOLEAN, defaultValue: false })
   declare shuffleAnswers: boolean; // Перемешивать варианты ответов для каждого студента
+
+  // null = без ограничения времени, иначе кол-во минут
+  @Column({ type: DataType.INTEGER, allowNull: true })
+  declare timeLimit: number | null;
 }

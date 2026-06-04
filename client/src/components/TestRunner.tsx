@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { submitTestResult, type ICourseTest } from '../api/testApi';
 import api from '../api/axiosInstance';
 import { Icons } from './Icons';
@@ -21,7 +21,36 @@ export const TestRunner = ({ test, onExit, onSuccess, userRole }: TestRunnerProp
     const [detailedResults, setDetailedResults] = useState<Record<number, any>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isResetting, setIsResetting] = useState(false);
-    
+
+    // Таймер
+    const timeLimitSec = (test as any).timeLimit ? (test as any).timeLimit * 60 : null;
+    const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
+    const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+    useEffect(() => {
+        if (step !== 'quiz' || !timeLimitSec) return;
+        setSecondsLeft(timeLimitSec);
+        timerRef.current = setInterval(() => {
+            setSecondsLeft(s => {
+                if (s === null) return null;
+                if (s <= 1) {
+                    clearInterval(timerRef.current!);
+                    finishTest();
+                    return 0;
+                }
+                return s - 1;
+            });
+        }, 1000);
+        return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [step]);
+
+    const formatTime = (s: number) => {
+        const m = Math.floor(s / 60);
+        const sec = s % 60;
+        return `${m}:${String(sec).padStart(2, '0')}`;
+    };
+
     const rawQuestions = test.questions || [];
 
     // Перемешиваем вопросы и/или варианты ответов один раз при монтировании
@@ -150,6 +179,14 @@ export const TestRunner = ({ test, onExit, onSuccess, userRole }: TestRunnerProp
                                 {attemptsUsed} / {test.maxAttempts === 0 ? '∞' : test.maxAttempts}
                             </strong>
                         </div>
+                        {(test as any).timeLimit && (
+                            <div className="meta-item">
+                                <span>Время: </span>
+                                <strong style={{ color: '#f59e0b' }}>
+                                    {(test as any).timeLimit} мин
+                                </strong>
+                            </div>
+                        )}
                     </div>
 
                     <div className="runner-actions">
@@ -267,12 +304,35 @@ export const TestRunner = ({ test, onExit, onSuccess, userRole }: TestRunnerProp
             <div className="runner-card">
                 <div className="runner-header">
                     <span>Вопрос {currentQIndex + 1} из {questions.length}</span>
+                    {secondsLeft !== null && (
+                        <span style={{
+                            fontWeight: 700,
+                            fontSize: '15px',
+                            color: secondsLeft <= 60 ? '#ef4444' : secondsLeft <= 180 ? '#f59e0b' : 'var(--primary)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            animation: secondsLeft <= 10 ? 'pulse 0.8s infinite' : undefined,
+                        }}>
+                            ⏱ {formatTime(secondsLeft)}
+                        </span>
+                    )}
                     <button className="close-btn" onClick={onExit}>✕</button>
                 </div>
-                
+
                 <div className="progress-bar-mini">
                     <div className="progress-fill" style={{width: `${((currentQIndex + 1) / questions.length) * 100}%`}}></div>
                 </div>
+                {secondsLeft !== null && (
+                    <div style={{ height: '3px', background: 'var(--bg-input)', marginBottom: '4px', borderRadius: '2px', overflow: 'hidden' }}>
+                        <div style={{
+                            height: '100%',
+                            width: `${(secondsLeft / timeLimitSec!) * 100}%`,
+                            background: secondsLeft <= 60 ? '#ef4444' : secondsLeft <= 180 ? '#f59e0b' : 'var(--primary)',
+                            transition: 'width 1s linear, background 0.5s',
+                        }} />
+                    </div>
+                )}
 
                 <h3 className="question-text">{currentQ.text}</h3>
 
