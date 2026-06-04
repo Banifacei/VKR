@@ -29,10 +29,13 @@ import '../components/GlobalSearch.css';
 import '../components/VideoComments.css';
 import { sseQuery } from '../utils/sseTicket';
 import { pluralizeRu } from '../utils/pluralize';
+import { HomeworkSubmitCard } from '../components/Homework/HomeworkSubmitCard';
+import { HomeworkEditorModal } from '../components/Homework/HomeworkEditorModal';
 
-type DashboardItem = 
-    | ({ type: 'video' } & IVideo) 
-    | ({ type: 'test' } & ICourseTest);
+type DashboardItem =
+    | ({ type: 'video' } & IVideo)
+    | ({ type: 'test' } & ICourseTest)
+    | ({ type: 'homework' } & any);
 
 
 export const UserPage = () => {
@@ -218,12 +221,16 @@ export const UserPage = () => {
 
             setCanEdit(hasRights);
             // Дальше грузим видео и тесты
-            const videos = await getVideosByCourse(Number(courseId));
-            const tests = await getCourseTests(Number(courseId));
+            const [videos, tests, hwRes] = await Promise.all([
+                getVideosByCourse(Number(courseId)),
+                getCourseTests(Number(courseId)),
+                api.get(`/hw/course/${courseId}`).catch(() => ({ data: [] })),
+            ]);
 
             const combinedItems: DashboardItem[] = [
                 ...videos.map(v => ({ ...v, type: 'video' as const })),
-                ...tests.map(t => ({ ...t, type: 'test' as const }))
+                ...tests.map(t => ({ ...t, type: 'test' as const })),
+                ...hwRes.data.map((h: any) => ({ ...h, type: 'homework' as const })),
             ].sort((a: any, b: any) => (a.orderIndex || 0) - (b.orderIndex || 0));
             setItems(combinedItems); 
 
@@ -363,14 +370,20 @@ export const UserPage = () => {
                     <div style={{ color: 'var(--text-muted)' }}>
                         {activeItem.type === 'video'
                             ? <><Icons.Monitor size={16}/> Просмотр видео</>
-                            : <><Icons.FileText size={16}/> Прохождение теста</>
+                            : activeItem.type === 'homework'
+                                ? <><Icons.Upload size={16}/> Домашнее задание</>
+                                : <><Icons.FileText size={16}/> Прохождение теста</>
                         }
                     </div>
                     <div style={{ width: '100px' }}></div> 
                 </div>
 
                 <div style={{ maxWidth: '1200px', margin: '0 auto', paddingBottom: '50px' }}>
-                    {activeItem.type === 'video' ? (
+                    {activeItem.type === 'homework' ? (
+                        <div style={{ padding: '20px' }}>
+                            <HomeworkSubmitCard assignment={activeItem} />
+                        </div>
+                    ) : activeItem.type === 'video' ? (
                         <div style={{ padding: '20px' }}>
                             <div className="player-wrapper-animation">
                                 <VideoPlayer 
@@ -463,14 +476,27 @@ export const UserPage = () => {
                                     currentUserRole={userData?.role}
                                 />
                             )}
+
+                            {/* Домашнее задание к видео */}
+                            {userData?.role === 'student' && (
+                                <HomeworkSubmitCard entityType="video" entityId={activeItem.id} />
+                            )}
                         </div>
                     ) : (
-                        <TestRunner
-                            test={activeItem}
-                            onExit={() => setActiveItem(null)}
-                            onSuccess={() => fetchCourseData()}
-                            userRole={userData?.role}
-                        />
+                        <>
+                            <TestRunner
+                                test={activeItem}
+                                onExit={() => setActiveItem(null)}
+                                onSuccess={() => fetchCourseData()}
+                                userRole={userData?.role}
+                            />
+                            {/* Домашнее задание к тесту */}
+                            {userData?.role === 'student' && (
+                                <div style={{ padding: '0 20px 40px' }}>
+                                    <HomeworkSubmitCard entityType="test" entityId={activeItem.id} />
+                                </div>
+                            )}
+                        </>
                     )}
                 </div>
             </div>
@@ -656,14 +682,22 @@ export const UserPage = () => {
                 nextOrderIndex={items.length > 0 ? Math.max(...items.map((i: any) => i.orderIndex || 0)) + 1 : 0}
                 onSuccess={fetchCourseData} 
             />
-            {editorItem && (
-                <ContentEditorModal 
+            {editorItem && editorItem.type !== 'homework' && (
+                <ContentEditorModal
                     item={editorItem}
                     userData={userData}
-                    onClose={() => setEditorItem(null)} 
-                    onSuccess={() => {
-                        fetchCourseData(); // Мгновенно обновляем сетку при добавлении вопроса!
-                    }} 
+                    onClose={() => setEditorItem(null)}
+                    onSuccess={() => { fetchCourseData(); }}
+                />
+            )}
+            {editorItem && editorItem.type === 'homework' && (
+                <HomeworkEditorModal
+                    assignment={editorItem}
+                    onClose={() => setEditorItem(null)}
+                    onUpdated={(updated) => {
+                        setItems(prev => prev.map(i => i.type === 'homework' && i.id === updated.id ? { ...i, ...updated } : i));
+                        setEditorItem(null);
+                    }}
                 />
             )}
             {course && (

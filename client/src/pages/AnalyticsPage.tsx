@@ -355,10 +355,21 @@ export const AnalyticsPage = () => {
     const [exportModalConfig, setExportModalConfig] = useState<{isOpen: boolean, type: 'gost' | 'detailed' | null}>({ isOpen: false, type: null });
     const [studentSearch, setStudentSearch] = useState('');
     const [isDemoMode, setIsDemoMode] = useState(() => localStorage.getItem('lumeo_analytics_demo') === 'true');
+    const [demoButtonVisible, setDemoButtonVisible] = useState(true);
     const [sortField, setSortField] = useState<'progress' | 'score' | 'activity'>('progress');
     const [showRisk, setShowRisk] = useState(false);
 
-    useEffect(() => { loadTeacherCourses(); }, []);
+    useEffect(() => {
+        loadTeacherCourses();
+        api.get('/admin/settings/public').then(res => {
+            const visible = res.data.analytics_demo_button_visible !== false;
+            setDemoButtonVisible(visible);
+            if (!visible && isDemoMode) {
+                setIsDemoMode(false);
+                localStorage.removeItem('lumeo_analytics_demo');
+            }
+        }).catch(() => {});
+    }, []);
 
     const loadTeacherCourses = async () => {
         setIsLoading(true);
@@ -459,7 +470,7 @@ export const AnalyticsPage = () => {
     return (
         <div className="lumeo-layout">
             <AppHeader subtitle="Аналитика">
-                {isDemoMode && (
+                {demoButtonVisible && isDemoMode && (
                     <button
                         className="btn btn-ghost"
                         style={{ fontSize: 13, color: '#b5179e', borderColor: 'rgba(181,23,158,0.4)', background: 'rgba(181,23,158,0.08)' }}
@@ -560,15 +571,19 @@ export const AnalyticsPage = () => {
                                     <div>
                                         <div style={{ fontWeight: 700, fontSize: '18px', marginBottom: '8px' }}>Нет доступных курсов</div>
                                         <div style={{ color: 'var(--text-muted)', fontSize: '14px', maxWidth: '360px', lineHeight: 1.6 }}>
-                                            У вас пока нет курсов для анализа. Включите демо-режим, чтобы посмотреть как работает аналитика.
+                                            {demoButtonVisible
+                                                ? 'У вас пока нет курсов для анализа. Включите демо-режим, чтобы посмотреть как работает аналитика.'
+                                                : 'У вас пока нет курсов для анализа.'}
                                         </div>
                                     </div>
-                                    <button
-                                        onClick={handleToggleDemo}
-                                        style={{ marginTop: '4px', padding: '12px 32px', borderRadius: '14px', fontWeight: '700', fontSize: '14px', cursor: 'pointer', background: 'linear-gradient(135deg, #7c3aed, #b5179e)', border: 'none', color: '#fff', boxShadow: '0 4px 20px rgba(124,58,237,0.35)' }}
-                                    >
-                                        ✦ Включить демо-режим
-                                    </button>
+                                    {demoButtonVisible && (
+                                        <button
+                                            onClick={handleToggleDemo}
+                                            style={{ marginTop: '4px', padding: '12px 32px', borderRadius: '14px', fontWeight: '700', fontSize: '14px', cursor: 'pointer', background: 'linear-gradient(135deg, #7c3aed, #b5179e)', border: 'none', color: '#fff', boxShadow: '0 4px 20px rgba(124,58,237,0.35)' }}
+                                        >
+                                            ✦ Включить демо-режим
+                                        </button>
+                                    )}
                                 </div>
                             )}
                         </div>

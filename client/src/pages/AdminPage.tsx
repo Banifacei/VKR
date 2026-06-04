@@ -82,7 +82,7 @@ export const AdminPage = () => {
   const [systemLogs, setSystemLogs] = useState<ISystemLog[]>([]);
   const [serverStats, setServerStats] = useState({ cpu: 0, ram: 0, connections: 0, uptime: '...' });
   const [isActionExecuting, setIsActionExecuting] = useState(false);
-  const [analyticsDemo, setAnalyticsDemo] = useState(() => localStorage.getItem('lumeo_analytics_demo') === 'true');
+  const [analyticsDemo, setAnalyticsDemo] = useState(true);
   const [logFilter, setLogFilter] = useState<'all' | 'info' | 'success' | 'warning' | 'error'>('all');
   const [showGoogleModal, setShowGoogleModal] = useState(false);
   const [googleForm, setGoogleForm] = useState({ enabled: false, clientId: '', clientSecret: '' });
@@ -136,6 +136,9 @@ export const AdminPage = () => {
           setSystemLogs(logsRes.data);
           setRequiresApproval(settingsRes.data.registration_requires_approval);
           setSystemSettings(settingsRes.data);
+          if (settingsRes.data.analytics_demo_button_visible !== undefined) {
+              setAnalyticsDemo(settingsRes.data.analytics_demo_button_visible !== false && settingsRes.data.analytics_demo_button_visible !== 'false');
+          }
           setSystemModules(modulesRes.data);
       } catch (e) { console.error('Ошибка загрузки статических данных системы'); }
       finally { setSystemLoading(false); }
@@ -989,25 +992,23 @@ export const AdminPage = () => {
                                 </button>
                                 <button
                                     className="quick-action-btn"
-                                    onClick={() => {
+                                    disabled={isActionExecuting}
+                                    onClick={async () => {
                                         const next = !analyticsDemo;
                                         setAnalyticsDemo(next);
-                                        localStorage.setItem('lumeo_analytics_demo', String(next));
-                                        showToast(next ? 'Демо-режим аналитики включён' : 'Демо-режим аналитики выключен', 'info');
+                                        await api.post('/admin/settings/toggle', { key: 'analytics_demo_button_visible', value: String(next) });
+                                        showToast(next ? 'Кнопка демо-режима показана всем' : 'Кнопка демо-режима скрыта у всех', 'info');
                                     }}
-                                    style={{display:'flex', alignItems:'center', gap:'14px', border: analyticsDemo ? '1px solid rgba(181,23,158,0.4)' : undefined, background: analyticsDemo ? 'rgba(181,23,158,0.07)' : undefined}}
+                                    style={{display:'flex', alignItems:'center', gap:'14px'}}
                                 >
-                                    <div style={{width:'40px', height:'40px', borderRadius:'10px', background: analyticsDemo ? 'rgba(181,23,158,0.2)' : 'rgba(255,215,0,0.1)', border: `1px solid ${analyticsDemo ? 'rgba(181,23,158,0.4)' : 'rgba(255,215,0,0.3)'}`, display:'flex', alignItems:'center', justifyContent:'center', color: analyticsDemo ? '#b5179e' : '#ffd700', flexShrink:0, fontSize:'18px'}}>
+                                    <div style={{width:'40px', height:'40px', borderRadius:'10px', background:'rgba(255,215,0,0.1)', border:'1px solid rgba(255,215,0,0.3)', display:'flex', alignItems:'center', justifyContent:'center', color:'#ffd700', flexShrink:0, fontSize:'18px'}}>
                                         ✦
                                     </div>
                                     <div>
-                                        <div style={{fontWeight:600, fontSize:'13px'}}>Демо-режим аналитики</div>
-                                        <div style={{fontSize:'11px', color: analyticsDemo ? '#b5179e' : 'var(--text-muted)', marginTop:'2px'}}>
-                                            {analyticsDemo ? 'Включён — учебные данные' : 'Выключен — реальные данные'}
+                                        <div style={{fontWeight:600, fontSize:'13px'}}>Кнопка демо-режима</div>
+                                        <div style={{fontSize:'11px', color:'var(--text-muted)', marginTop:'2px'}}>
+                                            {analyticsDemo ? 'Видна всем в аналитике' : 'Скрыта у всех в аналитике'}
                                         </div>
-                                    </div>
-                                    <div style={{marginLeft:'auto', width:'36px', height:'20px', borderRadius:'10px', background: analyticsDemo ? '#b5179e' : 'var(--bg-input)', border:'1px solid var(--border-color)', position:'relative', flexShrink:0, transition:'background 0.2s'}}>
-                                        <div style={{position:'absolute', top:'2px', left: analyticsDemo ? '18px' : '2px', width:'14px', height:'14px', borderRadius:'50%', background:'white', transition:'left 0.2s', boxShadow:'0 1px 3px rgba(0,0,0,0.4)'}}/>
                                     </div>
                                 </button>
                                 <button className="quick-action-btn danger" disabled={isActionExecuting} onClick={() => handleQuickAction('restart', 'Принудительная перезагрузка')} style={{display:'flex', alignItems:'center', gap:'14px'}}>

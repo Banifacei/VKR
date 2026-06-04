@@ -27,6 +27,7 @@ export const SortableCard = ({ item, idx, isEditMode, completedVideoIds, testRes
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled: !isEditMode });
 
     const isVideo    = item.type === 'video';
+    const isHomework = item.type === 'homework';
     const isCompleted = isVideo ? completedVideoIds.includes(item.id) : (testResults[item.id]?.passed || false);
 
     // Анонс: есть unlockDate и он в будущем
@@ -140,7 +141,9 @@ export const SortableCard = ({ item, idx, isEditMode, completedVideoIds, testRes
                     height: '140px',
                     background: isVideo
                         ? 'linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%)'
-                        : 'linear-gradient(135deg, #F09819 0%, #EDDE5D 100%)',
+                        : isHomework
+                            ? 'linear-gradient(135deg, #7c3aed 0%, #b5179e 100%)'
+                            : 'linear-gradient(135deg, #F09819 0%, #EDDE5D 100%)',
                     display: 'flex', justifyContent: 'center', alignItems: 'center',
                     position: 'relative', color: '#fff',
                 }}>
@@ -150,9 +153,9 @@ export const SortableCard = ({ item, idx, isEditMode, completedVideoIds, testRes
                         borderRadius: '8px', fontSize: '11px', fontWeight: 'bold',
                         color: '#fff', backdropFilter: 'blur(4px)',
                     }}>
-                        {isVideo ? 'ВИДЕО-УРОК' : 'ТЕСТИРОВАНИЕ'}
+                        {isVideo ? 'ВИДЕО-УРОК' : isHomework ? 'ДОМАШНЕЕ ЗАДАНИЕ' : 'ТЕСТИРОВАНИЕ'}
                     </div>
-                    {isVideo ? <Icons.Video /> : <Icons.Test />}
+                    {isVideo ? <Icons.Video /> : isHomework ? <Icons.Upload size={40} /> : <Icons.Test />}
                 </div>
             )}
 
@@ -180,13 +183,19 @@ export const SortableCard = ({ item, idx, isEditMode, completedVideoIds, testRes
                     ) : (
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                                {isVideo ? 'Учебный материал' : (() => { const n = item.questions?.length || 0; return `${n} ${pluralizeRu(n, 'вопрос', 'вопроса', 'вопросов')}`; })()}
+                                {isVideo ? 'Учебный материал' : isHomework
+                                    ? `до ${new Date(item.deadline).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}`
+                                    : (() => { const n = item.questions?.length || 0; return `${n} ${pluralizeRu(n, 'вопрос', 'вопроса', 'вопросов')}`; })()}
                             </span>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 {isVideo ? (
                                     isCompleted
                                         ? <><Icons.Check /><span style={{ fontSize: '13px', color: '#00ff88' }}>Пройдено</span></>
                                         : <Icons.Empty />
+                                ) : isHomework ? (
+                                    new Date() > new Date(item.deadline)
+                                        ? <span style={{ fontSize: '12px', color: '#ef4444' }}>Срок истёк</span>
+                                        : <span style={{ fontSize: '12px', color: '#a78bfa' }}>Активно</span>
                                 ) : (
                                     testResults[item.id] ? (
                                         testResults[item.id].passed

@@ -19,6 +19,8 @@ import { VideoBookmark } from '../models/VideoBookmark.js';
 import { BannedWord } from '../models/BannedWord.js';
 import { ModerationLog } from '../models/ModerationLog.js';
 import { CourseBan } from '../models/CourseBan.js';
+import { HomeworkAssignment } from '../models/HomeworkAssignment.js';
+import { HomeworkSubmission } from '../models/HomeworkSubmission.js';
 dotenv.config();
 
 const requiredEnvVars = ['DB_NAME', 'DB_USER', 'DB_PASSWORD', 'DB_HOST'];
@@ -54,6 +56,8 @@ const sequelize = new Sequelize({
      BannedWord,
      ModerationLog,
      CourseBan,
+     HomeworkAssignment,
+     HomeworkSubmission,
     ],
   
   logging: false,

@@ -71,16 +71,19 @@ export const UserProfile = ({ user, onLogout }: UserProfileProps) => {
                         <Icons.Settings size={14}/> Настройки
                     </button>
                     {user.role === 'student' && (
-                        <button 
-                            className="dropdown-item" 
-                            onClick={() => {
-                                setIsOpen(false);
-                                navigate('/history');
-                            }}
+                        <button
+                            className="dropdown-item"
+                            onClick={() => { setIsOpen(false); navigate('/history'); }}
                         >
                             <Icons.BarChart2 size={14}/> Моя статистика
                         </button>
                     )}
+                    <button
+                        className="dropdown-item"
+                        onClick={() => { setIsOpen(false); navigate('/assignments'); }}
+                    >
+                        <Icons.FileText size={14}/> {user.role === 'student' ? 'Мои задания' : 'Задания'}
+                    </button>
                     {user.role != 'student' && (
                         <button className="dropdown-item" data-tour="analytics-link"
                         onClick={() => {

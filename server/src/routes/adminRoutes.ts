@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { checkAuth, isAdmin, checkAuthSse } from '../middleware/authMiddleware.js';
 import {
     getSystemSettings,
+    getPublicSettings,
     toggleSystemSetting,
     testEmailSettings,
     getEmailTemplateDefaults,
@@ -20,6 +21,8 @@ const router = Router();
 
 // SSE онлайн-пользователей — до router.use(isAdmin), т.к. использует checkAuthSse
 router.get('/online-users/stream', checkAuthSse, streamOnlineUsers);
+// Публичные настройки (доступны любому авторизованному пользователю)
+router.get('/settings/public', checkAuth, getPublicSettings);
 
 // checkAuth проверяет JWT, isAdmin делает запрос в БД и проверяет актуальную роль.
 // Это гарантирует что отозванный admin не сохраняет доступ до истечения токена.

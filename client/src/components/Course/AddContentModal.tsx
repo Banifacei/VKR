@@ -17,10 +17,13 @@ const EMPTY_TEST = { title: '', description: '', passingScore: 80, maxAttempts: 
 const psError = (v: number) => v < 0 || v > 100 ? 'от 0 до 100' : '';
 const maError = (v: number) => v < 0 ? 'не может быть отрицательным' : '';
 
+const EMPTY_HW = { title: '', deadline: '' };
+
 export const AddContentModal = ({ isOpen, onClose, courseId, nextOrderIndex, onSuccess }: AddContentModalProps) => {
     const { showToast } = useToast();
-    const [modalView, setModalView] = useState<'select' | 'create_test' | 'create_video'>('select');
+    const [modalView, setModalView] = useState<'select' | 'create_test' | 'create_video' | 'create_hw'>('select');
     const [newTestData, setNewTestData] = useState(EMPTY_TEST);
+    const [newHwData, setNewHwData] = useState(EMPTY_HW);
     const [touched, setTouched] = useState({ passingScore: false, maxAttempts: false });
     const [isCreating, setIsCreating] = useState(false);
 
@@ -29,8 +32,29 @@ export const AddContentModal = ({ isOpen, onClose, courseId, nextOrderIndex, onS
     const handleClose = () => {
         setModalView('select');
         setNewTestData(EMPTY_TEST);
+        setNewHwData(EMPTY_HW);
         setTouched({ passingScore: false, maxAttempts: false });
         onClose();
+    };
+
+    const handleCreateHw = async () => {
+        if (!newHwData.title.trim()) return showToast('Введите название задания', 'error');
+        if (!newHwData.deadline) return showToast('Укажите дедлайн', 'error');
+        setIsCreating(true);
+        try {
+            await api.post('/hw/', {
+                courseId, title: newHwData.title,
+                deadline: new Date(newHwData.deadline).toISOString(),
+                orderIndex: nextOrderIndex,
+            });
+            showToast('Домашнее задание создано!', 'success');
+            onSuccess();
+            handleClose();
+        } catch {
+            showToast('Ошибка при создании задания', 'error');
+        } finally {
+            setIsCreating(false);
+        }
     };
 
     const psErr = touched.passingScore ? psError(newTestData.passingScore) : '';
@@ -97,6 +121,17 @@ export const AddContentModal = ({ isOpen, onClose, courseId, nextOrderIndex, onS
                                     <div style={{fontSize: '12px', color: 'var(--text-muted)'}}>Проверка знаний</div>
                                 </div>
                             </button>
+
+                            <button
+                                onClick={() => setModalView('create_hw')}
+                                style={{ background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.25)', color: 'var(--text-main)', padding: '15px', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '15px', transition: '0.2s' }}
+                            >
+                                <Icons.Upload size={24} color="#a78bfa"/>
+                                <div style={{textAlign: 'left'}}>
+                                    <div style={{fontWeight: 'bold', color: '#a78bfa'}}>Домашнее задание</div>
+                                    <div style={{fontSize: '12px', color: 'var(--text-muted)'}}>Сдача файлов студентами</div>
+                                </div>
+                            </button>
                         </div>
                     </>
                 )}
@@ -151,6 +186,39 @@ export const AddContentModal = ({ isOpen, onClose, courseId, nextOrderIndex, onS
                                 style={{ opacity: isCreating || !isFormValid ? 0.5 : 1, cursor: isCreating || !isFormValid ? 'not-allowed' : 'pointer' }}
                             >
                                 {isCreating ? 'Создаем...' : 'Сохранить тест'}
+                            </button>
+                        </div>
+                    </>
+                )}
+
+                {/* ЭКРАН 4: ФОРМА СОЗДАНИЯ ДЗ */}
+                {modalView === 'create_hw' && (
+                    <>
+                        <h2 style={{color: 'var(--text-main)', marginBottom: '20px', marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px'}}>
+                            <Icons.Upload size={20} color="#a78bfa"/> Новое домашнее задание
+                        </h2>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                            <input
+                                type="text" placeholder="Название задания" className="modern-input"
+                                value={newHwData.title} onChange={e => setNewHwData({...newHwData, title: e.target.value})}
+                            />
+                            <div>
+                                <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Срок сдачи</label>
+                                <input
+                                    type="datetime-local" className="modern-input"
+                                    value={newHwData.deadline} onChange={e => setNewHwData({...newHwData, deadline: e.target.value})}
+                                />
+                            </div>
+                            <div style={{ fontSize: '12px', color: 'var(--text-muted)', padding: '10px', background: 'rgba(124,58,237,0.06)', borderRadius: '8px', border: '1px solid rgba(124,58,237,0.15)' }}>
+                                После создания сможете добавить текст условия, файлы и ссылки через конструктор
+                            </div>
+                            <button
+                                className="primary-btn"
+                                onClick={handleCreateHw}
+                                disabled={isCreating || !newHwData.title.trim() || !newHwData.deadline}
+                                style={{ opacity: isCreating || !newHwData.title.trim() || !newHwData.deadline ? 0.5 : 1 }}
+                            >
+                                {isCreating ? 'Создаём...' : 'Создать задание'}
                             </button>
                         </div>
                     </>

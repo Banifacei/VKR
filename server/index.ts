@@ -24,6 +24,7 @@ import ratingRoutes from './src/routes/ratingRoutes.js';
 import bookmarkRoutes from './src/routes/bookmarkRoutes.js';
 import bannedWordRoutes from './src/routes/bannedWordRoutes.js';
 import homeworkRoutes from './src/routes/homeworkRoutes.js';
+import homeworkAssignmentRoutes from './src/routes/homeworkAssignmentRoutes.js';
 import { trackActivityMiddleware, addSystemLog, heartbeatHandler } from './src/controllers/adminController.js';
 import { createDefaultAdmin } from './src/models/initAdmin.js';
 import { cleanupOrphanFiles } from './src/utils/cleanup.js';
@@ -40,7 +41,8 @@ const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 const uploadDir = path.join(__dirname, 'uploads');
 const avatarDir = path.join(uploadDir, 'avatars');
 const logoDir   = path.join(uploadDir, 'logos');
-[uploadDir, avatarDir, logoDir].forEach(dir => {
+const homeworkDir = path.join(uploadDir, 'homework');
+[uploadDir, avatarDir, logoDir, homeworkDir].forEach(dir => {
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
     }
@@ -49,6 +51,7 @@ const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         if (file.fieldname === 'avatar') return cb(null, avatarDir);
         if (file.fieldname === 'logo')   return cb(null, logoDir);
+        if (file.fieldname === 'hwfile') return cb(null, homeworkDir);
         cb(null, uploadDir);
     },
     filename: (req, file, cb) => {
@@ -90,6 +93,12 @@ const logoUpload = multer({
     storage,
     limits: { fileSize: 2 * 1024 * 1024 },
     fileFilter: imageFilter,
+});
+
+// Homework file upload — лимит берётся из SystemSetting в рантайме; multer проверяет только 100 МБ
+export const homeworkUpload = multer({
+    storage,
+    limits: { fileSize: 100 * 1024 * 1024 },
 });
 app.use(helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' }, // разрешаем отдавать /uploads фронту
@@ -184,6 +193,7 @@ app.use('/api/bookmarks', bookmarkRoutes);
 app.use('/api/banned-words', bannedWordRoutes);
 app.use('/api/videos', videoRoutes);
 app.use('/api/homework', homeworkRoutes);
+app.use('/api/hw', homeworkAssignmentRoutes(homeworkUpload));
 
 // Глобальный обработчик ошибок (multer и прочие middleware)
 app.use((err: any, _req: Request, res: Response, _next: any) => {

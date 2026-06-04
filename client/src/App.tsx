@@ -56,6 +56,7 @@ const ProfilePage   = lazy(() => import('./pages/ProfilePage').then(m => ({ defa
 const HistoryPage   = lazy(() => import('./pages/HistoryPage').then(m => ({ default: m.HistoryPage })));
 import { NotFoundPage } from './pages/NotFoundPage';
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage').then(m => ({ default: m.AnalyticsPage })));
+const AssignmentsPage = lazy(() => import('./pages/AssignmentsPage').then(m => ({ default: m.AssignmentsPage })));
 // Обновленный ProtectedRoute с поддержкой проверки ролей
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) => {
     const { isAuthenticated, user } = useAuth(); // Достаем user из AuthContext
@@ -111,6 +112,11 @@ function App() {
 
                     {/* --- ПРЕПОДАВАТЕЛЬСКАЯ (Только для teacher и admin) --- */}
                     <Route path="/prepod" element={<Navigate to="/" replace />} />
+                    <Route path="/assignments" element={
+                        <ProtectedRoute>
+                            <AssignmentsPage />
+                        </ProtectedRoute>
+                    } />
                     <Route path="/analytics" element={
                         <ProtectedRoute allowedRoles={['teacher', 'admin']}>
                             <AnalyticsPage />

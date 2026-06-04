@@ -135,6 +135,48 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
     });
     const [isSavingSettings, setIsSavingSettings] = useState(false);
 
+    // --- Галочка "ДЗ" для attached-типа ---
+    const [attachedHw, setAttachedHw] = useState<{ id: number; deadline: string } | null>(null);
+    const [hwEnabled, setHwEnabled] = useState(false);
+    const [hwDeadline, setHwDeadline] = useState('');
+    const [hwSaving, setHwSaving] = useState(false);
+    useEffect(() => {
+        const entityType = isVideo ? 'video' : 'test';
+        api.get('/hw/by-entity', { params: { entityType, entityId: item.id } }).then(r => {
+            if (r.data) {
+                setAttachedHw(r.data);
+                setHwEnabled(true);
+                const d = new Date(r.data.deadline);
+                const pad = (n: number) => String(n).padStart(2, '0');
+                setHwDeadline(`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`);
+            }
+        }).catch(() => {});
+    }, [item.id]);
+
+    const handleSaveAttachedHw = async () => {
+        if (!hwDeadline) { showToast('Укажите дедлайн', 'error'); return; }
+        setHwSaving(true);
+        try {
+            const entityType = isVideo ? 'video' : 'test';
+            const r = await api.post('/hw/attach', {
+                entityType, entityId: item.id, courseId: item.courseId,
+                title: item.title, deadline: new Date(hwDeadline).toISOString(),
+            });
+            setAttachedHw(r.data);
+            showToast('Дедлайн сохранён, студенты уведомлены', 'success');
+        } catch (e: any) {
+            showToast(e.response?.data?.message || 'Ошибка', 'error');
+        } finally {
+            setHwSaving(false);
+        }
+    };
+
+    const handleRemoveAttachedHw = async () => {
+        const entityType = isVideo ? 'video' : 'test';
+        await api.delete('/hw/attach', { params: { entityType, entityId: item.id } }).catch(() => {});
+        setAttachedHw(null); setHwEnabled(false); setHwDeadline('');
+    };
+
     const isChanged =
         settingsData.title !== (item.title || '') ||
         settingsData.description !== (item.description || '') ||
@@ -1178,6 +1220,40 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                             <textarea className="deck-input" placeholder="Напишите пару слов для студентов..." value={settingsData.description} onChange={e => setSettingsData({...settingsData, description: e.target.value})} onBlur={handleSaveSettings} style={{ background: 'var(--bg-input)', minHeight: '120px', resize: 'vertical', width: '100%', fontSize: '14px', lineHeight: 1.5 }} />
                                         </div>
                                     )}
+
+                                    {/* Галочка "Пометить как ДЗ" */}
+                                    <div style={{ background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-color)', overflow: 'hidden' }}>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '16px 20px', cursor: 'pointer', userSelect: 'none' }}>
+                                            <input type="checkbox" className="toggle-input" checked={hwEnabled}
+                                                onChange={e => {
+                                                    if (!e.target.checked) { handleRemoveAttachedHw(); }
+                                                    else setHwEnabled(true);
+                                                }}
+                                            />
+                                            <div className="toggle-track"><div className="toggle-thumb" /></div>
+                                            <div style={{ marginLeft: '4px' }}>
+                                                <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-main)' }}>Домашнее задание</div>
+                                                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: 2 }}>Студенты получат уведомление с дедлайном</div>
+                                            </div>
+                                        </label>
+                                        {hwEnabled && (
+                                            <div style={{ padding: '0 20px 16px', borderTop: '1px solid var(--border-color)', paddingTop: '14px', display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
+                                                <div style={{ flex: 1 }}>
+                                                    <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Срок сдачи</label>
+                                                    <input
+                                                        type="datetime-local"
+                                                        className="deck-input"
+                                                        style={{ background: 'var(--bg-input)', width: '100%', fontSize: '14px' }}
+                                                        value={hwDeadline}
+                                                        onChange={e => setHwDeadline(e.target.value)}
+                                                    />
+                                                </div>
+                                                <button className="btn btn-primary" style={{ flexShrink: 0 }} onClick={handleSaveAttachedHw} disabled={hwSaving || !hwDeadline}>
+                                                    {hwSaving ? '...' : attachedHw ? 'Обновить' : 'Сохранить'}
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             )}
 

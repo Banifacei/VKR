@@ -273,6 +273,16 @@ export const restartServer = async (req: Request, res: Response) => {
 
 // --- НАСТРОЙКИ СИСТЕМЫ ---
 // --- НАСТРОЙКИ СИСТЕМЫ ---
+export const getPublicSettings = async (_req: Request, res: Response) => {
+    try {
+        const setting = await SystemSetting.findOne({ where: { key: 'analytics_demo_button_visible' } });
+        const value = setting ? setting.value !== 'false' : true;
+        res.json({ analytics_demo_button_visible: value });
+    } catch {
+        res.status(500).json({ message: 'Ошибка' });
+    }
+};
+
 export const getSystemSettings = async (req: Request, res: Response) => {
     try {
         const settings = await SystemSetting.findAll();
