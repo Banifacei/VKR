@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import api from '../../api/axiosInstance';
 import { useToast } from '../../context/ToastContext';
 import { Icons } from '../Icons';
+import { DateTimePicker } from '../DateTimePicker';
 import './Homework.css';
 
 interface Props {
@@ -11,12 +12,6 @@ interface Props {
 }
 
 const FILE_TYPE_OPTIONS = ['pdf', 'docx', 'doc', 'xlsx', 'xls', 'pptx', 'txt', 'png', 'jpg', 'zip', 'py', 'js', 'ts', 'java', 'cpp', 'c'];
-
-const toDatetimeLocal = (iso: string) => {
-    const d = new Date(iso);
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-};
 
 export const HomeworkEditorModal: React.FC<Props> = ({ assignment, onClose, onUpdated }) => {
     const { showToast } = useToast();
@@ -32,7 +27,7 @@ export const HomeworkEditorModal: React.FC<Props> = ({ assignment, onClose, onUp
         title: assignment.title,
         description: assignment.description || '',
         taskLink: assignment.taskLink || '',
-        deadline: toDatetimeLocal(assignment.deadline),
+        deadline: assignment.deadline as string | null,
         strictDeadline: assignment.strictDeadline,
         allowResubmit: assignment.allowResubmit,
         showFeedbackToStudent: assignment.showFeedbackToStudent,
@@ -53,7 +48,6 @@ export const HomeworkEditorModal: React.FC<Props> = ({ assignment, onClose, onUp
         try {
             const r = await api.patch(`/hw/${assignment.id}`, {
                 ...form,
-                deadline: new Date(form.deadline).toISOString(),
                 allowedFileTypes: form.allowedFileTypes.length ? form.allowedFileTypes : null,
             });
             onUpdated({ ...r.data, taskFiles, isPublished });
@@ -72,7 +66,6 @@ export const HomeworkEditorModal: React.FC<Props> = ({ assignment, onClose, onUp
             // Сначала сохраняем актуальные данные
             await api.patch(`/hw/${assignment.id}`, {
                 ...form,
-                deadline: new Date(form.deadline).toISOString(),
                 allowedFileTypes: form.allowedFileTypes.length ? form.allowedFileTypes : null,
             });
             // Потом публикуем и отправляем уведомления
@@ -116,12 +109,12 @@ export const HomeworkEditorModal: React.FC<Props> = ({ assignment, onClose, onUp
 
     return (
         <div
-            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'flex-end', zIndex: 9999 }}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }}
             onClick={onClose}
         >
             <div
                 className="hw-modal-sheet"
-                style={{ background: 'var(--bg-panel)', borderRadius: '20px 20px 0 0', border: '1px solid var(--border-color)', borderBottom: 'none', width: '100%', maxWidth: '640px', maxHeight: '92vh', display: 'flex', flexDirection: 'column', margin: '0 auto' }}
+                style={{ background: 'var(--bg-panel)', borderRadius: '20px', border: '1px solid var(--border-color)', width: 'calc(100% - 32px)', maxWidth: '640px', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}
                 onClick={e => e.stopPropagation()}
             >
                 {/* Шапка */}
@@ -207,17 +200,17 @@ export const HomeworkEditorModal: React.FC<Props> = ({ assignment, onClose, onUp
 
                     {tab === 'settings' && (
                         <>
-                            <div className="hw-settings-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                <div>
-                                    <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Дедлайн</label>
-                                    <input type="datetime-local" className="deck-input" style={{ background: 'var(--bg-input)', width: '100%', fontSize: '14px' }}
-                                        value={form.deadline} onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))} />
-                                </div>
-                                <div>
-                                    <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Макс. балл</label>
-                                    <input type="number" className="deck-input" style={{ background: 'var(--bg-input)', width: '100%', fontSize: '14px' }} min={1}
-                                        value={form.maxScore} onChange={e => setForm(f => ({ ...f, maxScore: Number(e.target.value) }))} />
-                                </div>
+                            <div>
+                                <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Дедлайн</label>
+                                <DateTimePicker
+                                    value={form.deadline}
+                                    onChange={val => setForm(f => ({ ...f, deadline: val }))}
+                                />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Макс. балл</label>
+                                <input type="number" className="deck-input" style={{ background: 'var(--bg-input)', width: '100%', fontSize: '14px' }} min={1}
+                                    value={form.maxScore} onChange={e => setForm(f => ({ ...f, maxScore: Number(e.target.value) }))} />
                             </div>
 
                             <div>

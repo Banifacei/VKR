@@ -3,6 +3,7 @@ import api from '../../api/axiosInstance';
 import { Icons } from '../Icons';
 import { useToast } from '../../context/ToastContext';
 import { AddVideoForm } from '../AddVideoForm';
+import { DateTimePicker } from '../DateTimePicker';
 
 interface AddContentModalProps {
     isOpen: boolean;
@@ -17,7 +18,7 @@ const EMPTY_TEST = { title: '', description: '', passingScore: 80, maxAttempts: 
 const psError = (v: number) => v < 0 || v > 100 ? 'от 0 до 100' : '';
 const maError = (v: number) => v < 0 ? 'не может быть отрицательным' : '';
 
-const EMPTY_HW = { title: '', deadline: '' };
+const EMPTY_HW = { title: '', deadline: null as string | null };
 
 export const AddContentModal = ({ isOpen, onClose, courseId, nextOrderIndex, onSuccess }: AddContentModalProps) => {
     const { showToast } = useToast();
@@ -44,7 +45,7 @@ export const AddContentModal = ({ isOpen, onClose, courseId, nextOrderIndex, onS
         try {
             await api.post('/hw/', {
                 courseId, title: newHwData.title,
-                deadline: new Date(newHwData.deadline).toISOString(),
+                deadline: newHwData.deadline,
                 orderIndex: nextOrderIndex,
             });
             showToast('Домашнее задание создано!', 'success');
@@ -204,9 +205,9 @@ export const AddContentModal = ({ isOpen, onClose, courseId, nextOrderIndex, onS
                             />
                             <div>
                                 <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Срок сдачи</label>
-                                <input
-                                    type="datetime-local" className="modern-input"
-                                    value={newHwData.deadline} onChange={e => setNewHwData({...newHwData, deadline: e.target.value})}
+                                <DateTimePicker
+                                    value={newHwData.deadline}
+                                    onChange={val => setNewHwData({ ...newHwData, deadline: val })}
                                 />
                             </div>
                             <div style={{ fontSize: '12px', color: 'var(--text-muted)', padding: '10px', background: 'rgba(124,58,237,0.06)', borderRadius: '8px', border: '1px solid rgba(124,58,237,0.15)' }}>

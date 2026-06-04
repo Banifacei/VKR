@@ -7,11 +7,11 @@ import { HomeworkSubmission } from './HomeworkSubmission.js';
 export class HomeworkAssignment extends Model {
     // 'attached' — галочка на видео/тесте (только дедлайн, без сдачи файлов)
     // 'standalone' — отдельная карточка ДЗ в курсе (с конструктором и сдачей)
-    @Column({ type: DataType.ENUM('attached', 'standalone'), allowNull: false, defaultValue: 'standalone' })
+    @Column({ type: DataType.STRING(20), allowNull: false, defaultValue: 'standalone' })
     declare type: 'attached' | 'standalone';
 
     // Для attached: к какому элементу привязано
-    @Column({ type: DataType.ENUM('video', 'test'), allowNull: true })
+    @Column({ type: DataType.STRING(10), allowNull: true })
     declare entityType: 'video' | 'test' | null;
 
     @Column({ type: DataType.INTEGER, allowNull: true })

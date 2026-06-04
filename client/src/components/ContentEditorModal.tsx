@@ -138,7 +138,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
     // --- Галочка "ДЗ" для attached-типа ---
     const [attachedHw, setAttachedHw] = useState<{ id: number; deadline: string } | null>(null);
     const [hwEnabled, setHwEnabled] = useState(false);
-    const [hwDeadline, setHwDeadline] = useState('');
+    const [hwDeadline, setHwDeadline] = useState<string | null>(null);
     const [hwSaving, setHwSaving] = useState(false);
     useEffect(() => {
         const entityType = isVideo ? 'video' : 'test';
@@ -146,9 +146,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
             if (r.data) {
                 setAttachedHw(r.data);
                 setHwEnabled(true);
-                const d = new Date(r.data.deadline);
-                const pad = (n: number) => String(n).padStart(2, '0');
-                setHwDeadline(`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`);
+                setHwDeadline(r.data.deadline);
             }
         }).catch(() => {});
     }, [item.id]);
@@ -160,7 +158,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
             const entityType = isVideo ? 'video' : 'test';
             const r = await api.post('/hw/attach', {
                 entityType, entityId: item.id, courseId: item.courseId,
-                title: item.title, deadline: new Date(hwDeadline).toISOString(),
+                title: item.title, deadline: hwDeadline,
             });
             setAttachedHw(r.data);
             showToast('Дедлайн сохранён, студенты уведомлены', 'success');
@@ -1237,18 +1235,15 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                             </div>
                                         </label>
                                         {hwEnabled && (
-                                            <div style={{ padding: '0 20px 16px', borderTop: '1px solid var(--border-color)', paddingTop: '14px', display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
-                                                <div style={{ flex: 1 }}>
+                                            <div style={{ padding: '0 20px 16px', borderTop: '1px solid var(--border-color)', paddingTop: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                                <div>
                                                     <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Срок сдачи</label>
-                                                    <input
-                                                        type="datetime-local"
-                                                        className="deck-input"
-                                                        style={{ background: 'var(--bg-input)', width: '100%', fontSize: '14px' }}
+                                                    <DateTimePicker
                                                         value={hwDeadline}
-                                                        onChange={e => setHwDeadline(e.target.value)}
+                                                        onChange={val => setHwDeadline(val)}
                                                     />
                                                 </div>
-                                                <button className="btn btn-primary" style={{ flexShrink: 0 }} onClick={handleSaveAttachedHw} disabled={hwSaving || !hwDeadline}>
+                                                <button className="btn btn-primary" onClick={handleSaveAttachedHw} disabled={hwSaving || !hwDeadline}>
                                                     {hwSaving ? '...' : attachedHw ? 'Обновить' : 'Сохранить'}
                                                 </button>
                                             </div>
