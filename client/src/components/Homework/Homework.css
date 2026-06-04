@@ -1,0 +1,116 @@
+/* ── Homework components ────────────────────────────────────────────────────── */
+
+/* datetime-local input — корректный цвет текста в светлой теме */
+.hw-datetime input[type="datetime-local"] {
+    color-scheme: dark;
+}
+html.theme-light .hw-datetime input[type="datetime-local"] {
+    color-scheme: light;
+    color: #111827;
+}
+
+/* Анимация слайд-ап для HomeworkEditorModal */
+@keyframes hw-slide-up {
+    from { transform: translateY(30px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+}
+.hw-modal-sheet {
+    animation: hw-slide-up 0.22s ease;
+}
+
+/* ── Assignments Page ──────────────────────────────────────────────────────── */
+
+.assignments-layout {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    height: calc(100vh - 60px);
+    overflow: hidden;
+}
+
+.assignments-list-panel {
+    overflow-y: auto;
+    padding: 16px;
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.assignments-detail-panel {
+    overflow-y: auto;
+    padding: 16px;
+}
+
+/* Светлая тема — карточки заданий */
+html.theme-light .hw-assignment-card {
+    background: #fff;
+    border-color: #e5e7eb;
+}
+html.theme-light .hw-assignment-card:hover {
+    border-color: rgba(124,58,237,0.3);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+html.theme-light .hw-assignment-card.active {
+    background: rgba(124,58,237,0.04);
+    border-color: rgba(124,58,237,0.35);
+}
+
+/* Светлая тема — карточки сдач */
+html.theme-light .hw-submission-card {
+    background: #fff;
+    border-color: #e5e7eb;
+}
+
+/* ── Мобильная адаптация ─────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+    /* TeacherView — одна колонка, мобильная навигация */
+    .assignments-layout {
+        grid-template-columns: 1fr;
+        height: auto;
+        overflow: visible;
+    }
+    .assignments-list-panel {
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+        max-height: 45vh;
+    }
+    .assignments-detail-panel {
+        min-height: 50vh;
+    }
+
+    /* HomeworkEditorModal — полноэкранный на мобиле */
+    .hw-modal-sheet {
+        border-radius: 16px 16px 0 0 !important;
+        max-height: 95vh !important;
+    }
+
+    /* HomeworkSubmitCard — убираем лишние отступы */
+    .hw-submit-card {
+        border-radius: 12px;
+    }
+}
+
+@media (max-width: 480px) {
+    .assignments-list-panel {
+        padding: 12px;
+        max-height: 40vh;
+    }
+    .assignments-detail-panel {
+        padding: 12px;
+    }
+
+    /* Дедлайн + балл — вертикально на маленьком экране */
+    .hw-settings-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Фильтр-кнопки — полная ширина */
+    .hw-filter-bar {
+        flex-wrap: wrap;
+    }
+    .hw-filter-bar button {
+        flex: 1;
+        min-width: 80px;
+    }
+}

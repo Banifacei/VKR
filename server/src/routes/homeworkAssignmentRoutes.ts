@@ -7,6 +7,7 @@ import {
     getAssignmentByEntity,
     createAssignment,
     updateAssignment,
+    publishAssignment,
     uploadTaskFiles,
     deleteTaskFile,
     deleteAssignment,
@@ -31,6 +32,7 @@ export default (upload: multer.Multer) => {
     // Standalone CRUD (препод)
     router.post('/', checkAuth, isTeacherOrAdmin, createAssignment);
     router.patch('/:id', checkAuth, isTeacherOrAdmin, updateAssignment);
+    router.post('/:id/publish', checkAuth, isTeacherOrAdmin, publishAssignment);
     router.delete('/:id', checkAuth, isTeacherOrAdmin, deleteAssignment);
     router.patch('/:id/files', checkAuth, isTeacherOrAdmin, upload.array('hwfile', 10), uploadTaskFiles);
     router.delete('/:id/files/:index', checkAuth, isTeacherOrAdmin, deleteTaskFile);

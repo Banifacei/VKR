@@ -5,6 +5,7 @@ import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import { AppHeader } from '../components/AppHeader';
 import { Icons } from '../components/Icons';
+import '../components/Homework/Homework.css';
 
 // ─── Утилиты ──────────────────────────────────────────────────────────────────
 
@@ -111,9 +112,9 @@ const TeacherView: React.FC = () => {
     const ungradedCount = (a: any) => (a.submissions || []).filter((s: any) => s.status !== 'graded').length;
 
     return (
-        <div style={{ display: 'grid', gridTemplateColumns: selected ? '360px 1fr' : '1fr', gap: '20px', height: 'calc(100vh - 80px)', overflow: 'hidden' }}>
+        <div className="assignments-layout" style={{ gridTemplateColumns: selected ? undefined : '1fr' }}>
             {/* Список заданий */}
-            <div style={{ overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div className="assignments-list-panel" style={{ display: selected ? undefined : 'flex' }}>
                 <div style={{ fontWeight: 700, fontSize: '16px', marginBottom: '4px', color: 'var(--text-main)' }}>Все задания</div>
                 {assignments.length === 0 && (
                     <div style={{ color: 'var(--text-muted)', fontSize: '14px', padding: '40px 0', textAlign: 'center' }}>
@@ -127,11 +128,8 @@ const TeacherView: React.FC = () => {
                         <div
                             key={a.id}
                             onClick={() => selectAssignment(a)}
-                            style={{
-                                padding: '14px 16px', borderRadius: '14px', cursor: 'pointer', transition: 'all 0.15s',
-                                background: selected?.id === a.id ? 'rgba(124,58,237,0.1)' : 'var(--bg-card)',
-                                border: `1px solid ${selected?.id === a.id ? 'rgba(124,58,237,0.4)' : 'var(--border-color)'}`,
-                            }}
+                            className={`hw-assignment-card${selected?.id === a.id ? ' active' : ''}`}
+                            style={{ padding: '14px 16px', borderRadius: '14px', cursor: 'pointer', transition: 'all 0.15s', border: '1px solid var(--border-color)' }}
                         >
                             <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-main)', marginBottom: '4px' }}>{a.title}</div>
                             <div style={{ fontSize: '12px', color: past ? '#ef4444' : 'var(--text-muted)', marginBottom: '6px' }}>
@@ -154,7 +152,7 @@ const TeacherView: React.FC = () => {
 
             {/* Сдачи */}
             {selected && (
-                <div style={{ overflowY: 'auto', padding: '20px', borderLeft: '1px solid var(--border-color)' }}>
+                <div className="assignments-detail-panel">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
                         <button className="btn btn-ghost" onClick={() => setSelected(null)} style={{ padding: '6px 10px' }}>←</button>
                         <div>
@@ -164,7 +162,7 @@ const TeacherView: React.FC = () => {
                     </div>
 
                     {/* Фильтры */}
-                    <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+                    <div className="hw-filter-bar" style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
                         {(['all', 'ungraded', 'late'] as const).map(f => (
                             <button key={f} onClick={() => setFilterStatus(f)}
                                 style={{ padding: '5px 14px', borderRadius: '8px', fontSize: '13px', cursor: 'pointer', border: '1px solid',

@@ -153,8 +153,13 @@ export const SortableCard = ({ item, idx, isEditMode, completedVideoIds, testRes
                         borderRadius: '8px', fontSize: '11px', fontWeight: 'bold',
                         color: '#fff', backdropFilter: 'blur(4px)',
                     }}>
-                        {isVideo ? 'ВИДЕО-УРОК' : isHomework ? 'ДОМАШНЕЕ ЗАДАНИЕ' : 'ТЕСТИРОВАНИЕ'}
+                            {isVideo ? 'ВИДЕО-УРОК' : isHomework ? 'ДОМ. ЗАДАНИЕ' : 'ТЕСТИРОВАНИЕ'}
                     </div>
+                    {isHomework && !item.isPublished && (
+                        <div style={{ position: 'absolute', top: '12px', right: '12px', background: 'rgba(0,0,0,0.55)', padding: '3px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: 700, color: '#fbbf24', backdropFilter: 'blur(4px)' }}>
+                            ЧЕРНОВИК
+                        </div>
+                    )}
                     {isVideo ? <Icons.Video /> : isHomework ? <Icons.Upload size={40} /> : <Icons.Test />}
                 </div>
             )}

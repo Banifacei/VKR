@@ -65,6 +65,10 @@ export class HomeworkAssignment extends Model {
     @Column({ type: DataType.INTEGER, defaultValue: 0 })
     declare orderIndex: number;
 
+    // false = черновик (студенты не видят, уведомлений нет)
+    @Column({ type: DataType.BOOLEAN, defaultValue: false })
+    declare isPublished: boolean;
+
     @ForeignKey(() => User)
     @Column({ type: DataType.INTEGER, allowNull: false })
     declare createdBy: number;

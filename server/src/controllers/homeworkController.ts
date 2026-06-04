@@ -205,6 +205,25 @@ export const deleteTaskFile = async (req: Request, res: Response) => {
     }
 };
 
+// POST /hw/:id/publish — опубликовать и уведомить студентов
+export const publishAssignment = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const a = await HomeworkAssignment.findByPk(id);
+        if (!a) { res.status(404).json({ message: 'Не найдено' }); return; }
+
+        await a.update({ isPublished: true });
+
+        const deadlineStr = new Date(a.deadline).toLocaleDateString('ru-RU');
+        notifyStudents(a, `Срок сдачи — ${deadlineStr}`).catch(() => {});
+        scheduleReminders(a);
+
+        res.json(a);
+    } catch {
+        res.status(500).json({ message: 'Ошибка публикации' });
+    }
+};
+
 // DELETE /hw/:id
 export const deleteAssignment = async (req: Request, res: Response) => {
     try {
@@ -218,14 +237,18 @@ export const deleteAssignment = async (req: Request, res: Response) => {
     }
 };
 
-// GET /hw/course/:courseId  — все standalone ДЗ курса (для отображения в списке контента)
+// GET /hw/course/:courseId  — standalone ДЗ курса
+// Студенты видят только опубликованные, препод/admin — все включая черновики
 export const getCourseAssignments = async (req: Request, res: Response) => {
     try {
         const { courseId } = req.params;
-        const assignments = await HomeworkAssignment.findAll({
-            where: { courseId: Number(courseId), type: 'standalone' },
-            order: [['orderIndex', 'ASC']],
-        });
+        const role = (req as any).user?.role;
+        const isTeacher = role === 'teacher' || role === 'admin';
+
+        const where: any = { courseId: Number(courseId), type: 'standalone' };
+        if (!isTeacher) where.isPublished = true;
+
+        const assignments = await HomeworkAssignment.findAll({ where, order: [['orderIndex', 'ASC']] });
         res.json(assignments);
     } catch {
         res.status(500).json({ message: 'Ошибка' });
@@ -273,7 +296,7 @@ export const getStudentAssignments = async (req: Request, res: Response) => {
         if (!courseIds.length) { res.json([]); return; }
 
         const assignments = await HomeworkAssignment.findAll({
-            where: { courseId: { [Op.in]: courseIds }, type: 'standalone' },
+            where: { courseId: { [Op.in]: courseIds }, type: 'standalone', isPublished: true },
             order: [['deadline', 'ASC']],
         });
 
