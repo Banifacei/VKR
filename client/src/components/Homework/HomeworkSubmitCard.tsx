@@ -113,7 +113,7 @@ export const HomeworkSubmitCard: React.FC<Props> = (props) => {
                         <div style={{ fontWeight: 700, fontSize: '15px', color: 'var(--text-main)' }}>{assignment.title}</div>
                         <div style={{ display: 'flex', gap: '16px', marginTop: '6px', flexWrap: 'wrap' }}>
                             <span style={{ fontSize: '12px', color: isPastDeadline ? '#ef4444' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <Icons.Clock size={12} /> {formatDeadline(assignment.deadline)}
+                                <Icons.Time size={12} /> {formatDeadline(assignment.deadline)}
                             </span>
                             {!isPastDeadline && countdown && (
                                 <span style={{ fontSize: '12px', color: '#f59e0b', fontWeight: 600 }}>⏱ {countdown}</span>
@@ -137,7 +137,7 @@ export const HomeworkSubmitCard: React.FC<Props> = (props) => {
                             {assignment.taskFiles.map((f: any, i: number) => (
                                 <a key={i} href={f.path} target="_blank" rel="noreferrer"
                                     style={{ fontSize: '13px', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <Icons.File size={13} /> {f.name}
+                                    <Icons.FileText size={13} /> {f.name}
                                 </a>
                             ))}
                         </div>
@@ -145,7 +145,7 @@ export const HomeworkSubmitCard: React.FC<Props> = (props) => {
                     {assignment.taskLink && (
                         <a href={assignment.taskLink} target="_blank" rel="noreferrer"
                             style={{ fontSize: '13px', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <Icons.Link size={13} /> {assignment.taskLink}
+                            <Icons.LinkIcon size={13} /> {assignment.taskLink}
                         </a>
                     )}
                 </div>
@@ -201,7 +201,7 @@ export const HomeworkSubmitCard: React.FC<Props> = (props) => {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                             {files.map((f, i) => (
                                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
-                                    <Icons.File size={13} color="var(--text-muted)" />
+                                    <Icons.FileText size={13} color="var(--text-muted)" />
                                     <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
                                     <span style={{ color: 'var(--text-muted)', flexShrink: 0 }}>{(f.size / 1024 / 1024).toFixed(1)} МБ</span>
                                     <button onClick={() => setFiles(p => p.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0 }}>✕</button>
@@ -227,7 +227,7 @@ export const HomeworkSubmitCard: React.FC<Props> = (props) => {
                         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
                             {submission.files.map((f: any, i: number) => (
                                 <a key={i} href={f.path} target="_blank" rel="noreferrer" style={{ fontSize: '13px', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <Icons.File size={13} /> {f.name}
+                                    <Icons.FileText size={13} /> {f.name}
                                 </a>
                             ))}
                         </div>

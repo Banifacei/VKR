@@ -101,7 +101,7 @@ export const UserPage = () => {
             const data = await getVideosByCourse(Number(courseId));
             const updatedVideo = data.find((v: any) => v.id === activeItem.id);
             if (updatedVideo) {
-                setActiveItem(prev => (prev && prev.id === updatedVideo.id) ? { ...prev, ...updatedVideo, type: 'video' } : prev);
+                setActiveItem((prev: any) => (prev && prev.id === updatedVideo.id) ? { ...prev, ...updatedVideo, type: 'video' } : prev);
             }
             return updatedVideo?.events || [];
         } catch (e) { return []; }
@@ -441,7 +441,7 @@ export const UserPage = () => {
                                 />
                             )}
 
-                            {isExternalTest && activeItem.events && activeItem.events.some(e => ['single_choice', 'multiple_choice', 'free_text', 'question'].includes(e.type)) && (
+                            {isExternalTest && activeItem.events && activeItem.events.some((e: any) => ['single_choice', 'multiple_choice', 'free_text', 'question'].includes(e.type)) && (
                                 <div ref={testCardsRef} style={{ marginTop: '30px', animation: 'fadeIn 0.4s ease' }}>
                                     <div style={{ background: 'var(--bg-panel)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-color)', marginBottom: '20px' }}>
                                         <h3 style={{marginTop: 0, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px'}}><Icons.FileText size={16}/> Вопросы к уроку</h3>

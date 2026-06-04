@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axiosInstance';
 import { useToast } from '../context/ToastContext';
@@ -225,7 +225,7 @@ const SubmissionCard: React.FC<{ sub: any; badge: any; maxScore: number; onGrade
                 {sub.grade !== null && (
                     <span style={{ fontWeight: 700, fontSize: '15px', color: '#22c55e', flexShrink: 0 }}>{sub.grade}/{maxScore}</span>
                 )}
-                <Icons.ChevronDown size={14} color="var(--text-muted)" style={{ transform: open ? 'rotate(180deg)' : 'none', transition: '0.2s', flexShrink: 0 }} />
+                <span style={{ color: 'var(--text-muted)', fontSize: '12px', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', display: 'inline-block', flexShrink: 0 }}>▾</span>
             </div>
 
             {open && (
@@ -236,7 +236,7 @@ const SubmissionCard: React.FC<{ sub: any; badge: any; maxScore: number; onGrade
                             {sub.files.map((f: any, i: number) => (
                                 <a key={i} href={f.path} target="_blank" rel="noreferrer"
                                     style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--primary)', marginBottom: '4px' }}>
-                                    <Icons.File size={13} /> {f.name}
+                                    <Icons.FileText size={13} /> {f.name}
                                     <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>({(f.size / 1024 / 1024).toFixed(1)} МБ)</span>
                                 </a>
                             ))}
