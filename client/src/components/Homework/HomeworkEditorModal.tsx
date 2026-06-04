@@ -173,7 +173,7 @@ export const HomeworkEditorModal: React.FC<Props> = ({ assignment, onClose, onUp
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px' }}>
                                         {taskFiles.map((f: any, i: number) => (
                                             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'var(--bg-input)', borderRadius: '8px' }}>
-                                                <Icons.File size={14} color="var(--text-muted)" />
+                                                <Icons.FileText size={14} color="var(--text-muted)" />
                                                 <a href={f.path} target="_blank" rel="noreferrer" style={{ flex: 1, fontSize: '13px', color: 'var(--primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</a>
                                                 <span style={{ fontSize: '11px', color: 'var(--text-muted)', flexShrink: 0 }}>{(f.size / 1024 / 1024).toFixed(1)} МБ</span>
                                                 <button onClick={() => handleDeleteTaskFile(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: 0, flexShrink: 0 }}>✕</button>
