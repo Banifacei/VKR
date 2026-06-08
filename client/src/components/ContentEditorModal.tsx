@@ -3,7 +3,7 @@ import { sseQuery } from '../utils/sseTicket';
 import './ContentEditorModal.css';
 import { TimeDurationInput } from './TimeDurationInput';
 import { VideoPlayer } from './VideoPlayer';
-import { addEvent, updateEvent, deleteEvent, generateAutoSubtitles, updateVideo, getVideosByCourse, getVideoStats, transcodeVideo } from '../api/videoApi';
+import { addEvent, updateEvent, deleteEvent, generateAutoSubtitles, generateVideoQuestions, updateVideo, getVideosByCourse, getVideoStats, transcodeVideo } from '../api/videoApi';
 import { addTestQuestion, deleteTestQuestion, getCourseTests, getTestStats, uploadTestImage, type ICourseTest } from '../api/testApi';
 import { normalizeUploadUrl } from '../utils/uploadUrl';
 import type { IVideo } from '../types';
@@ -271,6 +271,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
         });
     };
     const [transcodingVideos, setTranscodingVideos] = useState<number[]>([]);
+    const [generatingQVideos, setGeneratingQVideos] = useState<number[]>([]);
     
     const [duplicateIndices, setDuplicateIndices] = useState<number[]>([]);
 
@@ -703,6 +704,29 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
         }
     };
 
+    const handleGenerateQuestions = async () => {
+        if (!selectedVideo) return;
+        const subs = selectedVideo.subtitles as any[];
+        if (!subs || subs.length === 0) {
+            showToast('Сначала сгенерируйте ИИ-субтитры для этого видео', 'error');
+            return;
+        }
+        setGeneratingQVideos(prev => [...prev, selectedVideo.id]);
+        try {
+            const res = await generateVideoQuestions(selectedVideo.id);
+            showToast(`ИИ создал ${res.created} вопросов!`, 'success');
+            // Refresh video data to show new events
+            const updated = await getVideosByCourse(selectedVideo.courseId);
+            const fresh = updated.find((v: any) => v.id === selectedVideo.id);
+            if (fresh) setSelectedVideo(fresh);
+        } catch (e: any) {
+            const msg = e?.response?.data?.message || 'Ошибка генерации вопросов';
+            showToast(msg, 'error');
+        } finally {
+            setGeneratingQVideos(prev => prev.filter(id => id !== selectedVideo.id));
+        }
+    };
+
     const handleTranscode = async () => {
         if (!selectedVideo) return;
         if (!selectedVideo.url.startsWith('/uploads/')) {
@@ -1006,6 +1030,21 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                                     <button className={`btn ${generatingVideos.includes(selectedVideo.id) ? 'btn-ghost' : 'btn-primary'}`} style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '10px' }} onClick={handleGenerateSubs} disabled={generatingVideos.includes(selectedVideo.id)}>
                                                         {generatingVideos.includes(selectedVideo.id) ? <><Icons.Spinner /> Генерация ИИ...</> : <><Icons.AI /> ИИ Субтитры</>}
                                                     </button>
+                                                    {(() => {
+                                                        const hasSubs = Array.isArray(selectedVideo.subtitles) && selectedVideo.subtitles.length > 0;
+                                                        const isGenerating = generatingQVideos.includes(selectedVideo.id);
+                                                        return (
+                                                            <button
+                                                                className={`btn ${isGenerating ? 'btn-ghost' : hasSubs ? 'btn-primary' : 'btn-ghost'}`}
+                                                                style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '10px', opacity: hasSubs ? 1 : 0.5 }}
+                                                                onClick={handleGenerateQuestions}
+                                                                disabled={isGenerating}
+                                                                title={hasSubs ? 'Создать вопросы по субтитрам через ИИ' : 'Сначала сгенерируйте ИИ-субтитры'}
+                                                            >
+                                                                {isGenerating ? <><Icons.Spinner /> Генерация вопросов...</> : <><Icons.AI /> ИИ Вопросы</>}
+                                                            </button>
+                                                        );
+                                                    })()}
                                                     {selectedVideo.url.startsWith('/uploads/') && (
                                                         <button className={`btn btn-ghost`} style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '10px' }} onClick={handleTranscode} disabled={transcodingVideos.includes(selectedVideo.id)} title="Создать версии 360p и 720p">
                                                             {transcodingVideos.includes(selectedVideo.id) ? <><Icons.Spinner /> Транскодирование...</> : <><Icons.Settings /> Версии качества</>}

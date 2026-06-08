@@ -66,6 +66,11 @@ export const generateAutoSubtitles = async (videoId: number) => {
     const response = await api.post(`/videos/${videoId}/autocaptions`);
     return response.data;
 };
+
+export const generateVideoQuestions = async (videoId: number) => {
+    const response = await api.post(`/videos/${videoId}/generate-questions`);
+    return response.data;
+};
 export const updateEvent = async (eventId: number, eventData: any) => {
     const response = await api.put(`/videos/events/${eventId}`, eventData); // Убедись, что путь совпадает с бэкендом
     return response.data;

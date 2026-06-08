@@ -541,7 +541,7 @@ export const UserPage = () => {
         <div className="lumeo-layout">
             {showAuthModal && <AuthModal onLoginSuccess={handleLoginSuccess} />}
 
-            <AppHeader logoTo="/courses" />
+            <AppHeader logoTo="/" />
             {enrollStatus === 'loading' ? (
                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1, color: 'var(--text-muted)', height: 'calc(100vh - 60px)' }}>
                     <span className="loader-dots">Загрузка курса...</span>
@@ -557,7 +557,7 @@ export const UserPage = () => {
             ) : (
             <div className="dashboard-container">
                 <div className="course-header-big">
-                    <button className="btn btn-ghost" onClick={() => navigate('/courses')} style={{marginBottom: '10px', paddingLeft: 0, color: 'var(--text-muted)'}}>
+                    <button className="btn btn-ghost" onClick={() => navigate('/')} style={{marginBottom: '10px', paddingLeft: 0, color: 'var(--text-muted)'}}>
                         ← Все курсы
                     </button>
 

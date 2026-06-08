@@ -1794,3 +1794,142 @@ export const getCourseBans = async (req: Request, res: Response) => {
         res.status(500).json({ message: 'Ошибка загрузки банов' });
     }
 };
+
+// ── Утилита: парсинг VTT → массив {start, text} ───────────────────────────────
+function parseVttChunks(vttContent: string): Array<{ start: number; text: string }> {
+    const chunks: Array<{ start: number; text: string }> = [];
+    const lines = vttContent.split('\n');
+    let i = 0;
+    while (i < lines.length) {
+        const line = (lines[i] ?? '').trim();
+        if (line.includes('-->')) {
+            const startStr = line.split('-->')[0]?.trim() ?? '';
+            const parts = startStr.split(':');
+            let sec = 0;
+            if (parts.length === 3) sec = +(parts[0] ?? 0) * 3600 + +(parts[1] ?? 0) * 60 + parseFloat(parts[2] ?? '0');
+            else if (parts.length === 2) sec = +(parts[0] ?? 0) * 60 + parseFloat(parts[1] ?? '0');
+            i++;
+            const textLines: string[] = [];
+            while (i < lines.length && (lines[i] ?? '').trim() !== '') { textLines.push((lines[i] ?? '').trim()); i++; }
+            if (textLines.length > 0) chunks.push({ start: sec, text: textLines.join(' ') });
+        } else { i++; }
+    }
+    return chunks;
+}
+
+export const generateQuestions = async (req: Request, res: Response): Promise<void> => {
+    const videoId = Number(req.params.videoId);
+    const uploadsDir = path.join(__dirname, '../../uploads');
+
+    const video = await Video.findByPk(videoId);
+    if (!video) { res.status(404).json({ message: 'Видео не найдено' }); return; }
+
+    const subs = video.subtitles as any[];
+    if (!subs || subs.length === 0) {
+        res.status(400).json({ message: 'Сначала сгенерируйте ИИ-субтитры для этого видео' });
+        return;
+    }
+
+    const vttSub = subs.find((s: any) => s.vttUrl);
+    if (!vttSub) { res.status(400).json({ message: 'VTT файл субтитров не найден' }); return; }
+
+    const vttPath = path.join(uploadsDir, path.basename(vttSub.vttUrl));
+    if (!fs.existsSync(vttPath)) {
+        res.status(400).json({ message: 'Файл субтитров не найден на диске. Пересоздайте субтитры.' });
+        return;
+    }
+
+    const vttContent = fs.readFileSync(vttPath, 'utf-8');
+    const chunks = parseVttChunks(vttContent);
+    if (chunks.length < 3) {
+        res.status(400).json({ message: 'Субтитры слишком короткие. Нужно минимум 3 фрагмента текста.' });
+        return;
+    }
+
+    const { SystemSetting } = await import('../models/SystemSetting.js');
+    const settingRow = await SystemSetting.findOne({ where: { key: 'gemini_api_key' } }).catch(() => null);
+    const apiKey = (settingRow?.value || process.env.GEMINI_API_KEY || '').trim();
+    if (!apiKey) {
+        res.status(503).json({ message: 'Укажите Gemini API ключ в Admin → Интеграции → ИИ-ассистент' });
+        return;
+    }
+
+    const transcript = chunks.map(c => `[${Math.floor(c.start)}s] ${c.text}`).join('\n').slice(0, 8000);
+
+    const prompt = `Ты — преподаватель. На основе транскрипции видеолекции создай от 3 до 5 вопросов с вариантами ответов для проверки понимания материала.
+
+ТРАНСКРИПЦИЯ (формат [секунда] текст):
+${transcript}
+
+ПРАВИЛА:
+- Вопросы должны проверять понимание конкретных моментов из видео
+- 3–4 варианта ответа, ровно один правильный (isCorrect: true)
+- Вопросы и варианты на русском языке
+- timestamp = секунда из транскрипции, где тема упоминается
+- НЕ спрашивай о тривиальных вещах
+
+Ответь ТОЛЬКО валидным JSON-массивом, без markdown, без пояснений:
+[
+  {
+    "timestamp": 45,
+    "question": "Текст вопроса?",
+    "options": [
+      {"text": "Правильный ответ", "isCorrect": true},
+      {"text": "Неверный вариант 1", "isCorrect": false},
+      {"text": "Неверный вариант 2", "isCorrect": false}
+    ]
+  }
+]`;
+
+    const geminiRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+        {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                generationConfig: { maxOutputTokens: 1024, temperature: 0.4 },
+            }),
+        }
+    );
+
+    if (!geminiRes.ok) {
+        const errBody = await geminiRes.text().catch(() => '');
+        console.error('[generateQuestions] Gemini error:', geminiRes.status, errBody.slice(0, 200));
+        res.status(502).json({ message: `Ошибка Gemini API: ${geminiRes.status}` });
+        return;
+    }
+
+    const geminiData = await geminiRes.json() as any;
+    const rawText: string = geminiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
+
+    let questions: any[];
+    try {
+        const jsonMatch = rawText.match(/\[[\s\S]*\]/);
+        if (!jsonMatch) throw new Error('No JSON array in response');
+        questions = JSON.parse(jsonMatch[0]);
+    } catch {
+        res.status(502).json({ message: 'Gemini вернул невалидный JSON. Попробуйте ещё раз.' });
+        return;
+    }
+
+    const created: any[] = [];
+    for (const q of questions) {
+        if (!q.question || !Array.isArray(q.options) || typeof q.timestamp !== 'number') continue;
+        const correctOpt = q.options.find((o: any) => o.isCorrect);
+        const event = await InteractiveEvent.create({
+            videoId,
+            timestamp: Math.max(0, q.timestamp - 2),
+            type: 'single_choice',
+            question: q.question,
+            options: q.options,
+            correctAnswer: correctOpt?.text ?? '',
+            pauseVideo: true,
+            penalty: 50,
+        } as any);
+        created.push(event.toJSON());
+    }
+
+    addSystemLog(`ИИ сгенерировал ${created.length} вопросов для видео ID ${videoId}`, 'info');
+    res.json({ created: created.length, events: created });
+};

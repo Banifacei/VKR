@@ -17,6 +17,23 @@ const SUGGESTIONS = [
     'Как работает таймер на вопросы?',
 ];
 
+const LumiIcon = ({ size = 20 }: { size?: number }) => (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path
+            d="M10 1C10 1 11.2 5.8 13.5 8C15.8 10.2 19 10 19 10C19 10 15.8 10.4 13.5 12.5C11.2 14.6 10 19 10 19C10 19 8.8 14.6 6.5 12.5C4.2 10.4 1 10 1 10C1 10 4.2 9.6 6.5 8C8.8 6.4 10 1 10 1Z"
+            fill="currentColor"
+        />
+        <circle cx="16" cy="4" r="1.5" fill="currentColor" opacity="0.55" />
+    </svg>
+);
+
+const UserIcon = () => (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="7" cy="4.5" r="2.5" fill="currentColor" opacity="0.8"/>
+        <path d="M1.5 12.5C1.5 10 4 8 7 8C10 8 12.5 10 12.5 12.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.8"/>
+    </svg>
+);
+
 export function AiAssistant() {
     const { isAuthenticated } = useAuth();
     const location = useLocation();
@@ -29,12 +46,15 @@ export function AiAssistant() {
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const panelRef = useRef<HTMLDivElement>(null);
 
-    // Fetch enabled status once on mount
+    // Re-fetch status on every page navigation so disabling in admin takes effect immediately
     useEffect(() => {
         api.get<{ enabled: boolean }>('/assistant/status')
-            .then(r => setEnabled(r.data.enabled))
+            .then(r => {
+                setEnabled(r.data.enabled);
+                if (!r.data.enabled) setOpen(false);
+            })
             .catch(() => setEnabled(true));
-    }, []);
+    }, [location.pathname]);
 
     // Scroll to bottom and focus input when panel opens or new message arrives
     useEffect(() => {
@@ -115,7 +135,9 @@ export function AiAssistant() {
                 <div className="aia-panel" ref={panelRef}>
                     {/* Header */}
                     <div className="aia-header">
-                        <div className="aia-header-icon">🤖</div>
+                        <div className="aia-header-icon">
+                            <LumiIcon size={16} />
+                        </div>
                         <div className="aia-header-info">
                             <div className="aia-header-title">Луми — ИИ-ассистент</div>
                             <div className="aia-header-sub">Помогу разобраться с платформой</div>
@@ -138,7 +160,7 @@ export function AiAssistant() {
                             messages.map((msg, i) => (
                                 <div key={i} className={`aia-msg ${msg.role}${msg.blocked ? ' blocked' : ''}`}>
                                     <div className="aia-msg-avatar">
-                                        {msg.role === 'user' ? '👤' : '🤖'}
+                                        {msg.role === 'user' ? <UserIcon /> : <LumiIcon size={14} />}
                                     </div>
                                     <div className="aia-bubble">{msg.content}</div>
                                 </div>
@@ -146,7 +168,9 @@ export function AiAssistant() {
                         )}
                         {loading && (
                             <div className="aia-typing">
-                                <div className="aia-msg-avatar" style={{ width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.06)', fontSize: 13, flexShrink: 0 }}>🤖</div>
+                                <div className="aia-msg-avatar aia-msg-avatar--assistant">
+                                    <LumiIcon size={14} />
+                                </div>
                                 <div className="aia-typing-dots">
                                     <span /><span /><span />
                                 </div>
@@ -173,7 +197,9 @@ export function AiAssistant() {
                             disabled={!input.trim() || loading}
                             title="Отправить"
                         >
-                            ➤
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                <path d="M2 8L14 2L8 14L7 9L2 8Z" fill="currentColor"/>
+                            </svg>
                         </button>
                     </div>
                 </div>
@@ -186,7 +212,10 @@ export function AiAssistant() {
                 onClick={() => setOpen(v => !v)}
                 title={open ? 'Закрыть ассистента' : 'Открыть ИИ-ассистента'}
             >
-                {open ? '✕' : '🤖'}
+                {open
+                    ? <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M2 2L16 16M16 2L2 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+                    : <LumiIcon size={22} />
+                }
             </button>
         </>
     );

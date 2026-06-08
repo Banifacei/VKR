@@ -9,6 +9,7 @@ import {
     getAllCourses,
     createCourse,
     generateSubtitles,
+    generateQuestions,
     getAllVideos,
     resetVideoProgress,
     saveVideoProgress,
@@ -61,6 +62,7 @@ router.get('/my-progress-all', checkAuth, getMyProgressAll);
 router.get('/my-courses', checkAuth, getTeacherAccessibleCourses);
 router.put('/reorder', checkAuth, reorderVideos);
 router.post('/:videoId/autocaptions', checkAuth, vId, checkCourseAccess, generateSubtitles);
+router.post('/:videoId/generate-questions', checkAuth, vId, checkCourseAccess, generateQuestions);
 router.post('/:videoId/transcode', checkAuth, vId, checkCourseAccess, transcodeVideo);
 router.post('/admin/retranscode-all', checkAuth, reTranscodeAllVideos);
 router.post('/', checkAuth, createVideo);

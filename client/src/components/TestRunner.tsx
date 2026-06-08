@@ -28,7 +28,10 @@ export const TestRunner = ({ test, onExit, onSuccess, userRole, onProgress }: Te
     const timerStorageKey = `lumeo_timer_t${test.id}`;
     const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    // Always-fresh ref to finishTest so timer closure doesn't go stale
+    const finishTestRef = useRef<() => void>(() => {});
 
+    // Tick down, save to localStorage each second
     useEffect(() => {
         if (step !== 'quiz' || !timeLimitSec) return;
         const saved = localStorage.getItem(timerStorageKey);
@@ -36,21 +39,25 @@ export const TestRunner = ({ test, onExit, onSuccess, userRole, onProgress }: Te
         setSecondsLeft(startSec);
         timerRef.current = setInterval(() => {
             setSecondsLeft(s => {
-                if (s === null) return null;
-                if (s <= 1) {
-                    clearInterval(timerRef.current!);
-                    localStorage.removeItem(timerStorageKey);
-                    finishTest();
-                    return 0;
-                }
+                if (s === null || s <= 0) return s;
                 const next = s - 1;
-                localStorage.setItem(timerStorageKey, String(next));
+                if (next > 0) localStorage.setItem(timerStorageKey, String(next));
                 return next;
             });
         }, 1000);
         return () => { if (timerRef.current) clearInterval(timerRef.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [step]);
+
+    // Handle time-up: separate effect so finishTest always uses fresh answers
+    useEffect(() => {
+        if (secondsLeft === 0 && step === 'quiz') {
+            clearInterval(timerRef.current!);
+            localStorage.removeItem(timerStorageKey);
+            finishTestRef.current();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [secondsLeft]);
 
     // Clear saved timer when test finishes
     useEffect(() => {
@@ -174,6 +181,9 @@ export const TestRunner = ({ test, onExit, onSuccess, userRole, onProgress }: Te
             setStep('result');
         }
     };
+
+    // Keep finishTestRef pointing to the current closure (fresh answers) on every render
+    finishTestRef.current = finishTest;
 
     const attemptsUsed = test.attemptsUsed || 0;
     const isExhausted = test.maxAttempts > 0 && attemptsUsed >= test.maxAttempts;

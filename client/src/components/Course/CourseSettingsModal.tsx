@@ -209,7 +209,7 @@ export const CourseSettingsModal = ({
                                     <button className="btn btn-ghost" style={{ background: 'rgba(255, 77, 77, 0.1)', color: '#ff4d4d' }} onClick={async () => {
                                         const ok = await confirm({ title: 'Удалить курс', message: `Навсегда удалить курс «${course.title}»? Все уроки, тесты и прогресс студентов будут потеряны. Это действие необратимо.`, confirmText: 'Удалить курс', danger: true });
                                         if (!ok) return;
-                                        try { await deleteCourseApi(course.id); navigate('/courses'); } catch (e) { showToast('Ошибка', 'error'); }
+                                        try { await deleteCourseApi(course.id); navigate('/'); } catch (e) { showToast('Ошибка', 'error'); }
                                     }}><Icons.Trash size={14}/> Удалить</button>
                                 )}
                             </div>
