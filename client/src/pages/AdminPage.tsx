@@ -101,7 +101,7 @@ export const AdminPage = () => {
   const [showLdapModal, setShowLdapModal] = useState(false);
   const [ldapForm, setLdapForm] = useState({ enabled: false, url: '', searchBase: '' });
   const [showAiModal, setShowAiModal] = useState(false);
-  const [aiForm, setAiForm] = useState({ enabled: true, apiKey: '' });
+  const [aiForm, setAiForm] = useState({ enabled: true, geminiKey: '', groqKey: '' });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const openSamlModal = () => {
       setSamlForm({
@@ -144,7 +144,8 @@ export const AdminPage = () => {
           setAiForm(prev => ({
               ...prev,
               enabled: settingsRes.data.ai_assistant_enabled !== false && settingsRes.data.ai_assistant_enabled !== 'false',
-              apiKey: settingsRes.data.groq_api_key || '',
+              geminiKey: settingsRes.data.gemini_api_key || '',
+              groqKey: settingsRes.data.groq_api_key || '',
           }));
           setSystemModules(modulesRes.data);
       } catch (e) { console.error('Ошибка загрузки статических данных системы'); }
@@ -228,7 +229,8 @@ export const AdminPage = () => {
   const openAiModal = () => {
       setAiForm({
           enabled: systemSettings.ai_assistant_enabled !== false && systemSettings.ai_assistant_enabled !== 'false',
-          apiKey: systemSettings.groq_api_key || '',
+          geminiKey: systemSettings.gemini_api_key || '',
+          groqKey: systemSettings.groq_api_key || '',
       });
       setShowAiModal(true);
   };
@@ -237,7 +239,8 @@ export const AdminPage = () => {
       setIsSaving(true);
       try {
           await api.post('/admin/settings/toggle', { key: 'ai_assistant_enabled', value: String(aiForm.enabled) });
-          await api.post('/admin/settings/toggle', { key: 'groq_api_key', value: aiForm.apiKey });
+          await api.post('/admin/settings/toggle', { key: 'gemini_api_key', value: aiForm.geminiKey });
+          await api.post('/admin/settings/toggle', { key: 'groq_api_key', value: aiForm.groqKey });
           showToast('Настройки ИИ-ассистента сохранены!', 'success');
           setShowAiModal(false);
           fetchSystemData();
@@ -780,17 +783,32 @@ export const AdminPage = () => {
                           </strong>
                       </div>
                       <div className="form-group">
-                          <label>Groq API-ключ</label>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              Google Gemini API-ключ
+                              <span style={{ fontSize: 11, background: 'rgba(0,255,136,0.12)', color: '#00ff88', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>Рекомендуется</span>
+                          </label>
+                          <input
+                              className="modern-input"
+                              type="password"
+                              placeholder="AIzaSy..."
+                              value={aiForm.geminiKey}
+                              onChange={e => setAiForm({ ...aiForm, geminiKey: e.target.value })}
+                          />
+                          <p style={{ fontSize: '12px', color: '#666', marginTop: '5px', lineHeight: 1.5 }}>
+                              Бесплатно: <span style={{ color: '#00ff88' }}>aistudio.google.com/apikey</span> → Create API Key. Без IP-ограничений, 15 req/min.
+                          </p>
+                      </div>
+                      <div className="form-group">
+                          <label>Groq API-ключ (запасной)</label>
                           <input
                               className="modern-input"
                               type="password"
                               placeholder="gsk_xxxxxxxxxxxxxxxxxxxx"
-                              value={aiForm.apiKey}
-                              onChange={e => setAiForm({ ...aiForm, apiKey: e.target.value })}
+                              value={aiForm.groqKey}
+                              onChange={e => setAiForm({ ...aiForm, groqKey: e.target.value })}
                           />
-                          <p style={{ fontSize: '12px', color: '#666', marginTop: '6px', lineHeight: 1.5 }}>
-                              Бесплатный ключ: <span style={{ color: '#00ff88' }}>console.groq.com</span> → API Keys → Create API Key.<br/>
-                              Без ключа ассистент работает только в режиме FAQ.
+                          <p style={{ fontSize: '12px', color: '#666', marginTop: '5px', lineHeight: 1.5 }}>
+                              <span style={{ color: '#00ff88' }}>console.groq.com</span> → API Keys. Используется если нет ключа Gemini.
                           </p>
                       </div>
                   </div>

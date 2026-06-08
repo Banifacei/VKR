@@ -25,24 +25,36 @@ export const TestRunner = ({ test, onExit, onSuccess, userRole, onProgress }: Te
 
     // Таймер
     const timeLimitSec = (test as any).timeLimit ? (test as any).timeLimit * 60 : null;
+    const timerStorageKey = `lumeo_timer_t${test.id}`;
     const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     useEffect(() => {
         if (step !== 'quiz' || !timeLimitSec) return;
-        setSecondsLeft(timeLimitSec);
+        const saved = localStorage.getItem(timerStorageKey);
+        const startSec = saved ? Math.min(parseInt(saved, 10), timeLimitSec) : timeLimitSec;
+        setSecondsLeft(startSec);
         timerRef.current = setInterval(() => {
             setSecondsLeft(s => {
                 if (s === null) return null;
                 if (s <= 1) {
                     clearInterval(timerRef.current!);
+                    localStorage.removeItem(timerStorageKey);
                     finishTest();
                     return 0;
                 }
-                return s - 1;
+                const next = s - 1;
+                localStorage.setItem(timerStorageKey, String(next));
+                return next;
             });
         }, 1000);
         return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [step]);
+
+    // Clear saved timer when test finishes
+    useEffect(() => {
+        if (step === 'result') localStorage.removeItem(timerStorageKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [step]);
 
@@ -111,6 +123,7 @@ export const TestRunner = ({ test, onExit, onSuccess, userRole, onProgress }: Te
         setIsResetting(true);
         try {
             await api.delete(`/tests/${test.id}/attempts`);
+            localStorage.removeItem(timerStorageKey);
             onExit();
         } catch (e) {
             console.error('Ошибка сброса попыток', e);

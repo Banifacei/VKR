@@ -48,34 +48,61 @@ async function getSetting(key: string): Promise<string | null> {
 
 export const getAssistantStatus = async (_req: Request, res: Response): Promise<void> => {
     const enabled = await getSetting('ai_assistant_enabled');
-    const hasKey = !!(await getSetting('groq_api_key')) || !!process.env.GROQ_API_KEY;
+    const hasGemini = !!(await getSetting('gemini_api_key'))?.trim() || !!process.env.GEMINI_API_KEY;
+    const hasGroq = !!(await getSetting('groq_api_key'))?.trim() || !!process.env.GROQ_API_KEY;
     res.json({
         enabled: enabled === null ? true : enabled === 'true',
-        hasKey,
+        hasKey: hasGemini || hasGroq,
+        provider: hasGemini ? 'gemini' : hasGroq ? 'groq' : 'faq',
     });
 };
+
+async function callGemini(systemPrompt: string, messages: Array<{ role: string; content: string }>): Promise<string> {
+    const rawKey = (await getSetting('gemini_api_key')) || process.env.GEMINI_API_KEY;
+    const apiKey = rawKey?.trim();
+    if (!apiKey) return '';
+    try {
+        const contents = messages
+            .filter(m => m.role !== 'system')
+            .map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }));
+        const res = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
+                    contents,
+                    generationConfig: { maxOutputTokens: 512, temperature: 0.7 },
+                }),
+            }
+        );
+        if (!res.ok) {
+            const body = await res.text().catch(() => '');
+            console.error(`[Assistant] Gemini error ${res.status}:`, body.slice(0, 300));
+            return '';
+        }
+        const data = await res.json() as any;
+        return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
+    } catch (e) {
+        console.error('[Assistant] Gemini fetch error:', e);
+        return '';
+    }
+}
 
 async function callGroq(messages: Array<{ role: string; content: string }>): Promise<string> {
     const rawKey = (await getSetting('groq_api_key')) || process.env.GROQ_API_KEY;
     const apiKey = rawKey?.trim();
-    if (!apiKey) { console.log('[Assistant] Groq: ключ не задан'); return ''; }
+    if (!apiKey) return '';
     try {
         const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`,
-            },
-            body: JSON.stringify({
-                model: 'llama-3.1-8b-instant',
-                messages,
-                max_tokens: 512,
-                temperature: 0.7,
-            }),
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+            body: JSON.stringify({ model: 'llama-3.1-8b-instant', messages, max_tokens: 512, temperature: 0.7 }),
         });
         if (!res.ok) {
             const body = await res.text().catch(() => '');
-            console.error(`[Assistant] Groq API error ${res.status}:`, body.slice(0, 300));
+            console.error(`[Assistant] Groq error ${res.status}:`, body.slice(0, 200));
             return '';
         }
         const data = await res.json() as any;
@@ -142,11 +169,19 @@ export const askAssistant = async (req: Request, res: Response): Promise<void> =
 - Будь дружелюбным и поддерживающим.
 Пользователь: ${userName} (${roleLabel}).`;
 
+    const chatHistory = history.slice(-6).map((h: any) => ({ role: h.role as string, content: h.content as string }));
     const messages = [
         { role: 'system', content: systemPrompt },
-        ...history.slice(-6).map((h: any) => ({ role: h.role as string, content: h.content as string })),
+        ...chatHistory,
         { role: 'user', content: q },
     ];
+
+    // Gemini first (no IP restrictions on free tier), Groq as fallback
+    const geminiAnswer = await callGemini(systemPrompt, [...chatHistory, { role: 'user', content: q }]);
+    if (geminiAnswer) {
+        res.json({ answer: geminiAnswer, blocked: false });
+        return;
+    }
 
     const groqAnswer = await callGroq(messages);
     if (groqAnswer) {

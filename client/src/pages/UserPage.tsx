@@ -95,8 +95,22 @@ export const UserPage = () => {
     // Активный элемент (вместо selectedVideo)
     const [activeItem, setActiveItem] = useState<DashboardItem | null>(null);
     const [certLoading, setCertLoading] = useState(false);
-    const [incompleteReminder, setIncompleteReminder] = useState<{ itemId: number; title: string; secondsLeft: number | null } | null>(null);
+    const [incompleteReminder, setIncompleteReminder] = useState<{ itemId: number; title: string; secondsLeft: number | null } | null>(() => {
+        try {
+            const saved = localStorage.getItem(`lumeo_reminder_c${courseId}`);
+            return saved ? JSON.parse(saved) : null;
+        } catch { return null; }
+    });
     const testProgressRef = useRef<{ step: 'start' | 'quiz' | 'result'; secondsLeft: number | null }>({ step: 'start', secondsLeft: null });
+
+    // Sync incomplete reminder to localStorage so it survives page navigation
+    useEffect(() => {
+        if (incompleteReminder) {
+            localStorage.setItem(`lumeo_reminder_c${courseId}`, JSON.stringify(incompleteReminder));
+        } else {
+            localStorage.removeItem(`lumeo_reminder_c${courseId}`);
+        }
+    }, [incompleteReminder, courseId]);
     const [leaderboard, setLeaderboard] = useState<any[]>([]);
     const [showLeaderboard, setShowLeaderboard] = useState(false);
 
