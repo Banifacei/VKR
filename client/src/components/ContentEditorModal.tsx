@@ -231,6 +231,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
     const [rewindTo, setRewindTo] = useState<number | string>('');
     const [aiThreshold, setAiThreshold] = useState<number | string>(50);
     const [explanation, setExplanation] = useState('');
+    const [eventTimeLimit, setEventTimeLimit] = useState<number | string>('');
     
     const [questionImageUrl, setQuestionImageUrl] = useState<string | null>(null);
     const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -552,7 +553,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
     const resetForm = () => {
         setQuestionText(''); setOptions([{ text: '', isCorrect: false } as { text: string; isCorrect: boolean; imageUrl?: string }, { text: '', isCorrect: false }]);
         setFreeTextAnswer(''); setExplanation(''); setRewindTo(''); setAiThreshold(50); setWeight(1);
-        setIsStrict(false); setIsRequired(false); setDuplicateIndices([]);
+        setIsStrict(false); setIsRequired(false); setDuplicateIndices([]); setEventTimeLimit('');
         setQuestionImageUrl(null);
         setEditingEventId(null);
     };
@@ -609,7 +610,8 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                     options: (eventType === 'single_choice' || eventType === 'multiple_choice') ? options : [],
                     correctAnswer: eventType === 'free_text' ? freeTextAnswer : '',
                     isStrict, isRequired, weight: Number(weight) || 1, rewindTo: rewindTo === '' ? undefined : Number(rewindTo),
-                    explanation, aiThreshold: Number(aiThreshold) || 50
+                    explanation, aiThreshold: Number(aiThreshold) || 50,
+                    timeLimit: eventTimeLimit === '' ? null : Number(eventTimeLimit)
                 };
                 if (editingEventId) await updateEvent(editingEventId, eventPayload);
                 else await addEvent(selectedVideo!.id, eventPayload);
@@ -651,6 +653,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
         setRewindTo(ev.rewindTo !== null && ev.rewindTo !== undefined ? ev.rewindTo : '');
         setExplanation(ev.explanation || '');
         setAiThreshold(ev.aiThreshold || 50);
+        setEventTimeLimit(ev.timeLimit !== null && ev.timeLimit !== undefined ? ev.timeLimit : '');
         setDuplicateIndices([]);
     };
 
@@ -1400,6 +1403,12 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                                     <div style={{ flex: 1 }}>
                                                         <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>Откинуть назад (сек):</label>
                                                         <input type="number" className="deck-input" placeholder="Напр. 120" value={rewindTo} onChange={e => setRewindTo(e.target.value === '' ? '' : Number(e.target.value))} style={{ background: 'var(--bg-input)', width: '100%', margin: 0, fontSize: '15px', padding: '10px' }} />
+                                                    </div>
+                                                )}
+                                                {isVideo && (
+                                                    <div style={{ flex: 1 }}>
+                                                        <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>⏱ Таймер (сек, 0 = без):</label>
+                                                        <input type="number" className="deck-input" min="0" placeholder="Без лимита" value={eventTimeLimit} onChange={e => setEventTimeLimit(e.target.value === '' || Number(e.target.value) === 0 ? '' : Number(e.target.value))} style={{ background: 'var(--bg-input)', width: '100%', margin: 0, fontSize: '15px', padding: '10px' }} />
                                                     </div>
                                                 )}
                                             </div>

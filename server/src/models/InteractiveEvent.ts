@@ -33,6 +33,9 @@ export class InteractiveEvent extends Model {
   @Column({ type: DataType.INTEGER, defaultValue: 50 })
   declare aiThreshold: number;
 
+  @Column({ type: DataType.INTEGER, allowNull: true })
+  declare timeLimit?: number;
+
   @ForeignKey(() => Video)
   
   @Column({ type: DataType.INTEGER })

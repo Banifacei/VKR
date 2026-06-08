@@ -163,6 +163,9 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
   const [processedEventIds, setProcessedEventIds] = useState<number[]>([]);
   const [currentAnswer, setCurrentAnswer] = useState<string | string[]>('');
   const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null);
+  const [eventTimer, setEventTimer] = useState<number | null>(null);
+  const [eventTimerExpired, setEventTimerExpired] = useState(false);
+  const eventTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [score, setScore] = useState(0);
   const [showEndScreen, setShowEndScreen] = useState(false);
   const [seekFeedback, setSeekFeedback] = useState<{ direction: 'left' | 'right'; key: number } | null>(null);
@@ -860,6 +863,37 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
       setFeedback(null);
       setCurrentAnswer(activeEvent?.type === 'multiple_choice' ? [] : '');
   };
+
+  // Запускаем таймер при появлении нового вопроса с timeLimit
+  useEffect(() => {
+      if (eventTimerRef.current) clearInterval(eventTimerRef.current);
+      if (!activeEvent?.timeLimit) { setEventTimer(null); return; }
+      setEventTimer(activeEvent.timeLimit);
+      setEventTimerExpired(false);
+      eventTimerRef.current = setInterval(() => {
+          setEventTimer(s => {
+              if (s === null) return null;
+              if (s <= 1) { clearInterval(eventTimerRef.current!); setEventTimerExpired(true); return 0; }
+              return s - 1;
+          });
+      }, 1000);
+      return () => { if (eventTimerRef.current) clearInterval(eventTimerRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeEvent?.id]);
+
+  // Останавливаем таймер когда уже есть feedback (студент ответил)
+  useEffect(() => {
+      if (feedback && eventTimerRef.current) { clearInterval(eventTimerRef.current); setEventTimer(null); }
+  }, [feedback]);
+
+  // Авто-сдача по истечении таймера
+  useEffect(() => {
+      if (!eventTimerExpired || !activeEvent || feedback) return;
+      setEventTimerExpired(false);
+      handleAnswerSubmit();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventTimerExpired]);
+
 // --- Хендлер для ползунка громкости ---
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const newVolume = parseFloat(e.target.value);
@@ -1541,6 +1575,24 @@ const renderMainMenu = () => (
                 {/* Само задание (до ответа) */}
                 {!feedback && (
                     <>
+                        {eventTimer !== null && activeEvent.timeLimit && (
+                            <div style={{ marginBottom: '10px' }}>
+                                <div style={{ height: '4px', background: 'var(--bg-input)', borderRadius: '2px', overflow: 'hidden', marginBottom: '6px' }}>
+                                    <div style={{
+                                        height: '100%',
+                                        width: `${(eventTimer / activeEvent.timeLimit) * 100}%`,
+                                        background: eventTimer <= 5 ? '#ef4444' : eventTimer <= 10 ? '#f59e0b' : 'var(--primary)',
+                                        transition: 'width 1s linear, background 0.3s',
+                                        borderRadius: '2px',
+                                    }} />
+                                </div>
+                                <span style={{
+                                    fontWeight: 700, fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px',
+                                    color: eventTimer <= 5 ? '#ef4444' : eventTimer <= 10 ? '#f59e0b' : 'var(--primary)',
+                                    animation: eventTimer <= 5 ? 'pulse 0.8s infinite' : undefined,
+                                }}>⏱ {eventTimer}с</span>
+                            </div>
+                        )}
                         <h3 style={{color: 'var(--primary)'}}>
                             {activeEvent.type === 'info' ? <><Icons.Lightbulb size={16}/> Информация</> : <><Icons.HelpCircle size={16}/> Вопрос</>}
                         </h3>

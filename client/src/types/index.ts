@@ -16,6 +16,7 @@ export interface IInteractiveEvent {
     rewindTo?: number;
     explanation?: string;
     aiThreshold?: number;
+    timeLimit?: number;
 }
 
 export interface ISubtitle {
