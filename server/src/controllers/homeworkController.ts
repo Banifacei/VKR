@@ -6,6 +6,7 @@ import { CourseEnrollment } from '../models/CourseEnrollment.js';
 import { SystemSetting } from '../models/SystemSetting.js';
 import { User } from '../models/User.js';
 import { sendNotification } from './notificationController.js';
+import { checkHomeworkBadges } from './badgeController.js';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -380,6 +381,7 @@ export const submitHomework = async (req: Request, res: Response) => {
                 submittedAt: now, isLate, status: 'submitted',
             });
             sendNotification(assignment.createdBy, 'homework_submitted', `Сдано ДЗ: ${assignment.title}`, isLate ? 'Сдано с опозданием' : 'Вовремя', `/assignments`).catch(() => {});
+            if (!isLate) checkHomeworkBadges(userId, Number(assignmentId)).catch(() => {});
             res.status(201).json(sub);
         }
     } catch (e) {

@@ -27,6 +27,7 @@ import homeworkRoutes from './src/routes/homeworkRoutes.js';
 import homeworkAssignmentRoutes from './src/routes/homeworkAssignmentRoutes.js';
 import certificateRoutes from './src/routes/certificateRoutes.js';
 import { CourseCertificate } from './src/models/CourseCertificate.js';
+import badgeRoutes from './src/routes/badgeRoutes.js';
 import { trackActivityMiddleware, addSystemLog, heartbeatHandler } from './src/controllers/adminController.js';
 import { createDefaultAdmin } from './src/models/initAdmin.js';
 import { cleanupOrphanFiles } from './src/utils/cleanup.js';
@@ -197,6 +198,7 @@ app.use('/api/videos', videoRoutes);
 app.use('/api/homework', homeworkRoutes);
 app.use('/api/hw', homeworkAssignmentRoutes(homeworkUpload));
 app.use('/api/certificates', certificateRoutes);
+app.use('/api/badges', badgeRoutes);
 
 // Глобальный обработчик ошибок (multer и прочие middleware)
 app.use((err: any, _req: Request, res: Response, _next: any) => {

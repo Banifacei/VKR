@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { AppHeader } from '../components/AppHeader';
 import { AppearanceTab } from '../components/Profile/AppearanceTab';
@@ -7,6 +7,8 @@ import './ProfilePage.css';
 import api from '../api/axiosInstance';
 import { useToast } from '../context/ToastContext';
 import { Icons } from '../components/Icons';
+
+interface IBadge { badgeType: string; label: string; description: string; icon: string; earnedAt: string; }
 
 export const ProfilePage = () => {
     const navigate = useNavigate();
@@ -17,6 +19,11 @@ export const ProfilePage = () => {
         const saved = localStorage.getItem('lumeo_user');
         try { return saved ? JSON.parse(saved) : {}; } catch (e) { return {}; }
     });
+    const [badges, setBadges] = useState<IBadge[]>([]);
+
+    useEffect(() => {
+        api.get('/badges/my').then(r => setBadges(r.data || [])).catch(() => {});
+    }, []);
 
     const [activeSection, setActiveSection] = useState<'account' | 'appearance'>(
         (location.state as any)?.tab === 'appearance' ? 'appearance' : 'account'
@@ -120,6 +127,29 @@ export const ProfilePage = () => {
                         </div>
 
                         <div className="sidebar-divider"></div>
+
+                        {badges.length > 0 && (
+                            <div style={{ marginBottom: 16 }}>
+                                <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10, fontWeight: 600 }}>
+                                    Достижения
+                                </div>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                                    {badges.map(b => (
+                                        <div key={b.badgeType} title={b.description} style={{
+                                            display: 'flex', alignItems: 'center', gap: 5,
+                                            background: 'rgba(var(--primary-rgb),0.1)',
+                                            border: '1px solid rgba(var(--primary-rgb),0.25)',
+                                            borderRadius: 20, padding: '5px 10px',
+                                            fontSize: 12, color: 'var(--text-main)',
+                                            cursor: 'default',
+                                        }}>
+                                            <span>{b.icon}</span>
+                                            <span>{b.label}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         <div className="profile-nav-menu">
                             <button className={`profile-nav-btn ${activeSection === 'account' ? 'active' : ''}`} onClick={() => setActiveSection('account')}>

@@ -95,6 +95,8 @@ export const UserPage = () => {
     // Активный элемент (вместо selectedVideo)
     const [activeItem, setActiveItem] = useState<DashboardItem | null>(null);
     const [certLoading, setCertLoading] = useState(false);
+    const [leaderboard, setLeaderboard] = useState<any[]>([]);
+    const [showLeaderboard, setShowLeaderboard] = useState(false);
 
     const handleRefreshEvents = useCallback(async () => {
         if (!courseId || !activeItem) return [];
@@ -615,6 +617,49 @@ export const UserPage = () => {
                                 >
                                     {certLoading ? <><Icons.Spinner size={14}/> Загрузка...</> : <><Icons.Trophy size={14}/> Скачать сертификат</>}
                                 </button>
+                            )}
+
+                            {/* Лидерборд */}
+                            {enrollStatus === 'approved' && course && (
+                                <div style={{ marginTop: 12 }}>
+                                    <button
+                                        onClick={async () => {
+                                            if (!showLeaderboard && leaderboard.length === 0) {
+                                                const r = await api.get(`/badges/leaderboard/${course.id}`).catch(() => ({ data: [] }));
+                                                setLeaderboard(r.data || []);
+                                            }
+                                            setShowLeaderboard(v => !v);
+                                        }}
+                                        style={{
+                                            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                            background: 'rgba(var(--primary-rgb),0.08)', border: '1px solid rgba(var(--primary-rgb),0.2)',
+                                            borderRadius: 10, padding: '9px 14px', fontSize: 13, fontWeight: 600,
+                                            color: 'var(--text-main)', cursor: 'pointer',
+                                        }}
+                                    >
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Icons.Trophy size={14} color="var(--primary)"/> Лидерборд курса</span>
+                                        <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{showLeaderboard ? '▲' : '▼'}</span>
+                                    </button>
+                                    {showLeaderboard && (
+                                        <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                            {leaderboard.slice(0, 10).map((row: any) => (
+                                                <div key={row.userId} style={{
+                                                    display: 'flex', alignItems: 'center', gap: 8,
+                                                    padding: '6px 10px', borderRadius: 8,
+                                                    background: row.rank <= 3 ? 'rgba(var(--primary-rgb),0.1)' : 'rgba(255,255,255,0.03)',
+                                                    fontSize: 13,
+                                                }}>
+                                                    <span style={{ width: 22, textAlign: 'center', fontWeight: 700, color: row.rank === 1 ? '#ffd700' : row.rank === 2 ? '#c0c0c0' : row.rank === 3 ? '#cd7f32' : 'var(--text-muted)', fontSize: 12 }}>
+                                                        {row.rank === 1 ? '🥇' : row.rank === 2 ? '🥈' : row.rank === 3 ? '🥉' : `#${row.rank}`}
+                                                    </span>
+                                                    <span style={{ flex: 1, color: 'var(--text-main)' }}>{row.firstName} {row.lastName}</span>
+                                                    <span style={{ color: 'var(--primary)', fontWeight: 700 }}>{row.totalScore}%</span>
+                                                </div>
+                                            ))}
+                                            {leaderboard.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: 12, padding: '6px 10px' }}>Нет данных</div>}
+                                        </div>
+                                    )}
+                                </div>
                             )}
 
                             {/* Рейтинг */}

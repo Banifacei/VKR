@@ -10,6 +10,9 @@ import { Course } from '../models/Course.js';
 import { CourseEnrollment } from '../models/CourseEnrollment.js';
 import { addSystemLog } from './adminController.js';
 import { sendNotification } from './notificationController.js';
+import { checkTestBadges, checkCourseCompletionBadges } from './badgeController.js';
+import { CourseCertificate } from '../models/CourseCertificate.js';
+import crypto from 'crypto';
 
 export const getCourseTests = async (req: Request, res: Response) => {
     try {
@@ -356,6 +359,9 @@ export const submitTestResult = async (req: Request, res: Response) => {
         addSystemLog(`Пользователь (роль: ${userRole}, ID: ${userId}) сдал тест (ID: ${testId}) на ${finalScore}%`, 'info');
         res.json({ score: finalScore, detailedAnswers });
 
+        // Бейджи за тест (после ответа клиенту, не блокируем)
+        checkTestBadges(userId, finalScore, Number(testId)).catch(() => {});
+
         // Уведомления — после ответа клиенту
         const isPassed = finalScore >= test.passingScore;
         const resultWord = isPassed ? 'сдан' : 'не сдан';
@@ -390,6 +396,14 @@ export const submitTestResult = async (req: Request, res: Response) => {
                         `${studentName} завершил(а) курс "${(course as any).title}"`,
                         `/courses/${test.courseId}/stats`,
                     ).catch(() => {});
+                    // Авто-выдача сертификата
+                    const exists = await CourseCertificate.findOne({ where: { userId, courseId: test.courseId } });
+                    if (!exists) {
+                        const certId = crypto.randomUUID().replace(/-/g, '').substring(0, 16).toUpperCase();
+                        await CourseCertificate.create({ userId, courseId: test.courseId, certificateId: certId });
+                    }
+                    // Бейджи за завершение курса
+                    checkCourseCompletionBadges(userId).catch(() => {});
                 }
             }
         }
