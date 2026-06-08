@@ -95,6 +95,8 @@ export const UserPage = () => {
     // Активный элемент (вместо selectedVideo)
     const [activeItem, setActiveItem] = useState<DashboardItem | null>(null);
     const [certLoading, setCertLoading] = useState(false);
+    const [incompleteReminder, setIncompleteReminder] = useState<{ itemId: number; title: string; secondsLeft: number | null } | null>(null);
+    const testProgressRef = useRef<{ step: 'start' | 'quiz' | 'result'; secondsLeft: number | null }>({ step: 'start', secondsLeft: null });
     const [leaderboard, setLeaderboard] = useState<any[]>([]);
     const [showLeaderboard, setShowLeaderboard] = useState(false);
 
@@ -369,7 +371,12 @@ export const UserPage = () => {
         return (
             <div className="focus-mode-layout" style={{ background: 'var(--bg-deep)', minHeight: '100vh', overflowY: 'auto' }}>
                 <div style={{ padding: '20px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: 'var(--bg-deep)', zIndex: 10 }}>
-                    <button className="btn btn-ghost" style={{ whiteSpace: 'nowrap' }} onClick={() => setActiveItem(null)}>← Назад к курсу</button>
+                    <button className="btn btn-ghost" style={{ whiteSpace: 'nowrap' }} onClick={() => {
+                        if (activeItem?.type === 'test' && testProgressRef.current.step === 'quiz') {
+                            setIncompleteReminder({ itemId: activeItem.id, title: activeItem.title, secondsLeft: testProgressRef.current.secondsLeft });
+                        }
+                        setActiveItem(null);
+                    }}>← Назад к курсу</button>
                     <div style={{ color: 'var(--text-muted)' }}>
                         {activeItem.type === 'video'
                             ? <><Icons.Monitor size={16}/> Просмотр видео</>
@@ -489,9 +496,18 @@ export const UserPage = () => {
                         <>
                             <TestRunner
                                 test={activeItem}
-                                onExit={() => setActiveItem(null)}
-                                onSuccess={() => fetchCourseData()}
+                                onExit={() => {
+                                    if (testProgressRef.current.step === 'quiz') {
+                                        setIncompleteReminder({ itemId: activeItem.id, title: activeItem.title, secondsLeft: testProgressRef.current.secondsLeft });
+                                    }
+                                    setActiveItem(null);
+                                }}
+                                onSuccess={() => {
+                                    setIncompleteReminder(null);
+                                    fetchCourseData();
+                                }}
                                 userRole={userData?.role}
+                                onProgress={info => { testProgressRef.current = info; }}
                             />
                             {/* Домашнее задание к тесту */}
                             {userData?.role === 'student' && (
@@ -711,9 +727,50 @@ export const UserPage = () => {
                     </div>
                 ) : (
                     <>
-                        <DndContext 
-                            sensors={sensors} 
-                            collisionDetection={closestCenter} 
+                        {/* Напоминание о незавершённом тесте */}
+                        {incompleteReminder && displayItems.some(i => i.id === incompleteReminder.itemId) && (
+                            <div
+                                onClick={() => {
+                                    const item = displayItems.find(i => i.id === incompleteReminder.itemId);
+                                    if (item) { setIncompleteReminder(null); setActiveItem(item); }
+                                }}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: 12,
+                                    background: 'rgba(245,158,11,0.08)',
+                                    border: '1px solid rgba(245,158,11,0.35)',
+                                    borderRadius: 12, padding: '12px 16px',
+                                    marginBottom: 16, cursor: 'pointer',
+                                    transition: 'background 0.15s',
+                                }}
+                                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(245,158,11,0.14)')}
+                                onMouseLeave={e => (e.currentTarget.style.background = 'rgba(245,158,11,0.08)')}
+                            >
+                                <span style={{ fontSize: 22 }}>⚠️</span>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontWeight: 700, fontSize: 13, color: '#f59e0b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        Тест не завершён
+                                    </div>
+                                    <div style={{ fontSize: 12, color: '#aaa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>
+                                        {incompleteReminder.title}
+                                        {incompleteReminder.secondsLeft !== null && incompleteReminder.secondsLeft > 0 && (
+                                            <span style={{ color: '#f59e0b', marginLeft: 6, fontWeight: 600 }}>
+                                                · {Math.floor(incompleteReminder.secondsLeft / 60)}:{String(incompleteReminder.secondsLeft % 60).padStart(2, '0')} осталось
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                                <span style={{ color: '#f59e0b', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>Продолжить →</span>
+                                <button
+                                    style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', padding: '0 4px', fontSize: 14, lineHeight: 1 }}
+                                    onClick={e => { e.stopPropagation(); setIncompleteReminder(null); }}
+                                    title="Скрыть"
+                                >✕</button>
+                            </div>
+                        )}
+
+                        <DndContext
+                            sensors={sensors}
+                            collisionDetection={closestCenter}
                             onDragStart={(e) => setActiveDragId(String(e.active.id))}
                             onDragEnd={handleDragEnd}
                             onDragCancel={() => setActiveDragId(null)}

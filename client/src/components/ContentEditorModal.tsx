@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { sseQuery } from '../utils/sseTicket';
 import './ContentEditorModal.css';
+import { TimeDurationInput } from './TimeDurationInput';
 import { VideoPlayer } from './VideoPlayer';
 import { addEvent, updateEvent, deleteEvent, generateAutoSubtitles, updateVideo, getVideosByCourse, getVideoStats, transcodeVideo } from '../api/videoApi';
 import { addTestQuestion, deleteTestQuestion, getCourseTests, getTestStats, uploadTestImage, type ICourseTest } from '../api/testApi';
@@ -1132,15 +1133,16 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                             </div>
                                             {!isVideo && (
                                                 <div>
-                                                    <label style={{ fontSize: '13px', color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>
-                                                        Лимит времени (мин, 0 = без лимита):
-                                                    </label>
-                                                    <input
-                                                        type="number" className="deck-input" min="0"
-                                                        value={settingsData.timeLimit ?? ''}
-                                                        placeholder="Без лимита"
-                                                        onChange={e => setSettingsData({...settingsData, timeLimit: e.target.value === '' || Number(e.target.value) === 0 ? null : Number(e.target.value)})}
-                                                        style={{ background: 'var(--bg-input)', width: '100%', fontSize: '15px', padding: '10px 12px' }}
+                                                    <TimeDurationInput
+                                                        label="⏱ Лимит времени на тест:"
+                                                        value={settingsData.timeLimit !== null && settingsData.timeLimit !== undefined
+                                                            ? settingsData.timeLimit * 60
+                                                            : null}
+                                                        onChange={sec => setSettingsData({
+                                                            ...settingsData,
+                                                            timeLimit: sec === null ? null : Math.ceil(sec / 60)
+                                                        })}
+                                                        showSeconds={false}
                                                     />
                                                 </div>
                                             )}
@@ -1407,8 +1409,12 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                                 )}
                                                 {isVideo && (
                                                     <div style={{ flex: 1 }}>
-                                                        <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>⏱ Таймер (сек, 0 = без):</label>
-                                                        <input type="number" className="deck-input" min="0" placeholder="Без лимита" value={eventTimeLimit} onChange={e => setEventTimeLimit(e.target.value === '' || Number(e.target.value) === 0 ? '' : Number(e.target.value))} style={{ background: 'var(--bg-input)', width: '100%', margin: 0, fontSize: '15px', padding: '10px' }} />
+                                                        <TimeDurationInput
+                                                            label="⏱ Таймер на вопрос:"
+                                                            value={eventTimeLimit === '' ? null : Number(eventTimeLimit)}
+                                                            onChange={sec => setEventTimeLimit(sec === null ? '' : sec)}
+                                                            showSeconds={true}
+                                                        />
                                                     </div>
                                                 )}
                                             </div>

@@ -10,9 +10,10 @@ interface TestRunnerProps {
     onExit: () => void;
     onSuccess?: () => void;
     userRole?: string;
+    onProgress?: (info: { step: 'start' | 'quiz' | 'result'; secondsLeft: number | null }) => void;
 }
 
-export const TestRunner = ({ test, onExit, onSuccess, userRole }: TestRunnerProps) => {
+export const TestRunner = ({ test, onExit, onSuccess, userRole, onProgress }: TestRunnerProps) => {
     const confirm = useConfirm();
     const [step, setStep] = useState<'start' | 'quiz' | 'result'>('start');
     const [currentQIndex, setCurrentQIndex] = useState(0);
@@ -45,9 +46,17 @@ export const TestRunner = ({ test, onExit, onSuccess, userRole }: TestRunnerProp
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [step]);
 
+    // Notify parent about progress (for incomplete-test reminder)
+    useEffect(() => {
+        onProgress?.({ step, secondsLeft });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [step, secondsLeft]);
+
     const formatTime = (s: number) => {
-        const m = Math.floor(s / 60);
+        const h = Math.floor(s / 3600);
+        const m = Math.floor((s % 3600) / 60);
         const sec = s % 60;
+        if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
         return `${m}:${String(sec).padStart(2, '0')}`;
     };
 
