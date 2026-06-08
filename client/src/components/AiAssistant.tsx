@@ -29,23 +29,17 @@ export function AiAssistant() {
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const panelRef = useRef<HTMLDivElement>(null);
 
+    // Fetch enabled status once on mount
     useEffect(() => {
         api.get<{ enabled: boolean }>('/assistant/status')
             .then(r => setEnabled(r.data.enabled))
             .catch(() => setEnabled(true));
     }, []);
 
-    // Hide on video lesson pages and if disabled or loading status
-    const isLessonPage = /\/course\/[^/]+\/lesson\//.test(location.pathname);
-    if (!isAuthenticated || isLessonPage || enabled === null || enabled === false) return null;
-
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    };
-
+    // Scroll to bottom and focus input when panel opens or new message arrives
     useEffect(() => {
         if (open) {
-            scrollToBottom();
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
             inputRef.current?.focus();
         }
     }, [open, messages.length]);
@@ -55,7 +49,12 @@ export function AiAssistant() {
         if (!open) return;
         const handler = (e: MouseEvent) => {
             const fab = document.getElementById('aia-fab-btn');
-            if (panelRef.current && !panelRef.current.contains(e.target as Node) && e.target !== fab && !fab?.contains(e.target as Node)) {
+            if (
+                panelRef.current &&
+                !panelRef.current.contains(e.target as Node) &&
+                e.target !== fab &&
+                !fab?.contains(e.target as Node)
+            ) {
                 setOpen(false);
             }
         };
@@ -67,8 +66,7 @@ export function AiAssistant() {
         const q = text.trim();
         if (!q || loading) return;
 
-        const userMsg: Message = { role: 'user', content: q };
-        setMessages(prev => [...prev, userMsg]);
+        setMessages(prev => [...prev, { role: 'user', content: q }]);
         setInput('');
         setLoading(true);
 
@@ -93,6 +91,10 @@ export function AiAssistant() {
         }
     }, [messages, loading]);
 
+    // All hooks above — conditional render below is safe
+    const isLessonPage = /\/course\/[^/]+\/lesson\//.test(location.pathname);
+    if (!isAuthenticated || isLessonPage || enabled === null || enabled === false) return null;
+
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
@@ -102,7 +104,6 @@ export function AiAssistant() {
 
     const handleTextareaInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         setInput(e.target.value);
-        // Auto-resize
         const el = e.target;
         el.style.height = 'auto';
         el.style.height = Math.min(el.scrollHeight, 100) + 'px';
@@ -128,11 +129,7 @@ export function AiAssistant() {
                             <div className="aia-suggestions">
                                 <div className="aia-suggestion-label">Популярные вопросы</div>
                                 {SUGGESTIONS.map(s => (
-                                    <button
-                                        key={s}
-                                        className="aia-suggestion-btn"
-                                        onClick={() => sendMessage(s)}
-                                    >
+                                    <button key={s} className="aia-suggestion-btn" onClick={() => sendMessage(s)}>
                                         {s}
                                     </button>
                                 ))}
