@@ -611,7 +611,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                     correctAnswer: eventType === 'free_text' ? freeTextAnswer : '',
                     isStrict, isRequired, weight: Number(weight) || 1, rewindTo: rewindTo === '' ? undefined : Number(rewindTo),
                     explanation, aiThreshold: Number(aiThreshold) || 50,
-                    timeLimit: eventTimeLimit === '' ? null : Number(eventTimeLimit)
+                    timeLimit: eventTimeLimit === '' ? undefined : Number(eventTimeLimit)
                 };
                 if (editingEventId) await updateEvent(editingEventId, eventPayload);
                 else await addEvent(selectedVideo!.id, eventPayload);
