@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { pipeline, env } from '@xenova/transformers';
 import { InteractiveEvent } from '../models/InteractiveEvent.js';
+import { SystemSetting } from '../models/SystemSetting.js';
 
 env.allowLocalModels = false;
 
@@ -36,8 +37,26 @@ const FAQ: Array<{ q: string; a: string }> = [
     { q: 'тест', a: 'Тесты доступны в разделе курса. Некоторые тесты имеют ограничение по времени, указанное вверху страницы.' },
 ];
 
+async function getSetting(key: string): Promise<string | null> {
+    try {
+        const row = await SystemSetting.findOne({ where: { key } });
+        return row?.value ?? null;
+    } catch {
+        return null;
+    }
+}
+
+export const getAssistantStatus = async (_req: Request, res: Response): Promise<void> => {
+    const enabled = await getSetting('ai_assistant_enabled');
+    const hasKey = !!(await getSetting('groq_api_key')) || !!process.env.GROQ_API_KEY;
+    res.json({
+        enabled: enabled === null ? true : enabled === 'true',
+        hasKey,
+    });
+};
+
 async function callGroq(messages: Array<{ role: string; content: string }>): Promise<string> {
-    const apiKey = process.env.GROQ_API_KEY;
+    const apiKey = (await getSetting('groq_api_key')) || process.env.GROQ_API_KEY;
     if (!apiKey) return '';
     try {
         const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -69,6 +88,12 @@ export const askAssistant = async (req: Request, res: Response): Promise<void> =
     const userName: string = (req as any).user?.name || 'Студент';
     const userRole: string = (req as any).user?.role || 'student';
     const { question, history = [] } = req.body;
+
+    const enabledSetting = await getSetting('ai_assistant_enabled');
+    if (enabledSetting === 'false') {
+        res.status(503).json({ message: 'ИИ-ассистент отключён администратором' });
+        return;
+    }
 
     if (!question || typeof question !== 'string' || question.trim().length < 2) {
         res.status(400).json({ message: 'Вопрос не может быть пустым' });
@@ -127,15 +152,10 @@ export const askAssistant = async (req: Request, res: Response): Promise<void> =
         return;
     }
 
-    // FAQ fallback
+    // FAQ fallback — только точное вхождение ключевой фразы
     const qLower = q.toLowerCase();
     for (const faq of FAQ) {
         if (qLower.includes(faq.q)) {
-            res.json({ answer: faq.a, blocked: false });
-            return;
-        }
-        const words = faq.q.split(' ').filter(w => w.length > 4);
-        if (words.length > 0 && words.some(w => qLower.includes(w))) {
             res.json({ answer: faq.a, blocked: false });
             return;
         }

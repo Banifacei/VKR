@@ -24,13 +24,20 @@ export function AiAssistant() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
+    const [enabled, setEnabled] = useState<boolean | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const panelRef = useRef<HTMLDivElement>(null);
 
-    // Hide on video lesson pages and test pages
+    useEffect(() => {
+        api.get<{ enabled: boolean }>('/assistant/status')
+            .then(r => setEnabled(r.data.enabled))
+            .catch(() => setEnabled(true));
+    }, []);
+
+    // Hide on video lesson pages and if disabled or loading status
     const isLessonPage = /\/course\/[^/]+\/lesson\//.test(location.pathname);
-    if (!isAuthenticated || isLessonPage) return null;
+    if (!isAuthenticated || isLessonPage || enabled === null || enabled === false) return null;
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

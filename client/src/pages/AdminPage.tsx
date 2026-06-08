@@ -100,6 +100,8 @@ export const AdminPage = () => {
   const [yandexForm, setYandexForm] = useState({ enabled: false, clientId: '', clientSecret: '' });
   const [showLdapModal, setShowLdapModal] = useState(false);
   const [ldapForm, setLdapForm] = useState({ enabled: false, url: '', searchBase: '' });
+  const [showAiModal, setShowAiModal] = useState(false);
+  const [aiForm, setAiForm] = useState({ enabled: true, apiKey: '' });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const openSamlModal = () => {
       setSamlForm({
@@ -139,6 +141,11 @@ export const AdminPage = () => {
           if (settingsRes.data.analytics_demo_button_visible !== undefined) {
               setAnalyticsDemo(settingsRes.data.analytics_demo_button_visible !== false && settingsRes.data.analytics_demo_button_visible !== 'false');
           }
+          setAiForm(prev => ({
+              ...prev,
+              enabled: settingsRes.data.ai_assistant_enabled !== false && settingsRes.data.ai_assistant_enabled !== 'false',
+              apiKey: settingsRes.data.groq_api_key || '',
+          }));
           setSystemModules(modulesRes.data);
       } catch (e) { console.error('Ошибка загрузки статических данных системы'); }
       finally { setSystemLoading(false); }
@@ -218,6 +225,29 @@ export const AdminPage = () => {
           setIsSaving(false);
       }
   };
+  const openAiModal = () => {
+      setAiForm({
+          enabled: systemSettings.ai_assistant_enabled !== false && systemSettings.ai_assistant_enabled !== 'false',
+          apiKey: systemSettings.groq_api_key || '',
+      });
+      setShowAiModal(true);
+  };
+
+  const handleSaveAi = async () => {
+      setIsSaving(true);
+      try {
+          await api.post('/admin/settings/toggle', { key: 'ai_assistant_enabled', value: String(aiForm.enabled) });
+          await api.post('/admin/settings/toggle', { key: 'groq_api_key', value: aiForm.apiKey });
+          showToast('Настройки ИИ-ассистента сохранены!', 'success');
+          setShowAiModal(false);
+          fetchSystemData();
+      } catch {
+          showToast('Ошибка при сохранении настроек ИИ-ассистента', 'error');
+      } finally {
+          setIsSaving(false);
+      }
+  };
+
   const fetchLiveServerStats = async () => {
       try {
           const res = await api.get('/admin/server-stats');
@@ -725,6 +755,48 @@ export const AdminPage = () => {
                   <div className="modal-footer">
                       <button className="btn btn-secondary" onClick={() => setShowGoogleModal(false)}>Отмена</button>
                       <button className="btn btn-primary" onClick={handleSaveGoogle} disabled={isSaving}>
+                          {isSaving ? 'Сохранение...' : 'Сохранить настройки'}
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+      {/* МОДАЛЬНОЕ ОКНО ИИ-АССИСТЕНТ */}
+      {showAiModal && (
+          <div className="modal-overlay">
+              <div className="modal-content">
+                  <div className="modal-header">
+                      <h3>🤖 Настройки ИИ-ассистента (Луми)</h3>
+                      <button className="btn-icon" onClick={() => setShowAiModal(false)}><Icons.Close /></button>
+                  </div>
+                  <div className="modal-body">
+                      <div className="form-group" style={{ marginBottom: '20px' }}>
+                          <label className="lumeo-switch" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: '10px' }}>
+                              <input type="checkbox" checked={aiForm.enabled} onChange={e => setAiForm({ ...aiForm, enabled: e.target.checked })} />
+                              <span className="slider round"></span>
+                          </label>
+                          <strong style={{ color: aiForm.enabled ? '#00ff88' : '#888', verticalAlign: 'middle' }}>
+                              {aiForm.enabled ? 'Ассистент ВКЛЮЧЁН' : 'Ассистент ОТКЛЮЧЁН'}
+                          </strong>
+                      </div>
+                      <div className="form-group">
+                          <label>Groq API-ключ</label>
+                          <input
+                              className="modern-input"
+                              type="password"
+                              placeholder="gsk_xxxxxxxxxxxxxxxxxxxx"
+                              value={aiForm.apiKey}
+                              onChange={e => setAiForm({ ...aiForm, apiKey: e.target.value })}
+                          />
+                          <p style={{ fontSize: '12px', color: '#666', marginTop: '6px', lineHeight: 1.5 }}>
+                              Бесплатный ключ: <span style={{ color: '#00ff88' }}>console.groq.com</span> → API Keys → Create API Key.<br/>
+                              Без ключа ассистент работает только в режиме FAQ.
+                          </p>
+                      </div>
+                  </div>
+                  <div className="modal-footer">
+                      <button className="btn btn-secondary" onClick={() => setShowAiModal(false)}>Отмена</button>
+                      <button className="btn btn-primary" onClick={handleSaveAi} disabled={isSaving}>
                           {isSaving ? 'Сохранение...' : 'Сохранить настройки'}
                       </button>
                   </div>
@@ -1451,7 +1523,7 @@ export const AdminPage = () => {
                             <div className={`integration-card ${systemSettings.google_enabled === 'true' || systemSettings.google_enabled === true ? 'active' : ''}`}>
                                 <div className="int-header">
                                     <div className="int-icon openid" style={{background: 'rgba(66, 133, 244, 0.2)', color: '#4285F4'}}>
-                                        <Icons.Globe /> 
+                                        <Icons.Globe />
                                     </div>
                                     <div className={`int-status ${systemSettings.google_enabled === 'true' || systemSettings.google_enabled === true ? '' : 'disabled'}`}>
                                         {systemSettings.google_enabled === 'true' || systemSettings.google_enabled === true ? <><span className="pulse-dot"></span> Активен</> : 'Отключен'}
@@ -1460,15 +1532,41 @@ export const AdminPage = () => {
                                 <h3>Google Workspace</h3>
                                 <p>Вход через аккаунт Google (OpenID Connect).</p>
                                 <div className="int-actions">
-                                    <button 
-                                        className={systemSettings.google_enabled === 'true' || systemSettings.google_enabled === true ? "btn btn-secondary" : "btn btn-primary"} 
-                                        style={{width: '100%'}} 
+                                    <button
+                                        className={systemSettings.google_enabled === 'true' || systemSettings.google_enabled === true ? "btn btn-secondary" : "btn btn-primary"}
+                                        style={{width: '100%'}}
                                         onClick={openGoogleModal}
                                     >
                                         Настроить
                                     </button>
                                 </div>
                             </div>
+
+                            {/* Карточка ИИ-ассистент */}
+                            {(() => {
+                                const aiEnabled = systemSettings.ai_assistant_enabled !== false && systemSettings.ai_assistant_enabled !== 'false';
+                                const hasKey = !!(systemSettings.groq_api_key);
+                                return (
+                                <div className={`integration-card ${aiEnabled ? 'active' : ''}`}>
+                                    <div className="int-header">
+                                        <div className="int-icon" style={{background: 'rgba(0,255,136,0.12)', color: 'var(--primary)', fontSize: '20px', display:'flex', alignItems:'center', justifyContent:'center', width:40, height:40, borderRadius:10}}>🤖</div>
+                                        <div className={`int-status ${aiEnabled ? '' : 'disabled'}`}>
+                                            {aiEnabled ? <><span className="pulse-dot"></span> Активен</> : 'Отключен'}
+                                        </div>
+                                    </div>
+                                    <h3>ИИ-ассистент (Луми)</h3>
+                                    <p>Чат-бот на базе Groq Llama 3.1. Помогает студентам с вопросами о платформе.</p>
+                                    <div className="int-meta">
+                                        <span>API-ключ: {hasKey ? '••••••••' : 'Не задан (FAQ-режим)'}</span>
+                                    </div>
+                                    <div className="int-actions">
+                                        <button className={aiEnabled ? 'btn btn-secondary' : 'btn btn-primary'} style={{width:'100%'}} onClick={openAiModal}>
+                                            Настроить
+                                        </button>
+                                    </div>
+                                </div>
+                                );
+                            })()}
                         </div>
                     </div>
                 </div>

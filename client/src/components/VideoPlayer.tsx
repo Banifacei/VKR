@@ -1576,21 +1576,35 @@ const renderMainMenu = () => (
                 {!feedback && (
                     <>
                         {eventTimer !== null && activeEvent.timeLimit && (
-                            <div style={{ marginBottom: '10px' }}>
-                                <div style={{ height: '4px', background: 'var(--bg-input)', borderRadius: '2px', overflow: 'hidden', marginBottom: '6px' }}>
+                            <div style={{ marginBottom: '14px' }}>
+                                {/* Прогресс-бар */}
+                                <div style={{ height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden', marginBottom: '8px' }}>
                                     <div style={{
                                         height: '100%',
                                         width: `${(eventTimer / activeEvent.timeLimit) * 100}%`,
                                         background: eventTimer <= 5 ? '#ef4444' : eventTimer <= 10 ? '#f59e0b' : 'var(--primary)',
                                         transition: 'width 1s linear, background 0.3s',
-                                        borderRadius: '2px',
+                                        borderRadius: '3px',
+                                        boxShadow: eventTimer <= 5 ? '0 0 8px #ef4444' : undefined,
                                     }} />
                                 </div>
-                                <span style={{
-                                    fontWeight: 700, fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px',
-                                    color: eventTimer <= 5 ? '#ef4444' : eventTimer <= 10 ? '#f59e0b' : 'var(--primary)',
+                                {/* Счётчик секунд */}
+                                <div style={{
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                                    padding: '6px 12px',
+                                    background: eventTimer <= 5 ? 'rgba(239,68,68,0.12)' : eventTimer <= 10 ? 'rgba(245,158,11,0.12)' : 'rgba(0,255,136,0.08)',
+                                    border: `1px solid ${eventTimer <= 5 ? 'rgba(239,68,68,0.4)' : eventTimer <= 10 ? 'rgba(245,158,11,0.4)' : 'rgba(0,255,136,0.25)'}`,
+                                    borderRadius: '8px',
                                     animation: eventTimer <= 5 ? 'pulse 0.8s infinite' : undefined,
-                                }}>⏱ {eventTimer}с</span>
+                                }}>
+                                    <span style={{ fontSize: '16px' }}>⏱</span>
+                                    <span style={{
+                                        fontWeight: 800, fontSize: '20px', lineHeight: 1,
+                                        color: eventTimer <= 5 ? '#ef4444' : eventTimer <= 10 ? '#f59e0b' : 'var(--primary)',
+                                        fontVariantNumeric: 'tabular-nums',
+                                    }}>{eventTimer}</span>
+                                    <span style={{ fontSize: '13px', color: '#aaa', fontWeight: 500 }}>сек</span>
+                                </div>
                             </div>
                         )}
                         <h3 style={{color: 'var(--primary)'}}>
