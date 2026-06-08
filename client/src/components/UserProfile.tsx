@@ -84,6 +84,14 @@ export const UserProfile = ({ user, onLogout }: UserProfileProps) => {
                     >
                         <Icons.FileText size={14}/> {user.role === 'student' ? 'Мои задания' : 'Задания'}
                     </button>
+                    {user.role === 'student' && (
+                        <button
+                            className="dropdown-item"
+                            onClick={() => { setIsOpen(false); navigate('/certificates'); }}
+                        >
+                            <Icons.Trophy size={14}/> Мои сертификаты
+                        </button>
+                    )}
                     {user.role != 'student' && (
                         <button className="dropdown-item" data-tour="analytics-link"
                         onClick={() => {

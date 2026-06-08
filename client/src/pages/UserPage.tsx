@@ -94,6 +94,7 @@ export const UserPage = () => {
     const [isEditMode, setIsEditMode] = useState(false);
     // Активный элемент (вместо selectedVideo)
     const [activeItem, setActiveItem] = useState<DashboardItem | null>(null);
+    const [certLoading, setCertLoading] = useState(false);
 
     const handleRefreshEvents = useCallback(async () => {
         if (!courseId || !activeItem) return [];
@@ -587,6 +588,33 @@ export const UserPage = () => {
                                         }}/>
                                     </div>
                                 </div>
+                            )}
+
+                            {/* Кнопка сертификата при 100% */}
+                            {userData?.role === 'student' && progressPercent === 100 && course && (
+                                <button
+                                    disabled={certLoading}
+                                    onClick={async () => {
+                                        setCertLoading(true);
+                                        try {
+                                            const res = await api.get(`/certificates/${course.id}/download`, { responseType: 'blob' });
+                                            const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+                                            const a = document.createElement('a');
+                                            a.href = url; a.download = `certificate-${course.id}.pdf`; a.click();
+                                            URL.revokeObjectURL(url);
+                                        } catch { showToast('Не удалось скачать сертификат', 'error'); }
+                                        finally { setCertLoading(false); }
+                                    }}
+                                    style={{
+                                        marginTop: 12, width: '100%',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                                        background: 'rgba(0,200,100,0.15)', border: '1px solid rgba(0,200,100,0.4)',
+                                        color: '#4dff88', borderRadius: 10, padding: '10px 16px',
+                                        fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                                    }}
+                                >
+                                    {certLoading ? <><Icons.Spinner size={14}/> Загрузка...</> : <><Icons.Trophy size={14}/> Скачать сертификат</>}
+                                </button>
                             )}
 
                             {/* Рейтинг */}

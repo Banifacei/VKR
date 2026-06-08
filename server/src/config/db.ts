@@ -21,6 +21,7 @@ import { ModerationLog } from '../models/ModerationLog.js';
 import { CourseBan } from '../models/CourseBan.js';
 import { HomeworkAssignment } from '../models/HomeworkAssignment.js';
 import { HomeworkSubmission } from '../models/HomeworkSubmission.js';
+import { CourseCertificate } from '../models/CourseCertificate.js';
 dotenv.config();
 
 const requiredEnvVars = ['DB_NAME', 'DB_USER', 'DB_PASSWORD', 'DB_HOST'];
@@ -58,6 +59,7 @@ const sequelize = new Sequelize({
      CourseBan,
      HomeworkAssignment,
      HomeworkSubmission,
+     CourseCertificate,
     ],
   
   logging: false,
