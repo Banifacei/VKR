@@ -8,6 +8,7 @@ import { SearchProvider } from './context/SearchContext';
 import { ConfirmProvider } from './context/ConfirmContext';
 import { TourProvider, useTour, getTourStepsByRole } from './context/TourContext';
 import { GlobalSearch } from './components/GlobalSearch';
+import { AiAssistant } from './components/AiAssistant';
 import api from './api/axiosInstance';
 
 function HeartbeatSender() {
@@ -91,6 +92,7 @@ function App() {
             <BrowserRouter>
                 <HeartbeatSender />
                 <OnboardingLauncher />
+                <AiAssistant />
                 <div style={{ position: 'fixed', bottom: 8, right: 12, fontSize: 10, color: 'rgba(255,255,255,0.18)', pointerEvents: 'none', zIndex: 9999, userSelect: 'none', letterSpacing: 0.2 }}>
                     © 2026 Lumeo · Свид. ПО № 2026615131
                 </div>
