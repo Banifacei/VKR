@@ -56,8 +56,9 @@ export const getAssistantStatus = async (_req: Request, res: Response): Promise<
 };
 
 async function callGroq(messages: Array<{ role: string; content: string }>): Promise<string> {
-    const apiKey = (await getSetting('groq_api_key')) || process.env.GROQ_API_KEY;
-    if (!apiKey) return '';
+    const rawKey = (await getSetting('groq_api_key')) || process.env.GROQ_API_KEY;
+    const apiKey = rawKey?.trim();
+    if (!apiKey) { console.log('[Assistant] Groq: ключ не задан'); return ''; }
     try {
         const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
@@ -73,7 +74,8 @@ async function callGroq(messages: Array<{ role: string; content: string }>): Pro
             }),
         });
         if (!res.ok) {
-            console.error('[Assistant] Groq API error:', res.status);
+            const body = await res.text().catch(() => '');
+            console.error(`[Assistant] Groq API error ${res.status}:`, body.slice(0, 300));
             return '';
         }
         const data = await res.json() as any;

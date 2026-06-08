@@ -107,7 +107,7 @@ export const updateCourseTest = async (req: Request, res: Response) => {
     try {
         const { testId } = req.params;
         // Сразу добавляем hideResults для нашей следующей фичи!
-        const { title, description, passingScore, maxAttempts, isHidden, hideResults, unlockDate, shuffleQuestions, shuffleAnswers } = req.body;
+        const { title, description, passingScore, maxAttempts, isHidden, hideResults, unlockDate, shuffleQuestions, shuffleAnswers, timeLimit } = req.body;
 
         if (passingScore !== undefined) {
             const ps = Number(passingScore);
@@ -130,6 +130,7 @@ export const updateCourseTest = async (req: Request, res: Response) => {
         if (unlockDate !== undefined) test.unlockDate = unlockDate || null;
         if (shuffleQuestions !== undefined) test.shuffleQuestions = shuffleQuestions;
         if (shuffleAnswers !== undefined) test.shuffleAnswers = shuffleAnswers;
+        if (timeLimit !== undefined) (test as any).timeLimit = timeLimit === '' || timeLimit === 0 ? null : Number(timeLimit);
 
         await test.save();
         addSystemLog(`Обновлены настройки теста (ID: ${testId})`, 'info');

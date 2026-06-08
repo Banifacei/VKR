@@ -369,7 +369,7 @@ export const getVideosByCourse = async (req: Request, res: Response) => {
 export const createEvent = async (req: Request, res: Response) => {
     try {
         const { videoId } = req.params;
-        const { time, type, question, options, correctAnswer, isStrict, weight, rewindTo, explanation, aiThreshold } = req.body;
+        const { time, type, question, options, correctAnswer, isStrict, weight, rewindTo, explanation, aiThreshold, timeLimit } = req.body;
 
         const event = await InteractiveEvent.create({
             videoId: Number(videoId),
@@ -382,7 +382,8 @@ export const createEvent = async (req: Request, res: Response) => {
             weight: weight || 1,
             rewindTo: rewindTo || null,
             explanation: explanation || null,
-            aiThreshold: aiThreshold || 50
+            aiThreshold: aiThreshold || 50,
+            timeLimit: timeLimit || null,
         });
         addSystemLog(`В видео (ID: ${videoId}) добавлен новый интерактивный элемент`, 'info');
         videoEventsSse.broadcast(Number(videoId), { type: 'events_updated', videoId: Number(videoId) });
@@ -869,14 +870,15 @@ export const getAllVideos = async (req: Request, res: Response) => {
 export const updateEvent = async (req: Request, res: Response) => {
     try {
         const { eventId } = req.params;
-        const { time, type, question, options, correctAnswer, isStrict, weight, rewindTo, explanation, aiThreshold } = req.body;
+        const { time, type, question, options, correctAnswer, isStrict, weight, rewindTo, explanation, aiThreshold, timeLimit } = req.body;
 
         const event = await InteractiveEvent.findByPk(eventId);
         if (!event) return res.status(404).json({ message: 'Событие не найдено' });
 
         await event.update({
             time, type, question, options, correctAnswer,
-            isStrict, weight, rewindTo, explanation, aiThreshold
+            isStrict, weight, rewindTo, explanation, aiThreshold,
+            timeLimit: timeLimit ?? null,
         });
 
         videoEventsSse.broadcast(event.videoId, { type: 'events_updated', videoId: event.videoId });
