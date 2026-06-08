@@ -36,6 +36,11 @@ services:
       retries: 12
       start_period: 10s
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
     networks:
       - default
 
@@ -51,6 +56,11 @@ services:
       server:
         condition: service_healthy
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   postgres_data:

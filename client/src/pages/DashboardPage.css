@@ -1,68 +1,78 @@
-/* Hero */
+/* ── Main layout ─────────────────────────────────────────────────────────────── */
+.db-main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: clamp(20px,4vw,48px) clamp(16px,3vw,24px);
+}
+
+/* Two-column layout */
+.db-layout {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 28px;
+    align-items: start;
+}
+
+/* ── Hero ────────────────────────────────────────────────────────────────────── */
 .db-hero {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 24px;
-    margin-bottom: 40px;
+    margin-bottom: 36px;
     flex-wrap: wrap;
 }
-.db-greeting { font-size: clamp(22px, 4vw, 32px); font-weight: 800; margin: 0 0 6px; color: #fff; }
-.db-sub { color: #666; font-size: 14px; margin: 0; }
+.db-greeting { font-size: clamp(22px, 4vw, 30px); font-weight: 800; margin: 0 0 6px; color: #fff; }
+.db-sub { color: var(--text-muted); font-size: 14px; margin: 0; }
 
-.db-stats-row { display: flex; gap: 16px; flex-wrap: wrap; }
+.db-stats-row { display: flex; gap: 12px; flex-wrap: wrap; }
 .db-stat {
     background: rgba(255,255,255,0.03);
     border: 1px solid rgba(255,255,255,0.07);
     border-radius: 12px;
-    padding: 14px 20px;
+    padding: 12px 18px;
     text-align: center;
-    min-width: 80px;
+    min-width: 72px;
+    transition: border-color 0.2s;
 }
+.db-stat:hover { border-color: rgba(var(--primary-rgb),0.3); }
 .db-stat-icon { margin-bottom: 4px; }
-.db-stat-value { font-size: 24px; font-weight: 800; line-height: 1; margin-bottom: 2px; }
-.db-stat-label { font-size: 11px; color: #555; text-transform: uppercase; letter-spacing: 0.05em; }
+.db-stat-value { font-size: 22px; font-weight: 800; line-height: 1; margin-bottom: 2px; }
+.db-stat-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
 
-/* Sections */
-.db-section { margin-bottom: 40px; }
+/* ── Sections ────────────────────────────────────────────────────────────────── */
+.db-section { margin-bottom: 36px; }
 .db-section-title {
     display: flex; align-items: center; gap: 8px;
-    font-size: 16px; font-weight: 700; color: #fff;
-    margin: 0 0 20px;
+    font-size: 15px; font-weight: 700; color: #fff;
+    margin: 0 0 16px;
 }
 
-/* Grid */
+/* ── Course grid ─────────────────────────────────────────────────────────────── */
 .db-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 16px;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 14px;
 }
-
-/* Course card */
 .db-course-card {
-    background: #111;
+    background: var(--bg-card, #111);
     border: 1px solid rgba(255,255,255,0.06);
     border-radius: 14px;
     overflow: hidden;
     cursor: pointer;
     transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
 }
-.db-course-card:hover {
-    transform: translateY(-3px);
-    border-color: rgba(255,255,255,0.12);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-}
+.db-course-card:hover { transform: translateY(-3px); border-color: rgba(255,255,255,0.12); box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
 .db-course-card.pending { cursor: default; opacity: 0.7; }
 .db-course-card.pending:hover { transform: none; }
 .db-course-card.done { border-color: rgba(0,255,136,0.15); }
 
 .db-course-cover {
-    height: 110px;
-    background: linear-gradient(135deg, var(--primary,#00ff88) 0%, #00a86b 100%);
+    height: 100px;
+    background: linear-gradient(135deg, rgba(var(--primary-rgb),0.4) 0%, rgba(var(--primary-rgb),0.1) 100%);
     position: relative;
     display: flex; align-items: center; justify-content: center;
-    color: rgba(0,0,0,0.3);
-    overflow: hidden;
+    color: rgba(0,0,0,0.3); overflow: hidden;
 }
 .db-course-cover img { width: 100%; height: 100%; object-fit: cover; }
 .db-course-cover-placeholder { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
@@ -71,45 +81,133 @@
     position: absolute; top: 8px; right: 8px;
     display: flex; align-items: center; gap: 4px;
     font-size: 10px; font-weight: 700;
-    padding: 3px 8px; border-radius: 20px;
-    backdrop-filter: blur(4px);
+    padding: 3px 8px; border-radius: 20px; backdrop-filter: blur(4px);
 }
 .db-done-badge    { background: rgba(0,255,136,0.85); color: #000; }
 .db-pending-badge { background: rgba(0,0,0,0.6); color: #888; border: 1px solid #333; }
 
-.db-course-info { padding: 14px; }
-.db-course-info h4 { margin: 0 0 4px; font-size: 14px; font-weight: 600; color: #fff; line-height: 1.3; }
-.db-course-info p  { margin: 0 0 12px; font-size: 12px; color: #666; }
+.db-course-info { padding: 12px; }
+.db-course-info h4 { margin: 0 0 4px; font-size: 13px; font-weight: 600; color: #fff; line-height: 1.3;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.db-course-info p  { margin: 0 0 10px; font-size: 11px; color: var(--text-muted); }
+.db-progress-bar { height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
+.db-progress-fill { height: 100%; background: var(--primary,#00ff88); border-radius: 2px; transition: width 0.8s ease-out; }
+.db-pct { font-size: 11px; color: var(--text-muted); margin-top: 4px; text-align: right; }
 
-.db-progress-bar {
-    height: 4px; background: rgba(255,255,255,0.06);
-    border-radius: 2px; overflow: hidden;
-}
-.db-progress-fill {
-    height: 100%; background: var(--primary, #00ff88);
-    border-radius: 2px; transition: width 0.8s ease-out;
-}
-.db-pct { font-size: 11px; color: #555; margin-top: 4px; text-align: right; }
+/* ── Sidebar widgets ─────────────────────────────────────────────────────────── */
+.db-sidebar-col { display: flex; flex-direction: column; gap: 16px; }
 
-/* Empty */
+.db-widget {
+    background: var(--bg-card, #111);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 14px;
+    padding: 16px;
+}
+.db-widget-title {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 13px; font-weight: 700; color: #fff;
+    margin-bottom: 14px;
+}
+.db-widget-link {
+    background: none; border: none; padding: 0;
+    color: var(--primary); font-size: 12px; cursor: pointer;
+    margin-top: 10px; display: block;
+}
+.db-widget-link:hover { text-decoration: underline; }
+
+/* ── Deadlines ───────────────────────────────────────────────────────────────── */
+.db-overdue-badge {
+    margin-left: auto;
+    background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.4);
+    color: #ef4444; font-size: 11px; font-weight: 600;
+    padding: 2px 8px; border-radius: 20px;
+}
+.db-deadlines-list { display: flex; flex-direction: column; gap: 6px; }
+.db-deadline-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 10px; border-radius: 8px;
+    background: rgba(255,255,255,0.02);
+    cursor: pointer; transition: background 0.15s;
+}
+.db-deadline-item:hover { background: rgba(255,255,255,0.05); }
+.db-deadline-item.urgent { background: rgba(239,68,68,0.06); }
+.db-deadline-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.db-deadline-body { display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 6px; min-width: 0; }
+.db-deadline-title { font-size: 12px; color: #fff; flex: 1; min-width: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.db-deadline-date { font-size: 11px; flex-shrink: 0; font-weight: 600; }
+
+/* ── Mini calendar ───────────────────────────────────────────────────────────── */
+.db-calendar { }
+.db-cal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px;
+}
+.db-cal-title { font-size: 13px; font-weight: 700; color: #fff; }
+.db-cal-nav {
+    background: none; border: none; color: var(--text-muted); font-size: 16px;
+    cursor: pointer; padding: 2px 6px; border-radius: 6px; line-height: 1;
+    transition: color 0.15s, background 0.15s;
+}
+.db-cal-nav:hover { color: #fff; background: rgba(255,255,255,0.07); }
+
+.db-cal-grid {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px;
+}
+.db-cal-day-name {
+    font-size: 10px; color: var(--text-muted); text-align: center;
+    padding: 2px 0; font-weight: 600; text-transform: uppercase;
+}
+.db-cal-cell {
+    aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+    font-size: 11px; border-radius: 6px; position: relative;
+    color: var(--text-muted); cursor: default;
+}
+.db-cal-cell.today { background: rgba(var(--primary-rgb),0.2); color: var(--primary); font-weight: 700; }
+.db-cal-cell.marked { color: #fff; font-weight: 600; }
+.db-cal-cell.marked::after {
+    content: ''; position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%);
+    width: 4px; height: 4px; border-radius: 50%; background: #f59e0b;
+}
+.db-cal-cell.today.marked::after { background: var(--primary); }
+
+/* ── Badges ──────────────────────────────────────────────────────────────────── */
+.db-badges-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.db-badge-chip {
+    display: flex; align-items: center; gap: 4px;
+    background: rgba(var(--primary-rgb),0.1); border: 1px solid rgba(var(--primary-rgb),0.2);
+    border-radius: 20px; padding: 4px 9px;
+    font-size: 11px; color: var(--text-main); cursor: default;
+    transition: border-color 0.15s;
+}
+.db-badge-chip:hover { border-color: rgba(var(--primary-rgb),0.4); }
+.db-badge-icon { font-size: 13px; }
+.db-badge-label { white-space: nowrap; }
+
+/* ── Empty ───────────────────────────────────────────────────────────────────── */
 .db-empty {
     text-align: center; padding: 80px 20px;
-    color: #555; display: flex; flex-direction: column;
+    color: var(--text-muted); display: flex; flex-direction: column;
     align-items: center; gap: 12px;
 }
 .db-empty h3 { color: #888; font-size: 18px; margin: 0; }
 .db-empty p  { margin: 0; font-size: 14px; }
 
+/* ── Mobile ──────────────────────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+    .db-layout { grid-template-columns: 1fr; }
+    .db-sidebar-col { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+}
 @media (max-width: 600px) {
     .db-hero { flex-direction: column; align-items: flex-start; gap: 16px; margin-bottom: 24px; }
-    .db-stats-row { width: 100%; justify-content: space-between; }
+    .db-stats-row { width: 100%; }
     .db-stat { flex: 1; min-width: 0; padding: 10px; }
-    .db-section { margin-bottom: 28px; }
+    .db-section { margin-bottom: 24px; }
+    .db-sidebar-col { grid-template-columns: 1fr; }
 }
-
 @media (max-width: 480px) {
-    .db-grid { grid-template-columns: 1fr; gap: 12px; }
+    .db-grid { grid-template-columns: 1fr; gap: 10px; }
     .db-greeting { font-size: 20px; }
-    .db-stat-value { font-size: 20px; }
+    .db-stat-value { font-size: 18px; }
     .db-empty { padding: 40px 16px; }
 }
