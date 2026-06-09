@@ -276,6 +276,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
     };
     const [transcodingVideos, setTranscodingVideos] = useState<number[]>([]);
     const [generatingQVideos, setGeneratingQVideos] = useState<number[]>([]);
+    const [aiQuestionCount, setAiQuestionCount] = useState(5);
     const [subtitleProgress, setSubtitleProgress] = useState<Record<number, { label: string; progress: number }>>({});
     
     const [duplicateIndices, setDuplicateIndices] = useState<number[]>([]);
@@ -718,7 +719,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
         }
         setGeneratingQVideos(prev => [...prev, selectedVideo.id]);
         try {
-            const res = await generateVideoQuestions(selectedVideo.id);
+            const res = await generateVideoQuestions(selectedVideo.id, aiQuestionCount);
             showToast(`ИИ создал ${res.created} вопросов!`, 'success');
             // Refresh video data to show new events
             const updated = await getVideosByCourse(selectedVideo.courseId!);
@@ -1065,15 +1066,26 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                                         const hasSubs = Array.isArray(selectedVideo.subtitles) && selectedVideo.subtitles.length > 0;
                                                         const isGenerating = generatingQVideos.includes(selectedVideo.id);
                                                         return (
-                                                            <button
-                                                                className={`btn ${isGenerating ? 'btn-ghost' : hasSubs ? 'btn-primary' : 'btn-ghost'}`}
-                                                                style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '10px', opacity: hasSubs ? 1 : 0.5 }}
-                                                                onClick={handleGenerateQuestions}
-                                                                disabled={isGenerating}
-                                                                title={hasSubs ? 'Создать вопросы по субтитрам через ИИ' : 'Сначала сгенерируйте ИИ-субтитры'}
-                                                            >
-                                                                {isGenerating ? <><Icons.Spinner /> Генерация вопросов...</> : <><Icons.AI /> ИИ Вопросы</>}
-                                                            </button>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                                <button
+                                                                    className={`btn ${isGenerating ? 'btn-ghost' : hasSubs ? 'btn-primary' : 'btn-ghost'}`}
+                                                                    style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '10px 0 0 10px', opacity: hasSubs ? 1 : 0.5 }}
+                                                                    onClick={handleGenerateQuestions}
+                                                                    disabled={isGenerating}
+                                                                    title={hasSubs ? 'Создать вопросы по субтитрам через ИИ' : 'Сначала сгенерируйте ИИ-субтитры'}
+                                                                >
+                                                                    {isGenerating ? <><Icons.Spinner /> Генерация...</> : <><Icons.AI /> ИИ Вопросы</>}
+                                                                </button>
+                                                                <input
+                                                                    type="number"
+                                                                    min={1} max={10}
+                                                                    value={aiQuestionCount}
+                                                                    onChange={e => setAiQuestionCount(Math.min(10, Math.max(1, Number(e.target.value))))}
+                                                                    disabled={isGenerating}
+                                                                    title="Количество вопросов (1–10)"
+                                                                    style={{ width: 46, padding: '8px 6px', fontSize: '13px', textAlign: 'center', borderRadius: '0 10px 10px 0', border: '1px solid rgba(var(--primary-rgb),0.3)', borderLeft: 'none', background: 'var(--bg-input, #1a1a1a)', color: 'var(--text-primary)', outline: 'none' }}
+                                                                />
+                                                            </div>
                                                         );
                                                     })()}
                                                     {selectedVideo.url.startsWith('/uploads/') && (

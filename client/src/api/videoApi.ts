@@ -67,8 +67,8 @@ export const generateAutoSubtitles = async (videoId: number) => {
     return response.data;
 };
 
-export const generateVideoQuestions = async (videoId: number) => {
-    const response = await api.post(`/videos/${videoId}/generate-questions`);
+export const generateVideoQuestions = async (videoId: number, count = 5) => {
+    const response = await api.post(`/videos/${videoId}/generate-questions`, { count });
     return response.data;
 };
 export const updateEvent = async (eventId: number, eventData: any) => {

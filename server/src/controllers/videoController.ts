@@ -1848,10 +1848,11 @@ export const generateQuestions = async (req: Request, res: Response): Promise<vo
 
     const ollamaUrl = (process.env.OLLAMA_URL || 'http://ollama:11434').replace(/\/$/, '');
     const ollamaModel = process.env.OLLAMA_MODEL || 'qwen2.5:3b';
+    const count = Math.min(10, Math.max(1, Number(req.body.count) || 5));
 
     const transcript = chunks.map(c => `[${Math.floor(c.start)}s] ${c.text}`).join('\n').slice(0, 6000);
 
-    const prompt = `Ты — преподаватель. На основе транскрипции видеолекции создай от 3 до 5 вопросов с вариантами ответов для проверки понимания материала.
+    const prompt = `Ты — преподаватель. На основе транскрипции видеолекции создай ровно ${count} вопросов с вариантами ответов для проверки понимания материала.
 
 ТРАНСКРИПЦИЯ (формат [секунда] текст):
 ${transcript}
@@ -1917,28 +1918,36 @@ ${transcript}
         }
         questions = parsed;
     } else {
-        // Выбираем равномерно 4 содержательных фрагмента (длиннее 30 символов)
-        const meaningful = chunks.filter(c => c.text.trim().length > 30);
+        const meaningful = chunks.filter(c => c.text.trim().length > 25);
         if (meaningful.length < 2) {
             res.status(503).json({ message: 'Ollama недоступна, а субтитров недостаточно для генерации вопросов без ИИ.' });
             return;
         }
-        const step = Math.max(1, Math.floor(meaningful.length / 4));
-        const selected = meaningful.filter((_, i) => i % step === 0).slice(0, 4);
+
+        const templates = [
+            (t: number) => `Что было сказано в видео на ${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2,'0')}?`,
+            (t: number) => `Какое утверждение точно описывает содержание видео на отметке ${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2,'0')}?`,
+            (t: number) => `Что происходит в этой части видео (${Math.floor(t / 60)} мин ${Math.floor(t % 60)} сек)?`,
+            (t: number) => `Выберите фрагмент, соответствующий моменту ${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2,'0')} видео:`,
+            (t: number) => `Какое из высказываний относится к части видео около ${Math.floor(t / 60)} мин?`,
+        ];
+
+        const step = Math.max(1, Math.floor(meaningful.length / count));
+        const selected = meaningful.filter((_, i) => i % step === 0).slice(0, count);
 
         questions = selected.map((chunk, i) => {
-            // Берём текст соседних чанков как неверные варианты
             const others = meaningful.filter(c => c !== chunk).sort(() => Math.random() - 0.5).slice(0, 3);
+            const tmpl = templates[i % templates.length];
             return {
                 time: chunk.start,
-                question: `Что обсуждается в этом фрагменте видео (${Math.floor(chunk.start)}с)?`,
+                question: tmpl(chunk.start),
                 options: [
                     { text: chunk.text.trim().slice(0, 120), isCorrect: true },
                     ...others.map(o => ({ text: o.text.trim().slice(0, 120), isCorrect: false })),
                 ],
             };
         });
-        console.info(`[generateQuestions] Ollama недоступна — сгенерировано ${questions.length} rule-based вопросов`);
+        console.info(`[generateQuestions] Ollama недоступна — rule-based ${questions.length} вопросов`);
     }
 
     const created: any[] = [];
