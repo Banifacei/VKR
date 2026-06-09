@@ -463,34 +463,30 @@ export const UserPage = () => {
                                 if (evQuestions.length === 0 && evChapters.length === 0) return null;
                                 const fmt = (s: number) => { const m = Math.floor(s / 60); const sec = Math.floor(s % 60); return `${m}:${sec.toString().padStart(2, '0')}`; };
                                 return (
-                                    <div style={{ marginTop: 16, background: 'var(--bg-panel)', borderRadius: 12, border: '1px solid var(--border-color)', overflow: 'hidden' }}>
-                                        <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)' }}>
+                                    <div className="vtabs">
+                                        <div className="vtabs-header">
                                             {evQuestions.length > 0 && (
-                                                <button onClick={() => setVideoTab('questions')} style={{ flex: 1, padding: '10px 16px', fontSize: 13, fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', color: videoTab === 'questions' ? 'var(--primary)' : 'var(--text-muted)', borderBottom: videoTab === 'questions' ? '2px solid var(--primary)' : '2px solid transparent', transition: 'color 0.15s' }}>
+                                                <button className={`vtabs-btn${videoTab === 'questions' ? ' active' : ''}`} onClick={() => setVideoTab('questions')}>
                                                     Вопросы ({evQuestions.length})
                                                 </button>
                                             )}
                                             {evChapters.length > 0 && (
-                                                <button onClick={() => setVideoTab('chapters')} style={{ flex: 1, padding: '10px 16px', fontSize: 13, fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', color: videoTab === 'chapters' ? 'var(--primary)' : 'var(--text-muted)', borderBottom: videoTab === 'chapters' ? '2px solid var(--primary)' : '2px solid transparent', transition: 'color 0.15s' }}>
+                                                <button className={`vtabs-btn${videoTab === 'chapters' ? ' active' : ''}`} onClick={() => setVideoTab('chapters')}>
                                                     Главы ({evChapters.length})
                                                 </button>
                                             )}
                                         </div>
-                                        <div style={{ padding: '8px 0', maxHeight: 280, overflowY: 'auto' }}>
+                                        <div className="vtabs-body">
                                             {videoTab === 'questions' && evQuestions.map((q: any) => (
-                                                <div key={q.id} onClick={() => videoSeekRef.current?.(q.time)} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '8px 16px', cursor: 'pointer', transition: 'background 0.12s' }}
-                                                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(var(--primary-rgb),0.06)')}
-                                                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                                                    <span style={{ flexShrink: 0, fontSize: 12, color: 'var(--primary)', fontWeight: 700, background: 'rgba(var(--primary-rgb),0.1)', padding: '2px 7px', borderRadius: 6, marginTop: 2 }}>{fmt(q.time)}</span>
-                                                    <span style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.4 }}>{q.question}</span>
+                                                <div key={q.id} className="vtabs-item" onClick={() => videoSeekRef.current?.(q.time)}>
+                                                    <span className="vtabs-time">{fmt(q.time)}</span>
+                                                    <span className="vtabs-text">{q.question}</span>
                                                 </div>
                                             ))}
                                             {videoTab === 'chapters' && evChapters.map((c: any) => (
-                                                <div key={c.id} onClick={() => videoSeekRef.current?.(c.time)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', cursor: 'pointer', transition: 'background 0.12s' }}
-                                                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(var(--primary-rgb),0.06)')}
-                                                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                                                    <span style={{ flexShrink: 0, fontSize: 12, color: 'var(--primary)', fontWeight: 700, background: 'rgba(var(--primary-rgb),0.1)', padding: '2px 7px', borderRadius: 6 }}>{fmt(c.time)}</span>
-                                                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{c.question}</span>
+                                                <div key={c.id} className="vtabs-item" onClick={() => videoSeekRef.current?.(c.time)}>
+                                                    <span className="vtabs-time">{fmt(c.time)}</span>
+                                                    <span className="vtabs-text vtabs-text--bold">{c.question}</span>
                                                 </div>
                                             ))}
                                         </div>
