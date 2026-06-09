@@ -716,7 +716,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
             const res = await generateVideoQuestions(selectedVideo.id);
             showToast(`ИИ создал ${res.created} вопросов!`, 'success');
             // Refresh video data to show new events
-            const updated = await getVideosByCourse(selectedVideo.courseId);
+            const updated = await getVideosByCourse(selectedVideo.courseId!);
             const fresh = updated.find((v: any) => v.id === selectedVideo.id);
             if (fresh) setSelectedVideo(fresh);
         } catch (e: any) {
