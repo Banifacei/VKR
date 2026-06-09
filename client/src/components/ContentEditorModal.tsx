@@ -272,6 +272,7 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
     };
     const [transcodingVideos, setTranscodingVideos] = useState<number[]>([]);
     const [generatingQVideos, setGeneratingQVideos] = useState<number[]>([]);
+    const [subtitleProgress, setSubtitleProgress] = useState<Record<number, { label: string; progress: number }>>({});
     
     const [duplicateIndices, setDuplicateIndices] = useState<number[]>([]);
 
@@ -754,12 +755,20 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
             es.onmessage = async ({ data }) => {
                 try {
                     const d = JSON.parse(data);
-                    if (d.type === 'subtitle_done' && d.videoId === selectedVideo.id) {
+                    if (d.type === 'subtitle_progress' && d.videoId === selectedVideo.id) {
+                        setSubtitleProgress(prev => ({ ...prev, [d.videoId]: { label: d.label, progress: d.progress } }));
+                    } else if (d.type === 'subtitle_done' && d.videoId === selectedVideo.id) {
                         setGeneratingVideos((prev: number[]) => prev.filter((id: number) => id !== selectedVideo.id));
+                        setSubtitleProgress(prev => { const n = { ...prev }; delete n[d.videoId]; return n; });
                         const fresh = await getVideosByCourse(selectedVideo.courseId!);
                         const updated = fresh.find((v: IVideo) => v.id === selectedVideo.id);
                         if (updated) setSelectedVideo(updated);
+                        showToast('Субтитры готовы!', 'success');
                         onSuccess();
+                    } else if (d.type === 'subtitle_error' && d.videoId === selectedVideo.id) {
+                        setGeneratingVideos((prev: number[]) => prev.filter((id: number) => id !== selectedVideo.id));
+                        setSubtitleProgress(prev => { const n = { ...prev }; delete n[d.videoId]; return n; });
+                        showToast('Ошибка генерации субтитров', 'error');
                     } else if (d.type === 'quality_ready' && d.videoId === selectedVideo.id) {
                         setTranscodingVideos(prev => prev.filter(id => id !== selectedVideo.id));
                         showToast(`Версии качества готовы!`, 'success');
@@ -1027,9 +1036,27 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                                                 <span style={{ color: 'var(--text-muted)', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', fontSize: '12px' }}>Таймлайн интерактива:</span>
                                                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                                    <button className={`btn ${generatingVideos.includes(selectedVideo.id) ? 'btn-ghost' : 'btn-primary'}`} style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '10px' }} onClick={handleGenerateSubs} disabled={generatingVideos.includes(selectedVideo.id)}>
-                                                        {generatingVideos.includes(selectedVideo.id) ? <><Icons.Spinner /> Генерация ИИ...</> : <><Icons.AI /> ИИ Субтитры</>}
-                                                    </button>
+                                                    {(() => {
+                                                        const isGen = generatingVideos.includes(selectedVideo.id);
+                                                        const sp = subtitleProgress[selectedVideo.id];
+                                                        return (
+                                                            <button
+                                                                className={`btn ${isGen ? 'btn-ghost' : 'btn-primary'}`}
+                                                                style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '10px', minWidth: 140, position: 'relative', overflow: 'hidden' }}
+                                                                onClick={handleGenerateSubs}
+                                                                disabled={isGen}
+                                                            >
+                                                                {isGen && sp && (
+                                                                    <span style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${sp.progress}%`, background: 'rgba(var(--primary-rgb),0.18)', transition: 'width 0.5s' }} />
+                                                                )}
+                                                                <span style={{ position: 'relative' }}>
+                                                                    {isGen
+                                                                        ? <><Icons.Spinner /> {sp ? `${sp.label} ${sp.progress}%` : 'Запуск...'}</>
+                                                                        : <><Icons.AI /> ИИ Субтитры</>}
+                                                                </span>
+                                                            </button>
+                                                        );
+                                                    })()}
                                                     {(() => {
                                                         const hasSubs = Array.isArray(selectedVideo.subtitles) && selectedVideo.subtitles.length > 0;
                                                         const isGenerating = generatingQVideos.includes(selectedVideo.id);
