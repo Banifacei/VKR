@@ -261,12 +261,16 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
     const [editingEventId, setEditingEventId] = useState<number | null>(null);
     const [isAddingEvent, setIsAddingEvent] = useState(false);
     
-    const [generatingVideos, _setGeneratingVideos] = useState<number[]>([]);
-    const generatingVideosRef = useRef<number[]>([]);
+    const SUBS_STORAGE_KEY = 'lumeo_generating_subs';
+    const [generatingVideos, _setGeneratingVideos] = useState<number[]>(() => {
+        try { return JSON.parse(localStorage.getItem(SUBS_STORAGE_KEY) || '[]'); } catch { return []; }
+    });
+    const generatingVideosRef = useRef<number[]>(generatingVideos);
     const setGeneratingVideos = (updater: any) => {
         _setGeneratingVideos(prev => {
             const next = typeof updater === 'function' ? updater(prev) : updater;
             generatingVideosRef.current = next;
+            try { localStorage.setItem(SUBS_STORAGE_KEY, JSON.stringify(next)); } catch { /* ignore */ }
             return next;
         });
     };
@@ -1039,21 +1043,21 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                                     {(() => {
                                                         const isGen = generatingVideos.includes(selectedVideo.id);
                                                         const sp = subtitleProgress[selectedVideo.id];
+                                                        const hasSubs = Array.isArray(selectedVideo.subtitles) && selectedVideo.subtitles.length > 0;
+                                                        if (isGen) return (
+                                                            <button className="btn btn-ghost" style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '10px', minWidth: 140, position: 'relative', overflow: 'hidden' }} disabled>
+                                                                {sp && <span style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${sp.progress}%`, background: 'rgba(var(--primary-rgb),0.18)', transition: 'width 0.5s' }} />}
+                                                                <span style={{ position: 'relative' }}><Icons.Spinner /> {sp ? `${sp.label} ${sp.progress}%` : 'Запуск...'}</span>
+                                                            </button>
+                                                        );
+                                                        if (hasSubs) return (
+                                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '8px 14px', fontSize: '13px', borderRadius: '10px', background: 'rgba(var(--primary-rgb),0.08)', color: 'var(--text-muted)', border: '1px solid rgba(var(--primary-rgb),0.2)', userSelect: 'none' }}>
+                                                                ✓ Субтитры
+                                                            </span>
+                                                        );
                                                         return (
-                                                            <button
-                                                                className={`btn ${isGen ? 'btn-ghost' : 'btn-primary'}`}
-                                                                style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '10px', minWidth: 140, position: 'relative', overflow: 'hidden' }}
-                                                                onClick={handleGenerateSubs}
-                                                                disabled={isGen}
-                                                            >
-                                                                {isGen && sp && (
-                                                                    <span style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${sp.progress}%`, background: 'rgba(var(--primary-rgb),0.18)', transition: 'width 0.5s' }} />
-                                                                )}
-                                                                <span style={{ position: 'relative' }}>
-                                                                    {isGen
-                                                                        ? <><Icons.Spinner /> {sp ? `${sp.label} ${sp.progress}%` : 'Запуск...'}</>
-                                                                        : <><Icons.AI /> ИИ Субтитры</>}
-                                                                </span>
+                                                            <button className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '10px' }} onClick={handleGenerateSubs}>
+                                                                <Icons.AI /> ИИ Субтитры
                                                             </button>
                                                         );
                                                     })()}
