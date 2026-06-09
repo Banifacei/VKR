@@ -1846,15 +1846,10 @@ export const generateQuestions = async (req: Request, res: Response): Promise<vo
         return;
     }
 
-    const { SystemSetting } = await import('../models/SystemSetting.js');
-    const settingRow = await SystemSetting.findOne({ where: { key: 'gemini_api_key' } }).catch(() => null);
-    const apiKey = (settingRow?.value || process.env.GEMINI_API_KEY || '').trim();
-    if (!apiKey) {
-        res.status(503).json({ message: 'Укажите Gemini API ключ в Admin → Интеграции → ИИ-ассистент' });
-        return;
-    }
+    const ollamaUrl = (process.env.OLLAMA_URL || 'http://ollama:11434').replace(/\/$/, '');
+    const ollamaModel = process.env.OLLAMA_MODEL || 'qwen2.5:3b';
 
-    const transcript = chunks.map(c => `[${Math.floor(c.start)}s] ${c.text}`).join('\n').slice(0, 8000);
+    const transcript = chunks.map(c => `[${Math.floor(c.start)}s] ${c.text}`).join('\n').slice(0, 6000);
 
     const prompt = `Ты — преподаватель. На основе транскрипции видеолекции создай от 3 до 5 вопросов с вариантами ответов для проверки понимания материала.
 
@@ -1881,27 +1876,28 @@ ${transcript}
   }
 ]`;
 
-    const geminiRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-        {
+    let ollamaRes: Response;
+    try {
+        ollamaRes = await fetch(`${ollamaUrl}/api/generate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                generationConfig: { maxOutputTokens: 1024, temperature: 0.4 },
-            }),
-        }
-    );
-
-    if (!geminiRes.ok) {
-        const errBody = await geminiRes.text().catch(() => '');
-        console.error('[generateQuestions] Gemini error:', geminiRes.status, errBody.slice(0, 200));
-        res.status(502).json({ message: `Ошибка Gemini API: ${geminiRes.status}` });
+            body: JSON.stringify({ model: ollamaModel, prompt, stream: false, options: { temperature: 0.4, num_predict: 1200 } }),
+        });
+    } catch (e) {
+        console.error('[generateQuestions] Ollama недоступен:', e);
+        res.status(503).json({ message: 'Локальная ИИ-модель (Ollama) недоступна. Убедитесь, что сервис запущен.' });
         return;
     }
 
-    const geminiData = await geminiRes.json() as any;
-    const rawText: string = geminiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
+    if (!ollamaRes.ok) {
+        const errBody = await ollamaRes.text().catch(() => '');
+        console.error('[generateQuestions] Ollama error:', ollamaRes.status, errBody.slice(0, 200));
+        res.status(502).json({ message: `Ошибка Ollama: ${ollamaRes.status}. Возможно, модель ${ollamaModel} ещё загружается.` });
+        return;
+    }
+
+    const ollamaData = await ollamaRes.json() as any;
+    const rawText: string = (ollamaData.response ?? '').trim();
 
     let questions: any[];
     try {
@@ -1909,7 +1905,8 @@ ${transcript}
         if (!jsonMatch) throw new Error('No JSON array in response');
         questions = JSON.parse(jsonMatch[0]);
     } catch {
-        res.status(502).json({ message: 'Gemini вернул невалидный JSON. Попробуйте ещё раз.' });
+        console.error('[generateQuestions] Ollama вернул невалидный JSON:', rawText.slice(0, 300));
+        res.status(502).json({ message: 'ИИ вернул невалидный JSON. Попробуйте ещё раз.' });
         return;
     }
 

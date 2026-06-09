@@ -68,6 +68,21 @@ services:
     command: sh -c "npm install && npm run dev"   # vite --host — HMR при каждом сохранении
     restart: unless-stopped
 
+  ollama:
+    image: ollama/ollama
+    container_name: lumeo-ollama-dev
+    volumes:
+      - ollama_data_dev:/root/.ollama
+    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull qwen2.5:3b && wait"]
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list 2>/dev/null | grep -q qwen2.5 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 300s
+    restart: unless-stopped
+
 volumes:
   postgres_data_dev:
   uploads_dev:
+  ollama_data_dev:
