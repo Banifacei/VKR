@@ -1860,13 +1860,13 @@ ${transcript}
 - Вопросы должны проверять понимание конкретных моментов из видео
 - 3–4 варианта ответа, ровно один правильный (isCorrect: true)
 - Вопросы и варианты на русском языке
-- timestamp = секунда из транскрипции, где тема упоминается
+- time = секунда из транскрипции, где тема упоминается
 - НЕ спрашивай о тривиальных вещах
 
 Ответь ТОЛЬКО валидным JSON-массивом, без markdown, без пояснений:
 [
   {
-    "timestamp": 45,
+    "time": 45,
     "question": "Текст вопроса?",
     "options": [
       {"text": "Правильный ответ", "isCorrect": true},
@@ -1930,7 +1930,7 @@ ${transcript}
             // Берём текст соседних чанков как неверные варианты
             const others = meaningful.filter(c => c !== chunk).sort(() => Math.random() - 0.5).slice(0, 3);
             return {
-                timestamp: chunk.start,
+                time: chunk.start,
                 question: `Что обсуждается в этом фрагменте видео (${Math.floor(chunk.start)}с)?`,
                 options: [
                     { text: chunk.text.trim().slice(0, 120), isCorrect: true },
@@ -1943,11 +1943,12 @@ ${transcript}
 
     const created: any[] = [];
     for (const q of questions) {
-        if (!q.question || !Array.isArray(q.options) || typeof q.timestamp !== 'number') continue;
+        const ts = typeof q.timestamp === 'number' ? q.timestamp : typeof q.time === 'number' ? q.time : null;
+        if (!q.question || !Array.isArray(q.options) || ts === null) continue;
         const correctOpt = q.options.find((o: any) => o.isCorrect);
         const event = await InteractiveEvent.create({
             videoId,
-            timestamp: Math.max(0, q.timestamp - 2),
+            time: Math.max(0, ts - 2),
             type: 'single_choice',
             question: q.question,
             options: q.options,
