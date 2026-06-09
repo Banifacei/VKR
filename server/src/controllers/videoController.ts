@@ -1924,26 +1924,24 @@ ${transcript}
             return;
         }
 
-        const templates = [
-            (t: number) => `Что было сказано в видео на ${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2,'0')}?`,
-            (t: number) => `Какое утверждение точно описывает содержание видео на отметке ${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2,'0')}?`,
-            (t: number) => `Что происходит в этой части видео (${Math.floor(t / 60)} мин ${Math.floor(t % 60)} сек)?`,
-            (t: number) => `Выберите фрагмент, соответствующий моменту ${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2,'0')} видео:`,
-            (t: number) => `Какое из высказываний относится к части видео около ${Math.floor(t / 60)} мин?`,
-        ];
-
         const step = Math.max(1, Math.floor(meaningful.length / count));
         const selected = meaningful.filter((_, i) => i % step === 0).slice(0, count);
 
-        questions = selected.map((chunk, i) => {
+        // Берём первые 6–8 слов фрагмента как «начало цитаты» для вопроса
+        const quoteStart = (text: string) => {
+            const words = text.trim().split(/\s+/);
+            return words.slice(0, Math.min(7, Math.floor(words.length / 2))).join(' ');
+        };
+
+        questions = selected.map((chunk) => {
+            const preview = quoteStart(chunk.text);
             const others = meaningful.filter(c => c !== chunk).sort(() => Math.random() - 0.5).slice(0, 3);
-            const tmpl = templates[i % templates.length];
             return {
                 time: chunk.start,
-                question: tmpl(chunk.start),
+                question: `Продолжите фразу из видео: «${preview}…»`,
                 options: [
-                    { text: chunk.text.trim().slice(0, 120), isCorrect: true },
-                    ...others.map(o => ({ text: o.text.trim().slice(0, 120), isCorrect: false })),
+                    { text: chunk.text.trim().slice(0, 150), isCorrect: true },
+                    ...others.map(o => ({ text: o.text.trim().slice(0, 150), isCorrect: false })),
                 ],
             };
         });

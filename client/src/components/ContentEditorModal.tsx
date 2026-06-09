@@ -277,6 +277,8 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
     const [transcodingVideos, setTranscodingVideos] = useState<number[]>([]);
     const [generatingQVideos, setGeneratingQVideos] = useState<number[]>([]);
     const [aiQuestionCount, setAiQuestionCount] = useState(5);
+    const [showAiQModal, setShowAiQModal] = useState(false);
+    const [cemEventTab, setCemEventTab] = useState<'questions' | 'chapters'>('questions');
     const [subtitleProgress, setSubtitleProgress] = useState<Record<number, { label: string; progress: number }>>({});
     
     const [duplicateIndices, setDuplicateIndices] = useState<number[]>([]);
@@ -1066,26 +1068,15 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                                         const hasSubs = Array.isArray(selectedVideo.subtitles) && selectedVideo.subtitles.length > 0;
                                                         const isGenerating = generatingQVideos.includes(selectedVideo.id);
                                                         return (
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                                                <button
-                                                                    className={`btn ${isGenerating ? 'btn-ghost' : hasSubs ? 'btn-primary' : 'btn-ghost'}`}
-                                                                    style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '10px 0 0 10px', opacity: hasSubs ? 1 : 0.5 }}
-                                                                    onClick={handleGenerateQuestions}
-                                                                    disabled={isGenerating}
-                                                                    title={hasSubs ? 'Создать вопросы по субтитрам через ИИ' : 'Сначала сгенерируйте ИИ-субтитры'}
-                                                                >
-                                                                    {isGenerating ? <><Icons.Spinner /> Генерация...</> : <><Icons.AI /> ИИ Вопросы</>}
-                                                                </button>
-                                                                <input
-                                                                    type="number"
-                                                                    min={1} max={10}
-                                                                    value={aiQuestionCount}
-                                                                    onChange={e => setAiQuestionCount(Math.min(10, Math.max(1, Number(e.target.value))))}
-                                                                    disabled={isGenerating}
-                                                                    title="Количество вопросов (1–10)"
-                                                                    style={{ width: 46, padding: '8px 6px', fontSize: '13px', textAlign: 'center', borderRadius: '0 10px 10px 0', border: '1px solid rgba(var(--primary-rgb),0.3)', borderLeft: 'none', background: 'var(--bg-input, #1a1a1a)', color: 'var(--text-primary)', outline: 'none' }}
-                                                                />
-                                                            </div>
+                                                            <button
+                                                                className={`btn ${isGenerating ? 'btn-ghost' : hasSubs ? 'btn-primary' : 'btn-ghost'}`}
+                                                                style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '10px', opacity: hasSubs ? 1 : 0.5 }}
+                                                                onClick={() => hasSubs && !isGenerating && setShowAiQModal(true)}
+                                                                disabled={isGenerating}
+                                                                title={hasSubs ? 'Создать вопросы по субтитрам через ИИ' : 'Сначала сгенерируйте ИИ-субтитры'}
+                                                            >
+                                                                {isGenerating ? <><Icons.Spinner /> Генерация...</> : <><Icons.AI /> ИИ Вопросы</>}
+                                                            </button>
                                                         );
                                                     })()}
                                                     {selectedVideo.url.startsWith('/uploads/') && (
@@ -1122,23 +1113,49 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                                     </div>
                                 )}
 
-                                {isVideo && selectedVideo?.events && (
-                                    <div className="cem-list-wrap" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                        {[...selectedVideo.events].sort((a, b) => a.time - b.time).map(ev => (
-                                            <div key={ev.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', border: '1px solid var(--border-color)', padding: '15px 20px', borderRadius: '16px', borderLeft: `4px solid ${ev.type === 'chapter' ? 'var(--primary)' : ev.type === 'info' ? '#ffd700' : 'var(--primary)'}`, transition: 'all 0.2s ease', cursor: 'pointer' }} onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-input)'} onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-card)'}>
-                                                <div>
-                                                    <strong style={{ color: ev.type === 'chapter' ? 'var(--primary)' : ev.type === 'info' ? '#ffd700' : 'var(--primary)', marginRight: '15px', fontSize: '18px', fontFamily: 'monospace' }}>{Math.floor(ev.time / 60)}:{(Math.floor(ev.time % 60)).toString().padStart(2, '0')}</strong>
-                                                    <span style={{ color: 'var(--text-main)', fontSize: '16px', fontWeight: 500 }}>{ev.question}</span>
-                                                    <span style={{ marginLeft: '12px', fontSize: '10px', color: 'var(--text-muted)', background: 'var(--bg-input)', padding: '4px 8px', borderRadius: '8px', textTransform: 'uppercase' }}>{ev.type.replace('_', ' ')}</span>
+                                {isVideo && selectedVideo?.events && (() => {
+                                    const evQ = [...selectedVideo.events].filter(e => e.type !== 'chapter').sort((a,b) => a.time - b.time);
+                                    const evC = [...selectedVideo.events].filter(e => e.type === 'chapter').sort((a,b) => a.time - b.time);
+                                    const hasQ = evQ.length > 0, hasC = evC.length > 0;
+                                    const tab = (!hasQ && hasC) ? 'chapters' : cemEventTab;
+                                    const list = tab === 'questions' ? evQ : evC;
+                                    return (
+                                        <div className="cem-list-wrap">
+                                            {(hasQ && hasC) && (
+                                                <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', marginBottom: 16 }}>
+                                                    <button onClick={() => setCemEventTab('questions')} style={{ flex: 1, padding: '9px 16px', fontSize: 13, fontWeight: 600, background: 'none', border: 'none', borderBottom: tab === 'questions' ? '2px solid var(--primary)' : '2px solid transparent', color: tab === 'questions' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', minHeight: 44 }}>
+                                                        Вопросы ({evQ.length})
+                                                    </button>
+                                                    <button onClick={() => setCemEventTab('chapters')} style={{ flex: 1, padding: '9px 16px', fontSize: 13, fontWeight: 600, background: 'none', border: 'none', borderBottom: tab === 'chapters' ? '2px solid var(--primary)' : '2px solid transparent', color: tab === 'chapters' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', minHeight: 44 }}>
+                                                        Главы ({evC.length})
+                                                    </button>
                                                 </div>
-                                                <div style={{ display: 'flex', gap: '8px' }}>
-                                                    <button className="btn btn-ghost" style={{ padding: '8px', background: 'rgba(var(--primary-rgb), 0.1)', color: 'var(--primary)', borderRadius: '8px' }} onClick={() => handleEditClick(ev)}><Icons.Edit size={14}/></button>
-                                                    <button className="btn btn-ghost" style={{ padding: '8px', background: 'rgba(255, 77, 77, 0.1)', color: '#ff4d4d', borderRadius: '8px' }} onClick={() => handleDeleteClick(ev.id)}><Icons.Trash size={14}/></button>
-                                                </div>
+                                            )}
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                {list.map(ev => (
+                                                    <div key={ev.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', border: '1px solid var(--border-color)', padding: '15px 20px', borderRadius: '16px', borderLeft: `4px solid ${ev.type === 'chapter' ? 'var(--primary)' : ev.type === 'info' ? '#ffd700' : 'var(--primary)'}`, transition: 'background 0.2s', cursor: 'pointer' }}
+                                                        onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-input)'}
+                                                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-card)'}>
+                                                        <div>
+                                                            <strong style={{ color: 'var(--primary)', marginRight: 12, fontSize: 17, fontFamily: 'monospace' }}>{Math.floor(ev.time/60)}:{String(Math.floor(ev.time%60)).padStart(2,'0')}</strong>
+                                                            <span style={{ color: 'var(--text-main)', fontSize: 15, fontWeight: 500 }}>{ev.question}</span>
+                                                            <span style={{ marginLeft: 10, fontSize: 10, color: 'var(--text-muted)', background: 'var(--bg-input)', padding: '3px 7px', borderRadius: 6, textTransform: 'uppercase' }}>{ev.type.replace('_',' ')}</span>
+                                                        </div>
+                                                        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                                                            <button className="btn btn-ghost" style={{ padding: 8, background: 'rgba(var(--primary-rgb),0.1)', color: 'var(--primary)', borderRadius: 8 }} onClick={() => handleEditClick(ev)}><Icons.Edit size={14}/></button>
+                                                            <button className="btn btn-ghost" style={{ padding: 8, background: 'rgba(255,77,77,0.1)', color: '#ff4d4d', borderRadius: 8 }} onClick={() => handleDeleteClick(ev.id)}><Icons.Trash size={14}/></button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                                {list.length === 0 && (
+                                                    <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 40, border: '1px dashed var(--border-color)', borderRadius: 16, fontSize: 14 }}>
+                                                        {tab === 'questions' ? 'Нет вопросов. Добавьте через панель справа или кнопку «ИИ Вопросы».' : 'Нет глав. Добавьте через панель быстрого добавления выше.'}
+                                                    </div>
+                                                )}
                                             </div>
-                                        ))}
-                                    </div>
-                                )}
+                                        </div>
+                                    );
+                                })()}
 
                                 {!isVideo && selectedTest?.questions && (
                                     <div className="cem-list-wrap" style={{ paddingBottom: '50px' }}>
@@ -1541,5 +1558,29 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                 </div>
             </div>
         </div>
+
+        {/* Модалка: сколько вопросов генерировать */}
+        {showAiQModal && (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowAiQModal(false)}>
+                <div style={{ background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: 16, padding: '28px 32px', minWidth: 320, maxWidth: 400, width: '90%' }} onClick={e => e.stopPropagation()}>
+                    <h3 style={{ margin: '0 0 8px', fontSize: 17, fontWeight: 700 }}>Сколько вопросов создать?</h3>
+                    <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text-muted)' }}>ИИ сгенерирует вопросы на основе субтитров видео. Рекомендуем 3–7 для видео до 10 минут.</p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+                        {[3, 5, 7, 10].map(n => (
+                            <button key={n} onClick={() => setAiQuestionCount(n)}
+                                style={{ flex: 1, padding: '10px 0', borderRadius: 10, border: `2px solid ${aiQuestionCount === n ? 'var(--primary)' : 'var(--border-color)'}`, background: aiQuestionCount === n ? 'rgba(var(--primary-rgb),0.12)' : 'transparent', color: aiQuestionCount === n ? 'var(--primary)' : 'var(--text-muted)', fontWeight: 700, fontSize: 16, cursor: 'pointer', transition: 'all 0.15s' }}>
+                                {n}
+                            </button>
+                        ))}
+                    </div>
+                    <div style={{ display: 'flex', gap: 10 }}>
+                        <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setShowAiQModal(false)}>Отмена</button>
+                        <button className="btn btn-primary" style={{ flex: 2 }} onClick={() => { setShowAiQModal(false); handleGenerateQuestions(); }}>
+                            <Icons.AI /> Создать {aiQuestionCount} вопросов
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
     );
 };
