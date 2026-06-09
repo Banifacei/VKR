@@ -17,14 +17,14 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
     (response) => response,
     (error) => {
-        // Если ошибка 401 (Нет прав) или 404 (Пользователь удален из БД, но токен есть)
-        if (error.response && (error.response.status === 401 || error.response.status === 404)) {
-            // Проверяем, не на странице ли мы авторизации уже
+        // Только 401 (токен истёк / невалиден) — кикаем на /auth
+        // 404 НЕ трогаем глобально: ресурс не найден ≠ сессия протухла
+        if (error.response && error.response.status === 401) {
             if (window.location.pathname !== '/auth') {
-                console.warn('Сессия истекла или пользователь не найден. Выход...');
+                console.warn('Токен истёк или недействителен. Выход...');
                 localStorage.removeItem('lumeo_user');
                 localStorage.removeItem('lumeo_token');
-                window.location.href = '/auth'; // Жесткий редирект
+                window.location.href = '/auth';
             }
         }
         return Promise.reject(error);

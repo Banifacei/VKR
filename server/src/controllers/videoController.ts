@@ -1927,23 +1927,347 @@ ${transcript}
         const step = Math.max(1, Math.floor(meaningful.length / count));
         const selected = meaningful.filter((_, i) => i % step === 0).slice(0, count);
 
-        // Берём первые 6–8 слов фрагмента как «начало цитаты» для вопроса
-        const quoteStart = (text: string) => {
-            const words = text.trim().split(/\s+/);
-            return words.slice(0, Math.min(7, Math.floor(words.length / 2))).join(' ');
+        const words = (text: string) => text.trim().split(/\s+/);
+        const firstWords  = (text: string, n: number) => words(text).slice(0, n).join(' ');
+        const lastWords   = (text: string, n: number) => words(text).slice(-n).join(' ');
+        const middleWords = (text: string) => {
+            const w = words(text);
+            const mid = Math.floor(w.length / 2);
+            return w.slice(Math.max(0, mid - 3), mid + 3).join(' ');
         };
+        const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
-        questions = selected.map((chunk) => {
-            const preview = quoteStart(chunk.text);
-            const others = meaningful.filter(c => c !== chunk).sort(() => Math.random() - 0.5).slice(0, 3);
-            return {
-                time: chunk.start,
-                question: `Продолжите фразу из видео: «${preview}…»`,
+        // 9 разных типов вопросов — выбираются случайно без повторения подряд
+        type QBuilder = (chunk: typeof meaningful[0], others: typeof meaningful) => { question: string; options: any[] };
+        const builders: QBuilder[] = [
+            // 1. Продолжи фразу (первые слова → полный текст)
+            (chunk, others) => ({
+                question: `Продолжите фразу из видео: «${firstWords(chunk.text, 6)}…»`,
                 options: [
                     { text: chunk.text.trim().slice(0, 150), isCorrect: true },
                     ...others.map(o => ({ text: o.text.trim().slice(0, 150), isCorrect: false })),
                 ],
-            };
+            }),
+            // 2. Какое утверждение прозвучало в видео?
+            (chunk, others) => ({
+                question: 'Какое из следующих утверждений прозвучало в видео?',
+                options: [
+                    { text: chunk.text.trim().slice(0, 150), isCorrect: true },
+                    ...others.map(o => ({ text: o.text.trim().slice(0, 150), isCorrect: false })),
+                ],
+            }),
+            // 3. С чего начинается фрагмент на X:XX?
+            (chunk, others) => ({
+                question: `С чего начинается фрагмент видео на ${fmt(chunk.start)}?`,
+                options: [
+                    { text: firstWords(chunk.text, 10), isCorrect: true },
+                    ...others.map(o => ({ text: firstWords(o.text, 10), isCorrect: false })),
+                ],
+            }),
+            // 4. Чем заканчивается фраза «...середина...»?
+            (chunk, others) => ({
+                question: `Чем заканчивается фраза из видео: «…${middleWords(chunk.text)}…»?`,
+                options: [
+                    { text: lastWords(chunk.text, 8), isCorrect: true },
+                    ...others.map(o => ({ text: lastWords(o.text, 8), isCorrect: false })),
+                ],
+            }),
+            // 5. Что говорится после предыдущей фразы?
+            (chunk, others) => {
+                const prev = meaningful[Math.max(0, meaningful.indexOf(chunk) - 1)];
+                const hint = prev && prev !== chunk ? `«${firstWords(prev.text, 5)}…»` : `отметки ${fmt(chunk.start)}`;
+                return {
+                    question: `Что говорится в видео после ${hint}?`,
+                    options: [
+                        { text: chunk.text.trim().slice(0, 150), isCorrect: true },
+                        ...others.map(o => ({ text: o.text.trim().slice(0, 150), isCorrect: false })),
+                    ],
+                };
+            },
+            // 6. В какой момент видео было сказано это? (таймкод)
+            (chunk, others) => ({
+                question: `В какой момент видео прозвучала эта фраза?\n«${chunk.text.trim().slice(0, 100)}»`,
+                options: [
+                    { text: fmt(chunk.start), isCorrect: true },
+                    ...others.map(o => ({ text: fmt(o.start), isCorrect: false })),
+                ],
+            }),
+            // 7. Что было сказано ДО этого фрагмента?
+            (chunk, others) => {
+                const pos = meaningful.indexOf(chunk);
+                const prev = pos > 0 ? meaningful[pos - 1] : null;
+                if (!prev) {
+                    return {
+                        question: 'Какое утверждение прозвучало в начале видео?',
+                        options: [
+                            { text: chunk.text.trim().slice(0, 150), isCorrect: true },
+                            ...others.map(o => ({ text: o.text.trim().slice(0, 150), isCorrect: false })),
+                        ],
+                    };
+                }
+                return {
+                    question: `Что было сказано в видео непосредственно ДО: «${firstWords(chunk.text, 6)}…»?`,
+                    options: [
+                        { text: prev.text.trim().slice(0, 150), isCorrect: true },
+                        ...others.map(o => ({ text: o.text.trim().slice(0, 150), isCorrect: false })),
+                    ],
+                };
+            },
+            // 8. Вставьте пропущенные слова
+            (chunk, others) => {
+                const w = words(chunk.text.trim());
+                if (w.length < 7) {
+                    return {
+                        question: 'Какое из следующих утверждений прозвучало в видео?',
+                        options: [
+                            { text: chunk.text.trim().slice(0, 150), isCorrect: true },
+                            ...others.map(o => ({ text: o.text.trim().slice(0, 150), isCorrect: false })),
+                        ],
+                    };
+                }
+                const blank = w.slice(3, -2).join(' ');
+                const hint = `${w.slice(0, 3).join(' ')} _____ ${w.slice(-2).join(' ')}`;
+                return {
+                    question: `Что пропущено в этом фрагменте из видео?\n«${hint}»`,
+                    options: [
+                        { text: blank.slice(0, 120), isCorrect: true },
+                        ...others.map(o => {
+                            const ow = words(o.text.trim());
+                            return { text: (ow.slice(3, -2).join(' ') || ow.join(' ')).slice(0, 120), isCorrect: false };
+                        }),
+                    ],
+                };
+            },
+            // 9. Из какой части видео этот фрагмент?
+            (chunk) => {
+                const total = meaningful.length;
+                const pos = meaningful.indexOf(chunk);
+                let correct: string;
+                let wrongs: string[];
+                if (pos < Math.floor(total / 3)) {
+                    correct = 'В начале видео';
+                    wrongs = ['В середине видео', 'В конце видео', 'Не из этого видео'];
+                } else if (pos < Math.floor(2 * total / 3)) {
+                    correct = 'В середине видео';
+                    wrongs = ['В начале видео', 'В конце видео', 'Не из этого видео'];
+                } else {
+                    correct = 'В конце видео';
+                    wrongs = ['В начале видео', 'В середине видео', 'Не из этого видео'];
+                }
+                return {
+                    question: `Из какой части видео этот фрагмент?\n«${chunk.text.trim().slice(0, 100)}»`,
+                    options: [
+                        { text: correct, isCorrect: true },
+                        ...wrongs.map(t => ({ text: t, isCorrect: false })),
+                    ],
+                };
+            },
+            // 10. Как начинается фраза, которая заканчивается на «...»?
+            (chunk, others) => ({
+                question: `Как начинается фраза из видео, которая заканчивается на: «…${lastWords(chunk.text, 5)}»?`,
+                options: [
+                    { text: firstWords(chunk.text, 10), isCorrect: true },
+                    ...others.map(o => ({ text: firstWords(o.text, 10), isCorrect: false })),
+                ],
+            }),
+            // 11. Какой фрагмент идёт сразу после?
+            (chunk, others) => {
+                const pos = meaningful.indexOf(chunk);
+                const next = pos < meaningful.length - 1 ? meaningful[pos + 1] : null;
+                if (!next) {
+                    return {
+                        question: 'Какое утверждение прозвучало ближе к концу видео?',
+                        options: [
+                            { text: chunk.text.trim().slice(0, 150), isCorrect: true },
+                            ...others.map(o => ({ text: o.text.trim().slice(0, 150), isCorrect: false })),
+                        ],
+                    };
+                }
+                return {
+                    question: `Какой фрагмент видео идёт сразу после: «${firstWords(chunk.text, 6)}…»?`,
+                    options: [
+                        { text: next.text.trim().slice(0, 150), isCorrect: true },
+                        ...others.map(o => ({ text: o.text.trim().slice(0, 150), isCorrect: false })),
+                    ],
+                };
+            },
+            // 12. Какое утверждение НЕ прозвучало в видео? (склейка двух чужих фрагментов)
+            (chunk, others) => {
+                const fake = `${firstWords(others[0]?.text || chunk.text, 4)} ${lastWords(others[1]?.text || chunk.text, 4)}`.trim().slice(0, 150);
+                return {
+                    question: 'Какое из следующих утверждений НЕ прозвучало в видео?',
+                    options: [
+                        { text: fake, isCorrect: true },
+                        { text: chunk.text.trim().slice(0, 150), isCorrect: false },
+                        { text: (others[0]?.text ?? '').trim().slice(0, 150), isCorrect: false },
+                        { text: (others[1]?.text ?? '').trim().slice(0, 150), isCorrect: false },
+                    ],
+                };
+            },
+            // 13. Первое слово фразы
+            (chunk, others) => {
+                const w = words(chunk.text.trim());
+                const firstWord = w[0] ?? '';
+                const rest = w.slice(1).join(' ');
+                return {
+                    question: `Какое первое слово этой фразы из видео?\n«___ ${rest.slice(0, 90)}»`,
+                    options: [
+                        { text: firstWord, isCorrect: true },
+                        ...others.map(o => ({ text: words(o.text.trim())[0] ?? '', isCorrect: false })),
+                    ],
+                };
+            },
+            // 14. Последнее слово фразы
+            (chunk, others) => {
+                const w = words(chunk.text.trim());
+                const lastWord = w[w.length - 1] ?? '';
+                const start = w.slice(0, -1).join(' ');
+                return {
+                    question: `Последнее слово этой фразы из видео:\n«${start.slice(0, 90)} ___»?`,
+                    options: [
+                        { text: lastWord, isCorrect: true },
+                        ...others.map(o => {
+                            const ow = words(o.text.trim());
+                            return { text: ow[ow.length - 1] ?? '', isCorrect: false };
+                        }),
+                    ],
+                };
+            },
+            // 15. В каком временном диапазоне прозвучал этот фрагмент?
+            (chunk) => {
+                const maxTime = (meaningful[meaningful.length - 1]?.start ?? 60) + 30;
+                const bucketSize = Math.max(30, Math.ceil(maxTime / 4));
+                const correctBucket = Math.min(Math.floor(chunk.start / bucketSize), 3);
+                const label = (b: number) => `${fmt(b * bucketSize)} – ${fmt(Math.min((b + 1) * bucketSize, maxTime))}`;
+                const wrongs = [0, 1, 2, 3].filter(b => b !== correctBucket).map(label);
+                return {
+                    question: `В каком временном промежутке прозвучала эта фраза?\n«${chunk.text.trim().slice(0, 100)}»`,
+                    options: [
+                        { text: label(correctBucket), isCorrect: true },
+                        ...wrongs.map(t => ({ text: t, isCorrect: false })),
+                    ],
+                };
+            },
+            // 16. Какой фрагмент находится между A и C?
+            (chunk, others) => {
+                const pos = meaningful.indexOf(chunk);
+                if (pos < 1 || pos >= meaningful.length - 1) {
+                    return {
+                        question: 'Какое из утверждений прозвучало в видео?',
+                        options: [
+                            { text: chunk.text.trim().slice(0, 150), isCorrect: true },
+                            ...others.map(o => ({ text: o.text.trim().slice(0, 150), isCorrect: false })),
+                        ],
+                    };
+                }
+                const prev = meaningful[pos - 1]!;
+                const next = meaningful[pos + 1]!;
+                const wrongOpts = meaningful
+                    .filter(c => c !== chunk && c !== prev && c !== next)
+                    .sort(() => Math.random() - 0.5)
+                    .slice(0, 3);
+                return {
+                    question: `Какой фрагмент находится между этими двумя?\n«${firstWords(prev.text, 5)}…» и «${firstWords(next.text, 5)}…»`,
+                    options: [
+                        { text: chunk.text.trim().slice(0, 150), isCorrect: true },
+                        ...wrongOpts.map(o => ({ text: o.text.trim().slice(0, 150), isCorrect: false })),
+                    ],
+                };
+            },
+            // 17. Сколько слов в этом фрагменте?
+            (chunk) => {
+                const cnt = words(chunk.text.trim()).length;
+                let correct: string;
+                if (cnt <= 5)       correct = 'До 5 слов';
+                else if (cnt <= 10) correct = '6–10 слов';
+                else if (cnt <= 20) correct = '11–20 слов';
+                else                correct = 'Более 20 слов';
+                const wrongs = ['До 5 слов', '6–10 слов', '11–20 слов', 'Более 20 слов'].filter(l => l !== correct);
+                return {
+                    question: `Сколько слов примерно в этом фрагменте видео?\n«${chunk.text.trim().slice(0, 100)}»`,
+                    options: [
+                        { text: correct, isCorrect: true },
+                        ...wrongs.map(t => ({ text: t, isCorrect: false })),
+                    ],
+                };
+            },
+            // 18. Какое слово следует за первыми 4 словами?
+            (chunk, others) => {
+                const w = words(chunk.text.trim());
+                if (w.length < 6) {
+                    return {
+                        question: 'Какое из утверждений прозвучало в видео?',
+                        options: [
+                            { text: chunk.text.trim().slice(0, 150), isCorrect: true },
+                            ...others.map(o => ({ text: o.text.trim().slice(0, 150), isCorrect: false })),
+                        ],
+                    };
+                }
+                const hint = w.slice(0, 4).join(' ');
+                const correctWord = w[4]!;
+                return {
+                    question: `Какое слово идёт в видео сразу за «${hint}…»?`,
+                    options: [
+                        { text: correctWord, isCorrect: true },
+                        ...others.map(o => {
+                            const ow = words(o.text.trim());
+                            return { text: ow[4] ?? ow[ow.length - 1] ?? '', isCorrect: false };
+                        }),
+                    ],
+                };
+            },
+            // 19. Восстановите одно пропущенное слово в середине
+            (chunk, others) => {
+                const w = words(chunk.text.trim());
+                if (w.length < 4) {
+                    return {
+                        question: 'Какое из утверждений прозвучало в видео?',
+                        options: [
+                            { text: chunk.text.trim().slice(0, 150), isCorrect: true },
+                            ...others.map(o => ({ text: o.text.trim().slice(0, 150), isCorrect: false })),
+                        ],
+                    };
+                }
+                const mid = Math.floor(w.length / 2);
+                const missingWord = w[mid]!;
+                const hint = [...w.slice(0, mid), '_____', ...w.slice(mid + 1)].join(' ');
+                return {
+                    question: `Восстановите пропущенное слово:\n«${hint.slice(0, 130)}»`,
+                    options: [
+                        { text: missingWord, isCorrect: true },
+                        ...others.map(o => {
+                            const ow = words(o.text.trim());
+                            return { text: ow[Math.floor(ow.length / 2)] ?? ow[0] ?? '', isCorrect: false };
+                        }),
+                    ],
+                };
+            },
+            // 20. Какое слово точно прозвучало на X:XX? (без текста — проверка памяти)
+            (chunk, others) => {
+                const chunkWords = words(chunk.text.trim()).filter(w => w.length > 3);
+                const correctWord = chunkWords[Math.floor(Math.random() * chunkWords.length)] ?? words(chunk.text.trim())[0] ?? '';
+                return {
+                    question: `Какое слово точно прозвучало в видео на ${fmt(chunk.start)}?`,
+                    options: [
+                        { text: correctWord, isCorrect: true },
+                        ...others.map(o => {
+                            const ow = words(o.text.trim()).filter(w => w.length > 3);
+                            return { text: ow[Math.floor(Math.random() * ow.length)] ?? words(o.text.trim())[0] ?? '', isCorrect: false };
+                        }),
+                    ],
+                };
+            },
+        ];
+
+        let lastBuilderIdx = -1;
+        questions = selected.map((chunk) => {
+            const others = meaningful.filter(c => c !== chunk).sort(() => Math.random() - 0.5).slice(0, 3);
+            let bIdx: number;
+            do {
+                bIdx = Math.floor(Math.random() * builders.length);
+            } while (bIdx === lastBuilderIdx && builders.length > 1);
+            lastBuilderIdx = bIdx;
+            return { time: chunk.start, ...builders[bIdx]!(chunk, others) };
         });
         console.info(`[generateQuestions] Ollama недоступна — rule-based ${questions.length} вопросов`);
     }
