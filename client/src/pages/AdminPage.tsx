@@ -101,7 +101,7 @@ export const AdminPage = () => {
   const [showLdapModal, setShowLdapModal] = useState(false);
   const [ldapForm, setLdapForm] = useState({ enabled: false, url: '', searchBase: '' });
   const [showAiModal, setShowAiModal] = useState(false);
-  const [aiForm, setAiForm] = useState({ enabled: true, geminiKey: '', groqKey: '' });
+  const [aiForm, setAiForm] = useState({ enabled: true });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const openSamlModal = () => {
       setSamlForm({
@@ -144,8 +144,6 @@ export const AdminPage = () => {
           setAiForm(prev => ({
               ...prev,
               enabled: settingsRes.data.ai_assistant_enabled !== false && settingsRes.data.ai_assistant_enabled !== 'false',
-              geminiKey: settingsRes.data.gemini_api_key || '',
-              groqKey: settingsRes.data.groq_api_key || '',
           }));
           setSystemModules(modulesRes.data);
       } catch (e) { console.error('Ошибка загрузки статических данных системы'); }
@@ -229,8 +227,6 @@ export const AdminPage = () => {
   const openAiModal = () => {
       setAiForm({
           enabled: systemSettings.ai_assistant_enabled !== false && systemSettings.ai_assistant_enabled !== 'false',
-          geminiKey: systemSettings.gemini_api_key || '',
-          groqKey: systemSettings.groq_api_key || '',
       });
       setShowAiModal(true);
   };
@@ -239,8 +235,6 @@ export const AdminPage = () => {
       setIsSaving(true);
       try {
           await api.post('/admin/settings/toggle', { key: 'ai_assistant_enabled', value: String(aiForm.enabled) });
-          await api.post('/admin/settings/toggle', { key: 'gemini_api_key', value: aiForm.geminiKey });
-          await api.post('/admin/settings/toggle', { key: 'groq_api_key', value: aiForm.groqKey });
           showToast('Настройки ИИ-ассистента сохранены!', 'success');
           setShowAiModal(false);
           fetchSystemData();
@@ -782,33 +776,15 @@ export const AdminPage = () => {
                               {aiForm.enabled ? 'Ассистент ВКЛЮЧЁН' : 'Ассистент ОТКЛЮЧЁН'}
                           </strong>
                       </div>
-                      <div className="form-group">
-                          <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                              Google Gemini API-ключ
-                              <span style={{ fontSize: 11, background: 'rgba(0,255,136,0.12)', color: '#00ff88', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>Рекомендуется</span>
-                          </label>
-                          <input
-                              className="modern-input"
-                              type="password"
-                              placeholder="AIzaSy..."
-                              value={aiForm.geminiKey}
-                              onChange={e => setAiForm({ ...aiForm, geminiKey: e.target.value })}
-                          />
-                          <p style={{ fontSize: '12px', color: '#666', marginTop: '5px', lineHeight: 1.5 }}>
-                              Бесплатно: <span style={{ color: '#00ff88' }}>aistudio.google.com/apikey</span> → Create API Key. Без IP-ограничений, 15 req/min.
-                          </p>
-                      </div>
-                      <div className="form-group">
-                          <label>Groq API-ключ (запасной)</label>
-                          <input
-                              className="modern-input"
-                              type="password"
-                              placeholder="gsk_xxxxxxxxxxxxxxxxxxxx"
-                              value={aiForm.groqKey}
-                              onChange={e => setAiForm({ ...aiForm, groqKey: e.target.value })}
-                          />
-                          <p style={{ fontSize: '12px', color: '#666', marginTop: '5px', lineHeight: 1.5 }}>
-                              <span style={{ color: '#00ff88' }}>console.groq.com</span> → API Keys. Используется если нет ключа Gemini.
+                      <div className="form-group" style={{ background: 'rgba(0,255,136,0.04)', border: '1px solid rgba(0,255,136,0.15)', borderRadius: 10, padding: '14px 16px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                              <span style={{ fontSize: 16 }}>🤖</span>
+                              <strong style={{ fontSize: 14 }}>Локальная модель: Ollama qwen2.5:3b</strong>
+                              <span style={{ fontSize: 11, background: 'rgba(0,255,136,0.15)', color: '#00ff88', padding: '2px 7px', borderRadius: 4, fontWeight: 600, marginLeft: 'auto' }}>Локально</span>
+                          </div>
+                          <p style={{ fontSize: 12, color: '#888', margin: 0, lineHeight: 1.6 }}>
+                              ИИ работает полностью локально — без API-ключей и интернета.<br/>
+                              Модель запускается автоматически при старте системы (сервис Ollama).
                           </p>
                       </div>
                   </div>
@@ -1563,7 +1539,6 @@ export const AdminPage = () => {
                             {/* Карточка ИИ-ассистент */}
                             {(() => {
                                 const aiEnabled = systemSettings.ai_assistant_enabled !== false && systemSettings.ai_assistant_enabled !== 'false';
-                                const hasKey = !!(systemSettings.groq_api_key);
                                 return (
                                 <div className={`integration-card ${aiEnabled ? 'active' : ''}`}>
                                     <div className="int-header">
@@ -1573,9 +1548,9 @@ export const AdminPage = () => {
                                         </div>
                                     </div>
                                     <h3>ИИ-ассистент (Луми)</h3>
-                                    <p>Чат-бот на базе Groq Llama 3.1. Помогает студентам с вопросами о платформе.</p>
+                                    <p>Локальная модель Ollama qwen2.5:3b. Без API-ключей, полностью офлайн.</p>
                                     <div className="int-meta">
-                                        <span>API-ключ: {hasKey ? '••••••••' : 'Не задан (FAQ-режим)'}</span>
+                                        <span>Движок: Ollama (локально)</span>
                                     </div>
                                     <div className="int-actions">
                                         <button className={aiEnabled ? 'btn btn-secondary' : 'btn btn-primary'} style={{width:'100%'}} onClick={openAiModal}>

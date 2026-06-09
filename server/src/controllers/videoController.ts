@@ -1876,38 +1876,69 @@ ${transcript}
   }
 ]`;
 
-    let ollamaRes: Response;
+    // ── Вспомогательная функция: извлечь JSON-массив из текста ──────────────
+    const extractJsonQuestions = (text: string): any[] | null => {
+        const match = text.match(/\[[\s\S]*\]/);
+        if (!match) return null;
+        try { return JSON.parse(match[0]); } catch { return null; }
+    };
+
+    let rawText = '';
+
+    // ── 1. Пробуем Ollama ────────────────────────────────────────────────────
+    let ollamaOk = false;
     try {
-        ollamaRes = await fetch(`${ollamaUrl}/api/generate`, {
+        const ollamaRes = await fetch(`${ollamaUrl}/api/generate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ model: ollamaModel, prompt, stream: false, options: { temperature: 0.4, num_predict: 1200 } }),
+            signal: AbortSignal.timeout(120_000),
         });
+        if (ollamaRes.ok) {
+            const data = await ollamaRes.json() as any;
+            rawText = (data.response ?? '').trim();
+            ollamaOk = true;
+        } else {
+            console.warn('[generateQuestions] Ollama ответил', ollamaRes.status, '— пробуем Gemini');
+        }
     } catch (e) {
-        console.error('[generateQuestions] Ollama недоступен:', e);
-        res.status(503).json({ message: 'Локальная ИИ-модель (Ollama) недоступна. Убедитесь, что сервис запущен.' });
-        return;
+        console.warn('[generateQuestions] Ollama недоступен — пробуем Gemini:', (e as Error).message);
     }
 
-    if (!ollamaRes.ok) {
-        const errBody = await ollamaRes.text().catch(() => '');
-        console.error('[generateQuestions] Ollama error:', ollamaRes.status, errBody.slice(0, 200));
-        res.status(502).json({ message: `Ошибка Ollama: ${ollamaRes.status}. Возможно, модель ${ollamaModel} ещё загружается.` });
-        return;
-    }
-
-    const ollamaData = await ollamaRes.json() as any;
-    const rawText: string = (ollamaData.response ?? '').trim();
-
+    // ── 2. Фоллбэк: rule-based генерация из субтитров ───────────────────────
     let questions: any[];
-    try {
-        const jsonMatch = rawText.match(/\[[\s\S]*\]/);
-        if (!jsonMatch) throw new Error('No JSON array in response');
-        questions = JSON.parse(jsonMatch[0]);
-    } catch {
-        console.error('[generateQuestions] Ollama вернул невалидный JSON:', rawText.slice(0, 300));
-        res.status(502).json({ message: 'ИИ вернул невалидный JSON. Попробуйте ещё раз.' });
-        return;
+
+    if (ollamaOk) {
+        const parsed = extractJsonQuestions(rawText);
+        if (!parsed) {
+            console.error('[generateQuestions] Ollama вернул невалидный JSON:', rawText.slice(0, 300));
+            res.status(502).json({ message: 'ИИ вернул невалидный JSON. Попробуйте ещё раз.' });
+            return;
+        }
+        questions = parsed;
+    } else {
+        // Выбираем равномерно 4 содержательных фрагмента (длиннее 30 символов)
+        const meaningful = chunks.filter(c => c.text.trim().length > 30);
+        if (meaningful.length < 2) {
+            res.status(503).json({ message: 'Ollama недоступна, а субтитров недостаточно для генерации вопросов без ИИ.' });
+            return;
+        }
+        const step = Math.max(1, Math.floor(meaningful.length / 4));
+        const selected = meaningful.filter((_, i) => i % step === 0).slice(0, 4);
+
+        questions = selected.map((chunk, i) => {
+            // Берём текст соседних чанков как неверные варианты
+            const others = meaningful.filter(c => c !== chunk).sort(() => Math.random() - 0.5).slice(0, 3);
+            return {
+                timestamp: chunk.start,
+                question: `Что обсуждается в этом фрагменте видео (${Math.floor(chunk.start)}с)?`,
+                options: [
+                    { text: chunk.text.trim().slice(0, 120), isCorrect: true },
+                    ...others.map(o => ({ text: o.text.trim().slice(0, 120), isCorrect: false })),
+                ],
+            };
+        });
+        console.info(`[generateQuestions] Ollama недоступна — сгенерировано ${questions.length} rule-based вопросов`);
     }
 
     const created: any[] = [];

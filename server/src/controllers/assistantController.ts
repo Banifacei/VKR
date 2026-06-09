@@ -9,7 +9,6 @@ let semanticExtractor: any = null;
 
 async function getEmbedding(text: string): Promise<number[]> {
     if (!semanticExtractor) {
-        console.log('[Assistant] Загрузка модели семантического анализа...');
         semanticExtractor = await pipeline('feature-extraction', 'Xenova/paraphrase-multilingual-MiniLM-L12-v2', { quantized: true });
     }
     const out = await semanticExtractor(text, { pooling: 'mean', normalize: true });
@@ -46,72 +45,56 @@ async function getSetting(key: string): Promise<string | null> {
     }
 }
 
-export const getAssistantStatus = async (_req: Request, res: Response): Promise<void> => {
-    const enabled = await getSetting('ai_assistant_enabled');
-    const hasGemini = !!(await getSetting('gemini_api_key'))?.trim() || !!process.env.GEMINI_API_KEY;
-    const hasGroq = !!(await getSetting('groq_api_key'))?.trim() || !!process.env.GROQ_API_KEY;
-    res.json({
-        enabled: enabled === null ? true : enabled === 'true',
-        hasKey: hasGemini || hasGroq,
-        provider: hasGemini ? 'gemini' : hasGroq ? 'groq' : 'faq',
-    });
-};
+const OLLAMA_URL = () => (process.env.OLLAMA_URL || 'http://ollama:11434').replace(/\/$/, '');
+const OLLAMA_MODEL = () => process.env.OLLAMA_MODEL || 'qwen2.5:3b';
 
-async function callGemini(systemPrompt: string, messages: Array<{ role: string; content: string }>): Promise<string> {
-    const rawKey = (await getSetting('gemini_api_key')) || process.env.GEMINI_API_KEY;
-    const apiKey = rawKey?.trim();
-    if (!apiKey) return '';
+async function isOllamaAvailable(): Promise<boolean> {
     try {
-        const contents = messages
-            .filter(m => m.role !== 'system')
-            .map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }));
-        const res = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-            {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    systemInstruction: { parts: [{ text: systemPrompt }] },
-                    contents,
-                    generationConfig: { maxOutputTokens: 512, temperature: 0.7 },
-                }),
-            }
-        );
-        if (!res.ok) {
-            const body = await res.text().catch(() => '');
-            console.error(`[Assistant] Gemini error ${res.status}:`, body.slice(0, 300));
-            return '';
-        }
-        const data = await res.json() as any;
-        return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
-    } catch (e) {
-        console.error('[Assistant] Gemini fetch error:', e);
-        return '';
+        const res = await fetch(`${OLLAMA_URL()}/api/tags`, { signal: AbortSignal.timeout(3000) });
+        return res.ok;
+    } catch {
+        return false;
     }
 }
 
-async function callGroq(messages: Array<{ role: string; content: string }>): Promise<string> {
-    const rawKey = (await getSetting('groq_api_key')) || process.env.GROQ_API_KEY;
-    const apiKey = rawKey?.trim();
-    if (!apiKey) return '';
+async function callOllama(systemPrompt: string, messages: Array<{ role: string; content: string }>): Promise<string> {
     try {
-        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        const ollamaMessages = [
+            { role: 'system', content: systemPrompt },
+            ...messages.filter(m => m.role !== 'system'),
+        ];
+        const res = await fetch(`${OLLAMA_URL()}/api/chat`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-            body: JSON.stringify({ model: 'llama-3.1-8b-instant', messages, max_tokens: 512, temperature: 0.7 }),
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: OLLAMA_MODEL(),
+                messages: ollamaMessages,
+                stream: false,
+                options: { temperature: 0.7, num_predict: 512 },
+            }),
+            signal: AbortSignal.timeout(60_000),
         });
         if (!res.ok) {
-            const body = await res.text().catch(() => '');
-            console.error(`[Assistant] Groq error ${res.status}:`, body.slice(0, 200));
+            console.error('[Assistant] Ollama error:', res.status);
             return '';
         }
         const data = await res.json() as any;
-        return data.choices?.[0]?.message?.content?.trim() ?? '';
+        return (data.message?.content ?? '').trim();
     } catch (e) {
-        console.error('[Assistant] Groq fetch error:', e);
+        console.error('[Assistant] Ollama недоступен:', (e as Error).message);
         return '';
     }
 }
+
+export const getAssistantStatus = async (_req: Request, res: Response): Promise<void> => {
+    const enabled = await getSetting('ai_assistant_enabled');
+    const ollamaUp = await isOllamaAvailable();
+    res.json({
+        enabled: enabled === null ? true : enabled === 'true',
+        hasKey: ollamaUp,
+        provider: ollamaUp ? 'ollama' : 'faq',
+    });
+};
 
 export const askAssistant = async (req: Request, res: Response): Promise<void> => {
     const userName: string = (req as any).user?.name || 'Студент';
@@ -131,25 +114,16 @@ export const askAssistant = async (req: Request, res: Response): Promise<void> =
 
     const q = question.trim();
 
-    // Check if question matches any interactive course question
+    // Проверка: не является ли вопрос учебным заданием курса
     try {
-        const events = await InteractiveEvent.findAll({
-            where: { type: 'question' },
-            attributes: ['question'],
-            limit: 300,
-        });
-
+        const events = await InteractiveEvent.findAll({ where: { type: 'question' }, attributes: ['question'], limit: 300 });
         if (events.length > 0) {
             const qEmb = await getEmbedding(q);
             for (const event of events) {
                 if (!event.question || event.question.length < 5) continue;
                 const eEmb = await getEmbedding(event.question);
-                const sim = cosineSim(qEmb, eEmb);
-                if (sim > 0.75) {
-                    res.json({
-                        answer: '🔒 Этот вопрос является частью учебного курса. Попробуй найти ответ самостоятельно — это поможет лучше усвоить материал! 😊',
-                        blocked: true,
-                    });
+                if (cosineSim(qEmb, eEmb) > 0.75) {
+                    res.json({ answer: '🔒 Этот вопрос является частью учебного курса. Попробуй найти ответ самостоятельно — это поможет лучше усвоить материал!', blocked: true });
                     return;
                 }
             }
@@ -159,7 +133,6 @@ export const askAssistant = async (req: Request, res: Response): Promise<void> =
     }
 
     const roleLabel = userRole === 'student' ? 'студент' : userRole === 'teacher' ? 'преподаватель' : 'администратор';
-
     const systemPrompt = `Ты — Луми, умный ИИ-ассистент образовательной платформы Lumeo. Помогаешь студентам и преподавателям разбираться в функциях платформы, отвечаешь на общие вопросы об обучении.
 
 Правила:
@@ -170,26 +143,15 @@ export const askAssistant = async (req: Request, res: Response): Promise<void> =
 Пользователь: ${userName} (${roleLabel}).`;
 
     const chatHistory = history.slice(-6).map((h: any) => ({ role: h.role as string, content: h.content as string }));
-    const messages = [
-        { role: 'system', content: systemPrompt },
-        ...chatHistory,
-        { role: 'user', content: q },
-    ];
 
-    // Gemini first (no IP restrictions on free tier), Groq as fallback
-    const geminiAnswer = await callGemini(systemPrompt, [...chatHistory, { role: 'user', content: q }]);
-    if (geminiAnswer) {
-        res.json({ answer: geminiAnswer, blocked: false });
+    // Ollama — основной
+    const ollamaAnswer = await callOllama(systemPrompt, [...chatHistory, { role: 'user', content: q }]);
+    if (ollamaAnswer) {
+        res.json({ answer: ollamaAnswer, blocked: false });
         return;
     }
 
-    const groqAnswer = await callGroq(messages);
-    if (groqAnswer) {
-        res.json({ answer: groqAnswer, blocked: false });
-        return;
-    }
-
-    // FAQ fallback — только точное вхождение ключевой фразы
+    // FAQ-фоллбэк — если Ollama недоступна
     const qLower = q.toLowerCase();
     for (const faq of FAQ) {
         if (qLower.includes(faq.q)) {
@@ -199,7 +161,7 @@ export const askAssistant = async (req: Request, res: Response): Promise<void> =
     }
 
     res.json({
-        answer: 'К сожалению, сейчас не могу ответить на этот вопрос. Попробуй переформулировать или задай вопрос преподавателю в комментариях к уроку.',
+        answer: 'Локальная ИИ-модель сейчас недоступна. Попробуй позже или задай вопрос преподавателю в комментариях к уроку.',
         blocked: false,
     });
 };
