@@ -1846,34 +1846,75 @@ export const generateQuestions = async (req: Request, res: Response): Promise<vo
         return;
     }
 
-    const ollamaUrl = (process.env.OLLAMA_URL || 'http://ollama:11434').replace(/\/$/, '');
     const ollamaModel = process.env.OLLAMA_MODEL || 'qwen2.5:3b';
+    const ollamaCandidates = [
+        (process.env.OLLAMA_URL || 'http://ollama:11434').replace(/\/$/, ''),
+        'http://localhost:11434',
+        'http://127.0.0.1:11434',
+    ];
+    let ollamaUrl: string | null = null;
+    for (const candidate of ollamaCandidates) {
+        try {
+            const probe = await fetch(`${candidate}/api/tags`, { signal: AbortSignal.timeout(2000) });
+            if (probe.ok) { ollamaUrl = candidate; break; }
+        } catch { /* try next */ }
+    }
     const count = Math.min(10, Math.max(1, Number(req.body.count) || 5));
 
     const transcript = chunks.map(c => `[${Math.floor(c.start)}s] ${c.text}`).join('\n').slice(0, 6000);
 
-    const prompt = `Ты — преподаватель. На основе транскрипции видеолекции создай ровно ${count} вопросов с вариантами ответов для проверки понимания материала.
+    const prompt = `Ты — преподаватель. На основе транскрипции видеолекции создай ровно ${count} вопросов для проверки понимания материала.
 
 ТРАНСКРИПЦИЯ (формат [секунда] текст):
 ${transcript}
 
+ФОРМАТЫ ВОПРОСОВ — обязательно используй ВСЕ три формата вперемешку:
+
+1. single_choice — один правильный ответ из вариантов (3–4 варианта).
+   Можно спросить: продолжи фразу, что прозвучало в видео, с чего начинается фрагмент,
+   чем заканчивается фраза, что было до/после, в какой момент, из какой части, первое/последнее слово.
+
+2. multiple_choice — НЕСКОЛЬКО правильных ответов (isCorrect: true у нескольких).
+   Спроси: «Какие из следующих утверждений прозвучали в видео?», «Что упоминалось в этом фрагменте?»,
+   «Какие слова встречаются в отрывке?» и т.п.
+
+3. free_text — открытый ответ, студент пишет своими словами. Без options.
+   Поле correctAnswer — эталонный ответ для ИИ-сравнения.
+   Спроси: «Объясните своими словами...», «Что имелось в виду под...», «Кратко опишите...»
+
 ПРАВИЛА:
-- Вопросы должны проверять понимание конкретных моментов из видео
-- 3–4 варианта ответа, ровно один правильный (isCorrect: true)
-- Вопросы и варианты на русском языке
-- time = секунда из транскрипции, где тема упоминается
-- НЕ спрашивай о тривиальных вещах
+- Все тексты на русском языке
+- time = секунда из транскрипции, соответствующая вопросу
+- Вопросы должны проверять реальное понимание содержания видео
 
 Ответь ТОЛЬКО валидным JSON-массивом, без markdown, без пояснений:
 [
   {
     "time": 45,
-    "question": "Текст вопроса?",
+    "type": "single_choice",
+    "question": "Продолжите фразу из видео: «Сегодня мы рассмотрим…»",
     "options": [
-      {"text": "Правильный ответ", "isCorrect": true},
-      {"text": "Неверный вариант 1", "isCorrect": false},
-      {"text": "Неверный вариант 2", "isCorrect": false}
+      {"text": "основные принципы работы сети", "isCorrect": true},
+      {"text": "историю развития интернета", "isCorrect": false},
+      {"text": "настройку маршрутизатора", "isCorrect": false}
     ]
+  },
+  {
+    "time": 90,
+    "type": "multiple_choice",
+    "question": "Какие из следующих понятий упоминались в этом фрагменте?",
+    "options": [
+      {"text": "IP-адрес", "isCorrect": true},
+      {"text": "маршрутизатор", "isCorrect": true},
+      {"text": "база данных", "isCorrect": false},
+      {"text": "CSS-стили", "isCorrect": false}
+    ]
+  },
+  {
+    "time": 130,
+    "type": "free_text",
+    "question": "Объясните своими словами, что такое IP-адрес.",
+    "correctAnswer": "IP-адрес — уникальный числовой идентификатор устройства в компьютерной сети."
   }
 ]`;
 
@@ -1889,6 +1930,7 @@ ${transcript}
     // ── 1. Пробуем Ollama ────────────────────────────────────────────────────
     let ollamaOk = false;
     try {
+        if (!ollamaUrl) throw new Error('Ollama не найдена ни на одном адресе');
         const ollamaRes = await fetch(`${ollamaUrl}/api/generate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1900,10 +1942,10 @@ ${transcript}
             rawText = (data.response ?? '').trim();
             ollamaOk = true;
         } else {
-            console.warn('[generateQuestions] Ollama ответил', ollamaRes.status, '— пробуем Gemini');
+            console.warn('[generateQuestions] Ollama ответил', ollamaRes.status, '— переходим к rule-based');
         }
     } catch (e) {
-        console.warn('[generateQuestions] Ollama недоступен — пробуем Gemini:', (e as Error).message);
+        console.warn('[generateQuestions] Ollama недоступна:', (e as Error).message, '— используем rule-based');
     }
 
     // ── 2. Фоллбэк: rule-based генерация из субтитров ───────────────────────
@@ -2275,19 +2317,37 @@ ${transcript}
     const created: any[] = [];
     for (const q of questions) {
         const ts = typeof q.timestamp === 'number' ? q.timestamp : typeof q.time === 'number' ? q.time : null;
-        if (!q.question || !Array.isArray(q.options) || ts === null) continue;
-        const correctOpt = q.options.find((o: any) => o.isCorrect);
-        const event = await InteractiveEvent.create({
-            videoId,
-            time: Math.max(0, ts - 2),
-            type: 'single_choice',
-            question: q.question,
-            options: q.options,
-            correctAnswer: correctOpt?.text ?? '',
-            pauseVideo: true,
-            penalty: 50,
-        } as any);
-        created.push(event.toJSON());
+        if (!q.question || ts === null) continue;
+
+        const qType: string = ['single_choice', 'multiple_choice', 'free_text'].includes(q.type)
+            ? q.type
+            : 'single_choice';
+
+        if (qType === 'free_text') {
+            if (!q.correctAnswer) continue;
+            const event = await InteractiveEvent.create({
+                videoId,
+                time: Math.max(0, ts - 2),
+                type: 'free_text',
+                question: q.question,
+                correctAnswer: q.correctAnswer,
+                aiThreshold: 60,
+            } as any);
+            created.push(event.toJSON());
+        } else {
+            if (!Array.isArray(q.options) || q.options.length < 2) continue;
+            const correctOpts = q.options.filter((o: any) => o.isCorrect).map((o: any) => o.text);
+            if (correctOpts.length === 0) continue;
+            const event = await InteractiveEvent.create({
+                videoId,
+                time: Math.max(0, ts - 2),
+                type: qType,
+                question: q.question,
+                options: q.options,
+                correctAnswer: correctOpts.join(', '),
+            } as any);
+            created.push(event.toJSON());
+        }
     }
 
     addSystemLog(`ИИ сгенерировал ${created.length} вопросов для видео ID ${videoId}`, 'info');

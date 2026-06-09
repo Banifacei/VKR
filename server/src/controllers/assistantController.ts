@@ -22,6 +22,19 @@ function cosineSim(a: number[], b: number[]): number {
 }
 
 const FAQ: Array<{ q: string; a: string }> = [
+    // Приветствия и small-talk
+    { q: 'привет', a: 'Привет! Я Луми — ИИ-ассистент платформы Lumeo. Чем могу помочь?' },
+    { q: 'здравствуй', a: 'Здравствуйте! Я Луми, помогу разобраться с платформой. Задайте любой вопрос!' },
+    { q: 'добрый день', a: 'Добрый день! Я Луми — ИИ-ассистент Lumeo. Чем могу помочь?' },
+    { q: 'добрый вечер', a: 'Добрый вечер! Рад помочь. Задайте вопрос о платформе или обучении.' },
+    { q: 'доброе утро', a: 'Доброе утро! Я Луми — готов помочь с любым вопросом по Lumeo.' },
+    { q: 'как дела', a: 'Отлично, спасибо! Готов помочь вам с вопросами по платформе.' },
+    { q: 'кто ты', a: 'Я Луми — ИИ-ассистент образовательной платформы Lumeo. Помогаю студентам и преподавателям разбираться в функциях платформы.' },
+    { q: 'что ты умеешь', a: 'Я могу помочь разобраться с курсами, тестами, домашними заданиями, сертификатами и другими функциями Lumeo. Просто задайте вопрос!' },
+    { q: 'спасибо', a: 'Пожалуйста! Если появятся ещё вопросы — всегда рад помочь.' },
+    { q: 'благодар', a: 'Пожалуйста! Обращайтесь, если понадобится помощь.' },
+    { q: 'помоги', a: 'Конечно! Спросите о курсах, тестах, домашних заданиях, сертификатах — отвечу на всё.' },
+    { q: 'не понимаю', a: 'Попробуйте переформулировать вопрос. Я могу помочь с курсами, тестами, заданиями и другими функциями платформы.' },
     // Платформа
     { q: 'что такое lumeo', a: 'Lumeo — образовательная платформа для онлайн-обучения с видеоуроками, интерактивными вопросами, тестами и домашними заданиями.' },
     { q: 'как зарегистрироваться', a: 'Перейдите на страницу входа и нажмите «Регистрация» — введите имя, email и пароль.' },
@@ -71,25 +84,45 @@ async function getSetting(key: string): Promise<string | null> {
     }
 }
 
-const OLLAMA_URL = () => (process.env.OLLAMA_URL || 'http://ollama:11434').replace(/\/$/, '');
 const OLLAMA_MODEL = () => process.env.OLLAMA_MODEL || 'qwen2.5:3b';
+const OLLAMA_CANDIDATES = [
+    (process.env.OLLAMA_URL || 'http://ollama:11434').replace(/\/$/, ''),
+    'http://localhost:11434',
+    'http://127.0.0.1:11434',
+];
+
+let _resolvedOllamaUrl: string | null = null;
+
+async function resolveOllamaUrl(): Promise<string | null> {
+    if (_resolvedOllamaUrl) {
+        try {
+            const res = await fetch(`${_resolvedOllamaUrl}/api/tags`, { signal: AbortSignal.timeout(2000) });
+            if (res.ok) return _resolvedOllamaUrl;
+        } catch { /* fall through to re-probe */ }
+        _resolvedOllamaUrl = null;
+    }
+    for (const url of OLLAMA_CANDIDATES) {
+        try {
+            const res = await fetch(`${url}/api/tags`, { signal: AbortSignal.timeout(2000) });
+            if (res.ok) { _resolvedOllamaUrl = url; return url; }
+        } catch { /* try next */ }
+    }
+    return null;
+}
 
 async function isOllamaAvailable(): Promise<boolean> {
-    try {
-        const res = await fetch(`${OLLAMA_URL()}/api/tags`, { signal: AbortSignal.timeout(3000) });
-        return res.ok;
-    } catch {
-        return false;
-    }
+    return (await resolveOllamaUrl()) !== null;
 }
 
 async function callOllama(systemPrompt: string, messages: Array<{ role: string; content: string }>): Promise<string> {
+    const ollamaUrl = await resolveOllamaUrl();
+    if (!ollamaUrl) return '';
     try {
         const ollamaMessages = [
             { role: 'system', content: systemPrompt },
             ...messages.filter(m => m.role !== 'system'),
         ];
-        const res = await fetch(`${OLLAMA_URL()}/api/chat`, {
+        const res = await fetch(`${ollamaUrl}/api/chat`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

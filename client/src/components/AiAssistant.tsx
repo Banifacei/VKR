@@ -42,6 +42,7 @@ export function AiAssistant() {
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
     const [enabled, setEnabled] = useState<boolean | null>(null);
+    const [hiddenByTest, setHiddenByTest] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const panelRef = useRef<HTMLDivElement>(null);
@@ -55,6 +56,17 @@ export function AiAssistant() {
             })
             .catch(() => setEnabled(true));
     }, [location.pathname]);
+
+    // Hide when TestRunner is active
+    useEffect(() => {
+        const handler = (e: Event) => {
+            const hide = (e as CustomEvent<boolean>).detail;
+            setHiddenByTest(hide);
+            if (hide) setOpen(false);
+        };
+        window.addEventListener('lumeo:assistant-hide', handler);
+        return () => window.removeEventListener('lumeo:assistant-hide', handler);
+    }, []);
 
     // Scroll to bottom and focus input when panel opens or new message arrives
     useEffect(() => {
@@ -113,7 +125,7 @@ export function AiAssistant() {
 
     // All hooks above — conditional render below is safe
     const isLessonPage = /\/course\/[^/]+\/lesson\//.test(location.pathname);
-    if (!isAuthenticated || isLessonPage || enabled === null || enabled === false) return null;
+    if (!isAuthenticated || isLessonPage || hiddenByTest || enabled === null || enabled === false) return null;
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
         if (e.key === 'Enter' && !e.shiftKey) {

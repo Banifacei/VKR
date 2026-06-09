@@ -1566,13 +1566,25 @@ export const ContentEditorModal = ({ item, userData, onClose, onSuccess }: any) 
                 <div style={{ background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: 16, padding: '28px 32px', minWidth: 320, maxWidth: 400, width: '90%' }} onClick={e => e.stopPropagation()}>
                     <h3 style={{ margin: '0 0 8px', fontSize: 17, fontWeight: 700 }}>Сколько вопросов создать?</h3>
                     <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text-muted)' }}>ИИ сгенерирует вопросы на основе субтитров видео. Рекомендуем 3–7 для видео до 10 минут.</p>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
                         {[3, 5, 7, 10].map(n => (
                             <button key={n} onClick={() => setAiQuestionCount(n)}
-                                style={{ flex: 1, padding: '10px 0', borderRadius: 10, border: `2px solid ${aiQuestionCount === n ? 'var(--primary)' : 'var(--border-color)'}`, background: aiQuestionCount === n ? 'rgba(var(--primary-rgb),0.12)' : 'transparent', color: aiQuestionCount === n ? 'var(--primary)' : 'var(--text-muted)', fontWeight: 700, fontSize: 16, cursor: 'pointer', transition: 'all 0.15s' }}>
+                                style={{ flex: 1, minWidth: 48, padding: '10px 0', borderRadius: 10, border: `2px solid ${aiQuestionCount === n ? 'var(--primary)' : 'var(--border-color)'}`, background: aiQuestionCount === n ? 'rgba(var(--primary-rgb),0.12)' : 'transparent', color: aiQuestionCount === n ? 'var(--primary)' : 'var(--text-muted)', fontWeight: 700, fontSize: 16, cursor: 'pointer', transition: 'all 0.15s' }}>
                                 {n}
                             </button>
                         ))}
+                        <input
+                            type="number"
+                            min={1}
+                            max={50}
+                            placeholder="Своё"
+                            value={![3, 5, 7, 10].includes(aiQuestionCount) ? aiQuestionCount : ''}
+                            onChange={e => {
+                                const v = Math.max(1, Math.min(50, parseInt(e.target.value) || 1));
+                                setAiQuestionCount(v);
+                            }}
+                            style={{ flex: 1, minWidth: 64, padding: '10px 8px', borderRadius: 10, border: `2px solid ${![3, 5, 7, 10].includes(aiQuestionCount) ? 'var(--primary)' : 'var(--border-color)'}`, background: ![3, 5, 7, 10].includes(aiQuestionCount) ? 'rgba(var(--primary-rgb),0.12)' : 'transparent', color: 'var(--text)', fontWeight: 700, fontSize: 16, textAlign: 'center', outline: 'none' }}
+                        />
                     </div>
                     <div style={{ display: 'flex', gap: 10 }}>
                         <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setShowAiQModal(false)}>Отмена</button>

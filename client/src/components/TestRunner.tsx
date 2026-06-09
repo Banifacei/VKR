@@ -65,6 +65,12 @@ export const TestRunner = ({ test, onExit, onSuccess, userRole, onProgress }: Te
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [step]);
 
+    // Hide AI assistant while test is active
+    useEffect(() => {
+        window.dispatchEvent(new CustomEvent('lumeo:assistant-hide', { detail: true }));
+        return () => window.dispatchEvent(new CustomEvent('lumeo:assistant-hide', { detail: false }));
+    }, []);
+
     // Notify parent about progress (for incomplete-test reminder)
     useEffect(() => {
         onProgress?.({ step, secondsLeft });
