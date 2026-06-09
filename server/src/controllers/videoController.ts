@@ -1830,10 +1830,10 @@ export const generateQuestions = async (req: Request, res: Response): Promise<vo
         return;
     }
 
-    const vttSub = subs.find((s: any) => s.vttUrl);
+    const vttSub = subs.find((s: any) => s.src && s.src.endsWith('.vtt'));
     if (!vttSub) { res.status(400).json({ message: 'VTT файл субтитров не найден' }); return; }
 
-    const vttPath = path.join(uploadsDir, path.basename(vttSub.vttUrl));
+    const vttPath = path.join(uploadsDir, path.basename(vttSub.src));
     if (!fs.existsSync(vttPath)) {
         res.status(400).json({ message: 'Файл субтитров не найден на диске. Пересоздайте субтитры.' });
         return;

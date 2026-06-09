@@ -87,6 +87,7 @@ export const UserPage = () => {
     const [completedVideoIds, setCompletedVideoIds] = useState<number[]>([]);
     const [videoCurrentTime, setVideoCurrentTime] = useState(0);
     const [showBookmarks, setShowBookmarks] = useState(false);
+    const [videoTab, setVideoTab] = useState<'questions' | 'chapters'>('questions');
     const [testResults, setTestResults] = useState<Record<number, {score: number, passed: boolean}>>({}); // ID пройденных элементов
     const [course, setCourse] = useState<ICourse | null>(null);
     const [items, setItems] = useState<DashboardItem[]>([]);
@@ -454,6 +455,48 @@ export const UserPage = () => {
                                 </div>
                                 <p className="video-meta">Опубликовано: {new Date(activeItem.createdAt || Date.now()).toLocaleDateString()}</p>
                             </div>
+
+                            {/* Вкладки: Вопросы / Главы */}
+                            {(() => {
+                                const evQuestions = (activeItem.events || []).filter((e: any) => e.type !== 'chapter');
+                                const evChapters = (activeItem.events || []).filter((e: any) => e.type === 'chapter').sort((a: any, b: any) => a.time - b.time);
+                                if (evQuestions.length === 0 && evChapters.length === 0) return null;
+                                const fmt = (s: number) => { const m = Math.floor(s / 60); const sec = Math.floor(s % 60); return `${m}:${sec.toString().padStart(2, '0')}`; };
+                                return (
+                                    <div style={{ marginTop: 16, background: 'var(--bg-panel)', borderRadius: 12, border: '1px solid var(--border-color)', overflow: 'hidden' }}>
+                                        <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)' }}>
+                                            {evQuestions.length > 0 && (
+                                                <button onClick={() => setVideoTab('questions')} style={{ flex: 1, padding: '10px 16px', fontSize: 13, fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', color: videoTab === 'questions' ? 'var(--primary)' : 'var(--text-muted)', borderBottom: videoTab === 'questions' ? '2px solid var(--primary)' : '2px solid transparent', transition: 'color 0.15s' }}>
+                                                    Вопросы ({evQuestions.length})
+                                                </button>
+                                            )}
+                                            {evChapters.length > 0 && (
+                                                <button onClick={() => setVideoTab('chapters')} style={{ flex: 1, padding: '10px 16px', fontSize: 13, fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', color: videoTab === 'chapters' ? 'var(--primary)' : 'var(--text-muted)', borderBottom: videoTab === 'chapters' ? '2px solid var(--primary)' : '2px solid transparent', transition: 'color 0.15s' }}>
+                                                    Главы ({evChapters.length})
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div style={{ padding: '8px 0', maxHeight: 280, overflowY: 'auto' }}>
+                                            {videoTab === 'questions' && evQuestions.map((q: any) => (
+                                                <div key={q.id} onClick={() => videoSeekRef.current?.(q.time)} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '8px 16px', cursor: 'pointer', transition: 'background 0.12s' }}
+                                                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(var(--primary-rgb),0.06)')}
+                                                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                                                    <span style={{ flexShrink: 0, fontSize: 12, color: 'var(--primary)', fontWeight: 700, background: 'rgba(var(--primary-rgb),0.1)', padding: '2px 7px', borderRadius: 6, marginTop: 2 }}>{fmt(q.time)}</span>
+                                                    <span style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.4 }}>{q.question}</span>
+                                                </div>
+                                            ))}
+                                            {videoTab === 'chapters' && evChapters.map((c: any) => (
+                                                <div key={c.id} onClick={() => videoSeekRef.current?.(c.time)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', cursor: 'pointer', transition: 'background 0.12s' }}
+                                                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(var(--primary-rgb),0.06)')}
+                                                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                                                    <span style={{ flexShrink: 0, fontSize: 12, color: 'var(--primary)', fontWeight: 700, background: 'rgba(var(--primary-rgb),0.1)', padding: '2px 7px', borderRadius: 6 }}>{fmt(c.time)}</span>
+                                                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{c.question}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
 
                             {/* Закладки */}
                             {userData && (
