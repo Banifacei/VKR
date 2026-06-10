@@ -49,6 +49,7 @@ jobs:
         with:
           context: ./server
           push: true
+          platforms: linux/amd64,linux/arm64
           tags: ${{ steps.tag.outputs.tags_server }}
           cache-from: type=gha,scope=server
           cache-to: type=gha,mode=max,scope=server
@@ -58,6 +59,7 @@ jobs:
         with:
           context: ./client
           push: true
+          platforms: linux/amd64,linux/arm64
           tags: ${{ steps.tag.outputs.tags_client }}
           build-args: |
             VITE_API_URL=/api
@@ -69,6 +71,7 @@ jobs:
         with:
           context: ./installer
           push: true
+          platforms: linux/amd64,linux/arm64
           tags: ${{ steps.tag.outputs.tags_installer }}
           cache-from: type=gha,scope=installer
           cache-to: type=gha,mode=max,scope=installer
