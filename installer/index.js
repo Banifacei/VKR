@@ -200,17 +200,35 @@ services:
       retries: 10
     restart: unless-stopped
 
+  ollama:
+    image: ollama/ollama
+    container_name: lumeo-ollama
+    volumes:
+      - ollama_data:/root/.ollama
+    entrypoint: ["/bin/sh", "-c", "ollama serve & until ollama list >/dev/null 2>&1; do sleep 2; done && ollama pull qwen2.5:3b && wait"]
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list 2>/dev/null | grep -q qwen2.5 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 300s
+    restart: unless-stopped
+
   server:
     image: ghcr.io/${owner}/lumeo-server:${tag}
     container_name: lumeo-server
     env_file: .env
     environment:
       DB_HOST: postgres
+      OLLAMA_URL: http://ollama:11434
+      OLLAMA_MODEL: qwen2.5:3b
     volumes:
       - uploads:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy
+      ollama:
+        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "node -e \\"require('http').get('http://localhost:5001/api/theme',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))\\""]
       interval: 5s
@@ -234,6 +252,7 @@ services:
 volumes:
   postgres_data:
   uploads:
+  ollama_data:
 ${networksSection}`;
 
   fs.writeFileSync(path.join(WORKSPACE, 'docker-compose.yml'), content);
