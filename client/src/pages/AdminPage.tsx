@@ -1856,7 +1856,7 @@ export const AdminPage = () => {
                   border: '1px solid rgba(108,99,255,.25)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
-                  <Icons.RotateCcw size={20} style={{ color: 'var(--primary)' }} />
+                  <span style={{ color: 'var(--primary)', display: 'flex' }}><Icons.RotateCcw size={20} /></span>
                 </div>
                 <div>
                   <div style={{ fontWeight: 600, fontSize: '15px', color: 'var(--text-main)', marginBottom: '5px' }}>
