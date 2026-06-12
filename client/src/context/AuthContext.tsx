@@ -103,6 +103,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 const { data } = await api.get('/auth/me');
 
                 const normalized = normalizeUser(data);
+                // Если onboarding уже помечен завершённым локально — не затираем это значение
+                // (защита от race condition: PATCH ещё не дошёл до сервера, но мы уже знаем)
+                if (!normalized.onboardingCompleted) {
+                    const saved = localStorage.getItem('lumeo_user');
+                    if (saved) {
+                        try { if (JSON.parse(saved).onboardingCompleted) normalized.onboardingCompleted = true; } catch {}
+                    }
+                }
                 setUser(normalized);
                 localStorage.setItem('lumeo_user', JSON.stringify(normalized));
                 // Синхронизируем тему пользователя из БД (для кросс-девайс sync)

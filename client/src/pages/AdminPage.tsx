@@ -56,7 +56,7 @@ export const AdminPage = () => {
   const { user, updateUser: updateContextUser } = useAuth();
   const [showSamlModal, setShowSamlModal] = useState(false);
   const [samlForm, setSamlForm] = useState({ enabled: false, entryPoint: '', cert: '' });
-  const [activeTab, setActiveTab] = useState<'system' | 'users' | 'requests' | 'integrations' | 'branding' | 'moderation' | 'email'>('system');
+  const [activeTab, setActiveTab] = useState<'system' | 'users' | 'requests' | 'integrations' | 'branding' | 'moderation' | 'email' | 'updates'>('system');
   const [bannedWords, setBannedWords] = useState<{ id: number; word: string }[]>([]);
   const [offenders, setOffenders] = useState<any[]>([]);
   const [newWord, setNewWord] = useState('');
@@ -103,6 +103,10 @@ export const AdminPage = () => {
   const [showAiModal, setShowAiModal] = useState(false);
   const [aiForm, setAiForm] = useState({ enabled: true });
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const updateEsRef = useRef<EventSource | null>(null);
+  const [installerStatus, setInstallerStatus] = useState<'unknown' | 'connected' | 'error'>('unknown');
+  const [updateLog, setUpdateLog] = useState<Array<{type: string; text: string}>>([]);
+  const [isUpdating, setIsUpdating] = useState(false);
   const openSamlModal = () => {
       setSamlForm({
           enabled: systemSettings.saml_enabled === 'true' || systemSettings.saml_enabled === true,
@@ -309,6 +313,49 @@ export const AdminPage = () => {
     });
     return () => { active = false; es?.close(); };
   }, [showOnlineModal, activeTab]);
+
+  // ─── Обновления (installer на :3333) ──────────────────────────────────────────
+  const INSTALLER_URL = `${window.location.protocol}//${window.location.hostname}:3333`;
+
+  const checkInstaller = async () => {
+    setInstallerStatus('unknown');
+    try {
+      const res = await fetch(`${INSTALLER_URL}/api/check-updates`, { signal: AbortSignal.timeout(3000) });
+      setInstallerStatus(res.ok ? 'connected' : 'error');
+    } catch {
+      setInstallerStatus('error');
+    }
+  };
+
+  const startUpdate = async () => {
+    setIsUpdating(true);
+    setUpdateLog([]);
+    try { await fetch(`${INSTALLER_URL}/api/update`, { method: 'POST' }); } catch {}
+    if (updateEsRef.current) updateEsRef.current.close();
+    const es = new EventSource(`${INSTALLER_URL}/api/update-logs`);
+    updateEsRef.current = es;
+    es.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.text?.trim()) setUpdateLog(prev => [...prev, data]);
+        if (data.type === 'done' || data.type === 'failed') {
+          setIsUpdating(false);
+          es.close();
+          updateEsRef.current = null;
+        }
+      } catch {}
+    };
+    es.onerror = () => { setIsUpdating(false); es.close(); updateEsRef.current = null; };
+  };
+
+  useEffect(() => {
+    if (activeTab === 'updates') {
+      checkInstaller();
+    } else {
+      updateEsRef.current?.close();
+      updateEsRef.current = null;
+    }
+  }, [activeTab]);
 
   const handleToggleSetting = async () => {
       const newValue = !requiresApproval;
@@ -875,6 +922,9 @@ export const AdminPage = () => {
                 </button>
                 <button className={`admin-tab ${activeTab === 'moderation' ? 'active' : ''}`} onClick={() => { setActiveTab('moderation'); loadBannedWords(); }}>
                     <Icons.Shield /> Модерация
+                </button>
+                <button className={`admin-tab ${activeTab === 'updates' ? 'active' : ''}`} onClick={() => setActiveTab('updates')}>
+                    <Icons.RotateCcw /> Обновления
                 </button>
                 {/* Вкладка заявок появляется ТОЛЬКО если модерация включена */}
                 {requiresApproval && (
@@ -1754,6 +1804,105 @@ export const AdminPage = () => {
         </div>
       </div>
     )}
+
+    {/* ==================== ВКЛАДКА: ОБНОВЛЕНИЯ ==================== */}
+    {activeTab === 'updates' && (
+      <div className="admin-section">
+        <div className="section-header compact">
+          <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px' }}>
+            <Icons.RotateCcw /> Обновления Lumeo
+          </h2>
+          <button className="btn-secondary btn-sm" onClick={checkInstaller} disabled={isUpdating} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
+            <Icons.RotateCcw size={12} /> Проверить
+          </button>
+        </div>
+        <div className="section-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+          {/* Статус подключения к installer */}
+          {installerStatus === 'unknown' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-muted)', fontSize: '13px' }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--text-muted)', flexShrink: 0 }} />
+              Проверяем подключение к инсталлеру...
+            </div>
+          )}
+
+          {installerStatus === 'error' && (
+            <div style={{ background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.25)', borderRadius: '10px', padding: '16px 20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', flexShrink: 0, boxShadow: '0 0 6px #ef4444' }} />
+                <span style={{ fontWeight: 600, fontSize: '14px', color: '#ef4444' }}>Инсталлер недоступен</span>
+              </div>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '0 0 4px' }}>Сервис обновлений не запущен на <code style={{ background: 'rgba(255,255,255,.07)', padding: '1px 6px', borderRadius: '4px' }}>{INSTALLER_URL}</code></p>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>Убедитесь что инсталлер запущен: <code style={{ background: 'rgba(255,255,255,.07)', padding: '1px 6px', borderRadius: '4px' }}>./install.sh</code></p>
+            </div>
+          )}
+
+          {installerStatus === 'connected' && (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e', flexShrink: 0, boxShadow: '0 0 6px #22c55e' }} />
+                <span style={{ fontSize: '13px', color: '#22c55e', fontWeight: 500 }}>Инсталлер подключён</span>
+              </div>
+
+              <div style={{ background: 'rgba(108,99,255,.07)', border: '1px solid rgba(108,99,255,.2)', borderRadius: '10px', padding: '16px 20px' }}>
+                <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '6px' }}>Процесс обновления:</div>
+                <ol style={{ fontSize: '13px', color: 'var(--text-main)', margin: 0, paddingLeft: '18px', lineHeight: '1.8' }}>
+                  <li>Загрузка новых Docker-образов с GitHub</li>
+                  <li>Перезапуск контейнеров server и client</li>
+                  <li>База данных и файлы сохраняются</li>
+                </ol>
+              </div>
+
+              <button
+                onClick={startUpdate}
+                disabled={isUpdating}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '10px',
+                  padding: '12px 24px', borderRadius: '10px', border: 'none',
+                  background: isUpdating ? 'rgba(108,99,255,.3)' : 'linear-gradient(135deg, var(--primary), #a855f7)',
+                  color: '#fff', fontSize: '14px', fontWeight: 700, cursor: isUpdating ? 'not-allowed' : 'pointer',
+                  boxShadow: isUpdating ? 'none' : '0 4px 16px rgba(108,99,255,.35)',
+                  transition: '.2s', alignSelf: 'flex-start',
+                }}
+              >
+                <Icons.RotateCcw size={16} />
+                {isUpdating ? 'Обновление...' : 'Обновить до последней версии'}
+              </button>
+            </>
+          )}
+
+          {/* Лог обновления */}
+          {updateLog.length > 0 && (
+            <div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px', fontWeight: 500 }}>Лог обновления</div>
+              <div style={{
+                background: '#0a0a14', border: '1px solid var(--border-color)', borderRadius: '8px',
+                padding: '14px 16px', fontFamily: 'monospace', fontSize: '12px',
+                maxHeight: '280px', overflowY: 'auto', lineHeight: '1.7',
+              }}>
+                {updateLog.map((line, i) => (
+                  <div key={i} style={{
+                    color: line.type === 'success' ? '#22c55e'
+                          : line.type === 'error'   ? '#ef4444'
+                          : line.type === 'warn'    ? '#f59e0b'
+                          : '#9090bb',
+                  }}>
+                    {line.text}
+                  </div>
+                ))}
+                {isUpdating && (
+                  <div style={{ color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+                    <span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⟳</span> Выполняется...
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+        </div>
+      </div>
+    )}
+
     </div>
   );
 };

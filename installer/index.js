@@ -11,6 +11,15 @@ const server = http.createServer(app);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// CORS — позволяет AdminPanel обращаться к installer напрямую из браузера
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  next();
+});
+
 const WORKSPACE = process.env.WORKSPACE || '/workspace';
 const STATE_FILE = path.join(WORKSPACE, '.lumeo_installer_state.json');
 const DONE_FLAG = path.join(WORKSPACE, '.lumeo_installed');
@@ -502,7 +511,7 @@ app.post('/api/update', (req, res) => {
     pushLog({ type: 'info', text: '🔄 Начинаем обновление Lumeo...' });
     try {
       await runCommand('docker', ['compose', '-f', path.join(WORKSPACE, 'docker-compose.yml'), 'pull']);
-      await runCommand('docker', ['compose', '-f', path.join(WORKSPACE, 'docker-compose.yml'), 'up', '-d', '--no-deps', 'server', 'client']);
+      await runCommand('docker', ['compose', '-f', path.join(WORKSPACE, 'docker-compose.yml'), 'up', '-d', '--pull', 'never', '--no-deps', 'server', 'client']);
       pushLog({ type: 'success', text: '✅ Обновление завершено!' });
       pushLog({ type: 'done', text: 'DONE' });
     } catch (err) {
