@@ -55,8 +55,8 @@ const extractAudio = (videoPath: string, audioPath: string): Promise<void> => {
 
         parentPort?.postMessage({ status: 'Загружаем нейросеть Whisper...', progress: 30 });
 
-        // Загружаем модель
-        const transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-small');
+        // whisper-tiny: ~39MB, в 6x быстрее чем small
+        const transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny', { quantized: true });
 
         parentPort?.postMessage({ status: 'Транскрибируем речь...', progress: 55 });
 
@@ -76,7 +76,7 @@ const extractAudio = (videoPath: string, audioPath: string): Promise<void> => {
         // Транскрибация
         const output = await transcriber(float32Array, {
             chunk_length_s: 30,
-            stride_length_s: 5,
+            stride_length_s: 3,
             language: 'russian',
             task: 'transcribe',
             return_timestamps: true,
