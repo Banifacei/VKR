@@ -267,8 +267,12 @@ services:
     container_name: lumeo-watchtower
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    command: --http-api-token lumeo-wt-secret --http-api-update --label-enable --cleanup --no-startup-message
+    environment:
+      - DOCKER_API_VERSION=1.41
+    command: --http-api-token lumeo-wt-secret --http-api-update --label-enable --cleanup
     restart: unless-stopped
+    networks:
+      - default
 
 volumes:
   postgres_data:
