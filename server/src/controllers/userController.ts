@@ -10,6 +10,14 @@ import { CourseTest } from '../models/CourseTest.js';
 import { CourseEnrollment } from '../models/CourseEnrollment.js';
 import { addSystemLog } from './adminController.js';
 import { CourseCollaborator } from '../models/CourseCollaborator.js';
+import { CourseRating } from '../models/CourseRating.js';
+import { CourseBan } from '../models/CourseBan.js';
+import { CourseCertificate } from '../models/CourseCertificate.js';
+import { UserBadge } from '../models/UserBadge.js';
+import { Notification } from '../models/Notification.js';
+import { VideoComment } from '../models/VideoComment.js';
+import { VideoBookmark } from '../models/VideoBookmark.js';
+import { ModerationLog } from '../models/ModerationLog.js';
 import { notificationSse, sendNotification } from './notificationController.js';
 import { Op } from 'sequelize';
 import * as xlsx from 'xlsx';
@@ -303,11 +311,20 @@ export const deleteUserByAdmin = async (req: Request, res: Response) => {
             return res.status(404).json({ message: 'Пользователь не найден' });
         }
 
+        await Notification.destroy({ where: { userId: userIdToDelete } });
+        await UserBadge.destroy({ where: { userId: userIdToDelete } });
+        await VideoBookmark.destroy({ where: { userId: userIdToDelete } });
+        await VideoComment.destroy({ where: { userId: userIdToDelete } });
+        await CourseRating.destroy({ where: { userId: userIdToDelete } });
+        await CourseBan.destroy({ where: { userId: userIdToDelete } });
+        await CourseCertificate.destroy({ where: { userId: userIdToDelete } });
+        await CourseEnrollment.destroy({ where: { userId: userIdToDelete } });
+        await CourseCollaborator.destroy({ where: { userId: userIdToDelete } });
+        await ModerationLog.destroy({ where: { userId: userIdToDelete } });
         await UserResponse.destroy({ where: { userId: userIdToDelete } });
         await UserVideoProgress.destroy({ where: { userId: userIdToDelete } });
         await UserTestResult.destroy({ where: { userId: userIdToDelete } });
 
-        // Теперь база данных разрешит удалить самого пользователя
         await user.destroy(); 
         
         addSystemLog(`Админ удалил пользователя (ID: ${userIdToDelete})`, 'warning');
