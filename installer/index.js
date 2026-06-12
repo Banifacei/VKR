@@ -245,6 +245,8 @@ services:
       retries: 36
       start_period: 60s
     restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
 
   client:
     image: ghcr.io/${owner}/lumeo-client:${tag}
@@ -256,7 +258,17 @@ services:
     depends_on:
       server:
         condition: service_started
-    restart: unless-stopped${clientNetworks}
+    restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"${clientNetworks}
+
+  watchtower:
+    image: containrrr/watchtower
+    container_name: lumeo-watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --http-api-token lumeo-wt-secret --http-api-update --label-enable --cleanup --no-startup-message
+    restart: unless-stopped
 
 volumes:
   postgres_data:

@@ -15,12 +15,15 @@ import {
     getSystemModules,
     getOnlineUsers,
     streamOnlineUsers,
+    checkUpdates,
+    streamUpdateLogs,
 } from '../controllers/adminController.js';
 
 const router = Router();
 
-// SSE онлайн-пользователей — до router.use(isAdmin), т.к. использует checkAuthSse
+// SSE-маршруты — до router.use(isAdmin), используют checkAuthSse
 router.get('/online-users/stream', checkAuthSse, streamOnlineUsers);
+router.get('/updates/stream', checkAuthSse, streamUpdateLogs);
 // Публичные настройки (доступны любому авторизованному пользователю)
 router.get('/settings/public', checkAuth, getPublicSettings);
 
@@ -43,5 +46,6 @@ router.get('/settings', getSystemSettings);
 router.post('/settings/toggle', toggleSystemSetting);
 router.post('/settings/email-test', testEmailSettings);
 router.get('/settings/email-templates/defaults', getEmailTemplateDefaults);
+router.get('/updates/check', checkUpdates);
 
 export default router;

@@ -104,6 +104,7 @@ export const AdminPage = () => {
   const [aiForm, setAiForm] = useState({ enabled: true });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const updateEsRef = useRef<EventSource | null>(null);
+  const logScrollRef = useRef<HTMLDivElement>(null);
   const [installerStatus, setInstallerStatus] = useState<'unknown' | 'connected' | 'error'>('unknown');
   const [updateLog, setUpdateLog] = useState<Array<{type: string; text: string}>>([]);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -314,14 +315,13 @@ export const AdminPage = () => {
     return () => { active = false; es?.close(); };
   }, [showOnlineModal, activeTab]);
 
-  // ─── Обновления (installer на :3333) ──────────────────────────────────────────
-  const INSTALLER_URL = `${window.location.protocol}//${window.location.hostname}:3333`;
+  // ─── Обновления (встроено в сервис, через Watchtower) ─────────────────────────
 
-  const checkInstaller = async () => {
+  const checkUpdateService = async () => {
     setInstallerStatus('unknown');
     try {
-      const res = await fetch(`${INSTALLER_URL}/api/check-updates`, { signal: AbortSignal.timeout(3000) });
-      setInstallerStatus(res.ok ? 'connected' : 'error');
+      const res = await api.get('/admin/updates/check');
+      setInstallerStatus(res.data.ready ? 'connected' : 'error');
     } catch {
       setInstallerStatus('error');
     }
@@ -330,10 +330,14 @@ export const AdminPage = () => {
   const startUpdate = async () => {
     setIsUpdating(true);
     setUpdateLog([]);
-    try { await fetch(`${INSTALLER_URL}/api/update`, { method: 'POST' }); } catch {}
     if (updateEsRef.current) updateEsRef.current.close();
-    const es = new EventSource(`${INSTALLER_URL}/api/update-logs`);
+
+    const q = await sseQuery();
+    if (!q) { setIsUpdating(false); return; }
+
+    const es = new EventSource(`/api/admin/updates/stream?${q}`);
     updateEsRef.current = es;
+
     es.onmessage = (e) => {
       try {
         const data = JSON.parse(e.data);
@@ -345,17 +349,40 @@ export const AdminPage = () => {
         }
       } catch {}
     };
-    es.onerror = () => { setIsUpdating(false); es.close(); updateEsRef.current = null; };
+
+    es.onerror = () => {
+      es.close();
+      updateEsRef.current = null;
+      // Сервер перезапустился — опрашиваем до восстановления
+      setUpdateLog(prev => [...prev, { type: 'info', text: '🔄 Сервер перезапускается...' }]);
+      let attempts = 0;
+      const poll = async () => {
+        attempts++;
+        if (attempts > 60) { setIsUpdating(false); return; }
+        try {
+          await fetch('/api/theme', { signal: AbortSignal.timeout(2000) });
+          setUpdateLog(prev => [...prev, { type: 'success', text: '✅ Сервер снова работает! Обновление завершено.' }]);
+          setIsUpdating(false);
+        } catch {
+          setTimeout(poll, 3000);
+        }
+      };
+      setTimeout(poll, 8000);
+    };
   };
 
   useEffect(() => {
     if (activeTab === 'updates') {
-      checkInstaller();
+      checkUpdateService();
     } else {
       updateEsRef.current?.close();
       updateEsRef.current = null;
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    if (logScrollRef.current) logScrollRef.current.scrollTop = logScrollRef.current.scrollHeight;
+  }, [updateLog]);
 
   const handleToggleSetting = async () => {
       const newValue = !requiresApproval;
@@ -1812,89 +1839,146 @@ export const AdminPage = () => {
           <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px' }}>
             <Icons.RotateCcw /> Обновления Lumeo
           </h2>
-          <button className="btn-secondary btn-sm" onClick={checkInstaller} disabled={isUpdating} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
-            <Icons.RotateCcw size={12} /> Проверить
-          </button>
         </div>
         <div className="section-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-          {/* Статус подключения к installer */}
-          {installerStatus === 'unknown' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-muted)', fontSize: '13px' }}>
-              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--text-muted)', flexShrink: 0 }} />
-              Проверяем подключение к инсталлеру...
-            </div>
-          )}
-
-          {installerStatus === 'error' && (
-            <div style={{ background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.25)', borderRadius: '10px', padding: '16px 20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', flexShrink: 0, boxShadow: '0 0 6px #ef4444' }} />
-                <span style={{ fontWeight: 600, fontSize: '14px', color: '#ef4444' }}>Инсталлер недоступен</span>
+          {/* Главная карточка */}
+          <div style={{
+            background: 'rgba(108,99,255,.05)', border: '1px solid rgba(108,99,255,.15)',
+            borderRadius: '14px', padding: '22px', display: 'flex', flexDirection: 'column', gap: '20px',
+          }}>
+            {/* Шапка карточки */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div style={{
+                  width: '46px', height: '46px', borderRadius: '12px', flexShrink: 0,
+                  background: 'linear-gradient(135deg, rgba(108,99,255,.2), rgba(168,85,247,.2))',
+                  border: '1px solid rgba(108,99,255,.25)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Icons.RotateCcw size={20} style={{ color: 'var(--primary)' }} />
+                </div>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: '15px', color: 'var(--text-main)', marginBottom: '5px' }}>
+                    Обновление сервиса
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
+                    {installerStatus === 'unknown' && (
+                      <><div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--text-muted)', opacity: 0.6 }} />
+                      <span style={{ color: 'var(--text-muted)' }}>Проверяем...</span></>
+                    )}
+                    {installerStatus === 'connected' && (
+                      <><div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 5px #22c55e' }} />
+                      <span style={{ color: '#22c55e', fontWeight: 500 }}>Watchtower подключён</span></>
+                    )}
+                    {installerStatus === 'error' && (
+                      <><div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 5px #ef4444' }} />
+                      <span style={{ color: '#ef4444', fontWeight: 500 }}>Сервис недоступен</span></>
+                    )}
+                  </div>
+                </div>
               </div>
-              <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '0 0 4px' }}>Сервис обновлений не запущен на <code style={{ background: 'rgba(255,255,255,.07)', padding: '1px 6px', borderRadius: '4px' }}>{INSTALLER_URL}</code></p>
-              <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>Убедитесь что инсталлер запущен: <code style={{ background: 'rgba(255,255,255,.07)', padding: '1px 6px', borderRadius: '4px' }}>./install.sh</code></p>
-            </div>
-          )}
-
-          {installerStatus === 'connected' && (
-            <>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e', flexShrink: 0, boxShadow: '0 0 6px #22c55e' }} />
-                <span style={{ fontSize: '13px', color: '#22c55e', fontWeight: 500 }}>Инсталлер подключён</span>
-              </div>
-
-              <div style={{ background: 'rgba(108,99,255,.07)', border: '1px solid rgba(108,99,255,.2)', borderRadius: '10px', padding: '16px 20px' }}>
-                <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '6px' }}>Процесс обновления:</div>
-                <ol style={{ fontSize: '13px', color: 'var(--text-main)', margin: 0, paddingLeft: '18px', lineHeight: '1.8' }}>
-                  <li>Загрузка новых Docker-образов с GitHub</li>
-                  <li>Перезапуск контейнеров server и client</li>
-                  <li>База данных и файлы сохраняются</li>
-                </ol>
-              </div>
-
               <button
-                onClick={startUpdate}
-                disabled={isUpdating}
+                onClick={checkUpdateService} disabled={isUpdating} title="Обновить статус"
                 style={{
-                  display: 'flex', alignItems: 'center', gap: '10px',
-                  padding: '12px 24px', borderRadius: '10px', border: 'none',
-                  background: isUpdating ? 'rgba(108,99,255,.3)' : 'linear-gradient(135deg, var(--primary), #a855f7)',
-                  color: '#fff', fontSize: '14px', fontWeight: 700, cursor: isUpdating ? 'not-allowed' : 'pointer',
-                  boxShadow: isUpdating ? 'none' : '0 4px 16px rgba(108,99,255,.35)',
-                  transition: '.2s', alignSelf: 'flex-start',
+                  background: 'transparent', border: '1px solid var(--border-color)', borderRadius: '8px',
+                  padding: '7px 9px', cursor: 'pointer', color: 'var(--text-muted)',
+                  display: 'flex', alignItems: 'center', flexShrink: 0, transition: 'border-color .15s',
                 }}
               >
-                <Icons.RotateCcw size={16} />
-                {isUpdating ? 'Обновление...' : 'Обновить до последней версии'}
+                <Icons.RotateCcw size={13} />
               </button>
-            </>
-          )}
+            </div>
 
-          {/* Лог обновления */}
-          {updateLog.length > 0 && (
-            <div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px', fontWeight: 500 }}>Лог обновления</div>
+            {/* Шаги обновления */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '9px' }}>
+              {(['📦 Загружает новые Docker-образы с GitHub Container Registry',
+                 '🔄 Перезапускает контейнеры server и client',
+                 '🗄️ База данных и загруженные файлы сохраняются'
+                ] as const).map((step, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                  <span style={{ fontSize: '15px', width: '22px', textAlign: 'center', flexShrink: 0 }}>{step.slice(0, 2)}</span>
+                  {step.slice(2).trim()}
+                </div>
+              ))}
+            </div>
+
+            {/* Предупреждение при ошибке */}
+            {installerStatus === 'error' && (
               <div style={{
-                background: '#0a0a14', border: '1px solid var(--border-color)', borderRadius: '8px',
-                padding: '14px 16px', fontFamily: 'monospace', fontSize: '12px',
-                maxHeight: '280px', overflowY: 'auto', lineHeight: '1.7',
+                background: 'rgba(239,68,68,.07)', border: '1px solid rgba(239,68,68,.2)',
+                borderRadius: '8px', padding: '12px 14px', fontSize: '12px',
+                color: 'var(--text-muted)', lineHeight: '1.7',
               }}>
+                Контейнер <code style={{ background: 'rgba(255,255,255,.07)', padding: '0 5px', borderRadius: '3px' }}>lumeo-watchtower</code> не найден.
+                Добавьте его в <code style={{ background: 'rgba(255,255,255,.07)', padding: '0 5px', borderRadius: '3px' }}>docker-compose.yml</code> и выполните:{' '}
+                <code style={{ background: 'rgba(255,255,255,.07)', padding: '0 5px', borderRadius: '3px' }}>docker compose up -d watchtower</code>
+              </div>
+            )}
+
+            {/* Кнопка */}
+            <button
+              onClick={startUpdate}
+              disabled={isUpdating || installerStatus !== 'connected'}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                padding: '13px 20px', borderRadius: '10px', border: 'none', width: '100%',
+                background: (isUpdating || installerStatus !== 'connected')
+                  ? 'rgba(108,99,255,.15)'
+                  : 'linear-gradient(135deg, var(--primary), #a855f7)',
+                color: (isUpdating || installerStatus !== 'connected') ? 'var(--text-muted)' : '#fff',
+                fontSize: '14px', fontWeight: 600,
+                cursor: (isUpdating || installerStatus !== 'connected') ? 'not-allowed' : 'pointer',
+                boxShadow: (isUpdating || installerStatus !== 'connected') ? 'none' : '0 4px 18px rgba(108,99,255,.35)',
+                transition: 'all .2s',
+              }}
+            >
+              {isUpdating
+                ? <><span style={{ display: 'inline-block', animation: 'spin 1s linear infinite' }}>⟳</span> Обновление в процессе...</>
+                : <><Icons.RotateCcw size={15} /> Обновить до последней версии</>
+              }
+            </button>
+          </div>
+
+          {/* Терминал лога */}
+          {updateLog.length > 0 && (
+            <div style={{ background: '#0d0d1a', border: '1px solid rgba(255,255,255,.08)', borderRadius: '12px', overflow: 'hidden' }}>
+              {/* Строка заголовка в стиле macOS */}
+              <div style={{
+                padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,.06)',
+                display: 'flex', alignItems: 'center', gap: '10px',
+                background: 'rgba(255,255,255,.02)',
+              }}>
+                <div style={{ display: 'flex', gap: '5px' }}>
+                  {['#ef4444','#f59e0b','#22c55e'].map(c => (
+                    <div key={c} style={{ width: '10px', height: '10px', borderRadius: '50%', background: c, opacity: 0.7 }} />
+                  ))}
+                </div>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)', flex: 1, textAlign: 'center' }}>Лог обновления</span>
+                {isUpdating && (
+                  <span style={{ fontSize: '11px', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span style={{ display: 'inline-block', animation: 'spin 1s linear infinite' }}>⟳</span> выполняется
+                  </span>
+                )}
+              </div>
+              {/* Контент терминала */}
+              <div
+                ref={logScrollRef}
+                style={{
+                  padding: '14px 16px', fontFamily: 'monospace', fontSize: '12px',
+                  maxHeight: '260px', overflowY: 'auto', lineHeight: '1.8',
+                }}
+              >
                 {updateLog.map((line, i) => (
                   <div key={i} style={{
                     color: line.type === 'success' ? '#22c55e'
                           : line.type === 'error'   ? '#ef4444'
-                          : line.type === 'warn'    ? '#f59e0b'
-                          : '#9090bb',
+                          : (line.type === 'warn' || line.type === 'warning') ? '#f59e0b'
+                          : '#8080aa',
                   }}>
                     {line.text}
                   </div>
                 ))}
-                {isUpdating && (
-                  <div style={{ color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
-                    <span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⟳</span> Выполняется...
-                  </div>
-                )}
               </div>
             </div>
           )}

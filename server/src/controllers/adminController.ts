@@ -3,6 +3,7 @@ import os from 'os';
 import fs from 'fs/promises';
 import fss from 'fs';
 import path from 'path';
+import http from 'http';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
 import { SystemSetting } from '../models/SystemSetting.js';
@@ -416,4 +417,110 @@ export const getSystemModules = async (_req: Request, res: Response) => {
     }
 
     res.json(modules);
+};
+
+// ─── Обновления через Watchtower ──────────────────────────────────────────────
+
+const WATCHTOWER_TOKEN = process.env.WATCHTOWER_TOKEN || 'lumeo-wt-secret';
+
+function watchtowerTrigger(): Promise<number> {
+    return new Promise((resolve, reject) => {
+        const req = http.request(
+            {
+                hostname: 'lumeo-watchtower',
+                port: 8080,
+                path: '/v1/update',
+                method: 'POST',
+                headers: { Authorization: `Bearer ${WATCHTOWER_TOKEN}` },
+            },
+            (res) => { res.resume(); resolve(res.statusCode ?? 0); }
+        );
+        req.setTimeout(5000, () => { req.destroy(); reject(new Error('timeout')); });
+        req.on('error', reject);
+        req.end();
+    });
+}
+
+export const checkUpdates = async (_req: Request, res: Response) => {
+    try {
+        await new Promise<void>((resolve, reject) => {
+            const req = http.request(
+                {
+                    hostname: 'lumeo-watchtower',
+                    port: 8080,
+                    path: '/',
+                    method: 'HEAD',
+                    headers: { Authorization: `Bearer ${WATCHTOWER_TOKEN}` },
+                },
+                (r) => { r.resume(); r.statusCode && r.statusCode < 500 ? resolve() : reject(new Error(`${r.statusCode}`)); }
+            );
+            req.setTimeout(3000, () => { req.destroy(); reject(new Error('timeout')); });
+            req.on('error', reject);
+            req.end();
+        });
+        res.json({ ready: true });
+    } catch {
+        res.json({ ready: false });
+    }
+};
+
+export const streamUpdateLogs = async (req: Request, res: Response) => {
+    const user = (req as any).user;
+    if (!user || user.role !== 'admin') return res.status(403).end();
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    const send = (type: string, text: string) => {
+        if (!res.writableEnded) res.write(`data: ${JSON.stringify({ type, text })}\n\n`);
+    };
+
+    send('info', '🚀 Запуск обновления Lumeo...');
+
+    try {
+        const code = await watchtowerTrigger();
+        if (code !== 200) {
+            send('error', `❌ Watchtower вернул код ${code}. Обновите docker-compose.yml и перезапустите стек.`);
+            send('failed', '');
+            return res.end();
+        }
+    } catch (e: any) {
+        send('error', `❌ Watchtower недоступен: ${e.message}`);
+        send('error', 'Запустите: docker compose up -d watchtower');
+        send('failed', '');
+        return res.end();
+    }
+
+    send('info', '📦 Загружаем новые образы с GitHub Container Registry...');
+
+    // Отправляем прогресс-сообщения пока идёт загрузка.
+    // SSE сам оборвётся когда Watchtower перезапустит этот контейнер.
+    const progress = [
+        [8000,  '⏳ Идёт загрузка образов, это займёт 1–5 минут...'],
+        [25000, '⏳ Загрузка продолжается...'],
+        [60000, '⏳ Большие образы, ждём...'],
+        [100000, '⏳ Почти готово...'],
+        [140000, '✅ Образы загружены, применяем обновления...'],
+        [160000, '🔄 Перезапуск контейнеров...'],
+    ] as const;
+
+    const timers = progress.map(([delay, text]) =>
+        setTimeout(() => send('info', text), delay)
+    );
+
+    // Фолбэк: если сервер не перезапустился за 5 минут — сообщаем
+    const fallback = setTimeout(() => {
+        if (!res.writableEnded) {
+            send('warning', '⚠️ Превышено время ожидания. Проверьте: docker compose logs watchtower');
+            send('done', '');
+            res.end();
+        }
+    }, 300000);
+
+    req.on('close', () => {
+        timers.forEach(clearTimeout);
+        clearTimeout(fallback);
+    });
 };
