@@ -302,7 +302,7 @@ async function runInstall() {
 
     // docker compose up -d
     pushLog({ type: 'info', text: '▶️  Запускаем контейнеры...' });
-    await runCommand('docker', ['compose', '-f', path.join(WORKSPACE, 'docker-compose.yml'), 'up', '-d']);
+    await runCommand('docker', ['compose', '-f', path.join(WORKSPACE, 'docker-compose.yml'), 'up', '-d', '--pull', 'never']);
 
     // Ждём healthcheck сервера
     pushLog({ type: 'info', text: '⏳ Ждём готовности сервера...' });

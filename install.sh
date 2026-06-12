@@ -53,7 +53,10 @@ docker run -d \
 echo ""
 echo "✅ LumeoLoadpad запущен!"
 echo ""
-echo "  👉 Откройте в браузере: http://$(hostname -I | awk '{print $1}'):${PORT}"
+SERVER_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+SERVER_IP=${SERVER_IP:-$(ipconfig getifaddr en0 2>/dev/null)}
+SERVER_IP=${SERVER_IP:-localhost}
+echo "  👉 Откройте в браузере: http://${SERVER_IP}:${PORT}"
 echo ""
 echo "  После завершения установки Lumeo будет доступен на порту который вы указали."
 echo "  Этот установщик продолжит работать для обновлений (управление в /adminpanel)."
