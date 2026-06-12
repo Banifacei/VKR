@@ -76,7 +76,7 @@ export const TestCards = ({ events, videoId, userId, onAllSolved }: TestCardsPro
     const handleSubmit = async (q: any) => {
         let answerStr = inputs[q.id] || '';
         if (Array.isArray(answerStr)) {
-            answerStr = answerStr.join(', ');
+            answerStr = JSON.stringify(answerStr);
         }
         
         if (!answerStr.trim()) return showToast("Введите или выберите ответ!", "error");

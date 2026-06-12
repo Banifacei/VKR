@@ -782,7 +782,7 @@ export const VideoPlayer = ({ sources, title, events = [], videoId, userId = 'gu
           const selectedArr = currentAnswer as string[];
           const correctOpts = activeEvent.options?.filter((o: any) => o.isCorrect).map((o: any) => o.text) || [];
           isCorrectLocally = selectedArr.length === correctOpts.length && selectedArr.every(v => correctOpts.includes(v));
-          answerString = selectedArr.join(', ');
+          answerString = JSON.stringify(selectedArr);
       } else if (activeEvent.type === 'free_text') {
           isCorrectLocally = true; 
           answerString = currentAnswer as string;

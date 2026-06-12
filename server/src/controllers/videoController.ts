@@ -420,9 +420,9 @@ export const saveProgress = async (req: Request, res: Response) => {
             }
         } 
         else if (event.type === 'multiple_choice') {
-            // Ожидаем, что answer пришел в виде строки: "Вариант 1, Вариант 2"
             const correctOpts = event.options?.filter((o: any) => o.isCorrect).map((o: any) => o.text) || [];
-            const studentAnsArr = typeof answer === 'string' ? answer.split(', ') : [];
+            let studentAnsArr: string[] = [];
+            try { studentAnsArr = JSON.parse(answer); } catch { studentAnsArr = typeof answer === 'string' ? answer.split(', ') : []; }
             
             isCorrect = studentAnsArr.length === correctOpts.length && 
                         studentAnsArr.every((v: string) => correctOpts.includes(v));
