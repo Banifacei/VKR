@@ -87,7 +87,6 @@ export const UserPage = () => {
     const [completedVideoIds, setCompletedVideoIds] = useState<number[]>([]);
     const [videoCurrentTime, setVideoCurrentTime] = useState(0);
     const [showBookmarks, setShowBookmarks] = useState(false);
-    const [videoTab, setVideoTab] = useState<'questions' | 'chapters'>('questions');
     const [testResults, setTestResults] = useState<Record<number, {score: number, passed: boolean}>>({}); // ID пройденных элементов
     const [course, setCourse] = useState<ICourse | null>(null);
     const [items, setItems] = useState<DashboardItem[]>([]);
@@ -456,43 +455,6 @@ export const UserPage = () => {
                                 <p className="video-meta">Опубликовано: {new Date(activeItem.createdAt || Date.now()).toLocaleDateString()}</p>
                             </div>
 
-                            {/* Вкладки: Вопросы / Главы */}
-                            {(() => {
-                                const evQuestions = (activeItem.events || []).filter((e: any) => e.type !== 'chapter');
-                                const evChapters = (activeItem.events || []).filter((e: any) => e.type === 'chapter').sort((a: any, b: any) => a.time - b.time);
-                                if (evQuestions.length === 0 && evChapters.length === 0) return null;
-                                const fmt = (s: number) => { const m = Math.floor(s / 60); const sec = Math.floor(s % 60); return `${m}:${sec.toString().padStart(2, '0')}`; };
-                                return (
-                                    <div className="vtabs">
-                                        <div className="vtabs-header">
-                                            {evQuestions.length > 0 && (
-                                                <button className={`vtabs-btn${videoTab === 'questions' ? ' active' : ''}`} onClick={() => setVideoTab('questions')}>
-                                                    Вопросы ({evQuestions.length})
-                                                </button>
-                                            )}
-                                            {evChapters.length > 0 && (
-                                                <button className={`vtabs-btn${videoTab === 'chapters' ? ' active' : ''}`} onClick={() => setVideoTab('chapters')}>
-                                                    Главы ({evChapters.length})
-                                                </button>
-                                            )}
-                                        </div>
-                                        <div className="vtabs-body">
-                                            {videoTab === 'questions' && evQuestions.map((q: any) => (
-                                                <div key={q.id} className="vtabs-item" onClick={() => videoSeekRef.current?.(q.time)}>
-                                                    <span className="vtabs-time">{fmt(q.time)}</span>
-                                                    <span className="vtabs-text">{q.question}</span>
-                                                </div>
-                                            ))}
-                                            {videoTab === 'chapters' && evChapters.map((c: any) => (
-                                                <div key={c.id} className="vtabs-item" onClick={() => videoSeekRef.current?.(c.time)}>
-                                                    <span className="vtabs-time">{fmt(c.time)}</span>
-                                                    <span className="vtabs-text vtabs-text--bold">{c.question}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                );
-                            })()}
 
                             {/* Закладки */}
                             {userData && (
