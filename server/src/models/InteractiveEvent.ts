@@ -9,13 +9,13 @@ export class InteractiveEvent extends Model {
   @Column({ type: DataType.STRING, allowNull: false })
   declare type: string; 
 
-  @Column({ type: DataType.STRING, allowNull: false })
+  @Column({ type: DataType.TEXT, allowNull: false })
   declare question: string;
 
   @Column({ type: DataType.JSONB, allowNull: true })
   declare options?: any;
 
-  @Column({ type: DataType.STRING, allowNull: true })
+  @Column({ type: DataType.TEXT, allowNull: true })
   declare correctAnswer?: string;
   
   @Column({ type: DataType.BOOLEAN, defaultValue: false })
