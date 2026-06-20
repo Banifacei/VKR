@@ -63,6 +63,9 @@ export class User extends Model {
     @Column({ type: DataType.BOOLEAN, defaultValue: false })
     declare homeworkDismissed: boolean;
 
+    @Column({ type: DataType.BOOLEAN, defaultValue: false })
+    declare isDemo: boolean;
+
     // --- СВЯЗИ ---
 
     @HasMany(() => UserResponse)

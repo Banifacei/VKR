@@ -1,0 +1,10 @@
+import { Router } from 'express';
+import { checkAuth } from '../middleware/authMiddleware.js';
+import { getBookmarks, getAllBookmarks, addBookmark, updateBookmark, deleteBookmark } from '../controllers/bookmarkController.js';
+const router = Router();
+router.get('/all', checkAuth, getAllBookmarks);
+router.get('/video/:videoId', checkAuth, getBookmarks);
+router.post('/video/:videoId', checkAuth, addBookmark);
+router.patch('/:id', checkAuth, updateBookmark);
+router.delete('/:id', checkAuth, deleteBookmark);
+export default router;

@@ -1,53 +1,10 @@
 import { Router } from 'express';
-import {
-    createVideo,
-    getVideosByCourse,
-    createEvent,
-    saveProgress,
-    getVideoStats,
-    updateVideoSettings,
-    getAllCourses,
-    createCourse,
-    generateSubtitles,
-    generateQuestions,
-    getAllVideos,
-    resetVideoProgress,
-    saveVideoProgress,
-    getVideoProgress,
-    reorderVideos,
-    deleteVideo,
-    updateCourse,
-    deleteCourse,
-    getUserVideoAnswers,
-    updateCourseContentOrder,
-    getCourseCollaborators,
-    addCourseCollaborator,
-    removeCourseCollaborator,
-    transferCourseOwnership,
-    applyForCourse,
-    checkEnrollmentStatus,
-    getCourseEnrollments,
-    updateEnrollmentStatus,
-    getCourseAnalytics,
-    getStudentCourseDetails,
-    getCourseItemAnalytics,
-    generateDemoData,
-    transcodeVideo,
-    reTranscodeAllVideos,
-    getMyEnrollments,
-    getMyProgressAll,
-    reorderCourses,
-    banFromCourse,
-    unbanFromCourse,
-    getCourseBans,
-    getTeacherAccessibleCourses,
-} from '../controllers/videoController.js';
+import { createVideo, getVideosByCourse, createEvent, saveProgress, getVideoStats, updateVideoSettings, getAllCourses, createCourse, generateSubtitles, generateQuestions, resetVideoProgress, saveVideoProgress, getVideoProgress, reorderVideos, deleteVideo, updateCourse, deleteCourse, getUserVideoAnswers, updateCourseContentOrder, getCourseCollaborators, addCourseCollaborator, removeCourseCollaborator, transferCourseOwnership, applyForCourse, checkEnrollmentStatus, getCourseEnrollments, updateEnrollmentStatus, getCourseAnalytics, getStudentCourseDetails, getCourseItemAnalytics, generateDemoData, transcodeVideo, reTranscodeAllVideos, getMyEnrollments, getMyProgressAll, reorderCourses, banFromCourse, unbanFromCourse, getCourseBans, getTeacherAccessibleCourses, } from '../controllers/videoController.js';
 import { checkCourseAccess, checkCourseBan } from '../middleware/courseAuthMiddleware.js';
 import { checkAuth, checkAuthSse, demoRestrict } from '../middleware/authMiddleware.js';
 import { validateId } from '../middleware/validateId.js';
 import { updateEvent, deleteEvent, sseVideoEvents, sseEnrollStudentEvents, sseEnrollCourseEvents, sseSubtitleEvents } from '../controllers/videoController.js';
 const router = Router();
-
 const vId = validateId('videoId');
 const cId = validateId('courseId');
 const eId = validateId('eventId');
@@ -55,7 +12,6 @@ const enId = validateId('enrollmentId');
 const sId = validateId('studentId');
 const iId = validateId('itemId');
 const uId = validateId('userId');
-
 // --- СУЩЕСТВУЮЩИЕ РОУТЫ ---
 router.get('/my-enrollments', checkAuth, getMyEnrollments);
 router.get('/my-progress-all', checkAuth, getMyProgressAll);
@@ -94,21 +50,17 @@ router.delete('/:videoId/progress', checkAuth, vId, resetVideoProgress);
 router.get('/progress/:videoId', checkAuth, vId, getUserVideoAnswers);
 router.get('/:videoId/stats', checkAuth, vId, checkCourseAccess, getVideoStats);
 router.patch('/:videoId', checkAuth, demoRestrict, vId, checkCourseAccess, updateVideoSettings);
-
 // --- НОВЫЕ РОУТЫ ДЛЯ ТАЙМЛАЙНА (UserVideoProgress) ---
 router.get('/:videoId/playback-progress', checkAuth, vId, getVideoProgress);
 router.post('/playback-progress', checkAuth, saveVideoProgress);
-
 // --- ОСТАЛЬНОЕ ---
 router.post('/:videoId/events', checkAuth, demoRestrict, vId, checkCourseAccess, createEvent);
 router.put('/events/:eventId', checkAuth, demoRestrict, eId, checkCourseAccess, updateEvent);
 router.delete('/events/:eventId', checkAuth, demoRestrict, eId, checkCourseAccess, deleteEvent);
 router.delete('/:videoId', checkAuth, demoRestrict, vId, checkCourseAccess, deleteVideo);
-
 // --- SSE-стримы ---
 router.get('/:videoId/events/stream', checkAuthSse, vId, sseVideoEvents);
 router.get('/enrollment/stream', checkAuthSse, sseEnrollStudentEvents);
 router.get('/courses/:courseId/enrollment/stream', checkAuthSse, cId, sseEnrollCourseEvents);
 router.get('/courses/:courseId/processing/stream', checkAuthSse, cId, sseSubtitleEvents);
-
 export default router;

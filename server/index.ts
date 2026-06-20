@@ -30,7 +30,7 @@ import { CourseCertificate } from './src/models/CourseCertificate.js';
 import badgeRoutes from './src/routes/badgeRoutes.js';
 import assistantRoutes from './src/routes/assistantRoutes.js';
 import { trackActivityMiddleware, addSystemLog, heartbeatHandler } from './src/controllers/adminController.js';
-import { createDefaultAdmin } from './src/models/initAdmin.js';
+import { createDefaultAdmin, createDemoUser } from './src/models/initAdmin.js';
 import { cleanupOrphanFiles } from './src/utils/cleanup.js';
 import { checkAuth } from './src/middleware/authMiddleware.js';
 import passport from 'passport';
@@ -229,6 +229,7 @@ async function start() {
         // Миграция: 'none' как глобальный паттерн фона означает 'off' (без фона), а не "следовать платформе"
         await sequelize.query(`UPDATE system_settings SET value = 'off' WHERE key = 'platform_bg_pattern' AND value = 'none'`).catch(() => {});
         await createDefaultAdmin();
+        await createDemoUser();
         console.log('✅ База данных подключена');
         await cleanupOrphanFiles(uploadDir, avatarDir);
         server = app.listen(PORT, () => {

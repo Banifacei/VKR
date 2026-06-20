@@ -84,8 +84,6 @@ export const AdminPage = () => {
   const [isActionExecuting, setIsActionExecuting] = useState(false);
   const [analyticsDemo, setAnalyticsDemo] = useState(true);
   const [logFilter, setLogFilter] = useState<'all' | 'info' | 'success' | 'warning' | 'error'>('all');
-  const [showGoogleModal, setShowGoogleModal] = useState(false);
-  const [googleForm, setGoogleForm] = useState({ enabled: false, clientId: '', clientSecret: '' });
   const [requiresApproval, setRequiresApproval] = useState(false);
 
   const [modalMode, setModalMode] = useState<'add' | 'edit' | 'template' | null>(null);
@@ -205,30 +203,6 @@ export const AdminPage = () => {
       }
   };
 
-  const openGoogleModal = () => {
-      setGoogleForm({
-          enabled: systemSettings.google_enabled === 'true' || systemSettings.google_enabled === true,
-          clientId: systemSettings.google_client_id || '',
-          clientSecret: systemSettings.google_client_secret || ''
-      });
-      setShowGoogleModal(true);
-  };
-
-  const handleSaveGoogle = async () => {
-      setIsSaving(true);
-      try {
-          await api.post('/admin/settings/toggle', { key: 'google_enabled', value: String(googleForm.enabled) });
-          await api.post('/admin/settings/toggle', { key: 'google_client_id', value: googleForm.clientId });
-          await api.post('/admin/settings/toggle', { key: 'google_client_secret', value: googleForm.clientSecret });
-          showToast('Настройки Google успешно сохранены!', 'success');
-          setShowGoogleModal(false);
-          fetchSystemData(); 
-      } catch (e) {
-          showToast('Ошибка при сохранении настроек Google', 'error');
-      } finally {
-          setIsSaving(false);
-      }
-  };
   const openAiModal = () => {
       setAiForm({
           enabled: systemSettings.ai_assistant_enabled !== false && systemSettings.ai_assistant_enabled !== 'false',
@@ -574,12 +548,11 @@ export const AdminPage = () => {
     // No external auth configured
     const isEnabled = (v: any) => v === true || v === 'true';
     const hasExternalAuth =
-      isEnabled(systemSettings.google_enabled) ||
       isEnabled(systemSettings.yandex_enabled) ||
       isEnabled(systemSettings.ldap_enabled) ||
       isEnabled(systemSettings.saml_enabled);
     if (!hasExternalAuth)
-      alerts.push({ id: 'auth', severity: 'info', title: 'Используется только локальная аутентификация', message: 'Внешние провайдеры (Google, Яндекс, LDAP, SAML) не настроены. Рекомендуется для корпоративных развёртываний.', action: { label: 'Настроить', onClick: () => setActiveTab('integrations') } });
+      alerts.push({ id: 'auth', severity: 'info', title: 'Используется только локальная аутентификация', message: 'Внешние провайдеры (Яндекс, LDAP, SAML) не настроены. Рекомендуется для корпоративных развёртываний.', action: { label: 'Настроить', onClick: () => setActiveTab('integrations') } });
 
     return alerts;
   }, [systemLoading, serverStats, storageUsed, storageTotal, pendingUsers, systemLogs, usersByRole, systemSettings]);
@@ -790,42 +763,6 @@ export const AdminPage = () => {
                   <div className="modal-footer">
                       <button className="btn btn-secondary" onClick={() => setShowYandexModal(false)}>Отмена</button>
                       <button className="btn btn-primary" onClick={handleSaveYandex} disabled={isSaving}>
-                          {isSaving ? 'Сохранение...' : 'Сохранить настройки'}
-                      </button>
-                  </div>
-              </div>
-          </div>
-      )}
-      {/* МОДАЛЬНОЕ ОКНО GOOGLE */}
-      {showGoogleModal && (
-          <div className="modal-overlay">
-              <div className="modal-content">
-                  <div className="modal-header">
-                      <h3>Настройки OpenID: Google Workspace</h3>
-                      <button className="btn-icon" onClick={() => setShowGoogleModal(false)}><Icons.Close /></button>
-                  </div>
-                  <div className="modal-body">
-                      <div className="form-group" style={{ marginBottom: '20px' }}>
-                          <label className="lumeo-switch" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: '10px' }}>
-                              <input type="checkbox" checked={googleForm.enabled} onChange={e => setGoogleForm({...googleForm, enabled: e.target.checked})} />
-                              <span className="slider round"></span>
-                          </label>
-                          <strong style={{ color: googleForm.enabled ? '#00ff88' : '#888', verticalAlign: 'middle' }}>
-                              {googleForm.enabled ? 'Интеграция ВКЛЮЧЕНА' : 'Интеграция ОТКЛЮЧЕНА'}
-                          </strong>
-                      </div>
-                      <div className="form-group">
-                          <label>Client ID</label>
-                          <input className="modern-input" placeholder="Идентификатор клиента Google" value={googleForm.clientId} onChange={e => setGoogleForm({...googleForm, clientId: e.target.value})} />
-                      </div>
-                      <div className="form-group">
-                          <label>Client Secret</label>
-                          <input className="modern-input" type="password" placeholder="Секрет клиента" value={googleForm.clientSecret} onChange={e => setGoogleForm({...googleForm, clientSecret: e.target.value})} />
-                      </div>
-                  </div>
-                  <div className="modal-footer">
-                      <button className="btn btn-secondary" onClick={() => setShowGoogleModal(false)}>Отмена</button>
-                      <button className="btn btn-primary" onClick={handleSaveGoogle} disabled={isSaving}>
                           {isSaving ? 'Сохранение...' : 'Сохранить настройки'}
                       </button>
                   </div>
@@ -1343,7 +1280,6 @@ export const AdminPage = () => {
                             <option value="">Все источники</option>
                             <option value="local">Локальные</option>
                             <option value="ldap">LDAP / AD</option>
-                            <option value="google">Google</option>
                             <option value="yandex">Яндекс</option>
                             <option value="saml">SAML SSO</option>
                         </select>
@@ -1378,18 +1314,15 @@ export const AdminPage = () => {
                                                             letterSpacing: '0.5px',
                                                             textTransform: 'uppercase',
                                                             background: u.authProvider === 'yandex' ? 'rgba(255,51,51,0.15)'
-                                                                      : u.authProvider === 'google' ? 'rgba(66,133,244,0.15)'
                                                                       : u.authProvider === 'ldap'   ? 'rgba(0,255,136,0.15)'
                                                                       : u.authProvider === 'local'  ? 'rgba(100,100,100,0.2)'
                                                                       : 'rgba(155,89,182,0.15)',
                                                             color: u.authProvider === 'yandex' ? '#ff5555'
-                                                                 : u.authProvider === 'google' ? '#4285f4'
                                                                  : u.authProvider === 'ldap'   ? '#00ff88'
                                                                  : u.authProvider === 'local'  ? '#888'
                                                                  : '#c39bd3',
                                                             border: `1px solid ${
                                                                 u.authProvider === 'yandex' ? 'rgba(255,51,51,0.3)'
-                                                              : u.authProvider === 'google' ? 'rgba(66,133,244,0.3)'
                                                               : u.authProvider === 'ldap'   ? 'rgba(0,255,136,0.3)'
                                                               : u.authProvider === 'local'  ? 'rgba(100,100,100,0.3)'
                                                               : 'rgba(155,89,182,0.3)'
@@ -1584,29 +1517,6 @@ export const AdminPage = () => {
                                         className={systemSettings.yandex_enabled === 'true' || systemSettings.yandex_enabled === true ? "btn btn-secondary" : "btn btn-primary"} 
                                         style={{width: '100%'}} 
                                         onClick={openYandexModal}
-                                    >
-                                        Настроить
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Карточка Google */}
-                            <div className={`integration-card ${systemSettings.google_enabled === 'true' || systemSettings.google_enabled === true ? 'active' : ''}`}>
-                                <div className="int-header">
-                                    <div className="int-icon openid" style={{background: 'rgba(66, 133, 244, 0.2)', color: '#4285F4'}}>
-                                        <Icons.Globe />
-                                    </div>
-                                    <div className={`int-status ${systemSettings.google_enabled === 'true' || systemSettings.google_enabled === true ? '' : 'disabled'}`}>
-                                        {systemSettings.google_enabled === 'true' || systemSettings.google_enabled === true ? <><span className="pulse-dot"></span> Активен</> : 'Отключен'}
-                                    </div>
-                                </div>
-                                <h3>Google Workspace</h3>
-                                <p>Вход через аккаунт Google (OpenID Connect).</p>
-                                <div className="int-actions">
-                                    <button
-                                        className={systemSettings.google_enabled === 'true' || systemSettings.google_enabled === true ? "btn btn-secondary" : "btn btn-primary"}
-                                        style={{width: '100%'}}
-                                        onClick={openGoogleModal}
                                     >
                                         Настроить
                                     </button>

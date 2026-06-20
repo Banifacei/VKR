@@ -27,6 +27,9 @@ api.interceptors.response.use(
                 window.location.href = '/auth';
             }
         }
+        if (error.response?.status === 403 && error.response?.data?.code === 'DEMO_RESTRICTED') {
+            window.dispatchEvent(new CustomEvent('demo-restricted'));
+        }
         return Promise.reject(error);
     }
 );
