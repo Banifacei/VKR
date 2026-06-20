@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Icons } from './Icons';
 
 export const DemoRestrictedModal = () => {
@@ -12,9 +13,9 @@ export const DemoRestrictedModal = () => {
 
     if (!visible) return null;
 
-    return (
+    return createPortal(
         <div style={{
-            position: 'fixed', inset: 0, zIndex: 9999,
+            position: 'fixed', inset: 0, zIndex: 99999,
             background: 'rgba(0,0,0,0.75)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             padding: 16,
@@ -47,6 +48,7 @@ export const DemoRestrictedModal = () => {
                     Закрыть
                 </button>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };

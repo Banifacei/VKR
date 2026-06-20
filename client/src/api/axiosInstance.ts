@@ -29,6 +29,7 @@ api.interceptors.response.use(
         }
         if (error.response?.status === 403 && error.response?.data?.code === 'DEMO_RESTRICTED') {
             window.dispatchEvent(new CustomEvent('demo-restricted'));
+            return new Promise(() => {}); // поглощаем ошибку — компонент не получит reject
         }
         return Promise.reject(error);
     }
