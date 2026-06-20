@@ -389,7 +389,7 @@ export const AuthPage = () => {
                                 </>
                             )}
 
-                            {isLogin && (authProviders.yandex || authProviders.google || authProviders.saml || true) && (
+                            {isLogin && (authProviders.yandex || authProviders.saml || true) && (
                                 <div className="sso-container">
                                     <div className="auth-divider">
                                         <span>или</span>
