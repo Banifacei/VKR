@@ -34,11 +34,20 @@ export const DemoRestrictedModal = () => {
                     Хотите получить полный доступ к Lumeo?
                 </p>
                 <a
-                    href="mailto:support@lumeo.su"
+                    href="https://t.me/lumeoSupportBot"
+                    target="_blank"
+                    rel="noopener"
                     className="btn btn-primary"
                     style={{ display: 'block', width: '100%', marginBottom: 10 }}
                 >
-                    Написать нам — support@lumeo.su
+                    Написать в Telegram
+                </a>
+                <a
+                    href="mailto:support@lumeo.su"
+                    className="btn btn-secondary"
+                    style={{ display: 'block', width: '100%', marginBottom: 10 }}
+                >
+                    support@lumeo.su
                 </a>
                 <button
                     className="btn btn-secondary"
