@@ -290,15 +290,15 @@ export const UserPage = () => {
     }, [items, searchParams, setSearchParams, activeItem]);
     // Универсальное удаление (и для видео, и для тестов)
     const handleDeleteItem = async (item: any) => {
-        const isVideo = item.type === 'video';
-        const ok = await confirm({ title: `Удалить ${isVideo ? 'урок' : 'тест'}`, message: `Навсегда удалить "${item.title}"? Это действие необратимо.`, confirmText: 'Удалить', danger: true });
+        const label = item.type === 'video' ? 'урок' : item.type === 'homework' ? 'домашнее задание' : 'тест';
+        const ok = await confirm({ title: `Удалить ${label}`, message: `Навсегда удалить "${item.title}"? Это действие необратимо.`, confirmText: 'Удалить', danger: true });
         if (!ok) return;
 
         try {
-            const endpoint = isVideo ? `/videos/${item.id}` : `/tests/${item.id}`;
+            const endpoint = item.type === 'video' ? `/videos/${item.id}` : item.type === 'homework' ? `/hw/${item.id}` : `/tests/${item.id}`;
             await api.delete(endpoint);
-            showToast(`${isVideo ? 'Урок' : 'Тест'} успешно удален`, 'info');
-            fetchCourseData(); 
+            showToast(`${label.charAt(0).toUpperCase() + label.slice(1)} успешно удалено`, 'info');
+            fetchCourseData();
         } catch (e) {
             console.error(e);
             showToast('Сбой сети при удалении', 'error');

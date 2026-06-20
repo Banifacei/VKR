@@ -179,6 +179,12 @@ export const CoursesPage = () => {
         setShowAddModal(true);
     };
 
+    useEffect(() => {
+        const handler = () => setShowAddModal(false);
+        window.addEventListener('demo-restricted', handler);
+        return () => window.removeEventListener('demo-restricted', handler);
+    }, []);
+
     const handleCreateCourse = async () => {
         if (!newCourseData.title.trim()) {
             showToast('Заполните название курса!', 'error');
@@ -189,8 +195,9 @@ export const CoursesPage = () => {
             await api.post('/videos/courses', newCourseData);
             setShowAddModal(false);
             showToast('Курс успешно создан!', 'success');
-            loadData(); // Перезагружаем список
-        } catch (e) {
+            loadData();
+        } catch (e: any) {
+            if (e?.response?.data?.code === 'DEMO_RESTRICTED') return;
             console.error(e);
             showToast('Ошибка при создании курса. Убедитесь, что сервер работает.', 'error');
         } finally {
