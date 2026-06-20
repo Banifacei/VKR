@@ -96,6 +96,7 @@ export const AdminPage = () => {
   const [banReasonInput, setBanReasonInput] = useState('');
   const [showYandexModal, setShowYandexModal] = useState(false);
   const [yandexForm, setYandexForm] = useState({ enabled: false, clientId: '', clientSecret: '' });
+  const [demoEnabled, setDemoEnabled] = useState(false);
   const [showLdapModal, setShowLdapModal] = useState(false);
   const [ldapForm, setLdapForm] = useState({ enabled: false, url: '', searchBase: '' });
   const [showAiModal, setShowAiModal] = useState(false);
@@ -144,6 +145,7 @@ export const AdminPage = () => {
           if (settingsRes.data.analytics_demo_button_visible !== undefined) {
               setAnalyticsDemo(settingsRes.data.analytics_demo_button_visible !== false && settingsRes.data.analytics_demo_button_visible !== 'false');
           }
+          setDemoEnabled(settingsRes.data.demo_mode_enabled === 'true' || settingsRes.data.demo_mode_enabled === true);
           setAiForm(prev => ({
               ...prev,
               enabled: settingsRes.data.ai_assistant_enabled !== false && settingsRes.data.ai_assistant_enabled !== 'false',
@@ -175,6 +177,17 @@ export const AdminPage = () => {
           showToast('Ошибка при сохранении настроек LDAP', 'error');
       } finally {
           setIsSaving(false);
+      }
+  };
+
+  const handleToggleDemo = async () => {
+      const next = !demoEnabled;
+      try {
+          await api.post('/admin/settings/toggle', { key: 'demo_mode_enabled', value: String(next) });
+          setDemoEnabled(next);
+          showToast(next ? 'Демо-режим включён' : 'Демо-режим отключён', 'success');
+      } catch {
+          showToast('Ошибка при изменении демо-режима', 'error');
       }
   };
 
@@ -1519,6 +1532,27 @@ export const AdminPage = () => {
                                         onClick={openYandexModal}
                                     >
                                         Настроить
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Карточка Демо-режим */}
+                            <div className={`integration-card ${demoEnabled ? 'active' : ''}`}>
+                                <div className="int-header">
+                                    <div className="int-icon" style={{background: 'rgba(139,92,246,0.15)', color: '#a78bfa', fontSize: '20px', display:'flex', alignItems:'center', justifyContent:'center', width:40, height:40, borderRadius:10}}>▶</div>
+                                    <div className={`int-status ${demoEnabled ? '' : 'disabled'}`}>
+                                        {demoEnabled ? <><span className="pulse-dot"></span> Активен</> : 'Отключен'}
+                                    </div>
+                                </div>
+                                <h3>Демо-режим</h3>
+                                <p>Кнопка "Попробовать демо" на странице входа. Гости видят платформу без возможности изменений.</p>
+                                <div className="int-actions">
+                                    <button
+                                        className={demoEnabled ? 'btn btn-secondary' : 'btn btn-primary'}
+                                        style={{width: '100%'}}
+                                        onClick={handleToggleDemo}
+                                    >
+                                        {demoEnabled ? 'Отключить' : 'Включить'}
                                     </button>
                                 </div>
                             </div>
