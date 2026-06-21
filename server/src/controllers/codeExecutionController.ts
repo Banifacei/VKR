@@ -21,13 +21,14 @@ const FILE_NAMES: Record<string, string> = {
     java: 'Main.java', c: 'main.c', 'c++': 'main.cpp',
 };
 
+// Maps our language IDs to the language name Piston reports in /api/v2/runtimes
 const PISTON_LANG: Record<string, string> = {
     python: 'python',
-    javascript: 'node',
+    javascript: 'javascript',
     typescript: 'typescript',
     java: 'java',
-    c: 'gcc',
-    'c++': 'gcc',
+    c: 'c',
+    'c++': 'c++',
 };
 
 // Piston package names to install (one gcc covers both c and c++)
