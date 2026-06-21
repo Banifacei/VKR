@@ -17,6 +17,8 @@ import {
     getStudentAssignments,
     getMySubmission,
     submitHomework,
+    submitCodeHomework,
+    getCodeHistory,
     gradeSubmission,
     getCourseHomeworkStats,
 } from '../controllers/homeworkController.js';
@@ -48,6 +50,10 @@ export default (upload: multer.Multer) => {
     router.get('/my', checkAuth, getStudentAssignments);
     router.get('/:assignmentId/my-submission', checkAuth, getMySubmission);
     router.post('/:assignmentId/submit', checkAuth, upload.array('hwfile', 10), submitHomework);
+    router.post('/:assignmentId/submit-code', checkAuth, submitCodeHomework);
+
+    // История ввода (только препод / admin)
+    router.get('/submissions/:id/history', checkAuth, isTeacherOrAdmin, getCodeHistory);
 
     return router;
 };

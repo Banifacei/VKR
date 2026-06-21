@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axiosInstance';
 import { useToast } from '../context/ToastContext';
@@ -6,6 +6,10 @@ import { useAuth } from '../context/AuthContext';
 import { AppHeader } from '../components/AppHeader';
 import { Icons } from '../components/Icons';
 import '../components/Homework/Homework.css';
+
+const CodeHistoryReplay = lazy(() =>
+    import('../components/CodeEditor/CodeEditorPanel').then(m => ({ default: m.CodeHistoryReplay }))
+);
 
 // ─── Утилиты ──────────────────────────────────────────────────────────────────
 
@@ -203,6 +207,7 @@ const TeacherView: React.FC = () => {
 
 const SubmissionCard: React.FC<{ sub: any; badge: any; maxScore: number; onGraded: (u: any) => void }> = ({ sub, badge, maxScore, onGraded }) => {
     const [open, setOpen] = useState(false);
+    const [showHistory, setShowHistory] = useState(false);
     const student = sub.student;
 
     return (
@@ -247,6 +252,41 @@ const SubmissionCard: React.FC<{ sub: any; badge: any; maxScore: number; onGrade
                             {sub.textAnswer}
                         </div>
                     )}
+
+                    {/* Сдача кода */}
+                    {sub.codeContent && (
+                        <div style={{ marginTop: '12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Код:</span>
+                                <span style={{ padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, background: 'rgba(124,58,237,0.15)', color: '#a78bfa' }}>
+                                    {sub.codeLanguage}
+                                </span>
+                                <button
+                                    className="btn btn-ghost"
+                                    style={{ marginLeft: 'auto', padding: '3px 10px', fontSize: '12px' }}
+                                    onClick={() => setShowHistory(h => !h)}
+                                >
+                                    {showHistory ? 'Скрыть историю' : 'История ввода'}
+                                </button>
+                            </div>
+                            <pre style={{ background: 'var(--bg-deep)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', fontSize: '12px', color: 'var(--text-main)', overflowX: 'auto', maxHeight: '200px', margin: 0, fontFamily: 'monospace' }}>
+                                {sub.codeContent}
+                            </pre>
+                            {sub.codeLastOutput && (
+                                <div style={{ marginTop: '6px', padding: '8px 10px', background: '#0d0d0d', borderRadius: '8px', fontSize: '12px', fontFamily: 'monospace', color: '#e5e7eb', whiteSpace: 'pre-wrap', maxHeight: '100px', overflow: 'auto' }}>
+                                    {sub.codeLastOutput}
+                                </div>
+                            )}
+                            {showHistory && (
+                                <div style={{ marginTop: '10px' }}>
+                                    <Suspense fallback={<div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Загрузка...</div>}>
+                                        <CodeHistoryReplay submissionId={sub.id} language={sub.codeLanguage} />
+                                    </Suspense>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     <GradePanel sub={sub} maxScore={maxScore} onGraded={onGraded} />
                 </div>
             )}

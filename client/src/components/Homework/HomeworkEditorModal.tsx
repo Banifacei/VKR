@@ -23,6 +23,21 @@ export const HomeworkEditorModal: React.FC<Props> = ({ assignment, onClose, onUp
     const [taskFiles, setTaskFiles] = useState<any[]>(assignment.taskFiles || []);
     const [isPublished, setIsPublished] = useState(assignment.isPublished || false);
 
+    const CODE_LANGUAGES = [
+        { id: 'python',     label: 'Python' },
+        { id: 'javascript', label: 'JavaScript' },
+        { id: 'typescript', label: 'TypeScript' },
+        { id: 'java',       label: 'Java' },
+        { id: 'c',          label: 'C' },
+        { id: 'c++',        label: 'C++' },
+    ];
+    const CODE_DELETE_OPTIONS = [
+        { value: null,  label: 'Никогда' },
+        { value: 30,    label: '30 дней' },
+        { value: 60,    label: '60 дней' },
+        { value: 90,    label: '90 дней' },
+    ];
+
     const [form, setForm] = useState({
         title: assignment.title,
         description: assignment.description || '',
@@ -34,7 +49,16 @@ export const HomeworkEditorModal: React.FC<Props> = ({ assignment, onClose, onUp
         allowedFileTypes: (assignment.allowedFileTypes || []) as string[],
         reminderDays: (assignment.reminderDays || []) as number[],
         maxScore: assignment.maxScore ?? 100,
+        // Компилятор
+        allowCodeSubmission: assignment.allowCodeSubmission ?? false,
+        allowedCodeLanguages: (assignment.allowedCodeLanguages || []) as string[],
+        recordCodeHistory: assignment.recordCodeHistory !== false,
+        codeHistoryDeleteDays: assignment.codeHistoryDeleteDays ?? null as number | null,
+        codeTemplate: assignment.codeTemplate || '',
     });
+
+    const toggleCodeLang = (id: string) =>
+        setForm(f => ({ ...f, allowedCodeLanguages: f.allowedCodeLanguages.includes(id) ? f.allowedCodeLanguages.filter(x => x !== id) : [...f.allowedCodeLanguages, id] }));
 
     const toggleFileType = (ext: string) =>
         setForm(f => ({ ...f, allowedFileTypes: f.allowedFileTypes.includes(ext) ? f.allowedFileTypes.filter(x => x !== ext) : [...f.allowedFileTypes, ext] }));
@@ -49,6 +73,7 @@ export const HomeworkEditorModal: React.FC<Props> = ({ assignment, onClose, onUp
             const r = await api.patch(`/hw/${assignment.id}`, {
                 ...form,
                 allowedFileTypes: form.allowedFileTypes.length ? form.allowedFileTypes : null,
+                codeTemplate: form.codeTemplate || null,
             });
             onUpdated({ ...r.data, taskFiles, isPublished });
             showToast('Сохранено', 'success');
@@ -67,6 +92,7 @@ export const HomeworkEditorModal: React.FC<Props> = ({ assignment, onClose, onUp
             await api.patch(`/hw/${assignment.id}`, {
                 ...form,
                 allowedFileTypes: form.allowedFileTypes.length ? form.allowedFileTypes : null,
+                codeTemplate: form.codeTemplate || null,
             });
             // Потом публикуем и отправляем уведомления
             const r = await api.post(`/hw/${assignment.id}/publish`);
@@ -256,6 +282,71 @@ export const HomeworkEditorModal: React.FC<Props> = ({ assignment, onClose, onUp
                                         <span className="toggle-label" style={{ marginLeft: '12px', fontSize: '13px', color: 'var(--text-main)' }}>{label}</span>
                                     </label>
                                 ))}
+                            </div>
+
+                            {/* ── Встроенный компилятор ── */}
+                            <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '14px' }}>
+                                <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                    Встроенный компилятор
+                                </label>
+                                <label className="toggle-wrapper" style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-input)', padding: '12px', borderRadius: '10px', cursor: 'pointer', marginBottom: '10px' }}>
+                                    <input type="checkbox" className="toggle-input" checked={form.allowCodeSubmission}
+                                        onChange={e => setForm(f => ({ ...f, allowCodeSubmission: e.target.checked }))} />
+                                    <div className="toggle-track"><div className="toggle-thumb" /></div>
+                                    <span className="toggle-label" style={{ marginLeft: '12px', fontSize: '13px', color: 'var(--text-main)' }}>Разрешить сдачу кода через редактор</span>
+                                </label>
+
+                                {form.allowCodeSubmission && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '12px', background: 'rgba(124,58,237,0.04)', borderRadius: '10px', border: '1px solid rgba(124,58,237,0.15)' }}>
+                                        <div>
+                                            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px' }}>Разрешённые языки</div>
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                                                {CODE_LANGUAGES.map(l => (
+                                                    <button key={l.id} onClick={() => toggleCodeLang(l.id)}
+                                                        style={{ padding: '4px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', border: '1px solid',
+                                                            background: form.allowedCodeLanguages.includes(l.id) ? 'rgba(124,58,237,0.15)' : 'var(--bg-input)',
+                                                            borderColor: form.allowedCodeLanguages.includes(l.id) ? 'rgba(124,58,237,0.5)' : 'var(--border-color)',
+                                                            color: form.allowedCodeLanguages.includes(l.id) ? '#a78bfa' : 'var(--text-muted)',
+                                                        }}>{l.label}</button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <label className="toggle-wrapper" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                                            <input type="checkbox" className="toggle-input" checked={form.recordCodeHistory}
+                                                onChange={e => setForm(f => ({ ...f, recordCodeHistory: e.target.checked }))} />
+                                            <div className="toggle-track"><div className="toggle-thumb" /></div>
+                                            <span className="toggle-label" style={{ marginLeft: '10px', fontSize: '13px', color: 'var(--text-main)' }}>Записывать историю ввода</span>
+                                        </label>
+
+                                        {form.recordCodeHistory && (
+                                            <div>
+                                                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px' }}>Автоудаление истории</div>
+                                                <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                                                    {CODE_DELETE_OPTIONS.map(o => (
+                                                        <button key={String(o.value)} onClick={() => setForm(f => ({ ...f, codeHistoryDeleteDays: o.value }))}
+                                                            style={{ padding: '4px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', border: '1px solid',
+                                                                background: form.codeHistoryDeleteDays === o.value ? 'rgba(181,23,158,0.15)' : 'var(--bg-input)',
+                                                                borderColor: form.codeHistoryDeleteDays === o.value ? 'rgba(181,23,158,0.4)' : 'var(--border-color)',
+                                                                color: form.codeHistoryDeleteDays === o.value ? '#e879f9' : 'var(--text-muted)',
+                                                            }}>{o.label}</button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <div>
+                                            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px' }}>Шаблон кода (необязательно)</div>
+                                            <textarea
+                                                className="deck-input"
+                                                style={{ background: 'var(--bg-deep)', width: '100%', minHeight: '80px', resize: 'vertical', fontSize: '13px', fontFamily: 'monospace', lineHeight: 1.5 }}
+                                                placeholder="# Стартовый код для студентов..."
+                                                value={form.codeTemplate}
+                                                onChange={e => setForm(f => ({ ...f, codeTemplate: e.target.value }))}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </>
                     )}

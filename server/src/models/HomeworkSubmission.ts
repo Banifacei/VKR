@@ -50,4 +50,25 @@ export class HomeworkSubmission extends Model {
 
     @BelongsTo(() => User, { foreignKey: 'gradedBy', as: 'grader' })
     declare grader: User;
+
+    // ── Сдача кода ────────────────────────────────────────────────────────────
+    @Column({ type: DataType.STRING(20), allowNull: true })
+    declare codeLanguage: string | null;
+
+    @Column({ type: DataType.TEXT, allowNull: true })
+    declare codeContent: string | null;
+
+    @Column({ type: DataType.TEXT, allowNull: true })
+    declare codeLastOutput: string | null;
+
+    // JSON array [{ts, code}] или base64(gzip(JSON)) если compressed
+    @Column({ type: DataType.TEXT, allowNull: true })
+    declare codeHistory: string | null;
+
+    @Column({ type: DataType.BOOLEAN, defaultValue: false })
+    declare codeHistoryCompressed: boolean;
+
+    // Когда удалить историю (вычисляется: submittedAt + assignment.codeHistoryDeleteDays)
+    @Column({ type: DataType.DATE, allowNull: true })
+    declare codeHistoryDeleteAt: Date | null;
 }

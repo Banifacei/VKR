@@ -1115,6 +1115,9 @@ export const AdminPage = () => {
                     </aside>
                 </div>
 
+                {/* КОМПИЛЯТОР */}
+                <AdminCompilerSection />
+
                 {/* НИЖНЯЯ СТРОКА — Хранилище + Модули рядом */}
                 <div className="sys-bottom-row">
                     <div className="admin-section">
@@ -1933,4 +1936,97 @@ export const AdminPage = () => {
 
     </div>
   );
+};
+
+// ── Секция управления компилятором (Piston) ───────────────────────────────────
+const AdminCompilerSection: React.FC = () => {
+    const [status, setStatus] = useState<{ available: boolean; runtimes: { language: string; version: string }[] } | null>(null);
+    const [installing, setInstalling] = useState(false);
+    const [installResults, setInstallResults] = useState<any[] | null>(null);
+    const [compressDays, setCompressDays] = useState('3');
+    const [savingDays, setSavingDays] = useState(false);
+
+    useEffect(() => {
+        api.get('/code/piston/status').then(r => setStatus(r.data)).catch(() => setStatus({ available: false, runtimes: [] }));
+        api.get('/admin/settings').then(r => {
+            const d = r.data?.code_history_compress_days;
+            if (d !== undefined) setCompressDays(String(d));
+        }).catch(() => {});
+    }, []);
+
+    const install = async () => {
+        setInstalling(true);
+        setInstallResults(null);
+        try {
+            const r = await api.post('/code/piston/install');
+            setInstallResults(r.data.results);
+            const st = await api.get('/code/piston/status');
+            setStatus(st.data);
+        } catch { setInstallResults([{ language: 'all', ok: false, error: 'Ошибка соединения с Piston' }]); }
+        finally { setInstalling(false); }
+    };
+
+    const saveDays = async () => {
+        setSavingDays(true);
+        try { await api.post('/admin/settings/toggle', { key: 'code_history_compress_days', value: compressDays }); }
+        catch {}
+        finally { setSavingDays(false); }
+    };
+
+    const LANG_LABELS: Record<string, string> = { python: 'Python', javascript: 'JavaScript', typescript: 'TypeScript', java: 'Java', c: 'C', 'c++': 'C++' };
+
+    return (
+        <div className="admin-section" style={{ marginBottom: '20px' }}>
+            <div className="section-header compact">
+                <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px' }}>
+                    <Icons.Terminal /> Компилятор кода (Piston)
+                </h2>
+                <span style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span style={{ width: '7px', height: '7px', background: status?.available ? '#00ff88' : '#ff4d4d', borderRadius: '50%', display: 'inline-block', boxShadow: status?.available ? '0 0 6px #00ff88' : 'none' }} />
+                    {status === null ? 'Проверка...' : status.available ? 'Доступен' : 'Недоступен'}
+                </span>
+            </div>
+            <div className="section-body" style={{ padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {/* Установленные рантаймы */}
+                <div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>Установленные языки</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                        {(['python', 'javascript', 'typescript', 'java', 'c', 'c++'] as string[]).map(lang => {
+                            const installed = status?.runtimes.some(r => r.language === lang);
+                            return (
+                                <span key={lang} style={{ padding: '3px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, border: '1px solid', background: installed ? 'rgba(34,197,94,0.1)' : 'var(--bg-input)', borderColor: installed ? 'rgba(34,197,94,0.3)' : 'var(--border-color)', color: installed ? '#22c55e' : 'var(--text-muted)' }}>
+                                    {installed ? '✓ ' : ''}{LANG_LABELS[lang]}
+                                </span>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                <button className="btn btn-primary" style={{ alignSelf: 'flex-start' }} onClick={install} disabled={installing || !status?.available}>
+                    {installing ? 'Установка... (может занять несколько минут)' : 'Установить / обновить языки'}
+                </button>
+
+                {installResults && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        {installResults.map((r, i) => (
+                            <div key={i} style={{ fontSize: '12px', color: r.ok ? '#22c55e' : '#ef4444' }}>
+                                {r.ok ? '✓' : '✗'} {LANG_LABELS[r.language] ?? r.language}: {r.ok ? 'установлен' : r.error ?? 'ошибка'}
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {/* Настройка сжатия */}
+                <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '12px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '13px', color: 'var(--text-main)' }}>Сжимать историю ввода через</span>
+                    <input type="number" min={1} max={30} value={compressDays} onChange={e => setCompressDays(e.target.value)}
+                        style={{ width: '60px', background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '5px 8px', fontSize: '13px', color: 'var(--text-main)', textAlign: 'center' }} />
+                    <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>дней</span>
+                    <button className="btn btn-ghost" style={{ padding: '5px 12px', fontSize: '12px' }} onClick={saveDays} disabled={savingDays}>
+                        {savingDays ? 'Сохранение...' : 'Сохранить'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
 };

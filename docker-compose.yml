@@ -85,6 +85,24 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  piston:
+    image: ghcr.io/engineer-man/piston
+    container_name: lumeo-piston
+    privileged: true
+    volumes:
+      - piston_packages:/piston/packages
+    tmpfs:
+      - /piston/jobs
+    networks:
+      - default
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:2000/api/v2/runtimes || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
   watchtower:
       image: containrrr/watchtower
       container_name: lumeo-watchtower
@@ -101,6 +119,7 @@ volumes:
   postgres_data:
   uploads:
   ollama_data:
+  piston_packages:
 
 networks:
   proxy:

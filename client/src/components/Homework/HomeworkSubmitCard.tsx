@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import api from '../../api/axiosInstance';
 import { useToast } from '../../context/ToastContext';
 import { Icons } from '../Icons';
+import { CodeEditorPanel, HistoryEntry } from '../CodeEditor/CodeEditorPanel';
 
 // Два режима:
 // 1. Standalone — передаётся готовый объект assignment
@@ -41,6 +42,9 @@ export const HomeworkSubmitCard: React.FC<Props> = (props) => {
     const [files, setFiles] = useState<File[]>([]);
     const [textAnswer, setTextAnswer] = useState('');
     const [showForm, setShowForm] = useState(false);
+    const [submitTab, setSubmitTab] = useState<'files' | 'code'>('files');
+    const [codeState, setCodeState] = useState<{ code: string; lang: string; history: HistoryEntry[] }>({ code: '', lang: '', history: [] });
+    const [submittingCode, setSubmittingCode] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const countdown = useCountdown(assignment?.deadline || null);
 
@@ -91,6 +95,26 @@ export const HomeworkSubmitCard: React.FC<Props> = (props) => {
             showToast(e.response?.data?.message || 'Ошибка отправки', 'error');
         } finally {
             setSubmitting(false);
+        }
+    };
+
+    const handleSubmitCode = async () => {
+        if (!codeState.code.trim()) { showToast('Напишите код перед сдачей', 'error'); return; }
+        if (!codeState.lang) { showToast('Выберите язык программирования', 'error'); return; }
+        setSubmittingCode(true);
+        try {
+            const r = await api.post(`/hw/${assignment.id}/submit-code`, {
+                codeLanguage: codeState.lang,
+                codeContent: codeState.code,
+                codeHistory: assignment.recordCodeHistory !== false ? codeState.history : [],
+            });
+            setSubmission(r.data);
+            setShowForm(false);
+            showToast(isPastDeadline ? 'Код сдан с опозданием' : 'Код сдан!', isPastDeadline ? 'info' : 'success');
+        } catch (e: any) {
+            showToast(e.response?.data?.message || 'Ошибка отправки кода', 'error');
+        } finally {
+            setSubmittingCode(false);
         }
     };
 
@@ -177,49 +201,87 @@ export const HomeworkSubmitCard: React.FC<Props> = (props) => {
                             ⚠ Срок сдачи истёк. Задание может остаться непроверенным.
                         </div>
                     )}
-                    <div
-                        onClick={() => fileInputRef.current?.click()}
-                        style={{ border: '2px dashed var(--border-color)', borderRadius: '12px', padding: '20px', textAlign: 'center', cursor: 'pointer', transition: 'border-color 0.2s' }}
-                        onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(124,58,237,0.5)')}
-                        onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border-color)')}
-                    >
-                        <Icons.Upload size={20} color="var(--text-muted)" />
-                        <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '6px' }}>
-                            {files.length ? `${files.length} файл(ов) выбрано` : 'Нажмите чтобы выбрать файлы'}
-                        </div>
-                        {assignment.allowedFileTypes?.length > 0 && (
-                            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                                Разрешено: {assignment.allowedFileTypes.map((t: string) => `.${t}`).join(', ')}
-                            </div>
-                        )}
-                        <input ref={fileInputRef} type="file" multiple style={{ display: 'none' }}
-                            onChange={e => setFiles(Array.from(e.target.files || []))}
-                            accept={assignment.allowedFileTypes?.length ? assignment.allowedFileTypes.map((t: string) => `.${t}`).join(',') : undefined}
-                        />
-                    </div>
-                    {files.length > 0 && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            {files.map((f, i) => (
-                                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
-                                    <Icons.FileText size={13} color="var(--text-muted)" />
-                                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
-                                    <span style={{ color: 'var(--text-muted)', flexShrink: 0 }}>{(f.size / 1024 / 1024).toFixed(1)} МБ</span>
-                                    <button onClick={() => setFiles(p => p.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0 }}>✕</button>
-                                </div>
+
+                    {/* Табы: Файлы / Код */}
+                    {assignment.allowCodeSubmission && (
+                        <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', gap: '0' }}>
+                            {(['files', 'code'] as const).map(t => (
+                                <button key={t} onClick={() => setSubmitTab(t)}
+                                    style={{ flex: 1, padding: '8px', background: 'none', border: 'none', borderBottom: submitTab === t ? '2px solid #a78bfa' : '2px solid transparent', cursor: 'pointer', fontSize: '13px', fontWeight: submitTab === t ? 700 : 400, color: submitTab === t ? '#a78bfa' : 'var(--text-muted)' }}>
+                                    {t === 'files' ? 'Файлы' : 'Редактор кода'}
+                                </button>
                             ))}
                         </div>
                     )}
-                    <div>
-                        <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Текстовый ответ (необязательно)</label>
-                        <textarea className="deck-input" style={{ background: 'var(--bg-input)', width: '100%', minHeight: '80px', resize: 'vertical', fontSize: '14px', lineHeight: 1.5 }}
-                            placeholder="Пояснение или код..." value={textAnswer} onChange={e => setTextAnswer(e.target.value)} />
-                    </div>
-                    <div style={{ display: 'flex', gap: '10px' }}>
-                        <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleSubmit} disabled={submitting}>
-                            {submitting ? 'Отправка...' : submission ? 'Пересдать' : 'Сдать задание'}
-                        </button>
-                        {submission && <button className="btn btn-ghost" onClick={() => setShowForm(false)}>Отмена</button>}
-                    </div>
+
+                    {/* Вкладка файлов */}
+                    {submitTab === 'files' && (
+                        <>
+                            <div
+                                onClick={() => fileInputRef.current?.click()}
+                                style={{ border: '2px dashed var(--border-color)', borderRadius: '12px', padding: '20px', textAlign: 'center', cursor: 'pointer', transition: 'border-color 0.2s' }}
+                                onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(124,58,237,0.5)')}
+                                onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border-color)')}
+                            >
+                                <Icons.Upload size={20} color="var(--text-muted)" />
+                                <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '6px' }}>
+                                    {files.length ? `${files.length} файл(ов) выбрано` : 'Нажмите чтобы выбрать файлы'}
+                                </div>
+                                {assignment.allowedFileTypes?.length > 0 && (
+                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                                        Разрешено: {assignment.allowedFileTypes.map((t: string) => `.${t}`).join(', ')}
+                                    </div>
+                                )}
+                                <input ref={fileInputRef} type="file" multiple style={{ display: 'none' }}
+                                    onChange={e => setFiles(Array.from(e.target.files || []))}
+                                    accept={assignment.allowedFileTypes?.length ? assignment.allowedFileTypes.map((t: string) => `.${t}`).join(',') : undefined}
+                                />
+                            </div>
+                            {files.length > 0 && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    {files.map((f, i) => (
+                                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
+                                            <Icons.FileText size={13} color="var(--text-muted)" />
+                                            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+                                            <span style={{ color: 'var(--text-muted)', flexShrink: 0 }}>{(f.size / 1024 / 1024).toFixed(1)} МБ</span>
+                                            <button onClick={() => setFiles(p => p.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0 }}>✕</button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            <div>
+                                <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Текстовый ответ (необязательно)</label>
+                                <textarea className="deck-input" style={{ background: 'var(--bg-input)', width: '100%', minHeight: '80px', resize: 'vertical', fontSize: '14px', lineHeight: 1.5 }}
+                                    placeholder="Пояснение..." value={textAnswer} onChange={e => setTextAnswer(e.target.value)} />
+                            </div>
+                            <div style={{ display: 'flex', gap: '10px' }}>
+                                <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleSubmit} disabled={submitting}>
+                                    {submitting ? 'Отправка...' : submission ? 'Пересдать' : 'Сдать задание'}
+                                </button>
+                                {submission && <button className="btn btn-ghost" onClick={() => setShowForm(false)}>Отмена</button>}
+                            </div>
+                        </>
+                    )}
+
+                    {/* Вкладка кода */}
+                    {submitTab === 'code' && assignment.allowCodeSubmission && (
+                        <>
+                            <CodeEditorPanel
+                                allowedLanguages={assignment.allowedCodeLanguages || []}
+                                codeTemplate={assignment.codeTemplate}
+                                recordHistory={assignment.recordCodeHistory !== false}
+                                initialCode={submission?.codeContent ?? undefined}
+                                initialLanguage={submission?.codeLanguage ?? undefined}
+                                onCodeChange={(code, lang, hist) => setCodeState({ code, lang, history: hist })}
+                            />
+                            <div style={{ display: 'flex', gap: '10px' }}>
+                                <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleSubmitCode} disabled={submittingCode}>
+                                    {submittingCode ? 'Отправка...' : submission ? 'Пересдать код' : 'Сдать код'}
+                                </button>
+                                {submission && <button className="btn btn-ghost" onClick={() => setShowForm(false)}>Отмена</button>}
+                            </div>
+                        </>
+                    )}
                 </div>
             ) : submission && !showForm ? (
                 <div style={{ padding: '14px 20px', display: 'flex', alignItems: 'center', gap: '12px' }}>

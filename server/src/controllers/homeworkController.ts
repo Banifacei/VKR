@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import fs from 'fs';
+import zlib from 'zlib';
 import { Op } from 'sequelize';
 import { HomeworkAssignment } from '../models/HomeworkAssignment.js';
 import { HomeworkSubmission } from '../models/HomeworkSubmission.js';
@@ -111,7 +112,9 @@ export const createAssignment = async (req: Request, res: Response) => {
     try {
         const userId = (req as any).user.id;
         const { courseId, title, description, deadline, strictDeadline, allowResubmit,
-            allowedFileTypes, showFeedbackToStudent, reminderDays, maxScore, taskLink, orderIndex } = req.body;
+            allowedFileTypes, showFeedbackToStudent, reminderDays, maxScore, taskLink, orderIndex,
+            allowCodeSubmission, allowedCodeLanguages, recordCodeHistory, codeHistoryDeleteDays, codeTemplate,
+        } = req.body;
 
         const assignment = await HomeworkAssignment.create({
             type: 'standalone',
@@ -128,6 +131,11 @@ export const createAssignment = async (req: Request, res: Response) => {
             maxScore: maxScore || 100,
             orderIndex: orderIndex || 0,
             createdBy: userId,
+            allowCodeSubmission: !!allowCodeSubmission,
+            allowedCodeLanguages: allowedCodeLanguages || [],
+            recordCodeHistory: recordCodeHistory !== false,
+            codeHistoryDeleteDays: codeHistoryDeleteDays || null,
+            codeTemplate: codeTemplate || null,
         });
 
         const deadlineStr = new Date(deadline).toLocaleDateString('ru-RU');
@@ -149,7 +157,9 @@ export const updateAssignment = async (req: Request, res: Response) => {
         if (!a) { res.status(404).json({ message: 'Не найдено' }); return; }
 
         const { title, description, deadline, strictDeadline, allowResubmit,
-            allowedFileTypes, showFeedbackToStudent, reminderDays, maxScore, taskLink } = req.body;
+            allowedFileTypes, showFeedbackToStudent, reminderDays, maxScore, taskLink,
+            allowCodeSubmission, allowedCodeLanguages, recordCodeHistory, codeHistoryDeleteDays, codeTemplate,
+        } = req.body;
 
         await a.update({
             title: title ?? a.title,
@@ -162,6 +172,11 @@ export const updateAssignment = async (req: Request, res: Response) => {
             showFeedbackToStudent: showFeedbackToStudent !== undefined ? showFeedbackToStudent !== false : a.showFeedbackToStudent,
             reminderDays: reminderDays ?? a.reminderDays,
             maxScore: maxScore ?? a.maxScore,
+            allowCodeSubmission: allowCodeSubmission !== undefined ? !!allowCodeSubmission : a.allowCodeSubmission,
+            allowedCodeLanguages: allowedCodeLanguages ?? a.allowedCodeLanguages,
+            recordCodeHistory: recordCodeHistory !== undefined ? recordCodeHistory !== false : a.recordCodeHistory,
+            codeHistoryDeleteDays: codeHistoryDeleteDays !== undefined ? (codeHistoryDeleteDays || null) : a.codeHistoryDeleteDays,
+            codeTemplate: codeTemplate !== undefined ? (codeTemplate || null) : a.codeTemplate,
         });
 
         res.json(a);
@@ -469,5 +484,95 @@ export const getCourseHomeworkStats = async (req: Request, res: Response) => {
         res.json({ avgScore, totalAssignments: assignments.length, gradedCount: subs.length });
     } catch {
         res.status(500).json({ message: 'Ошибка' });
+    }
+};
+
+// POST /hw/:assignmentId/submit-code  — сдача через встроенный редактор
+export const submitCodeHomework = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).user.id;
+        const { assignmentId } = req.params;
+        const { codeLanguage, codeContent, codeHistory, codeLastOutput } = req.body;
+
+        const assignment = await HomeworkAssignment.findByPk(Number(assignmentId));
+        if (!assignment) { res.status(404).json({ message: 'Задание не найдено' }); return; }
+        if (!assignment.allowCodeSubmission) { res.status(400).json({ message: 'Сдача кода не разрешена для этого задания' }); return; }
+        if (!assignment.allowedCodeLanguages.includes(codeLanguage)) {
+            res.status(400).json({ message: `Язык "${codeLanguage}" не разрешён для этого задания` });
+            return;
+        }
+
+        const now = new Date();
+        const isLate = now > new Date(assignment.deadline);
+        if (isLate && assignment.strictDeadline) {
+            res.status(403).json({ message: 'Срок сдачи истёк. Приём работ закрыт.' });
+            return;
+        }
+
+        const historyStr = assignment.recordCodeHistory && codeHistory?.length
+            ? JSON.stringify(codeHistory)
+            : null;
+
+        const codeHistoryDeleteAt = historyStr && assignment.codeHistoryDeleteDays
+            ? new Date(now.getTime() + assignment.codeHistoryDeleteDays * 86_400_000)
+            : null;
+
+        const existing = await HomeworkSubmission.findOne({
+            where: { assignmentId: Number(assignmentId), studentId: userId },
+        });
+
+        if (existing) {
+            if (existing.status === 'graded' && !assignment.allowResubmit) {
+                res.status(403).json({ message: 'Повторная сдача не разрешена' });
+                return;
+            }
+            await existing.update({
+                codeLanguage, codeContent, codeLastOutput: codeLastOutput ?? null,
+                codeHistory: historyStr, codeHistoryCompressed: false, codeHistoryDeleteAt,
+                submittedAt: now, isLate, status: 'resubmitted',
+            });
+            res.json(existing);
+        } else {
+            const sub = await HomeworkSubmission.create({
+                assignmentId: Number(assignmentId), studentId: userId,
+                files: [], textAnswer: null,
+                codeLanguage, codeContent, codeLastOutput: codeLastOutput ?? null,
+                codeHistory: historyStr, codeHistoryCompressed: false, codeHistoryDeleteAt,
+                submittedAt: now, isLate, status: 'submitted',
+            });
+            sendNotification(
+                assignment.createdBy, 'homework_submitted',
+                `Сдано ДЗ: ${assignment.title}`,
+                isLate ? 'Сдано с опозданием (код)' : 'Вовремя (код)',
+                '/assignments',
+            ).catch(() => {});
+            if (!isLate) checkHomeworkBadges(userId, Number(assignmentId)).catch(() => {});
+            res.status(201).json(sub);
+        }
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ message: 'Ошибка сдачи кода' });
+    }
+};
+
+// GET /hw/submissions/:id/history  — история ввода (только для препода/admin)
+export const getCodeHistory = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const sub = await HomeworkSubmission.findByPk(Number(id), {
+            attributes: ['id', 'codeHistory', 'codeHistoryCompressed'],
+        });
+        if (!sub) { res.status(404).json({ message: 'Не найдено' }); return; }
+        if (!sub.codeHistory) { res.json([]); return; }
+
+        if (sub.codeHistoryCompressed) {
+            const buf = Buffer.from(sub.codeHistory, 'base64');
+            const json = zlib.gunzipSync(buf).toString('utf8');
+            res.json(JSON.parse(json));
+        } else {
+            res.json(JSON.parse(sub.codeHistory));
+        }
+    } catch {
+        res.status(500).json({ message: 'Ошибка получения истории' });
     }
 };

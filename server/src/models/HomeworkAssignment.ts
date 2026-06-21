@@ -78,4 +78,23 @@ export class HomeworkAssignment extends Model {
 
     @HasMany(() => HomeworkSubmission)
     declare submissions: HomeworkSubmission[];
+
+    // ── Встроенный компилятор ─────────────────────────────────────────────────
+    @Column({ type: DataType.BOOLEAN, defaultValue: false })
+    declare allowCodeSubmission: boolean;
+
+    // ['python', 'javascript', 'typescript', 'java', 'c', 'c++']
+    @Column({ type: DataType.JSONB, defaultValue: [] })
+    declare allowedCodeLanguages: string[];
+
+    @Column({ type: DataType.BOOLEAN, defaultValue: true })
+    declare recordCodeHistory: boolean;
+
+    // Сколько дней хранить историю ввода (null = никогда не удалять)
+    @Column({ type: DataType.INTEGER, allowNull: true })
+    declare codeHistoryDeleteDays: number | null;
+
+    // Стартовый шаблон кода от преподавателя
+    @Column({ type: DataType.TEXT, allowNull: true })
+    declare codeTemplate: string | null;
 }
