@@ -244,11 +244,13 @@ async function installPackage(
         // Extract
         await execAsync(`tar xzf "${tarPath}" -C "${installDir}"`);
 
-        // Generate .env from the environment script inside the package
+        // Generate .env from the environment script inside the package.
+        // Must cd into installDir first so $PWD resolves to the package dir
+        // (Piston's environment scripts use `export PATH=$PWD/bin:$PATH`).
         const envScript = path.join(installDir, 'environment');
         if (fs.existsSync(envScript)) {
             const { stdout } = await execAsync(
-                `env -i bash -c 'source "${envScript}"; env'`
+                `cd "${installDir}" && env -i bash -c 'source ./environment; env'`
             ).catch(() => ({ stdout: '' }));
             const filtered = stdout
                 .split('\n')

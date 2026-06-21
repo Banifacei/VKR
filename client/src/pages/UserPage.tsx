@@ -840,7 +840,7 @@ export const UserPage = () => {
                     assignment={editorItem}
                     onClose={() => setEditorItem(null)}
                     onUpdated={(updated) => {
-                        setItems(prev => prev.map(i => i.type === 'homework' && i.id === updated.id ? { ...i, ...updated } : i));
+                        setItems(prev => prev.map(i => i.type === 'homework' && i.id === updated.id ? { ...i, ...updated, type: 'homework' as const } : i));
                         setEditorItem(null);
                     }}
                 />
