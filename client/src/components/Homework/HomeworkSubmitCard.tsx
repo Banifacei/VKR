@@ -46,6 +46,7 @@ export const HomeworkSubmitCard: React.FC<Props> = (props) => {
     const [submitTab, setSubmitTab] = useState<'files' | 'code'>('files');
     const [codeState, setCodeState] = useState<{ code: string; lang: string; history: HistoryEntry[] }>({ code: '', lang: '', history: [] });
     const [submittingCode, setSubmittingCode] = useState(false);
+    const flushHistoryRef = useRef<(() => HistoryEntry[]) | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const countdown = useCountdown(assignment?.deadline || null);
 
@@ -104,10 +105,13 @@ export const HomeworkSubmitCard: React.FC<Props> = (props) => {
         if (!codeState.lang) { showToast('Выберите язык программирования', 'error'); return; }
         setSubmittingCode(true);
         try {
+            const finalHistory = assignment.recordCodeHistory !== false
+                ? (flushHistoryRef.current?.() ?? codeState.history)
+                : [];
             const r = await api.post(`/hw/${assignment.id}/submit-code`, {
                 codeLanguage: codeState.lang,
                 codeContent: codeState.code,
-                codeHistory: assignment.recordCodeHistory !== false ? codeState.history : [],
+                codeHistory: finalHistory,
             });
             setSubmission(r.data);
             setShowForm(false);
@@ -274,6 +278,7 @@ export const HomeworkSubmitCard: React.FC<Props> = (props) => {
                                 initialCode={submission?.codeContent ?? undefined}
                                 initialLanguage={submission?.codeLanguage ?? undefined}
                                 onCodeChange={(code, lang, hist) => setCodeState({ code, lang, history: hist })}
+                                onFlushHistory={flush => { flushHistoryRef.current = flush; }}
                             />
                             <div style={{ display: 'flex', gap: '10px' }}>
                                 <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleSubmitCode} disabled={submittingCode}>

@@ -7,6 +7,19 @@ const FILE_NAMES: Record<string, string> = {
     java: 'Main.java', c: 'main.c', 'c++': 'main.cpp',
 };
 
+// Mapping from our language IDs to Piston runtime names
+const PISTON_LANG: Record<string, string> = {
+    python: 'python',
+    javascript: 'node',
+    typescript: 'typescript',
+    java: 'java',
+    c: 'gcc',
+    'c++': 'gcc',
+};
+
+// Packages to install for each of our supported languages
+const PISTON_PACKAGES = ['python', 'node', 'typescript', 'java', 'gcc'];
+
 export const executeCode = async (req: Request, res: Response) => {
     try {
         const { language, code, stdin = '' } = req.body;
@@ -20,11 +33,12 @@ export const executeCode = async (req: Request, res: Response) => {
             return;
         }
 
+        const pistonLang = PISTON_LANG[language];
         const pistonRes = await fetch(`${PISTON_URL}/api/v2/execute`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                language,
+                language: pistonLang,
                 version: '*',
                 files: [{ name: FILE_NAMES[language], content: code }],
                 stdin,
@@ -64,31 +78,37 @@ export const getPistonStatus = async (_req: Request, res: Response) => {
     try {
         const r = await fetch(`${PISTON_URL}/api/v2/runtimes`, { signal: AbortSignal.timeout(5000) });
         const runtimes: any[] = await r.json();
-        res.json({
-            available: true,
-            runtimes: runtimes.map(r => ({ language: r.language, version: r.version })),
-        });
+        const installedPistonLangs = new Set(runtimes.map((r: any) => r.language));
+
+        // Map back to our language IDs so AdminPage can show correct status
+        const langStatus = Object.entries(PISTON_LANG).map(([ourId, pistonId]) => ({
+            language: ourId,
+            pistonRuntime: pistonId,
+            installed: installedPistonLangs.has(pistonId),
+            version: runtimes.find((r: any) => r.language === pistonId)?.version ?? null,
+        }));
+
+        res.json({ available: true, runtimes: langStatus });
     } catch {
         res.json({ available: false, runtimes: [] });
     }
 };
 
 export const installPistonRuntimes = async (_req: Request, res: Response) => {
-    const LANGUAGES = ['python', 'javascript', 'typescript', 'java', 'c', 'c++'];
     const results: any[] = [];
 
-    for (const lang of LANGUAGES) {
+    for (const pkg of PISTON_PACKAGES) {
         try {
             const r = await fetch(`${PISTON_URL}/api/v2/packages`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ language: lang, version: '*' }),
+                body: JSON.stringify({ language: pkg, version: '*' }),
                 signal: AbortSignal.timeout(300_000),
             });
             const data = await r.json().catch(() => ({}));
-            results.push({ language: lang, ok: r.ok, data });
+            results.push({ language: pkg, ok: r.ok, data });
         } catch (e: any) {
-            results.push({ language: lang, ok: false, error: e.message });
+            results.push({ language: pkg, ok: false, error: e.message });
         }
     }
 

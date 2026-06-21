@@ -23,11 +23,13 @@ interface Props {
     initialLanguage?: string;
     readOnly?: boolean;
     onCodeChange?: (code: string, lang: string, history: HistoryEntry[]) => void;
+    /** Вызывается перед сдачей, чтобы сделать финальный снимок истории */
+    onFlushHistory?: (flush: () => HistoryEntry[]) => void;
 }
 
 export const CodeEditorPanel: React.FC<Props> = ({
     allowedLanguages, codeTemplate, recordHistory,
-    initialCode, initialLanguage, readOnly = false, onCodeChange,
+    initialCode, initialLanguage, readOnly = false, onCodeChange, onFlushHistory,
 }) => {
     const { showToast } = useToast();
 
@@ -56,10 +58,19 @@ export const CodeEditorPanel: React.FC<Props> = ({
         setCode(v);
         if (!readOnly) {
             if (historyTimer.current) clearTimeout(historyTimer.current);
-            historyTimer.current = setTimeout(() => snapshot(v), 5000);
+            historyTimer.current = setTimeout(() => snapshot(v), 2000);
             onCodeChange?.(v, lang.id, history.current);
         }
     };
+
+    // Expose flush function to parent so submit can capture final snapshot
+    useEffect(() => {
+        onFlushHistory?.(() => {
+            snapshot(code);
+            return history.current;
+        });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [onFlushHistory, code]);
 
     // Flush timer on unmount
     useEffect(() => () => { if (historyTimer.current) clearTimeout(historyTimer.current); }, []);
@@ -73,7 +84,9 @@ export const CodeEditorPanel: React.FC<Props> = ({
             const r = await api.post('/code/execute', { language: lang.id, code, stdin });
             setOutput(r.data);
         } catch (e: any) {
-            showToast(e.response?.data?.message ?? 'Ошибка запуска', 'error');
+            const msg = e.response?.data?.message ?? e.message ?? 'Ошибка запуска';
+            const hint = e.response?.status === 400 ? ' (язык не установлен — обратитесь к администратору)' : '';
+            showToast(msg + hint, 'error');
         } finally {
             setRunning(false);
         }
