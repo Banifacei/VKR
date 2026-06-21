@@ -6,8 +6,59 @@ on:
     tags: ['v*']
 
 jobs:
+  # ── Безопасность: сканирование образов на уязвимости ──────────────────────
+  security-scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write   # для загрузки SARIF в GitHub Security
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Валидация docker-compose.yml
+      - name: Validate docker-compose
+        run: docker compose config --quiet
+
+      # Сканирование Piston (privileged-контейнер — приоритет)
+      - name: Scan Piston image (Trivy)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'ghcr.io/engineer-man/piston'
+          format: 'sarif'
+          output: 'trivy-piston.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'          # не блокируем сборку, только отчёт
+
+      - name: Upload Piston scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-piston.sarif'
+          category: 'piston'
+
+      # Сканирование сервера (Python + oletools в образе)
+      - name: Scan server Dockerfile (Trivy fs)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: './server'
+          format: 'sarif'
+          output: 'trivy-server-fs.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'
+
+      - name: Upload server scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-server-fs.sarif'
+          category: 'server-fs'
+
+  # ── Сборка и пуш образов ──────────────────────────────────────────────────
   build:
     runs-on: ubuntu-latest
+    needs: security-scan
     permissions:
       contents: read
       packages: write
@@ -75,3 +126,20 @@ jobs:
           tags: ${{ steps.tag.outputs.tags_installer }}
           cache-from: type=gha,scope=installer
           cache-to: type=gha,mode=max,scope=installer
+
+      # Сканируем собранные образы (уже с реальным содержимым)
+      - name: Scan built lumeo-server image (Trivy)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'ghcr.io/${{ github.repository_owner }}/lumeo-server:latest'
+          format: 'sarif'
+          output: 'trivy-server.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'
+
+      - name: Upload lumeo-server scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-server.sarif'
+          category: 'lumeo-server'
