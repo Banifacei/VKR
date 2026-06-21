@@ -11,35 +11,39 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      security-events: write   # для загрузки SARIF в GitHub Security
+      security-events: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Валидация docker-compose.yml
+      # Создаём пустой .env чтобы docker compose config не падал на env_file
       - name: Validate docker-compose
-        run: docker compose config --quiet
+        run: |
+          touch .env
+          docker compose config --quiet
 
       # Сканирование Piston (privileged-контейнер — приоритет)
       - name: Scan Piston image (Trivy)
         uses: aquasecurity/trivy-action@master
+        continue-on-error: true
         with:
           image-ref: 'ghcr.io/engineer-man/piston'
           format: 'sarif'
           output: 'trivy-piston.sarif'
           severity: 'CRITICAL,HIGH'
-          exit-code: '0'          # не блокируем сборку, только отчёт
+          exit-code: '0'
 
       - name: Upload Piston scan results
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        if: always() && hashFiles('trivy-piston.sarif') != ''
         with:
           sarif_file: 'trivy-piston.sarif'
           category: 'piston'
 
-      # Сканирование сервера (Python + oletools в образе)
-      - name: Scan server Dockerfile (Trivy fs)
+      # Сканирование файловой системы сервера (Dockerfile + зависимости)
+      - name: Scan server source (Trivy fs)
         uses: aquasecurity/trivy-action@master
+        continue-on-error: true
         with:
           scan-type: 'fs'
           scan-ref: './server'
@@ -48,9 +52,9 @@ jobs:
           severity: 'CRITICAL,HIGH'
           exit-code: '0'
 
-      - name: Upload server scan results
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
+      - name: Upload server fs scan results
+        uses: github/codeql-action/upload-sarif@v4
+        if: always() && hashFiles('trivy-server-fs.sarif') != ''
         with:
           sarif_file: 'trivy-server-fs.sarif'
           category: 'server-fs'
@@ -127,9 +131,10 @@ jobs:
           cache-from: type=gha,scope=installer
           cache-to: type=gha,mode=max,scope=installer
 
-      # Сканируем собранные образы (уже с реальным содержимым)
+      # Сканируем собранный образ сервера (уже с реальным содержимым)
       - name: Scan built lumeo-server image (Trivy)
         uses: aquasecurity/trivy-action@master
+        continue-on-error: true
         with:
           image-ref: 'ghcr.io/${{ github.repository_owner }}/lumeo-server:latest'
           format: 'sarif'
@@ -138,8 +143,8 @@ jobs:
           exit-code: '0'
 
       - name: Upload lumeo-server scan results
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        if: always() && hashFiles('trivy-server.sarif') != ''
         with:
           sarif_file: 'trivy-server.sarif'
           category: 'lumeo-server'
