@@ -11,7 +11,7 @@ interface Props {
     onUpdated: (updated: any) => void;
 }
 
-const FILE_TYPE_OPTIONS = ['pdf', 'docx', 'doc', 'xlsx', 'xls', 'pptx', 'txt', 'png', 'jpg', 'zip', 'py', 'js', 'ts', 'java', 'cpp', 'c'];
+const FILE_TYPE_OPTIONS = ['pdf', 'docx', 'doc', 'xlsx', 'xls', 'pptx', 'txt', 'png', 'jpg'];
 
 export const HomeworkEditorModal: React.FC<Props> = ({ assignment, onClose, onUpdated }) => {
     const { showToast } = useToast();

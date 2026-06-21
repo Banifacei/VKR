@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import fs from 'fs';
 import { Op } from 'sequelize';
 import { HomeworkAssignment } from '../models/HomeworkAssignment.js';
 import { HomeworkSubmission } from '../models/HomeworkSubmission.js';
@@ -7,6 +8,7 @@ import { SystemSetting } from '../models/SystemSetting.js';
 import { User } from '../models/User.js';
 import { sendNotification } from './notificationController.js';
 import { checkHomeworkBadges } from './badgeController.js';
+import { scanFile } from '../services/fileScanner.js';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -353,6 +355,38 @@ export const submitHomework = async (req: Request, res: Response) => {
                 }
                 if (f.size > maxMb * 1024 * 1024) {
                     res.status(400).json({ message: `Файл превышает ${maxMb} МБ` });
+                    return;
+                }
+            }
+        }
+
+        // Security scan: magic bytes + content analysis
+        if (files.length) {
+            for (const f of files) {
+                const scan = scanFile(f.path, f.originalname);
+                if (!scan.safe) {
+                    for (const uploaded of files) fs.unlink(uploaded.path, () => {});
+
+                    const student = await User.findByPk(userId, { attributes: ['firstName', 'lastName'] });
+                    const who = student ? `${student.firstName} ${student.lastName}` : `Студент #${userId}`;
+                    const alertMsg = `${who} загрузил подозрительный файл "${f.originalname}". ${scan.reason ?? ''}`;
+
+                    sendNotification(
+                        assignment.createdBy, 'homework_threat',
+                        '⚠️ Вредоносный файл', alertMsg, `/assignments`,
+                    ).catch(() => {});
+
+                    const admins = await User.findAll({ where: { role: 'admin' }, attributes: ['id'] });
+                    for (const admin of admins) {
+                        if (admin.id !== assignment.createdBy) {
+                            sendNotification(
+                                admin.id, 'homework_threat',
+                                '⚠️ Вредоносный файл', alertMsg, `/assignments`,
+                            ).catch(() => {});
+                        }
+                    }
+
+                    res.status(400).json({ message: `Файл отклонён: ${scan.reason ?? 'подозрительное содержимое'}` });
                     return;
                 }
             }
