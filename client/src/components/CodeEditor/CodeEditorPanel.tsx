@@ -45,7 +45,6 @@ export const CodeEditorPanel: React.FC<Props> = ({
 
     const history = useRef<HistoryEntry[]>([]);
     const lastSnapshotCode = useRef('');
-    const historyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const snapshot = useCallback((currentCode: string) => {
         if (!recordHistory || currentCode === lastSnapshotCode.current) return;
@@ -57,13 +56,12 @@ export const CodeEditorPanel: React.FC<Props> = ({
         const v = value ?? '';
         setCode(v);
         if (!readOnly) {
-            if (historyTimer.current) clearTimeout(historyTimer.current);
-            historyTimer.current = setTimeout(() => snapshot(v), 2000);
+            snapshot(v);
             onCodeChange?.(v, lang.id, history.current);
         }
     };
 
-    // Expose flush function to parent so submit can capture final snapshot
+    // Expose flush function to parent so submit captures the final state
     useEffect(() => {
         onFlushHistory?.(() => {
             snapshot(code);
@@ -71,9 +69,6 @@ export const CodeEditorPanel: React.FC<Props> = ({
         });
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [onFlushHistory, code]);
-
-    // Flush timer on unmount
-    useEffect(() => () => { if (historyTimer.current) clearTimeout(historyTimer.current); }, []);
 
     const run = async () => {
         if (!code.trim()) { showToast('Напишите код перед запуском', 'error'); return; }

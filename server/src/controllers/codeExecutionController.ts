@@ -43,16 +43,24 @@ export const executeCode = async (req: Request, res: Response) => {
                 files: [{ name: FILE_NAMES[language], content: code }],
                 stdin,
                 args: [],
-                run_timeout: 10000,
-                compile_timeout: 30000,
+                run_timeout: 3000,
+                compile_timeout: 10000,
                 run_memory_limit: 256 * 1024 * 1024,
             }),
             signal: AbortSignal.timeout(45000),
         });
 
         if (!pistonRes.ok) {
-            const err = await pistonRes.text().catch(() => '');
-            res.status(502).json({ message: `Ошибка компилятора: ${err || pistonRes.status}` });
+            const errText = await pistonRes.text().catch(() => '');
+            let errMsg = `Ошибка компилятора (${pistonRes.status})`;
+            try {
+                const errJson = JSON.parse(errText);
+                if (errJson.message) errMsg = errJson.message;
+            } catch { /* not JSON */ }
+            if (errMsg.includes('runtime is unknown') || errMsg.includes('unknown')) {
+                errMsg = `Язык "${language}" не установлен в компиляторе. Попросите администратора установить рантаймы.`;
+            }
+            res.status(502).json({ message: errMsg });
             return;
         }
 
