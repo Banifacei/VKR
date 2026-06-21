@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import api from '../../api/axiosInstance';
 import { useToast } from '../../context/ToastContext';
 import { Icons } from '../Icons';
-import { CodeEditorPanel, HistoryEntry } from '../CodeEditor/CodeEditorPanel';
+import { CodeEditorPanel } from '../CodeEditor/CodeEditorPanel';
+import type { HistoryEntry } from '../CodeEditor/CodeEditorPanel';
 
 // Два режима:
 // 1. Standalone — передаётся готовый объект assignment
