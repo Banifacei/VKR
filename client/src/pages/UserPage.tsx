@@ -31,11 +31,13 @@ import { sseQuery } from '../utils/sseTicket';
 import { pluralizeRu } from '../utils/pluralize';
 import { HomeworkSubmitCard } from '../components/Homework/HomeworkSubmitCard';
 import { HomeworkEditorModal } from '../components/Homework/HomeworkEditorModal';
+import { CodeTaskEditorModal } from '../components/Homework/CodeTaskEditorModal';
 
 type DashboardItem =
     | ({ type: 'video' } & IVideo)
     | ({ type: 'test' } & ICourseTest)
-    | ({ type: 'homework' } & any);
+    | ({ type: 'homework' } & any)
+    | ({ type: 'code' } & any);
 
 
 export const UserPage = () => {
@@ -249,7 +251,7 @@ export const UserPage = () => {
             const combinedItems: DashboardItem[] = [
                 ...videos.map(v => ({ ...v, type: 'video' as const })),
                 ...tests.map(t => ({ ...t, type: 'test' as const })),
-                ...hwRes.data.map((h: any) => ({ ...h, type: 'homework' as const })),
+                ...hwRes.data.map((h: any) => ({ ...h, type: (h.type === 'code' || h.allowCodeSubmission ? 'code' : 'homework') as 'homework' | 'code' })),
             ].sort((a: any, b: any) => (a.orderIndex || 0) - (b.orderIndex || 0));
             setItems(combinedItems); 
 
@@ -290,15 +292,15 @@ export const UserPage = () => {
     }, [items, searchParams, setSearchParams, activeItem]);
     // Универсальное удаление (и для видео, и для тестов)
     const handleDeleteItem = async (item: any) => {
-        const label = item.type === 'video' ? 'урок' : item.type === 'homework' ? 'домашнее задание' : 'тест';
+        const label = item.type === 'video' ? 'урок' : item.type === 'homework' ? 'задание' : item.type === 'code' ? 'код-задание' : 'тест';
         const ok = await confirm({ title: `Удалить ${label}`, message: `Навсегда удалить "${item.title}"? Это действие необратимо.`, confirmText: 'Удалить', danger: true });
         if (!ok) return;
 
         try {
-            const endpoint = item.type === 'video' ? `/videos/${item.id}` : item.type === 'homework' ? `/hw/${item.id}` : `/tests/${item.id}`;
+            const endpoint = item.type === 'video' ? `/videos/${item.id}` : (item.type === 'homework' || item.type === 'code') ? `/hw/${item.id}` : `/tests/${item.id}`;
             await api.delete(endpoint);
             showToast(`${label.charAt(0).toUpperCase() + label.slice(1)} успешно удалено`, 'info');
-            fetchCourseData();
+            setItems(prev => prev.filter(i => !(i.type === item.type && i.id === item.id)));
         } catch (e) {
             console.error(e);
             showToast('Сбой сети при удалении', 'error');
@@ -395,8 +397,10 @@ export const UserPage = () => {
                         {activeItem.type === 'video'
                             ? <><Icons.Monitor size={16}/> Просмотр видео</>
                             : activeItem.type === 'homework'
-                                ? <><Icons.Upload size={16}/> Домашнее задание</>
-                                : <><Icons.FileText size={16}/> Прохождение теста</>
+                                ? <><Icons.Upload size={16}/> Задание</>
+                                : activeItem.type === 'code'
+                                    ? <><Icons.Code size={16}/> Код-задание</>
+                                    : <><Icons.FileText size={16}/> Прохождение теста</>
                         }
                     </div>
                     <div style={{ width: '100px' }}></div> 
@@ -406,6 +410,10 @@ export const UserPage = () => {
                     {activeItem.type === 'homework' ? (
                         <div style={{ padding: '20px' }}>
                             <HomeworkSubmitCard assignment={activeItem} />
+                        </div>
+                    ) : activeItem.type === 'code' ? (
+                        <div style={{ padding: '20px' }}>
+                            <HomeworkSubmitCard assignment={activeItem} codeOnly />
                         </div>
                     ) : activeItem.type === 'video' ? (
                         <div style={{ padding: '20px' }}>
@@ -825,9 +833,17 @@ export const UserPage = () => {
                 onClose={() => setShowAddModal(false)} 
                 courseId={Number(courseId)} 
                 nextOrderIndex={items.length > 0 ? Math.max(...items.map((i: any) => i.orderIndex || 0)) + 1 : 0}
-                onSuccess={fetchCourseData} 
+                onSuccess={(newItem?: any) => {
+                    if (newItem) {
+                        const itemType = (newItem.type === 'code' || newItem.allowCodeSubmission) ? 'code' : 'homework';
+                        setItems(prev => [...prev, { ...newItem, type: itemType as 'homework' | 'code' }]
+                            .sort((a: any, b: any) => (a.orderIndex || 0) - (b.orderIndex || 0)));
+                    } else {
+                        fetchCourseData();
+                    }
+                }}
             />
-            {editorItem && editorItem.type !== 'homework' && (
+            {editorItem && editorItem.type !== 'homework' && editorItem.type !== 'code' && (
                 <ContentEditorModal
                     item={editorItem}
                     userData={userData}
@@ -841,6 +857,16 @@ export const UserPage = () => {
                     onClose={() => setEditorItem(null)}
                     onUpdated={(updated) => {
                         setItems(prev => prev.map(i => i.type === 'homework' && i.id === updated.id ? { ...i, ...updated, type: 'homework' as const } : i));
+                        setEditorItem(null);
+                    }}
+                />
+            )}
+            {editorItem && editorItem.type === 'code' && (
+                <CodeTaskEditorModal
+                    assignment={editorItem}
+                    onClose={() => setEditorItem(null)}
+                    onUpdated={(updated) => {
+                        setItems(prev => prev.map(i => i.type === 'code' && i.id === updated.id ? { ...i, ...updated, type: 'code' as const } : i));
                         setEditorItem(null);
                     }}
                 />

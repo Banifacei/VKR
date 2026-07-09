@@ -10,7 +10,7 @@ interface AddContentModalProps {
     onClose: () => void;
     courseId: number;
     nextOrderIndex: number;
-    onSuccess: () => void;
+    onSuccess: (newItem?: any) => void;
 }
 
 const EMPTY_TEST = { title: '', description: '', passingScore: 80, maxAttempts: 3 };
@@ -19,12 +19,22 @@ const psError = (v: number) => v < 0 || v > 100 ? 'от 0 до 100' : '';
 const maError = (v: number) => v < 0 ? 'не может быть отрицательным' : '';
 
 const EMPTY_HW = { title: '', deadline: null as string | null };
+const CODE_LANGUAGES = [
+    { id: 'python', label: 'Python' },
+    { id: 'javascript', label: 'JavaScript' },
+    { id: 'typescript', label: 'TypeScript' },
+    { id: 'java', label: 'Java' },
+    { id: 'c', label: 'C' },
+    { id: 'c++', label: 'C++' },
+];
+const EMPTY_CODE = { title: '', deadline: null as string | null, allowedCodeLanguages: [] as string[] };
 
 export const AddContentModal = ({ isOpen, onClose, courseId, nextOrderIndex, onSuccess }: AddContentModalProps) => {
     const { showToast } = useToast();
-    const [modalView, setModalView] = useState<'select' | 'create_test' | 'create_video' | 'create_hw'>('select');
+    const [modalView, setModalView] = useState<'select' | 'create_test' | 'create_video' | 'create_hw' | 'create_code'>('select');
     const [newTestData, setNewTestData] = useState(EMPTY_TEST);
     const [newHwData, setNewHwData] = useState(EMPTY_HW);
+    const [newCodeData, setNewCodeData] = useState(EMPTY_CODE);
     const [touched, setTouched] = useState({ passingScore: false, maxAttempts: false });
     const [isCreating, setIsCreating] = useState(false);
 
@@ -34,8 +44,32 @@ export const AddContentModal = ({ isOpen, onClose, courseId, nextOrderIndex, onS
         setModalView('select');
         setNewTestData(EMPTY_TEST);
         setNewHwData(EMPTY_HW);
+        setNewCodeData(EMPTY_CODE);
         setTouched({ passingScore: false, maxAttempts: false });
         onClose();
+    };
+
+    const handleCreateCode = async () => {
+        if (!newCodeData.title.trim()) return showToast('Введите название задания', 'error');
+        if (!newCodeData.deadline) return showToast('Укажите дедлайн', 'error');
+        setIsCreating(true);
+        try {
+            const r = await api.post('/hw/', {
+                courseId, title: newCodeData.title,
+                deadline: newCodeData.deadline,
+                orderIndex: nextOrderIndex,
+                type: 'code',
+                allowCodeSubmission: true,
+                allowedCodeLanguages: newCodeData.allowedCodeLanguages,
+            });
+            showToast('Код-задание создано!', 'success');
+            onSuccess(r.data);
+            handleClose();
+        } catch {
+            showToast('Ошибка при создании', 'error');
+        } finally {
+            setIsCreating(false);
+        }
     };
 
     const handleCreateHw = async () => {
@@ -43,13 +77,13 @@ export const AddContentModal = ({ isOpen, onClose, courseId, nextOrderIndex, onS
         if (!newHwData.deadline) return showToast('Укажите дедлайн', 'error');
         setIsCreating(true);
         try {
-            await api.post('/hw/', {
+            const r = await api.post('/hw/', {
                 courseId, title: newHwData.title,
                 deadline: newHwData.deadline,
                 orderIndex: nextOrderIndex,
             });
             showToast('Домашнее задание создано!', 'success');
-            onSuccess();
+            onSuccess(r.data);
             handleClose();
         } catch {
             showToast('Ошибка при создании задания', 'error');
@@ -129,8 +163,25 @@ export const AddContentModal = ({ isOpen, onClose, courseId, nextOrderIndex, onS
                             >
                                 <Icons.Upload size={24} color="#a78bfa"/>
                                 <div style={{textAlign: 'left'}}>
-                                    <div style={{fontWeight: 'bold', color: '#a78bfa'}}>Домашнее задание</div>
+                                    <div style={{fontWeight: 'bold', color: '#a78bfa'}}>Задание</div>
                                     <div style={{fontSize: '12px', color: 'var(--text-muted)'}}>Сдача файлов студентами</div>
+                                </div>
+                            </button>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '4px 0' }}>
+                                <div style={{ flex: 1, height: '1px', background: 'var(--border-color)' }} />
+                                <span style={{ fontSize: '11px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>с кодом</span>
+                                <div style={{ flex: 1, height: '1px', background: 'var(--border-color)' }} />
+                            </div>
+
+                            <button
+                                onClick={() => setModalView('create_code')}
+                                style={{ background: 'rgba(8,145,178,0.08)', border: '1px solid rgba(8,145,178,0.25)', color: 'var(--text-main)', padding: '15px', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '15px', transition: '0.2s' }}
+                            >
+                                <Icons.Code size={24} color="#22d3ee"/>
+                                <div style={{textAlign: 'left'}}>
+                                    <div style={{fontWeight: 'bold', color: '#22d3ee'}}>Код-задание</div>
+                                    <div style={{fontSize: '12px', color: 'var(--text-muted)'}}>Редактор кода + запуск</div>
                                 </div>
                             </button>
                         </div>
@@ -220,6 +271,62 @@ export const AddContentModal = ({ isOpen, onClose, courseId, nextOrderIndex, onS
                                 style={{ opacity: isCreating || !newHwData.title.trim() || !newHwData.deadline ? 0.5 : 1 }}
                             >
                                 {isCreating ? 'Создаём...' : 'Создать задание'}
+                            </button>
+                        </div>
+                    </>
+                )}
+
+                {/* ЭКРАН 5: ФОРМА СОЗДАНИЯ КОД-ЗАДАНИЯ */}
+                {modalView === 'create_code' && (
+                    <>
+                        <h2 style={{color: 'var(--text-main)', marginBottom: '20px', marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px'}}>
+                            <Icons.Code size={20} color="#22d3ee"/> Новое код-задание
+                        </h2>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                            <input
+                                type="text" placeholder="Название задания" className="modern-input"
+                                value={newCodeData.title} onChange={e => setNewCodeData({...newCodeData, title: e.target.value})}
+                            />
+                            <div>
+                                <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Срок сдачи</label>
+                                <DateTimePicker
+                                    value={newCodeData.deadline}
+                                    onChange={val => setNewCodeData({ ...newCodeData, deadline: val })}
+                                />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>
+                                    Языки <span style={{ fontWeight: 400 }}>(не выбрано = все)</span>
+                                </label>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                    {CODE_LANGUAGES.map(l => {
+                                        const active = newCodeData.allowedCodeLanguages.includes(l.id);
+                                        return (
+                                            <button key={l.id} onClick={() => setNewCodeData(p => ({
+                                                ...p,
+                                                allowedCodeLanguages: active
+                                                    ? p.allowedCodeLanguages.filter(x => x !== l.id)
+                                                    : [...p.allowedCodeLanguages, l.id],
+                                            }))}
+                                                style={{ padding: '4px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', border: '1px solid',
+                                                    background: active ? 'rgba(8,145,178,0.15)' : 'var(--bg-input)',
+                                                    borderColor: active ? 'rgba(8,145,178,0.5)' : 'var(--border-color)',
+                                                    color: active ? '#22d3ee' : 'var(--text-muted)',
+                                                }}>{l.label}</button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                            <div style={{ fontSize: '12px', color: 'var(--text-muted)', padding: '10px', background: 'rgba(8,145,178,0.06)', borderRadius: '8px', border: '1px solid rgba(8,145,178,0.15)' }}>
+                                После создания можно добавить описание, шаблон кода и настроить параметры
+                            </div>
+                            <button
+                                className="primary-btn"
+                                onClick={handleCreateCode}
+                                disabled={isCreating || !newCodeData.title.trim() || !newCodeData.deadline}
+                                style={{ opacity: isCreating || !newCodeData.title.trim() || !newCodeData.deadline ? 0.5 : 1 }}
+                            >
+                                {isCreating ? 'Создаём...' : 'Создать код-задание'}
                             </button>
                         </div>
                     </>

@@ -5,12 +5,13 @@ import { Icons } from '../Icons';
 import { CodeEditorPanel } from '../CodeEditor/CodeEditorPanel';
 import type { HistoryEntry } from '../CodeEditor/CodeEditorPanel';
 
-// Два режима:
+// Три режима:
 // 1. Standalone — передаётся готовый объект assignment
 // 2. Attached   — передаётся entityType + entityId, грузим с API
+// 3. codeOnly   — только вкладка кода (для код-заданий)
 type Props =
-    | { assignment: any; entityType?: never; entityId?: never }
-    | { assignment?: never; entityType: 'video' | 'test'; entityId: number };
+    | { assignment: any; codeOnly?: boolean; entityType?: never; entityId?: never }
+    | { assignment?: never; codeOnly?: never; entityType: 'video' | 'test'; entityId: number };
 
 const formatDeadline = (iso: string) =>
     new Date(iso).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
@@ -36,6 +37,7 @@ const useCountdown = (deadline: string | null) => {
 
 export const HomeworkSubmitCard: React.FC<Props> = (props) => {
     const { showToast } = useToast();
+    const codeOnly = 'codeOnly' in props ? !!props.codeOnly : false;
     const [assignment, setAssignment] = useState<any>(props.assignment || null);
     const [submission, setSubmission] = useState<any>(null);
     const [loading, setLoading] = useState(!props.assignment);
@@ -43,7 +45,7 @@ export const HomeworkSubmitCard: React.FC<Props> = (props) => {
     const [files, setFiles] = useState<File[]>([]);
     const [textAnswer, setTextAnswer] = useState('');
     const [showForm, setShowForm] = useState(false);
-    const [submitTab, setSubmitTab] = useState<'files' | 'code'>('files');
+    const [submitTab, setSubmitTab] = useState<'files' | 'code'>(codeOnly ? 'code' : 'files');
     const [codeState, setCodeState] = useState<{ code: string; lang: string; history: HistoryEntry[] }>({ code: '', lang: '', history: [] });
     const [submittingCode, setSubmittingCode] = useState(false);
     const flushHistoryRef = useRef<(() => HistoryEntry[]) | null>(null);
@@ -126,48 +128,58 @@ export const HomeworkSubmitCard: React.FC<Props> = (props) => {
     if (loading) return null;
     if (!assignment) return null;
 
-    const isStandalone = assignment.type === 'standalone';
+    const hasContent = !!(assignment.description || assignment.taskFiles?.length > 0 || assignment.taskLink);
     const statusColor = submission?.status === 'graded' ? '#22c55e' : submission ? '#f59e0b' : 'var(--text-muted)';
     const statusText = submission?.status === 'graded' ? 'Проверено' : submission?.status === 'resubmitted' ? 'Пересдано' : submission ? 'На проверке' : 'Не сдано';
 
     return (
         <div style={{ background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-color)', overflow: 'hidden' }}>
             {/* Шапка */}
-            <div style={{ padding: '16px 20px', borderBottom: (isStandalone && (assignment.description || assignment.taskFiles?.length || assignment.taskLink)) || showForm || submission ? '1px solid var(--border-color)' : undefined }}>
+            <div style={{ padding: '16px 20px', borderBottom: hasContent || showForm || submission ? '1px solid var(--border-color)' : undefined }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
                     <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(124,58,237,0.15)', border: '1px solid rgba(124,58,237,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         <Icons.Upload size={18} color="#a78bfa" />
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 700, fontSize: '15px', color: 'var(--text-main)' }}>{assignment.title}</div>
-                        <div style={{ display: 'flex', gap: '16px', marginTop: '6px', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', gap: '12px', marginTop: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
                             <span style={{ fontSize: '12px', color: isPastDeadline ? '#ef4444' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                 <Icons.Time size={12} /> {formatDeadline(assignment.deadline)}
                             </span>
                             {!isPastDeadline && countdown && (
-                                <span style={{ fontSize: '12px', color: '#f59e0b', fontWeight: 600 }}>⏱ {countdown}</span>
+                                <span style={{ fontSize: '12px', color: '#f59e0b', fontWeight: 600, background: 'rgba(245,158,11,0.1)', padding: '2px 8px', borderRadius: '20px' }}>⏱ {countdown}</span>
                             )}
-                            <span style={{ fontSize: '12px', color: statusColor, fontWeight: 600 }}>● {statusText}</span>
+                            <span style={{ fontSize: '12px', color: statusColor, fontWeight: 600, background: `${statusColor}18`, padding: '2px 8px', borderRadius: '20px' }}>● {statusText}</span>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Условие задания (только для standalone) */}
-            {isStandalone && (assignment.description || assignment.taskFiles?.length > 0 || assignment.taskLink) && (
-                <div style={{ padding: '14px 20px', background: 'rgba(124,58,237,0.04)', borderBottom: '1px solid var(--border-color)' }}>
+            {/* Условие задания */}
+            {hasContent && (
+                <div style={{ padding: '16px 20px', background: 'rgba(124,58,237,0.04)', borderBottom: '1px solid var(--border-color)' }}>
                     {assignment.description && (
-                        <div style={{ fontSize: '14px', color: 'var(--text-main)', lineHeight: 1.6, marginBottom: assignment.taskFiles?.length || assignment.taskLink ? '12px' : 0 }}>
+                        <div style={{ fontSize: '14px', color: 'var(--text-main)', lineHeight: 1.7, whiteSpace: 'pre-wrap', marginBottom: assignment.taskFiles?.length || assignment.taskLink ? '14px' : 0 }}>
                             {assignment.description}
                         </div>
                     )}
                     {assignment.taskFiles?.length > 0 && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: assignment.taskLink ? '8px' : 0 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: assignment.taskLink ? '10px' : 0 }}>
                             {assignment.taskFiles.map((f: any, i: number) => (
-                                <a key={i} href={f.path} target="_blank" rel="noreferrer"
-                                    style={{ fontSize: '13px', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <Icons.FileText size={13} /> {f.name}
-                                </a>
+                                f.mimeType?.startsWith('image/') ? (
+                                    <a key={i} href={f.path} target="_blank" rel="noreferrer" style={{ display: 'block' }}>
+                                        <img src={f.path} alt={f.name} style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '10px', display: 'block', objectFit: 'contain', background: 'var(--bg-input)' }} />
+                                    </a>
+                                ) : (
+                                    <a key={i} href={f.path} target="_blank" rel="noreferrer"
+                                        style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: 'var(--bg-input)', borderRadius: '10px', textDecoration: 'none', transition: 'background 0.2s' }}
+                                        onMouseEnter={e => (e.currentTarget.style.background = 'rgba(124,58,237,0.1)')}
+                                        onMouseLeave={e => (e.currentTarget.style.background = 'var(--bg-input)')}>
+                                        <Icons.FileText size={16} color="#a78bfa" />
+                                        <span style={{ flex: 1, fontSize: '13px', color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', flexShrink: 0 }}>{(f.size / 1024 / 1024).toFixed(1)} МБ</span>
+                                    </a>
+                                )
                             ))}
                         </div>
                     )}
@@ -208,7 +220,7 @@ export const HomeworkSubmitCard: React.FC<Props> = (props) => {
                     )}
 
                     {/* Табы: Файлы / Код */}
-                    {assignment.allowCodeSubmission && (
+                    {assignment.allowCodeSubmission && !codeOnly && (
                         <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', gap: '0' }}>
                             {(['files', 'code'] as const).map(t => (
                                 <button key={t} onClick={() => setSubmitTab(t)}
@@ -220,7 +232,7 @@ export const HomeworkSubmitCard: React.FC<Props> = (props) => {
                     )}
 
                     {/* Вкладка файлов */}
-                    {submitTab === 'files' && (
+                    {submitTab === 'files' && !codeOnly && (
                         <>
                             <div
                                 onClick={() => fileInputRef.current?.click()}

@@ -71,6 +71,30 @@ __decorate([
     BelongsTo(() => User, { foreignKey: 'gradedBy', as: 'grader' }),
     __metadata("design:type", User)
 ], HomeworkSubmission.prototype, "grader", void 0);
+__decorate([
+    Column({ type: DataType.STRING(20), allowNull: true }),
+    __metadata("design:type", Object)
+], HomeworkSubmission.prototype, "codeLanguage", void 0);
+__decorate([
+    Column({ type: DataType.TEXT, allowNull: true }),
+    __metadata("design:type", Object)
+], HomeworkSubmission.prototype, "codeContent", void 0);
+__decorate([
+    Column({ type: DataType.TEXT, allowNull: true }),
+    __metadata("design:type", Object)
+], HomeworkSubmission.prototype, "codeLastOutput", void 0);
+__decorate([
+    Column({ type: DataType.TEXT, allowNull: true }),
+    __metadata("design:type", Object)
+], HomeworkSubmission.prototype, "codeHistory", void 0);
+__decorate([
+    Column({ type: DataType.BOOLEAN, defaultValue: false }),
+    __metadata("design:type", Boolean)
+], HomeworkSubmission.prototype, "codeHistoryCompressed", void 0);
+__decorate([
+    Column({ type: DataType.DATE, allowNull: true }),
+    __metadata("design:type", Object)
+], HomeworkSubmission.prototype, "codeHistoryDeleteAt", void 0);
 HomeworkSubmission = __decorate([
     Table({ tableName: 'homework_submissions' })
 ], HomeworkSubmission);

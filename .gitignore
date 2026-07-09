@@ -40,3 +40,6 @@ Thumbs.db
 server/uploads/*
 /.claude
 VKRR/*
+
+# Сессионные заметки
+SESSION_*.md

@@ -116,8 +116,11 @@ export const createAssignment = async (req: Request, res: Response) => {
             allowCodeSubmission, allowedCodeLanguages, recordCodeHistory, codeHistoryDeleteDays, codeTemplate,
         } = req.body;
 
+        const { type: reqType } = req.body;
+        const hwType = reqType === 'code' ? 'code' : 'standalone';
+
         const assignment = await HomeworkAssignment.create({
-            type: 'standalone',
+            type: hwType,
             courseId: Number(courseId), title,
             description: description || null,
             taskLink: taskLink || null,
@@ -194,7 +197,7 @@ export const uploadTaskFiles = async (req: Request, res: Response) => {
 
         const files = (req.files as Express.Multer.File[]) || [];
         const newFiles = files.map(f => ({
-            name: f.originalname,
+            name: Buffer.from(f.originalname, 'latin1').toString('utf8'),
             path: `/uploads/homework/${f.filename}`,
             size: f.size,
             mimeType: f.mimetype,
@@ -263,7 +266,7 @@ export const getCourseAssignments = async (req: Request, res: Response) => {
         const role = (req as any).user?.role;
         const isTeacher = role === 'teacher' || role === 'admin';
 
-        const where: any = { courseId: Number(courseId), type: 'standalone' };
+        const where: any = { courseId: Number(courseId), type: ['standalone', 'code'] };
         if (!isTeacher) where.isPublished = true;
 
         const assignments = await HomeworkAssignment.findAll({ where, order: [['orderIndex', 'ASC']] });
@@ -408,7 +411,7 @@ export const submitHomework = async (req: Request, res: Response) => {
         }
 
         const fileData = files.map(f => ({
-            name: f.originalname,
+            name: Buffer.from(f.originalname, 'latin1').toString('utf8'),
             path: `/uploads/homework/${f.filename}`,
             size: f.size,
             mimeType: f.mimetype,

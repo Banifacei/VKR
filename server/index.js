@@ -11,6 +11,7 @@ import { slugify } from 'transliteration';
 import fs from 'fs';
 import multer from 'multer';
 import { User } from './src/models/User.js';
+import { SystemSetting } from './src/models/SystemSetting.js';
 import authRoutes from './src/routes/authRoutes.js';
 import userRoutes from './src/routes/userRoutes.js';
 import testRoutes from './src/routes/testRoutes.js';
@@ -24,12 +25,16 @@ import bookmarkRoutes from './src/routes/bookmarkRoutes.js';
 import bannedWordRoutes from './src/routes/bannedWordRoutes.js';
 import homeworkRoutes from './src/routes/homeworkRoutes.js';
 import homeworkAssignmentRoutes from './src/routes/homeworkAssignmentRoutes.js';
+import codeRoutes from './src/routes/codeRoutes.js';
 import certificateRoutes from './src/routes/certificateRoutes.js';
 import badgeRoutes from './src/routes/badgeRoutes.js';
 import assistantRoutes from './src/routes/assistantRoutes.js';
 import { trackActivityMiddleware, addSystemLog, heartbeatHandler } from './src/controllers/adminController.js';
 import { createDefaultAdmin, createDemoUser } from './src/models/initAdmin.js';
 import { cleanupOrphanFiles } from './src/utils/cleanup.js';
+import { HomeworkSubmission } from './src/models/HomeworkSubmission.js';
+import zlib from 'zlib';
+import { Op } from 'sequelize';
 import { checkAuth } from './src/middleware/authMiddleware.js';
 import passport from 'passport';
 const __filename = fileURLToPath(import.meta.url);
@@ -198,6 +203,7 @@ app.use('/api/hw', homeworkAssignmentRoutes(homeworkUpload));
 app.use('/api/certificates', certificateRoutes);
 app.use('/api/badges', badgeRoutes);
 app.use('/api/assistant', assistantRoutes);
+app.use('/api/code', codeRoutes);
 // Глобальный обработчик ошибок (multer и прочие middleware)
 app.use((err, _req, res, _next) => {
     if (err?.message) {
@@ -205,6 +211,48 @@ app.use((err, _req, res, _next) => {
     }
     res.status(500).json({ message: 'Внутренняя ошибка сервера' });
 });
+// ── Сжатие и очистка истории ввода кода ──────────────────────────────────────
+async function compressCodeHistory() {
+    try {
+        const setting = await SystemSetting.findOne({ where: { key: 'code_history_compress_days' } });
+        const days = setting ? Number(setting.value) || 3 : 3;
+        const cutoff = new Date(Date.now() - days * 86_400_000);
+        const toCompress = await HomeworkSubmission.findAll({
+            where: { codeHistory: { [Op.not]: null }, codeHistoryCompressed: false, submittedAt: { [Op.lt]: cutoff } },
+            attributes: ['id', 'codeHistory'],
+        });
+        for (const sub of toCompress) {
+            if (!sub.codeHistory)
+                continue;
+            const compressed = zlib.gzipSync(Buffer.from(sub.codeHistory, 'utf8')).toString('base64');
+            await sub.update({ codeHistory: compressed, codeHistoryCompressed: true });
+        }
+        const toDelete = await HomeworkSubmission.findAll({
+            where: { codeHistory: { [Op.not]: null }, codeHistoryDeleteAt: { [Op.lt]: new Date() } },
+            attributes: ['id'],
+        });
+        for (const sub of toDelete) {
+            await sub.update({ codeHistory: null, codeHistoryCompressed: false, codeHistoryDeleteAt: null });
+        }
+        if (toCompress.length + toDelete.length > 0) {
+            console.log(`📦 История кода: сжато ${toCompress.length}, удалено ${toDelete.length}`);
+        }
+    }
+    catch (e) {
+        console.error('Ошибка обслуживания истории кода:', e);
+    }
+}
+function scheduleCodeHistoryCompression() {
+    const now = new Date();
+    const next3am = new Date(now);
+    next3am.setHours(3, 0, 0, 0);
+    if (next3am <= now)
+        next3am.setDate(next3am.getDate() + 1);
+    setTimeout(function tick() {
+        compressCodeHistory();
+        setTimeout(tick, 24 * 60 * 60 * 1000);
+    }, next3am.getTime() - Date.now());
+}
 let server;
 async function start() {
     try {
@@ -227,6 +275,7 @@ async function start() {
         await createDemoUser();
         console.log('✅ База данных подключена');
         await cleanupOrphanFiles(uploadDir, avatarDir);
+        scheduleCodeHistoryCompression();
         server = app.listen(PORT, () => {
             console.log(`🚀 Сервер запущен на порту ${PORT}`);
             console.log(`📁 Папка для загрузок: ${uploadDir}`);

@@ -191,11 +191,22 @@ export const HomeworkEditorModal: React.FC<Props> = ({ assignment, onClose, onUp
                                 {taskFiles.length > 0 && (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px' }}>
                                         {taskFiles.map((f: any, i: number) => (
-                                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'var(--bg-input)', borderRadius: '8px' }}>
-                                                <Icons.FileText size={14} color="var(--text-muted)" />
-                                                <a href={f.path} target="_blank" rel="noreferrer" style={{ flex: 1, fontSize: '13px', color: 'var(--primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</a>
-                                                <span style={{ fontSize: '11px', color: 'var(--text-muted)', flexShrink: 0 }}>{(f.size / 1024 / 1024).toFixed(1)} МБ</span>
-                                                <button onClick={() => handleDeleteTaskFile(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: 0, flexShrink: 0 }}>✕</button>
+                                            <div key={i} style={{ background: 'var(--bg-input)', borderRadius: '10px', overflow: 'hidden', position: 'relative' }}>
+                                                {f.mimeType?.startsWith('image/') ? (
+                                                    <>
+                                                        <a href={f.path} target="_blank" rel="noreferrer">
+                                                            <img src={f.path} alt={f.name} style={{ width: '100%', maxHeight: '220px', objectFit: 'contain', display: 'block', background: 'rgba(0,0,0,0.2)' }} />
+                                                        </a>
+                                                        <button onClick={() => handleDeleteTaskFile(i)} style={{ position: 'absolute', top: '8px', right: '8px', background: 'rgba(0,0,0,0.6)', border: 'none', cursor: 'pointer', color: '#fff', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>✕</button>
+                                                    </>
+                                                ) : (
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px' }}>
+                                                        <Icons.FileText size={14} color="#a78bfa" />
+                                                        <a href={f.path} target="_blank" rel="noreferrer" style={{ flex: 1, fontSize: '13px', color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</a>
+                                                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', flexShrink: 0 }}>{(f.size / 1024 / 1024).toFixed(1)} МБ</span>
+                                                        <button onClick={() => handleDeleteTaskFile(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: 0, flexShrink: 0 }}>✕</button>
+                                                    </div>
+                                                )}
                                             </div>
                                         ))}
                                     </div>
@@ -235,6 +246,16 @@ export const HomeworkEditorModal: React.FC<Props> = ({ assignment, onClose, onUp
                             </div>
                             <div>
                                 <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Макс. балл</label>
+                                <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
+                                    {[5, 10, 100].map(p => (
+                                        <button key={p} onClick={() => setForm(f => ({ ...f, maxScore: p }))}
+                                            style={{ padding: '4px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', border: '1px solid',
+                                                background: form.maxScore === p ? 'rgba(124,58,237,0.15)' : 'var(--bg-input)',
+                                                borderColor: form.maxScore === p ? 'rgba(124,58,237,0.5)' : 'var(--border-color)',
+                                                color: form.maxScore === p ? '#a78bfa' : 'var(--text-muted)',
+                                            }}>{p}-балльная</button>
+                                    ))}
+                                </div>
                                 <input type="number" className="deck-input" style={{ background: 'var(--bg-input)', width: '100%', fontSize: '14px' }} min={1}
                                     value={form.maxScore} onChange={e => setForm(f => ({ ...f, maxScore: Number(e.target.value) }))} />
                             </div>

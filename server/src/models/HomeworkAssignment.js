@@ -99,6 +99,26 @@ __decorate([
     HasMany(() => HomeworkSubmission),
     __metadata("design:type", Array)
 ], HomeworkAssignment.prototype, "submissions", void 0);
+__decorate([
+    Column({ type: DataType.BOOLEAN, defaultValue: false }),
+    __metadata("design:type", Boolean)
+], HomeworkAssignment.prototype, "allowCodeSubmission", void 0);
+__decorate([
+    Column({ type: DataType.JSONB, defaultValue: [] }),
+    __metadata("design:type", Array)
+], HomeworkAssignment.prototype, "allowedCodeLanguages", void 0);
+__decorate([
+    Column({ type: DataType.BOOLEAN, defaultValue: true }),
+    __metadata("design:type", Boolean)
+], HomeworkAssignment.prototype, "recordCodeHistory", void 0);
+__decorate([
+    Column({ type: DataType.INTEGER, allowNull: true }),
+    __metadata("design:type", Object)
+], HomeworkAssignment.prototype, "codeHistoryDeleteDays", void 0);
+__decorate([
+    Column({ type: DataType.TEXT, allowNull: true }),
+    __metadata("design:type", Object)
+], HomeworkAssignment.prototype, "codeTemplate", void 0);
 HomeworkAssignment = __decorate([
     Table({ tableName: 'homework_assignments' })
 ], HomeworkAssignment);

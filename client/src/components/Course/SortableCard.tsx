@@ -28,6 +28,7 @@ export const SortableCard = ({ item, idx, isEditMode, completedVideoIds, testRes
 
     const isVideo    = item.type === 'video';
     const isHomework = item.type === 'homework';
+    const isCode     = item.type === 'code';
     const isCompleted = isVideo ? completedVideoIds.includes(item.id) : (testResults[item.id]?.passed || false);
 
     // Анонс: есть unlockDate и он в будущем
@@ -143,7 +144,9 @@ export const SortableCard = ({ item, idx, isEditMode, completedVideoIds, testRes
                         ? 'linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%)'
                         : isHomework
                             ? 'linear-gradient(135deg, #7c3aed 0%, #b5179e 100%)'
-                            : 'linear-gradient(135deg, #F09819 0%, #EDDE5D 100%)',
+                            : isCode
+                                ? 'linear-gradient(135deg, #22d3ee 0%, #6366f1 100%)'
+                                : 'linear-gradient(135deg, #F09819 0%, #EDDE5D 100%)',
                     display: 'flex', justifyContent: 'center', alignItems: 'center',
                     position: 'relative', color: '#fff',
                 }}>
@@ -153,14 +156,14 @@ export const SortableCard = ({ item, idx, isEditMode, completedVideoIds, testRes
                         borderRadius: '8px', fontSize: '11px', fontWeight: 'bold',
                         color: '#fff', backdropFilter: 'blur(4px)',
                     }}>
-                            {isVideo ? 'ВИДЕО-УРОК' : isHomework ? 'ДОМ. ЗАДАНИЕ' : 'ТЕСТИРОВАНИЕ'}
+                        {isVideo ? 'ВИДЕО-УРОК' : isHomework ? 'ЗАДАНИЕ' : isCode ? 'КОД-ЗАДАНИЕ' : 'ТЕСТИРОВАНИЕ'}
                     </div>
-                    {isHomework && !item.isPublished && (
+                    {(isHomework || isCode) && !item.isPublished && (
                         <div style={{ position: 'absolute', top: '12px', right: '12px', background: 'rgba(0,0,0,0.55)', padding: '3px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: 700, color: '#fbbf24', backdropFilter: 'blur(4px)' }}>
                             ЧЕРНОВИК
                         </div>
                     )}
-                    {isVideo ? <Icons.Video /> : isHomework ? <Icons.Upload size={40} /> : <Icons.Test />}
+                    {isVideo ? <Icons.Video /> : isHomework ? <Icons.Upload size={40} /> : isCode ? <Icons.Code size={40} /> : <Icons.Test />}
                 </div>
             )}
 
@@ -188,7 +191,7 @@ export const SortableCard = ({ item, idx, isEditMode, completedVideoIds, testRes
                     ) : (
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                                {isVideo ? 'Учебный материал' : isHomework
+                                {isVideo ? 'Учебный материал' : (isHomework || isCode)
                                     ? `до ${new Date(item.deadline).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}`
                                     : (() => { const n = item.questions?.length || 0; return `${n} ${pluralizeRu(n, 'вопрос', 'вопроса', 'вопросов')}`; })()}
                             </span>
@@ -201,6 +204,10 @@ export const SortableCard = ({ item, idx, isEditMode, completedVideoIds, testRes
                                     new Date() > new Date(item.deadline)
                                         ? <span style={{ fontSize: '12px', color: '#ef4444' }}>Срок истёк</span>
                                         : <span style={{ fontSize: '12px', color: '#a78bfa' }}>Активно</span>
+                                ) : isCode ? (
+                                    new Date() > new Date(item.deadline)
+                                        ? <span style={{ fontSize: '12px', color: '#ef4444' }}>Срок истёк</span>
+                                        : <span style={{ fontSize: '12px', color: '#22d3ee' }}>Активно</span>
                                 ) : (
                                     testResults[item.id] ? (
                                         testResults[item.id].passed

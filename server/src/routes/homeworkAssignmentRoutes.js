@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { checkAuth, isTeacherOrAdmin } from '../middleware/authMiddleware.js';
-import { attachHomework, detachHomework, getAssignmentByEntity, createAssignment, updateAssignment, publishAssignment, uploadTaskFiles, deleteTaskFile, deleteAssignment, getCourseAssignments, getTeacherAssignments, getSubmissions, getStudentAssignments, getMySubmission, submitHomework, gradeSubmission, getCourseHomeworkStats, } from '../controllers/homeworkController.js';
+import { attachHomework, detachHomework, getAssignmentByEntity, createAssignment, updateAssignment, publishAssignment, uploadTaskFiles, deleteTaskFile, deleteAssignment, getCourseAssignments, getTeacherAssignments, getSubmissions, getStudentAssignments, getMySubmission, submitHomework, submitCodeHomework, getCodeHistory, gradeSubmission, getCourseHomeworkStats, } from '../controllers/homeworkController.js';
 export default (upload) => {
     const router = Router();
     // Attached (галочка на видео/тесте)
@@ -24,5 +24,8 @@ export default (upload) => {
     router.get('/my', checkAuth, getStudentAssignments);
     router.get('/:assignmentId/my-submission', checkAuth, getMySubmission);
     router.post('/:assignmentId/submit', checkAuth, upload.array('hwfile', 10), submitHomework);
+    router.post('/:assignmentId/submit-code', checkAuth, submitCodeHomework);
+    // История ввода (только препод / admin)
+    router.get('/submissions/:id/history', checkAuth, isTeacherOrAdmin, getCodeHistory);
     return router;
 };
