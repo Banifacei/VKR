@@ -277,6 +277,10 @@ async function start() {
         await sequelize.query(`ALTER TABLE interactive_events ALTER COLUMN "explanation" TYPE TEXT`).catch(() => {});
         // Миграция: 'none' как глобальный паттерн фона означает 'off' (без фона), а не "следовать платформе"
         await sequelize.query(`UPDATE system_settings SET value = 'off' WHERE key = 'platform_bg_pattern' AND value = 'none'`).catch(() => {});
+        // Миграция: автопроверка кода тест-кейсами — alter:true не добавляет эти колонки (падает раньше на FK-таблицах)
+        await sequelize.query(`ALTER TABLE homework_assignments ADD COLUMN IF NOT EXISTS "testCases" JSONB DEFAULT '[]'::jsonb`).catch(() => {});
+        await sequelize.query(`ALTER TABLE homework_submissions ADD COLUMN IF NOT EXISTS "testResults" JSONB`).catch(() => {});
+        await sequelize.query(`ALTER TABLE homework_submissions ADD COLUMN IF NOT EXISTS "autoGrade" DOUBLE PRECISION`).catch(() => {});
         await createDefaultAdmin();
         await createDemoUser();
         console.log('✅ База данных подключена');

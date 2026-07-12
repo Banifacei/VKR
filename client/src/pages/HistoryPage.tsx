@@ -123,6 +123,16 @@ export const HistoryPage = () => {
                                             <div style={{ opacity: 0.9 }}><Icons.FileText size={40}/></div>
                                         </div>
                                     </div>
+
+                                    <div className="stat-widget">
+                                        <div className="widget-icon" style={{ background: 'rgba(167, 139, 250, 0.1)', color: '#a78bfa' }}>
+                                            <Icons.Upload />
+                                        </div>
+                                        <div className="widget-info">
+                                            <div className="widget-value">{stats.stats.homeworkAvgScore}%</div>
+                                            <div className="widget-label">Оценка за задания</div>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div className="profile-history-card" style={{ marginTop: '30px' }}>
@@ -170,6 +180,56 @@ export const HistoryPage = () => {
                                         <div className="empty-history">
                                             <div style={{ marginBottom: '10px' }}><Icons.Empty size={30}/></div>
                                             <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Вы еще не сдавали тесты.</p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="profile-history-card" style={{ marginTop: '30px' }}>
+                                    <h3 className="history-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <Icons.Upload size={18}/> Оценки за задания
+                                    </h3>
+
+                                    {stats.homeworkGrades && stats.homeworkGrades.length > 0 ? (
+                                        <div className="history-list" style={{ display: 'grid', gap: '15px' }}>
+                                            {stats.homeworkGrades.map((hw: any) => (
+                                                <div key={hw.id} className="history-card" style={{
+                                                    background: 'var(--bg-card)',
+                                                    padding: '15px 20px',
+                                                    borderRadius: '12px',
+                                                    border: `1px solid ${hw.percent >= 60 ? '#1a4d2e' : '#4d1a1a'}`,
+                                                    display: 'flex',
+                                                    justifyContent: 'space-between',
+                                                    alignItems: 'center',
+                                                    cursor: hw.courseId ? 'pointer' : 'default',
+                                                }} onClick={() => hw.courseId && navigate(`/course/${hw.courseId}`)}>
+                                                    <div>
+                                                        <div style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--text-main)', marginBottom: '5px' }}>
+                                                            {hw.title}
+                                                        </div>
+                                                        <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                                                            {hw.courseTitle} · Проверено: {new Date(hw.gradedAt).toLocaleDateString('ru-RU')}
+                                                        </div>
+                                                    </div>
+
+                                                    <div style={{ textAlign: 'right' }}>
+                                                        <div style={{
+                                                            fontSize: '20px',
+                                                            fontWeight: 'bold',
+                                                            color: hw.percent >= 60 ? '#4dff88' : '#ff4d4d'
+                                                        }}>
+                                                            {hw.grade}/{hw.maxScore}
+                                                        </div>
+                                                        <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                                                            {hw.percent}%
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="empty-history">
+                                            <div style={{ marginBottom: '10px' }}><Icons.Empty size={30}/></div>
+                                            <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Вы еще не получали оценок за задания.</p>
                                         </div>
                                     )}
                                 </div>

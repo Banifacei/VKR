@@ -30,6 +30,9 @@ import { CourseBan } from '../models/CourseBan.js';
 import bcrypt from 'bcrypt';
 import sequelize from '../config/db.js';
 import { createChannel } from '../utils/sseHub.js';
+import { Op } from 'sequelize';
+import { HomeworkAssignment } from '../models/HomeworkAssignment.js';
+import { HomeworkSubmission } from '../models/HomeworkSubmission.js';
 
 // ─── SSE-каналы ───────────────────────────────────────────────────────────────
 // videoId → клиенты, смотрящие события конкретного видео
@@ -1433,6 +1436,21 @@ export const getCourseAnalytics = async (req: Request, res: Response) => {
 
         const funnel = [...videoStats, ...testStats].sort((a, b) => a.orderIndex - b.orderIndex);
 
+        // Задания курса (все типы) — для среднего балла за ДЗ на студента
+        const homeworkAssignments = await HomeworkAssignment.findAll({
+            where: { courseId, isPublished: true },
+            attributes: ['id', 'maxScore'],
+        });
+        const homeworkIds = homeworkAssignments.map((a: any) => a.id);
+        const maxScoreByAssignment = new Map(homeworkAssignments.map((a: any) => [a.id, a.maxScore]));
+
+        const allHomeworkSubs = homeworkIds.length > 0
+            ? await HomeworkSubmission.findAll({
+                where: { assignmentId: homeworkIds, studentId: studentIds, status: 'graded', grade: { [Op.ne]: null } },
+                attributes: ['studentId', 'assignmentId', 'grade'],
+              })
+            : [];
+
         // Батч-запрос ответов на видео-квизы (один запрос на всех студентов)
         const allVideoResponses = visibleVideoIds.length > 0
             ? await UserResponse.findAll({
@@ -1480,6 +1498,17 @@ export const getCourseAnalytics = async (req: Request, res: Response) => {
 
             const avgScore = testAvg ?? videoQuizAvg ?? 0;
 
+            // Средний балл за задания — сумма % по проверенным работам делится на ВСЕ задания курса
+            // (несданное/непроверенное считается за 0, как и progressPercent)
+            const studentHomeworkSubs = allHomeworkSubs.filter((s: any) => s.studentId === student.id);
+            const homeworkPercentsSum = studentHomeworkSubs.reduce((sum: number, s: any) => {
+                const maxScore = maxScoreByAssignment.get(s.assignmentId) || 100;
+                return sum + (s.grade / maxScore) * 100;
+            }, 0);
+            const homeworkAvg = homeworkIds.length > 0
+                ? Math.round(homeworkPercentsSum / homeworkIds.length)
+                : null;
+
             return {
                 id: student.id,
                 name: `${student.lastName} ${student.firstName}`.trim(),
@@ -1487,6 +1516,7 @@ export const getCourseAnalytics = async (req: Request, res: Response) => {
                 lastLogin: student.lastLogin,
                 progressPercent,
                 avgScore,
+                homeworkAvg,
                 scoreSource: testAvg !== null ? 'tests' : (videoQuizAvg !== null ? 'quizzes' : 'none'),
             };
         }));
@@ -1574,7 +1604,17 @@ export const getStudentCourseDetails = async (req: Request, res: Response) => {
             if (Array.isArray(qs)) qs.sort((a: any, b: any) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
         }
 
-        res.json({ student, videoProgress, testResults, interactiveAnswers });
+        // Сдачи домашних заданий (все типы)
+        const courseHomeworkAssignments = await HomeworkAssignment.findAll({ where: { courseId } });
+        const homeworkSubmissions = courseHomeworkAssignments.length > 0
+            ? await HomeworkSubmission.findAll({
+                where: { assignmentId: courseHomeworkAssignments.map(a => a.id), studentId },
+                include: [{ model: HomeworkAssignment, as: 'assignment', attributes: ['id', 'title', 'maxScore'] }],
+                order: [['submittedAt', 'DESC']],
+              })
+            : [];
+
+        res.json({ student, videoProgress, testResults, interactiveAnswers, homeworkSubmissions });
     } catch (e) {
         console.error('Ошибка детализации студента:', e);
         res.status(500).json({ message: 'Ошибка при получении деталей студента' });

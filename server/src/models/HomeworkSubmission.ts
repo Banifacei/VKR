@@ -71,4 +71,12 @@ export class HomeworkSubmission extends Model {
     // Когда удалить историю (вычисляется: submittedAt + assignment.codeHistoryDeleteDays)
     @Column({ type: DataType.DATE, allowNull: true })
     declare codeHistoryDeleteAt: Date | null;
+
+    // Результаты автопроверки по тест-кейсам: [{id, passed, actualOutput, error?, isHidden}]
+    @Column({ type: DataType.JSONB, allowNull: true })
+    declare testResults: { id: string; passed: boolean; actualOutput: string; error?: string; isHidden: boolean }[] | null;
+
+    // Автооценка по результатам тест-кейсов (препод может переопределить полем grade)
+    @Column({ type: DataType.FLOAT, allowNull: true })
+    declare autoGrade: number | null;
 }

@@ -48,6 +48,8 @@ export const HomeworkSubmitCard: React.FC<Props> = (props) => {
     const [submitTab, setSubmitTab] = useState<'files' | 'code'>(codeOnly ? 'code' : 'files');
     const [codeState, setCodeState] = useState<{ code: string; lang: string; history: HistoryEntry[] }>({ code: '', lang: '', history: [] });
     const [submittingCode, setSubmittingCode] = useState(false);
+    const [checkingCode, setCheckingCode] = useState(false);
+    const [checkResult, setCheckResult] = useState<{ results: { id: string; passed: boolean; actualOutput: string; error?: string; isHidden: boolean }[]; autoGrade: number; maxScore: number; passedCount: number; totalCount: number } | null>(null);
     const flushHistoryRef = useRef<(() => HistoryEntry[]) | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const countdown = useCountdown(assignment?.deadline || null);
@@ -99,6 +101,23 @@ export const HomeworkSubmitCard: React.FC<Props> = (props) => {
             showToast(e.response?.data?.message || 'Ошибка отправки', 'error');
         } finally {
             setSubmitting(false);
+        }
+    };
+
+    const handleCheckCode = async () => {
+        if (!codeState.code.trim()) { showToast('Напишите код перед проверкой', 'error'); return; }
+        if (!codeState.lang) { showToast('Выберите язык программирования', 'error'); return; }
+        setCheckingCode(true);
+        try {
+            const r = await api.post(`/hw/${assignment.id}/check-code`, {
+                codeLanguage: codeState.lang,
+                codeContent: codeState.code,
+            });
+            setCheckResult(r.data);
+        } catch (e: any) {
+            showToast(e.response?.data?.message || 'Ошибка проверки кода', 'error');
+        } finally {
+            setCheckingCode(false);
         }
     };
 
@@ -289,10 +308,35 @@ export const HomeworkSubmitCard: React.FC<Props> = (props) => {
                                 recordHistory={assignment.recordCodeHistory !== false}
                                 initialCode={submission?.codeContent ?? undefined}
                                 initialLanguage={submission?.codeLanguage ?? undefined}
-                                onCodeChange={(code, lang, hist) => setCodeState({ code, lang, history: hist })}
+                                onCodeChange={(code, lang, hist) => { setCodeState({ code, lang, history: hist }); setCheckResult(null); }}
                                 onFlushHistory={flush => { flushHistoryRef.current = flush; }}
                             />
+
+                            {checkResult && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', background: 'var(--bg-input)', borderRadius: '12px', padding: '12px' }}>
+                                    {checkResult.results.map((r, i) => (
+                                        <div key={r.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '13px' }}>
+                                            <span style={{ color: r.passed ? '#22c55e' : '#ef4444', fontWeight: 700, flexShrink: 0 }}>{r.passed ? '✓' : '✗'}</span>
+                                            <span style={{ color: 'var(--text-main)' }}>
+                                                Тест {i + 1}
+                                                {r.isHidden ? ' [скрытый]' : null}
+                                                {!r.isHidden && r.error ? <span style={{ color: '#ef4444' }}> — {r.error}</span> : null}
+                                                {!r.isHidden && !r.passed && r.actualOutput ? <span style={{ color: 'var(--text-muted)' }}> — получено: {r.actualOutput}</span> : null}
+                                            </span>
+                                        </div>
+                                    ))}
+                                    <div style={{ marginTop: '4px', fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>
+                                        Автооценка: {checkResult.passedCount}/{checkResult.totalCount} → {checkResult.autoGrade} из {checkResult.maxScore}
+                                    </div>
+                                </div>
+                            )}
+
                             <div style={{ display: 'flex', gap: '10px' }}>
+                                {assignment.testCases?.length > 0 && (
+                                    <button className="btn btn-ghost" onClick={handleCheckCode} disabled={checkingCode}>
+                                        {checkingCode ? 'Проверка...' : 'Проверить'}
+                                    </button>
+                                )}
                                 <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleSubmitCode} disabled={submittingCode}>
                                     {submittingCode ? 'Отправка...' : submission ? 'Пересдать код' : 'Сдать код'}
                                 </button>

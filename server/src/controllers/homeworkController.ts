@@ -10,6 +10,7 @@ import { User } from '../models/User.js';
 import { sendNotification } from './notificationController.js';
 import { checkHomeworkBadges } from './badgeController.js';
 import { scanFile } from '../services/fileScanner.js';
+import { PISTON_URL, FILE_NAMES, PISTON_LANG } from './codeExecutionController.js';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -47,6 +48,66 @@ const scheduleReminders = (assignment: HomeworkAssignment) => {
             }
         }, delay);
     }
+};
+
+type TestCaseResult = { id: string; passed: boolean; actualOutput: string; error?: string; isHidden: boolean };
+
+// Прогоняет код студента через все тест-кейсы задания в Piston, считает автооценку.
+// Для скрытых тест-кейсов actualOutput/error в результат не попадают.
+const runTestCases = async (
+    assignment: HomeworkAssignment,
+    codeContent: string,
+    codeLanguage: string,
+): Promise<{ results: TestCaseResult[]; autoGrade: number }> => {
+    const testCases = assignment.testCases || [];
+    const pistonLang = PISTON_LANG[codeLanguage];
+    const results: TestCaseResult[] = [];
+
+    for (const tc of testCases) {
+        try {
+            const pistonRes = await fetch(`${PISTON_URL}/api/v2/execute`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    language: pistonLang,
+                    version: '*',
+                    files: [{ name: FILE_NAMES[codeLanguage], content: codeContent }],
+                    stdin: tc.input ?? '',
+                    args: [],
+                    run_timeout: 3000,
+                    compile_timeout: 10000,
+                    run_memory_limit: 256 * 1024 * 1024,
+                }),
+                signal: AbortSignal.timeout(15000),
+            });
+
+            if (!pistonRes.ok) {
+                results.push({ id: tc.id, passed: false, actualOutput: '', error: tc.isHidden ? undefined : 'Ошибка компилятора', isHidden: tc.isHidden });
+                continue;
+            }
+
+            const data: any = await pistonRes.json();
+            const stdout = (data.run?.stdout ?? '').trim();
+            const stderr = (data.run?.stderr ?? '').trim();
+            const exitCode = data.run?.code ?? -1;
+            const passed = exitCode === 0 && stdout === (tc.expectedOutput ?? '').trim();
+
+            results.push({
+                id: tc.id,
+                passed,
+                actualOutput: tc.isHidden ? '' : stdout,
+                error: tc.isHidden ? undefined : (stderr || undefined),
+                isHidden: tc.isHidden,
+            });
+        } catch {
+            results.push({ id: tc.id, passed: false, actualOutput: '', error: tc.isHidden ? undefined : 'Таймаут выполнения', isHidden: tc.isHidden });
+        }
+    }
+
+    const passedCount = results.filter(r => r.passed).length;
+    const autoGrade = testCases.length ? Math.round((passedCount / testCases.length) * assignment.maxScore) : 0;
+
+    return { results, autoGrade };
 };
 
 // ─── Attached (галочка на видео/тесте) ───────────────────────────────────────
@@ -113,7 +174,7 @@ export const createAssignment = async (req: Request, res: Response) => {
         const userId = (req as any).user.id;
         const { courseId, title, description, deadline, strictDeadline, allowResubmit,
             allowedFileTypes, showFeedbackToStudent, reminderDays, maxScore, taskLink, orderIndex,
-            allowCodeSubmission, allowedCodeLanguages, recordCodeHistory, codeHistoryDeleteDays, codeTemplate,
+            allowCodeSubmission, allowedCodeLanguages, recordCodeHistory, codeHistoryDeleteDays, codeTemplate, testCases,
         } = req.body;
 
         const { type: reqType } = req.body;
@@ -139,6 +200,7 @@ export const createAssignment = async (req: Request, res: Response) => {
             recordCodeHistory: recordCodeHistory !== false,
             codeHistoryDeleteDays: codeHistoryDeleteDays || null,
             codeTemplate: codeTemplate || null,
+            testCases: testCases || [],
         });
 
         const deadlineStr = new Date(deadline).toLocaleDateString('ru-RU');
@@ -161,7 +223,7 @@ export const updateAssignment = async (req: Request, res: Response) => {
 
         const { title, description, deadline, strictDeadline, allowResubmit,
             allowedFileTypes, showFeedbackToStudent, reminderDays, maxScore, taskLink,
-            allowCodeSubmission, allowedCodeLanguages, recordCodeHistory, codeHistoryDeleteDays, codeTemplate,
+            allowCodeSubmission, allowedCodeLanguages, recordCodeHistory, codeHistoryDeleteDays, codeTemplate, testCases,
         } = req.body;
 
         await a.update({
@@ -180,6 +242,7 @@ export const updateAssignment = async (req: Request, res: Response) => {
             recordCodeHistory: recordCodeHistory !== undefined ? recordCodeHistory !== false : a.recordCodeHistory,
             codeHistoryDeleteDays: codeHistoryDeleteDays !== undefined ? (codeHistoryDeleteDays || null) : a.codeHistoryDeleteDays,
             codeTemplate: codeTemplate !== undefined ? (codeTemplate || null) : a.codeTemplate,
+            testCases: testCases !== undefined ? testCases : a.testCases,
         });
 
         res.json(a);
@@ -281,8 +344,8 @@ export const getTeacherAssignments = async (req: Request, res: Response) => {
     try {
         const userId = (req as any).user.id;
         const assignments = await HomeworkAssignment.findAll({
-            where: { createdBy: userId, type: 'standalone' },
-            include: [{ model: HomeworkSubmission, as: 'submissions', attributes: ['id', 'status', 'isLate', 'grade'] }],
+            where: { createdBy: userId, type: ['standalone', 'code'] },
+            include: [{ model: HomeworkSubmission, as: 'submissions', attributes: ['id', 'status', 'isLate', 'grade', 'autoGrade'] }],
             order: [['deadline', 'ASC']],
         });
         res.json(assignments);
@@ -476,17 +539,42 @@ export const gradeSubmission = async (req: Request, res: Response) => {
 export const getCourseHomeworkStats = async (req: Request, res: Response) => {
     try {
         const { courseId } = req.params;
-        const assignments = await HomeworkAssignment.findAll({ where: { courseId: Number(courseId), type: 'standalone' } });
-        if (!assignments.length) { res.json({ avgScore: null, totalAssignments: 0, gradedCount: 0 }); return; }
+        const assignments = await HomeworkAssignment.findAll({ where: { courseId: Number(courseId) } });
+        if (!assignments.length) { res.json({ avgScorePercent: null, totalAssignments: 0, gradedCount: 0 }); return; }
 
+        const maxScoreById = new Map(assignments.map(a => [a.id, a.maxScore]));
         const subs = await HomeworkSubmission.findAll({
             where: { assignmentId: { [Op.in]: assignments.map(a => a.id) }, status: 'graded', grade: { [Op.not]: null } },
         });
 
-        const avgScore = subs.length ? Math.round(subs.reduce((s, x) => s + (x.grade ?? 0), 0) / subs.length) : null;
-        res.json({ avgScore, totalAssignments: assignments.length, gradedCount: subs.length });
+        const percents = subs.map(s => ((s.grade ?? 0) / (maxScoreById.get(s.assignmentId) || 100)) * 100);
+        const avgScorePercent = percents.length ? Math.round(percents.reduce((s, p) => s + p, 0) / percents.length) : null;
+        res.json({ avgScorePercent, totalAssignments: assignments.length, gradedCount: subs.length });
     } catch {
         res.status(500).json({ message: 'Ошибка' });
+    }
+};
+
+// POST /hw/:assignmentId/check-code  — прогон кода студента по тест-кейсам (без фиксации сдачи)
+export const checkCodeHomework = async (req: Request, res: Response) => {
+    try {
+        const { assignmentId } = req.params;
+        const { codeContent, codeLanguage } = req.body;
+
+        const assignment = await HomeworkAssignment.findByPk(Number(assignmentId));
+        if (!assignment) { res.status(404).json({ message: 'Задание не найдено' }); return; }
+        if (!assignment.allowCodeSubmission) { res.status(400).json({ message: 'Сдача кода не разрешена для этого задания' }); return; }
+        if (!codeContent?.trim()) { res.status(400).json({ message: 'Код не может быть пустым' }); return; }
+        if (!FILE_NAMES[codeLanguage]) { res.status(400).json({ message: 'Неподдерживаемый язык' }); return; }
+        if (!assignment.testCases?.length) { res.status(400).json({ message: 'Для этого задания не заданы тест-кейсы' }); return; }
+
+        const { results, autoGrade } = await runTestCases(assignment, codeContent, codeLanguage);
+        const passedCount = results.filter(r => r.passed).length;
+
+        res.json({ results, autoGrade, maxScore: assignment.maxScore, passedCount, totalCount: assignment.testCases.length });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ message: 'Ошибка проверки кода' });
     }
 };
 
@@ -520,6 +608,15 @@ export const submitCodeHomework = async (req: Request, res: Response) => {
             ? new Date(now.getTime() + assignment.codeHistoryDeleteDays * 86_400_000)
             : null;
 
+        // Автопроверка по тест-кейсам (если заданы) — фиксируется вместе со сдачей
+        let testResults: TestCaseResult[] | null = null;
+        let autoGrade: number | null = null;
+        if (assignment.testCases?.length) {
+            const checked = await runTestCases(assignment, codeContent, codeLanguage);
+            testResults = checked.results;
+            autoGrade = checked.autoGrade;
+        }
+
         const existing = await HomeworkSubmission.findOne({
             where: { assignmentId: Number(assignmentId), studentId: userId },
         });
@@ -532,6 +629,7 @@ export const submitCodeHomework = async (req: Request, res: Response) => {
             await existing.update({
                 codeLanguage, codeContent, codeLastOutput: codeLastOutput ?? null,
                 codeHistory: historyStr, codeHistoryCompressed: false, codeHistoryDeleteAt,
+                testResults, autoGrade,
                 submittedAt: now, isLate, status: 'resubmitted',
             });
             res.json(existing);
@@ -541,6 +639,7 @@ export const submitCodeHomework = async (req: Request, res: Response) => {
                 files: [], textAnswer: null,
                 codeLanguage, codeContent, codeLastOutput: codeLastOutput ?? null,
                 codeHistory: historyStr, codeHistoryCompressed: false, codeHistoryDeleteAt,
+                testResults, autoGrade,
                 submittedAt: now, isLate, status: 'submitted',
             });
             sendNotification(

@@ -3,13 +3,14 @@ import { Icons } from '../Icons';
 
 export const StudentDetailView = ({ data }: { data: any }) => {
     // Внутренний стейт для погружения в конкретный материал
-    const [selectedItem, setSelectedItem] = useState<{ id: number, type: 'video' | 'test', title: string } | null>(null);
+    const [selectedItem, setSelectedItem] = useState<{ id: number, type: 'video' | 'test' | 'homework', title: string } | null>(null);
 
     if (!data || !data.student) return null;
 
     const interactiveAnswers = data.interactiveAnswers || [];
     const watchedVideos = data.videoProgress?.filter((v: any) => v.isWatched) || [];
     const testResults = data.testResults || [];
+    const homeworkSubmissions = data.homeworkSubmissions || [];
 
     // --- УРОВЕНЬ 2: ДЕТАЛИЗАЦИЯ ПО КОНКРЕТНОМУ МАТЕРИАЛУ ---
     if (selectedItem) {
@@ -108,6 +109,96 @@ export const StudentDetailView = ({ data }: { data: any }) => {
                 </div>
             );
         }
+
+        if (selectedItem.type === 'homework') {
+            const sub = homeworkSubmissions.find((h: any) => h.id === selectedItem.id);
+            if (!sub) return null;
+
+            return (
+                <div style={{ padding: '10px 0', animation: 'fadeIn 0.3s' }}>
+                    <button className="btn btn-ghost" onClick={() => setSelectedItem(null)} style={{ padding: 0, color: 'var(--text-muted)', marginBottom: '20px' }}>
+                        ← Назад к профилю
+                    </button>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                        <h3 style={{ margin: 0 }}>Задание: {selectedItem.title}</h3>
+                        {sub.status === 'graded' && (
+                            <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#4dff88', background: 'rgba(255,255,255,0.05)', padding: '5px 15px', borderRadius: '10px', border: '1px solid rgba(77,255,136,0.2)' }}>
+                                {sub.grade}/{sub.assignment?.maxScore ?? 100}
+                            </div>
+                        )}
+                    </div>
+
+                    {sub.codeContent && (
+                        <div style={{ marginBottom: '16px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Код студента:</span>
+                                <span style={{ padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, background: 'rgba(124,58,237,0.15)', color: '#a78bfa' }}>
+                                    {sub.codeLanguage}
+                                </span>
+                            </div>
+                            <pre style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '14px', fontSize: '13px', color: 'var(--text-main)', overflowX: 'auto', maxHeight: '320px', margin: 0, fontFamily: 'monospace', lineHeight: 1.5 }}>
+                                {sub.codeContent}
+                            </pre>
+                            {sub.codeLastOutput && (
+                                <div style={{ marginTop: '8px', padding: '10px 12px', background: '#0d0d0d', borderRadius: '8px', fontSize: '12px', fontFamily: 'monospace', color: '#e5e7eb', whiteSpace: 'pre-wrap', maxHeight: '120px', overflow: 'auto' }}>
+                                    {sub.codeLastOutput}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {sub.textAnswer && (
+                        <div style={{ marginBottom: '16px', padding: '12px', background: 'var(--bg-input)', borderRadius: '10px', fontSize: '13px', color: 'var(--text-main)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+                            {sub.textAnswer}
+                        </div>
+                    )}
+
+                    {sub.files?.length > 0 && (
+                        <div style={{ marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            {sub.files.map((f: any, i: number) => (
+                                <a key={i} href={f.path} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--primary)' }}>
+                                    <Icons.FileText size={13} /> {f.name}
+                                </a>
+                            ))}
+                        </div>
+                    )}
+
+                    {sub.testResults?.length > 0 && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', background: 'var(--bg-card)', borderRadius: '10px', padding: '14px', border: '1px solid var(--border-color)' }}>
+                            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '2px' }}>Автопроверка тест-кейсами:</div>
+                            {sub.testResults.map((r: any, i: number) => (
+                                <div key={r.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '13px' }}>
+                                    <span style={{ color: r.passed ? '#4dff88' : '#ff4d4d', fontWeight: 700, flexShrink: 0 }}>{r.passed ? '✓' : '✗'}</span>
+                                    <span style={{ color: 'var(--text-main)' }}>
+                                        Тест {i + 1}
+                                        {r.isHidden ? ' [скрытый]' : null}
+                                        {!r.isHidden && r.error ? <span style={{ color: '#ff4d4d' }}> — {r.error}</span> : null}
+                                        {!r.isHidden && !r.passed && r.actualOutput ? <span style={{ color: 'var(--text-muted)' }}> — получено: {r.actualOutput}</span> : null}
+                                    </span>
+                                </div>
+                            ))}
+                            {sub.autoGrade !== null && sub.autoGrade !== undefined && (
+                                <div style={{ marginTop: '4px', fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>
+                                    Автооценка: {sub.autoGrade} из {sub.assignment?.maxScore ?? 100}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {sub.teacherComment && (
+                        <div style={{ marginTop: '16px', fontSize: '13px', color: 'var(--text-main)', lineHeight: 1.5 }}>
+                            <span style={{ color: 'var(--text-muted)', marginRight: '6px' }}>Комментарий препода:</span>
+                            {sub.teacherComment}
+                        </div>
+                    )}
+
+                    {!sub.codeContent && !sub.textAnswer && !sub.files?.length && (
+                        <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '30px', border: '1px dashed var(--border-color)', borderRadius: '12px' }}>Нет данных о содержимом сдачи</div>
+                    )}
+                </div>
+            );
+        }
     }
 
     // --- УРОВЕНЬ 1: СПИСОК ПРОЙДЕННЫХ МАТЕРИАЛОВ ---
@@ -168,7 +259,32 @@ export const StudentDetailView = ({ data }: { data: any }) => {
                     })}
                     
 
-                    {testResults.length === 0 && watchedVideos.length === 0 && (
+                    {/* Список сдач по заданиям */}
+                    {homeworkSubmissions.map((s: any) => {
+                        const statusLabel = s.status === 'graded' ? 'Проверено' : s.isLate ? 'Сдано с опозданием' : 'На проверке';
+                        const statusColor = s.status === 'graded' ? '#4dff88' : s.isLate ? '#ffd700' : 'var(--text-muted)';
+                        return (
+                            <div
+                                key={`hw-${s.id}`}
+                                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', padding: '15px 20px', borderRadius: '12px', cursor: 'pointer', transition: '0.2s', border: '1px solid transparent' }}
+                                onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--border-color)'}
+                                onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}
+                                onClick={() => setSelectedItem({ id: s.id, type: 'homework', title: s.assignment?.title || 'Задание' })}
+                            >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                                    <div><Icons.Upload size={20}/></div>
+                                    <div style={{ color: 'var(--text-main)' }}>{s.assignment?.title || 'Задание'}</div>
+                                </div>
+                                {s.status === 'graded' ? (
+                                    <div style={{ color: statusColor, fontWeight: 'bold' }}>{s.grade}/{s.assignment?.maxScore ?? 100}</div>
+                                ) : (
+                                    <div style={{ color: statusColor, fontSize: '12px', background: 'var(--bg-input)', padding: '4px 8px', borderRadius: '6px' }}>{statusLabel}</div>
+                                )}
+                            </div>
+                        );
+                    })}
+
+                    {testResults.length === 0 && watchedVideos.length === 0 && homeworkSubmissions.length === 0 && (
                         <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '20px' }}>Студент еще не приступал к курсу</div>
                     )}
                 </div>

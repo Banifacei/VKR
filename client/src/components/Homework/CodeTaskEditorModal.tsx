@@ -11,6 +11,16 @@ interface Props {
     onUpdated: (updated: any) => void;
 }
 
+interface TestCase {
+    id: string;
+    input: string;
+    expectedOutput: string;
+    isHidden: boolean;
+    description?: string;
+}
+
+const makeTestCaseId = () => `tc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
 const CODE_LANGUAGES = [
     { id: 'python',     label: 'Python' },
     { id: 'javascript', label: 'JavaScript' },
@@ -22,7 +32,7 @@ const CODE_LANGUAGES = [
 
 export const CodeTaskEditorModal: React.FC<Props> = ({ assignment, onClose, onUpdated }) => {
     const { showToast } = useToast();
-    const [tab, setTab] = useState<'content' | 'settings'>('content');
+    const [tab, setTab] = useState<'content' | 'tests' | 'settings'>('content');
     const [saving, setSaving] = useState(false);
     const [publishing, setPublishing] = useState(false);
     const [isPublished, setIsPublished] = useState(assignment.isPublished || false);
@@ -38,6 +48,7 @@ export const CodeTaskEditorModal: React.FC<Props> = ({ assignment, onClose, onUp
         showFeedbackToStudent: assignment.showFeedbackToStudent !== false,
         allowResubmit: assignment.allowResubmit || false,
         strictDeadline: assignment.strictDeadline || false,
+        testCases: (assignment.testCases || []) as TestCase[],
     });
 
     const toggleLang = (id: string) =>
@@ -47,6 +58,21 @@ export const CodeTaskEditorModal: React.FC<Props> = ({ assignment, onClose, onUp
                 ? f.allowedCodeLanguages.filter(x => x !== id)
                 : [...f.allowedCodeLanguages, id],
         }));
+
+    const addTestCase = () =>
+        setForm(f => ({
+            ...f,
+            testCases: [...f.testCases, { id: makeTestCaseId(), input: '', expectedOutput: '', isHidden: false }],
+        }));
+
+    const updateTestCase = (id: string, patch: Partial<TestCase>) =>
+        setForm(f => ({
+            ...f,
+            testCases: f.testCases.map(tc => tc.id === id ? { ...tc, ...patch } : tc),
+        }));
+
+    const removeTestCase = (id: string) =>
+        setForm(f => ({ ...f, testCases: f.testCases.filter(tc => tc.id !== id) }));
 
     const handleSave = async () => {
         if (!form.deadline) { showToast('Укажите дедлайн', 'error'); return; }
@@ -116,7 +142,7 @@ export const CodeTaskEditorModal: React.FC<Props> = ({ assignment, onClose, onUp
 
                 {/* Табы */}
                 <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)' }}>
-                    {([['content', 'Условие'], ['settings', 'Настройки']] as const).map(([key, label]) => (
+                    {([['content', 'Условие'], ['tests', `Тесты${form.testCases.length ? ` (${form.testCases.length})` : ''}`], ['settings', 'Настройки']] as const).map(([key, label]) => (
                         <button key={key} onClick={() => setTab(key)}
                             style={{ flex: 1, padding: '11px', background: 'none', border: 'none', borderBottom: tab === key ? '2px solid #22d3ee' : '2px solid transparent', cursor: 'pointer', fontSize: '14px', fontWeight: tab === key ? 700 : 400, color: tab === key ? '#22d3ee' : 'var(--text-muted)', transition: '0.15s' }}>
                             {label}
@@ -168,6 +194,60 @@ export const CodeTaskEditorModal: React.FC<Props> = ({ assignment, onClose, onUp
                                     })}
                                 </div>
                             </div>
+                        </>
+                    )}
+
+                    {tab === 'tests' && (
+                        <>
+                            <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                                Код студента прогоняется через каждый тест: на вход подаётся «Вход» (stdin), вывод программы сверяется с «Ожидаемый вывод». Скрытые тесты студент не видит — только результат (прошёл / не прошёл).
+                            </div>
+
+                            {form.testCases.map((tc, i) => (
+                                <div key={tc.id} style={{ background: 'var(--bg-input)', borderRadius: '12px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>Тест {i + 1}</span>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto', fontSize: '12px', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                                            <input type="checkbox" checked={tc.isHidden}
+                                                onChange={e => updateTestCase(tc.id, { isHidden: e.target.checked })} />
+                                            🔒 Скрытый
+                                        </label>
+                                        <button onClick={() => removeTestCase(tc.id)}
+                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '12px', padding: '2px 6px' }}>
+                                            Удалить
+                                        </button>
+                                    </div>
+                                    <input
+                                        className="deck-input"
+                                        style={{ background: 'var(--bg-deep)', width: '100%', fontSize: '13px' }}
+                                        placeholder="Описание (необязательно)"
+                                        value={tc.description || ''}
+                                        onChange={e => updateTestCase(tc.id, { description: e.target.value })}
+                                    />
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                                        <div>
+                                            <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Вход (stdin)</label>
+                                            <textarea className="deck-input"
+                                                style={{ background: 'var(--bg-deep)', width: '100%', minHeight: '60px', resize: 'vertical', fontSize: '13px', fontFamily: 'monospace' }}
+                                                value={tc.input}
+                                                onChange={e => updateTestCase(tc.id, { input: e.target.value })}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Ожидаемый вывод</label>
+                                            <textarea className="deck-input"
+                                                style={{ background: 'var(--bg-deep)', width: '100%', minHeight: '60px', resize: 'vertical', fontSize: '13px', fontFamily: 'monospace' }}
+                                                value={tc.expectedOutput}
+                                                onChange={e => updateTestCase(tc.id, { expectedOutput: e.target.value })}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+
+                            <button className="btn btn-ghost" onClick={addTestCase} style={{ alignSelf: 'flex-start' }}>
+                                + Добавить тест
+                            </button>
                         </>
                     )}
 

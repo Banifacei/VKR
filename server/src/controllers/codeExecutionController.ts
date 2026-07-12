@@ -10,19 +10,19 @@ import { promisify } from 'util';
 
 const execAsync = promisify(exec);
 
-const PISTON_URL = process.env.PISTON_URL || 'http://lumeo-piston:2000';
+export const PISTON_URL = process.env.PISTON_URL || 'http://lumeo-piston:2000';
 const PISTON_PACKAGES_DIR = '/piston/packages';
 const PISTON_INDEX_URL = 'https://github.com/engineer-man/piston/releases/download/pkgs/index';
 const PISTON_CONTAINER = process.env.PISTON_CONTAINER || 'lumeo-piston';
 const DOCKER_SOCKET = '/var/run/docker.sock';
 
-const FILE_NAMES: Record<string, string> = {
+export const FILE_NAMES: Record<string, string> = {
     python: 'main.py', javascript: 'main.js', typescript: 'main.ts',
     java: 'Main.java', c: 'main.c', 'c++': 'main.cpp',
 };
 
 // Maps our language IDs to the language name Piston reports in /api/v2/runtimes
-const PISTON_LANG: Record<string, string> = {
+export const PISTON_LANG: Record<string, string> = {
     python: 'python',
     javascript: 'javascript',
     typescript: 'typescript',

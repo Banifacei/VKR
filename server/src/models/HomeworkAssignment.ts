@@ -97,4 +97,14 @@ export class HomeworkAssignment extends Model {
     // Стартовый шаблон кода от преподавателя
     @Column({ type: DataType.TEXT, allowNull: true })
     declare codeTemplate: string | null;
+
+    // Тест-кейсы для автопроверки кода
+    @Column({ type: DataType.JSONB, defaultValue: [] })
+    declare testCases: {
+        id: string;
+        input: string;
+        expectedOutput: string;
+        isHidden: boolean;
+        description?: string;
+    }[];
 }

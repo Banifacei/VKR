@@ -87,7 +87,7 @@ const TeacherView: React.FC = () => {
     const [selected, setSelected] = useState<any>(null);
     const [submissions, setSubmissions] = useState<any[]>([]);
     const [loadingSubs, setLoadingSubs] = useState(false);
-    const [filterStatus, setFilterStatus] = useState<'all' | 'ungraded' | 'late'>('all');
+    const [filterStatus, setFilterStatus] = useState<'all' | 'ungraded' | 'late' | 'autochecked'>('all');
     const { showToast } = useToast();
 
     useEffect(() => {
@@ -110,6 +110,7 @@ const TeacherView: React.FC = () => {
     const filtered = submissions.filter(s => {
         if (filterStatus === 'ungraded') return s.status !== 'graded';
         if (filterStatus === 'late') return s.isLate;
+        if (filterStatus === 'autochecked') return s.testResults?.length > 0;
         return true;
     });
 
@@ -167,14 +168,14 @@ const TeacherView: React.FC = () => {
 
                     {/* Фильтры */}
                     <div className="hw-filter-bar" style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-                        {(['all', 'ungraded', 'late'] as const).map(f => (
+                        {(['all', 'ungraded', 'late', 'autochecked'] as const).map(f => (
                             <button key={f} onClick={() => setFilterStatus(f)}
                                 style={{ padding: '5px 14px', borderRadius: '8px', fontSize: '13px', cursor: 'pointer', border: '1px solid',
                                     background: filterStatus === f ? 'rgba(124,58,237,0.15)' : 'var(--bg-input)',
                                     borderColor: filterStatus === f ? 'rgba(124,58,237,0.4)' : 'var(--border-color)',
                                     color: filterStatus === f ? '#a78bfa' : 'var(--text-muted)',
                                 }}>
-                                {f === 'all' ? 'Все' : f === 'ungraded' ? 'Не проверено' : 'С опозданием'}
+                                {f === 'all' ? 'Все' : f === 'ungraded' ? 'Не проверено' : f === 'late' ? 'С опозданием' : 'Автопроверено'}
                             </button>
                         ))}
                     </div>
@@ -275,6 +276,27 @@ const SubmissionCard: React.FC<{ sub: any; badge: any; maxScore: number; onGrade
                             {sub.codeLastOutput && (
                                 <div style={{ marginTop: '6px', padding: '8px 10px', background: '#0d0d0d', borderRadius: '8px', fontSize: '12px', fontFamily: 'monospace', color: '#e5e7eb', whiteSpace: 'pre-wrap', maxHeight: '100px', overflow: 'auto' }}>
                                     {sub.codeLastOutput}
+                                </div>
+                            )}
+                            {sub.testResults?.length > 0 && (
+                                <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '4px', background: 'var(--bg-input)', borderRadius: '8px', padding: '10px' }}>
+                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px' }}>Автопроверка тест-кейсами:</div>
+                                    {sub.testResults.map((r: any, i: number) => (
+                                        <div key={r.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '12px' }}>
+                                            <span style={{ color: r.passed ? '#22c55e' : '#ef4444', fontWeight: 700, flexShrink: 0 }}>{r.passed ? '✓' : '✗'}</span>
+                                            <span style={{ color: 'var(--text-main)' }}>
+                                                Тест {i + 1}
+                                                {r.isHidden ? ' [скрытый]' : null}
+                                                {!r.isHidden && r.error ? <span style={{ color: '#ef4444' }}> — {r.error}</span> : null}
+                                                {!r.isHidden && !r.passed && r.actualOutput ? <span style={{ color: 'var(--text-muted)' }}> — получено: {r.actualOutput}</span> : null}
+                                            </span>
+                                        </div>
+                                    ))}
+                                    {sub.autoGrade !== null && sub.autoGrade !== undefined && (
+                                        <div style={{ marginTop: '4px', fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>
+                                            Автооценка: {sub.autoGrade} из {maxScore}
+                                        </div>
+                                    )}
                                 </div>
                             )}
                             {showHistory && (

@@ -8,6 +8,8 @@ import { Course } from '../models/Course.js';
 import { UserTestResult } from '../models/UserTestResult.js';
 import { CourseTest } from '../models/CourseTest.js';
 import { CourseEnrollment } from '../models/CourseEnrollment.js';
+import { HomeworkSubmission } from '../models/HomeworkSubmission.js';
+import { HomeworkAssignment } from '../models/HomeworkAssignment.js';
 import { addSystemLog } from './adminController.js';
 import { CourseCollaborator } from '../models/CourseCollaborator.js';
 import { CourseRating } from '../models/CourseRating.js';
@@ -220,6 +222,31 @@ export const getUserStats = async (req: Request, res: Response) => {
             updatedAt: tr.updatedAt
         }));
 
+        // 5.1 Оценки за задания (все типы: обычные, код-задания, привязанные)
+        const gradedHomework = await HomeworkSubmission.findAll({
+            where: { studentId: userId, status: 'graded', grade: { [Op.not]: null } },
+            include: [{ model: HomeworkAssignment, as: 'assignment', attributes: ['id', 'title', 'maxScore', 'courseId'], include: [{ model: Course, attributes: ['title'] }] }],
+            order: [['gradedAt', 'DESC']],
+        });
+
+        const formattedHomework = gradedHomework
+            .filter(s => s.assignment)
+            .map(s => ({
+                id: s.id,
+                assignmentId: s.assignmentId,
+                title: s.assignment.title,
+                grade: s.grade,
+                maxScore: s.assignment.maxScore,
+                percent: Math.round(((s.grade ?? 0) / s.assignment.maxScore) * 100),
+                courseTitle: s.assignment.course?.title || 'Без курса',
+                courseId: s.assignment.courseId,
+                gradedAt: s.gradedAt,
+            }));
+
+        const homeworkAvgScore = formattedHomework.length
+            ? Math.round(formattedHomework.reduce((sum, h) => sum + h.percent, 0) / formattedHomework.length)
+            : 0;
+
         // 5. ОТПРАВЛЯЕМ ЕДИНЫЙ ОТВЕТ (дубль удален)
         res.json({
             stats: {
@@ -228,8 +255,11 @@ export const getUserStats = async (req: Request, res: Response) => {
                 aiChecksCount: aiChecks.length,
                 averageAiScore,
                 watchedVideosCount,
-                completedTestsCount: formattedTests.length
+                completedTestsCount: formattedTests.length,
+                homeworkGradedCount: formattedHomework.length,
+                homeworkAvgScore,
             },
+            homeworkGrades: formattedHomework,
             history: history.filter(h => h.isWatched).map(h => ({ 
                 videoId: h.videoId,
                 videoTitle: h.video?.title || 'Удаленное видео',

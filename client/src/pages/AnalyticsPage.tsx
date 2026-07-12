@@ -350,13 +350,14 @@ export const AnalyticsPage = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [selectedCourse, setSelectedCourse] = useState<any | null>(null);
     const [analytics, setAnalytics] = useState<any | null>(null);
+    const [homeworkStats, setHomeworkStats] = useState<{ avgScorePercent: number | null; totalAssignments: number; gradedCount: number } | null>(null);
     const [isFetchingStats, setIsFetchingStats] = useState(false);
     const [drillDownConfig, setDrillDownConfig] = useState<{ id: number | null, type: 'student' | 'test' | 'video' | null } | null>(null);
     const [exportModalConfig, setExportModalConfig] = useState<{isOpen: boolean, type: 'gost' | 'detailed' | null}>({ isOpen: false, type: null });
     const [studentSearch, setStudentSearch] = useState('');
     const [isDemoMode, setIsDemoMode] = useState(() => localStorage.getItem('lumeo_analytics_demo') === 'true');
     const [demoButtonVisible, setDemoButtonVisible] = useState(true);
-    const [sortField, setSortField] = useState<'progress' | 'score' | 'activity'>('progress');
+    const [sortField, setSortField] = useState<'progress' | 'score' | 'homework' | 'activity'>('progress');
     const [showRisk, setShowRisk] = useState(false);
 
     useEffect(() => {
@@ -398,7 +399,7 @@ export const AnalyticsPage = () => {
             setSelectedCourse(course);
             setIsFetchingStats(true);
             setSortField('progress');
-            setTimeout(() => { setAnalytics(DEMO_ANALYTICS[course.id]); setIsFetchingStats(false); }, 600);
+            setTimeout(() => { setAnalytics(DEMO_ANALYTICS[course.id]); setHomeworkStats({ avgScorePercent: 78, totalAssignments: 6, gradedCount: 24 }); setIsFetchingStats(false); }, 600);
             return;
         }
         setSelectedCourse(course);
@@ -407,6 +408,7 @@ export const AnalyticsPage = () => {
         try {
             const res = await api.get(`/videos/courses/${course.id}/analytics`);
             setAnalytics(res.data);
+            api.get(`/hw/course/${course.id}/stats`).then(r => setHomeworkStats(r.data)).catch(() => setHomeworkStats(null));
         } catch {
             showToast('Ошибка загрузки аналитики курса', 'error');
             setSelectedCourse(null);
@@ -415,7 +417,7 @@ export const AnalyticsPage = () => {
         }
     };
 
-    const handleBackToDashboard = () => { setSelectedCourse(null); setAnalytics(null); };
+    const handleBackToDashboard = () => { setSelectedCourse(null); setAnalytics(null); setHomeworkStats(null); };
 
     if (isLoading) {
         return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', height: '100vh', color: 'var(--primary)', fontSize: '18px' }}><Icons.Spinner size={20}/> Lumeo Intelligence: Загрузка...</div>;
@@ -428,6 +430,7 @@ export const AnalyticsPage = () => {
 
     const sortedStudents = [...students].sort((a, b) => {
         if (sortField === 'score') return b.avgScore - a.avgScore;
+        if (sortField === 'homework') return (b.homeworkAvg ?? -1) - (a.homeworkAvg ?? -1);
         if (sortField === 'activity') {
             const ta = a.lastLogin ? new Date(a.lastLogin).getTime() : 0;
             const tb = b.lastLogin ? new Date(b.lastLogin).getTime() : 0;
@@ -619,12 +622,13 @@ export const AnalyticsPage = () => {
                             </div>
                         ) : (
                             <>
-                                {/* ── 5 ВИДЖЕТОВ ─────────────────────────────────────── */}
-                                <div className="analytics-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '16px', marginBottom: '28px' }}>
+                                {/* ── ВИДЖЕТЫ ─────────────────────────────────────── */}
+                                <div className="analytics-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '16px', marginBottom: '28px' }}>
                                     {[
                                         { icon: <Icons.Users size={24}/>, label: 'Студентов',      value: analytics.totalStudents,     color: 'var(--text-muted)', bg: 'rgba(255,255,255,0.05)' },
                                         { icon: <Icons.TrendingUp size={24}/>, label: 'Ср. прогресс', value: `${analytics.globalAvgProgress}%`, color: 'var(--primary)', bg: 'rgba(var(--primary-rgb),0.1)' },
                                         { icon: <Icons.Star size={24}/>, label: 'Ср. балл тестов', value: `${analytics.globalAvgScore}%`,  color: '#4dff88', bg: 'rgba(77,255,136,0.1)' },
+                                        { icon: <Icons.Upload size={24}/>, label: 'Ср. балл за задания', value: homeworkStats?.avgScorePercent != null ? `${homeworkStats.avgScorePercent}%` : '—', color: '#a78bfa', bg: 'rgba(167,139,250,0.1)' },
                                         { icon: <Icons.Trophy size={24}/>, label: 'Завершили курс', value: completedCount,                color: '#ffd700', bg: 'rgba(255,215,0,0.1)' },
                                         { icon: <Icons.AlertTriangle size={24}/>, label: 'Зона риска', value: atRisk.length,               color: atRisk.length > 0 ? '#ff4d4d' : '#4dff88', bg: atRisk.length > 0 ? 'rgba(255,77,77,0.1)' : 'rgba(77,255,136,0.1)' },
                                     ].map((w, i) => (
@@ -689,7 +693,7 @@ export const AnalyticsPage = () => {
 
                                         {/* Сортировка */}
                                         <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
-                                            {([['progress', 'Прогресс'], ['score', 'Балл'], ['activity', 'Активность']] as const).map(([key, label]) => (
+                                            {([['progress', 'Прогресс'], ['score', 'Балл'], ['homework', 'Задания'], ['activity', 'Активность']] as const).map(([key, label]) => (
                                                 <button
                                                     key={key}
                                                     onClick={() => setSortField(key)}
@@ -704,7 +708,7 @@ export const AnalyticsPage = () => {
                                             <div style={{ textAlign: 'center' }}>Ранг</div>
                                             <div>Студент</div>
                                             <div className="analytics-rank-progress-col">Прогресс</div>
-                                            <div style={{ textAlign: 'right' }}>{sortField === 'activity' ? 'Активность' : 'Балл'}</div>
+                                            <div style={{ textAlign: 'right' }}>{sortField === 'activity' ? 'Активность' : sortField === 'homework' ? 'Задания' : 'Балл'}</div>
                                             <div/>
                                         </div>
 
@@ -713,7 +717,7 @@ export const AnalyticsPage = () => {
                                             {students.length > 0 && filteredStudents.length === 0 && <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border-color)', borderRadius: '12px' }}>Ничего не найдено</div>}
 
                                             {filteredStudents.map((student: any) => {
-                                                const originalRank = students.findIndex(s => s.id === student.id);
+                                                const originalRank = sortedStudents.findIndex(s => s.id === student.id);
                                                 const isTop1 = originalRank === 0;
                                                 const rankStyles: Record<number, { bg: string; border: string; color: string }> = {
                                                     0: { bg: 'rgba(255,215,0,0.15)',   border: 'rgba(255,215,0,0.5)',   color: '#FFD700' },
@@ -759,7 +763,11 @@ export const AnalyticsPage = () => {
                                                         <div style={{ textAlign: 'right', fontSize: '12px' }}>
                                                             {sortField === 'activity'
                                                                 ? <span style={{ color: 'var(--text-muted)' }}>{formatLastLogin(student.lastLogin)}</span>
-                                                                : <span style={{ color: student.avgScore >= 70 ? '#4dff88' : student.avgScore >= 50 ? '#ffd700' : '#ff4d4d', fontWeight: 'bold' }}>{student.avgScore}%</span>
+                                                                : sortField === 'homework'
+                                                                    ? (student.homeworkAvg !== null
+                                                                        ? <span style={{ color: student.homeworkAvg >= 70 ? '#4dff88' : student.homeworkAvg >= 50 ? '#ffd700' : '#ff4d4d', fontWeight: 'bold' }}>{student.homeworkAvg}%</span>
+                                                                        : <span style={{ color: 'var(--text-muted)' }}>—</span>)
+                                                                    : <span style={{ color: student.avgScore >= 70 ? '#4dff88' : student.avgScore >= 50 ? '#ffd700' : '#ff4d4d', fontWeight: 'bold' }}>{student.avgScore}%</span>
                                                             }
                                                         </div>
                                                         <div style={{ color: 'var(--text-muted)', textAlign: 'center', fontSize: '16px', fontWeight: 'bold' }}>›</div>
