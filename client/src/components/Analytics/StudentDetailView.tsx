@@ -154,6 +154,13 @@ export const StudentDetailView = ({ data }: { data: any }) => {
                         </div>
                     )}
 
+                    {sub.aiSimilarity !== null && sub.aiSimilarity !== undefined && (
+                        <div style={{ marginBottom: '16px', fontSize: '12px', color: 'var(--text-muted)' }}>
+                            ИИ-сходство с эталоном: <strong style={{ color: 'var(--text-main)' }}>{sub.aiSimilarity}%</strong>
+                            {sub.autoGrade !== null && sub.autoGrade !== undefined && <> · подсказка по баллу: <strong style={{ color: 'var(--text-main)' }}>{sub.autoGrade}</strong></>}
+                        </div>
+                    )}
+
                     {sub.files?.length > 0 && (
                         <div style={{ marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                             {sub.files.map((f: any, i: number) => (

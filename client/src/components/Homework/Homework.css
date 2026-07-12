@@ -41,6 +41,14 @@ html.theme-light .hw-datetime input[type="datetime-local"] {
     padding: 16px;
 }
 
+.hw-assignment-card:not(.active):hover {
+    border-color: rgba(124,58,237,0.35) !important;
+}
+
+.hw-submission-card:hover {
+    border-color: rgba(124,58,237,0.25);
+}
+
 /* Светлая тема — карточки заданий */
 html.theme-light .hw-assignment-card {
     background: #fff;

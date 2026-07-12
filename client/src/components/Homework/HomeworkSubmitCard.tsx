@@ -50,6 +50,8 @@ export const HomeworkSubmitCard: React.FC<Props> = (props) => {
     const [submittingCode, setSubmittingCode] = useState(false);
     const [checkingCode, setCheckingCode] = useState(false);
     const [checkResult, setCheckResult] = useState<{ results: { id: string; passed: boolean; actualOutput: string; error?: string; isHidden: boolean }[]; autoGrade: number; maxScore: number; passedCount: number; totalCount: number } | null>(null);
+    const [checkingText, setCheckingText] = useState(false);
+    const [textCheckResult, setTextCheckResult] = useState<{ similarity: number; autoGrade: number; maxScore: number; threshold: number } | null>(null);
     const flushHistoryRef = useRef<(() => HistoryEntry[]) | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const countdown = useCountdown(assignment?.deadline || null);
@@ -101,6 +103,19 @@ export const HomeworkSubmitCard: React.FC<Props> = (props) => {
             showToast(e.response?.data?.message || 'Ошибка отправки', 'error');
         } finally {
             setSubmitting(false);
+        }
+    };
+
+    const handleCheckText = async () => {
+        if (!textAnswer.trim()) { showToast('Напишите ответ перед проверкой', 'error'); return; }
+        setCheckingText(true);
+        try {
+            const r = await api.post(`/hw/${assignment.id}/check-text`, { textAnswer: textAnswer.trim() });
+            setTextCheckResult(r.data);
+        } catch (e: any) {
+            showToast(e.response?.data?.message || 'Ошибка проверки ответа', 'error');
+        } finally {
+            setCheckingText(false);
         }
     };
 
@@ -286,11 +301,29 @@ export const HomeworkSubmitCard: React.FC<Props> = (props) => {
                                 </div>
                             )}
                             <div>
-                                <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Текстовый ответ (необязательно)</label>
+                                <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Текстовый ответ{assignment.hasReferenceAnswer ? '' : ' (необязательно)'}</label>
                                 <textarea className="deck-input" style={{ background: 'var(--bg-input)', width: '100%', minHeight: '80px', resize: 'vertical', fontSize: '14px', lineHeight: 1.5 }}
-                                    placeholder="Пояснение..." value={textAnswer} onChange={e => setTextAnswer(e.target.value)} />
+                                    placeholder="Пояснение..." value={textAnswer}
+                                    onChange={e => { setTextAnswer(e.target.value); setTextCheckResult(null); }} />
                             </div>
+
+                            {textCheckResult && (
+                                <div style={{ background: 'var(--bg-input)', borderRadius: '12px', padding: '12px' }}>
+                                    <div style={{ fontSize: '13px', fontWeight: 700, color: textCheckResult.similarity >= textCheckResult.threshold ? '#22c55e' : '#f59e0b' }}>
+                                        Сходство с ожидаемым ответом: {textCheckResult.similarity}%
+                                    </div>
+                                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                        Оценка-подсказка: {textCheckResult.autoGrade} из {textCheckResult.maxScore} — финальную оценку выставит преподаватель
+                                    </div>
+                                </div>
+                            )}
+
                             <div style={{ display: 'flex', gap: '10px' }}>
+                                {assignment.hasReferenceAnswer && (
+                                    <button className="btn btn-ghost" onClick={handleCheckText} disabled={checkingText}>
+                                        {checkingText ? 'Проверка...' : 'Проверить'}
+                                    </button>
+                                )}
                                 <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleSubmit} disabled={submitting}>
                                     {submitting ? 'Отправка...' : submission ? 'Пересдать' : 'Сдать задание'}
                                 </button>

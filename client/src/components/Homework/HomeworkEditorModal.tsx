@@ -11,12 +11,20 @@ interface Props {
     onUpdated: (updated: any) => void;
 }
 
+interface RubricCriterion {
+    id: string;
+    label: string;
+    points: number;
+}
+
 const FILE_TYPE_OPTIONS = ['pdf', 'docx', 'doc', 'xlsx', 'xls', 'pptx', 'txt', 'png', 'jpg'];
+
+const makeCriterionId = () => `rc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
 export const HomeworkEditorModal: React.FC<Props> = ({ assignment, onClose, onUpdated }) => {
     const { showToast } = useToast();
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const [tab, setTab] = useState<'content' | 'settings'>('content');
+    const [tab, setTab] = useState<'content' | 'rubric' | 'ai' | 'settings'>('content');
     const [saving, setSaving] = useState(false);
     const [publishing, setPublishing] = useState(false);
     const [uploadingFiles, setUploadingFiles] = useState(false);
@@ -48,14 +56,37 @@ export const HomeworkEditorModal: React.FC<Props> = ({ assignment, onClose, onUp
         showFeedbackToStudent: assignment.showFeedbackToStudent,
         allowedFileTypes: (assignment.allowedFileTypes || []) as string[],
         reminderDays: (assignment.reminderDays || []) as number[],
-        maxScore: assignment.maxScore ?? 100,
+        maxScore: assignment.maxScore ?? 5,
         // Компилятор
         allowCodeSubmission: assignment.allowCodeSubmission ?? false,
         allowedCodeLanguages: (assignment.allowedCodeLanguages || []) as string[],
         recordCodeHistory: assignment.recordCodeHistory !== false,
         codeHistoryDeleteDays: assignment.codeHistoryDeleteDays ?? null as number | null,
         codeTemplate: assignment.codeTemplate || '',
+        rubric: (assignment.rubric || []) as RubricCriterion[],
+        referenceAnswer: assignment.referenceAnswer || '',
+        aiThreshold: assignment.aiThreshold ?? 50,
     });
+
+    const rubricTotal = form.rubric.reduce((sum, c) => sum + (Number(c.points) || 0), 0);
+
+    const addCriterion = () =>
+        setForm(f => {
+            const rubric = [...f.rubric, { id: makeCriterionId(), label: '', points: 1 }];
+            return { ...f, rubric, maxScore: rubric.reduce((s, c) => s + (Number(c.points) || 0), 0) };
+        });
+
+    const updateCriterion = (id: string, patch: Partial<RubricCriterion>) =>
+        setForm(f => {
+            const rubric = f.rubric.map(c => c.id === id ? { ...c, ...patch } : c);
+            return { ...f, rubric, maxScore: rubric.reduce((s, c) => s + (Number(c.points) || 0), 0) };
+        });
+
+    const removeCriterion = (id: string) =>
+        setForm(f => {
+            const rubric = f.rubric.filter(c => c.id !== id);
+            return { ...f, rubric, maxScore: rubric.length ? rubric.reduce((s, c) => s + (Number(c.points) || 0), 0) : f.maxScore };
+        });
 
     const toggleCodeLang = (id: string) =>
         setForm(f => ({ ...f, allowedCodeLanguages: f.allowedCodeLanguages.includes(id) ? f.allowedCodeLanguages.filter(x => x !== id) : [...f.allowedCodeLanguages, id] }));
@@ -163,7 +194,7 @@ export const HomeworkEditorModal: React.FC<Props> = ({ assignment, onClose, onUp
 
                 {/* Табы */}
                 <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)' }}>
-                    {([['content', 'Условие'], ['settings', 'Настройки']] as const).map(([key, label]) => (
+                    {([['content', 'Условие'], ['rubric', `Критерии${form.rubric.length ? ` (${form.rubric.length})` : ''}`], ['ai', 'ИИ-проверка'], ['settings', 'Настройки']] as const).map(([key, label]) => (
                         <button key={key} onClick={() => setTab(key)}
                             style={{ flex: 1, padding: '11px', background: 'none', border: 'none', borderBottom: tab === key ? '2px solid #a78bfa' : '2px solid transparent', cursor: 'pointer', fontSize: '14px', fontWeight: tab === key ? 700 : 400, color: tab === key ? '#a78bfa' : 'var(--text-muted)', transition: '0.15s' }}>
                             {label}
@@ -235,6 +266,83 @@ export const HomeworkEditorModal: React.FC<Props> = ({ assignment, onClose, onUp
                         </>
                     )}
 
+                    {tab === 'rubric' && (
+                        <>
+                            <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                                Чек-лист критериев для быстрой проверки: при выставлении оценки препод отмечает выполненные пункты, сумма баллов подставляется в поле «Оценка» как подсказка — но финальную оценку всегда ставит препод сам. Сумма баллов критериев становится максимальным баллом задания.
+                            </div>
+
+                            {form.rubric.map((c, i) => (
+                                <div key={c.id} style={{ background: 'var(--bg-input)', borderRadius: '12px', padding: '12px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', flexShrink: 0, width: '18px' }}>{i + 1}.</span>
+                                    <input
+                                        className="deck-input"
+                                        style={{ background: 'var(--bg-deep)', flex: 1, fontSize: '13px' }}
+                                        placeholder="Критерий (например: раскрыта тема)"
+                                        value={c.label}
+                                        onChange={e => updateCriterion(c.id, { label: e.target.value })}
+                                    />
+                                    <input
+                                        type="number" min={0}
+                                        className="deck-input"
+                                        style={{ background: 'var(--bg-deep)', width: '70px', fontSize: '13px', textAlign: 'center', flexShrink: 0 }}
+                                        value={c.points}
+                                        onChange={e => updateCriterion(c.id, { points: Number(e.target.value) })}
+                                    />
+                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', flexShrink: 0 }}>балл.</span>
+                                    <button onClick={() => removeCriterion(c.id)}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '12px', padding: '2px 6px', flexShrink: 0 }}>
+                                        ✕
+                                    </button>
+                                </div>
+                            ))}
+
+                            <button className="btn btn-ghost" onClick={addCriterion} style={{ alignSelf: 'flex-start' }}>
+                                + Добавить критерий
+                            </button>
+
+                            {form.rubric.length > 0 && (
+                                <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>
+                                    Сумма баллов (макс. балл задания): {rubricTotal}
+                                </div>
+                            )}
+                        </>
+                    )}
+
+                    {tab === 'ai' && (
+                        <>
+                            <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                                ИИ сравнивает текстовый ответ студента с эталоном по смыслу (косинусное сходство эмбеддингов) и подсказывает оценку — итоговый балл всё равно ставит препод. Эталон студенту никогда не показывается, даже в сыром ответе сервера. Если оставить поле пустым — ИИ-проверка для задания выключена.
+                            </div>
+
+                            <div>
+                                <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Эталонный ответ</label>
+                                <textarea
+                                    className="deck-input"
+                                    style={{ background: 'var(--bg-input)', width: '100%', minHeight: '120px', resize: 'vertical', fontSize: '14px', lineHeight: 1.6 }}
+                                    placeholder="Напишите образцовый ответ на это задание..."
+                                    value={form.referenceAnswer}
+                                    onChange={e => setForm(f => ({ ...f, referenceAnswer: e.target.value }))}
+                                />
+                            </div>
+
+                            {form.referenceAnswer.trim() && (
+                                <div>
+                                    <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>
+                                        Порог схожести для 100% оценки-подсказки: <strong style={{ color: 'var(--text-main)' }}>{form.aiThreshold}%</strong>
+                                    </label>
+                                    <input
+                                        type="range" min={20} max={90} step={5}
+                                        value={form.aiThreshold}
+                                        onChange={e => setForm(f => ({ ...f, aiThreshold: Number(e.target.value) }))}
+                                        style={{ width: '100%' }}
+                                    />
+                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Ниже этого % студенту в подсказке покажется, что ответ слабо совпадает с темой</div>
+                                </div>
+                            )}
+                        </>
+                    )}
+
                     {tab === 'settings' && (
                         <>
                             <div>
@@ -246,18 +354,26 @@ export const HomeworkEditorModal: React.FC<Props> = ({ assignment, onClose, onUp
                             </div>
                             <div>
                                 <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Макс. балл</label>
-                                <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
-                                    {[5, 10, 100].map(p => (
-                                        <button key={p} onClick={() => setForm(f => ({ ...f, maxScore: p }))}
-                                            style={{ padding: '4px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', border: '1px solid',
-                                                background: form.maxScore === p ? 'rgba(124,58,237,0.15)' : 'var(--bg-input)',
-                                                borderColor: form.maxScore === p ? 'rgba(124,58,237,0.5)' : 'var(--border-color)',
-                                                color: form.maxScore === p ? '#a78bfa' : 'var(--text-muted)',
-                                            }}>{p}-балльная</button>
-                                    ))}
-                                </div>
-                                <input type="number" className="deck-input" style={{ background: 'var(--bg-input)', width: '100%', fontSize: '14px' }} min={1}
-                                    value={form.maxScore} onChange={e => setForm(f => ({ ...f, maxScore: Number(e.target.value) }))} />
+                                {form.rubric.length > 0 ? (
+                                    <div style={{ padding: '10px 12px', background: 'var(--bg-input)', borderRadius: '10px', fontSize: '13px', color: 'var(--text-muted)' }}>
+                                        Считается автоматически по критериям (вкладка «Критерии»): <strong style={{ color: 'var(--text-main)' }}>{form.maxScore}</strong>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
+                                            {[5, 10, 100].map(p => (
+                                                <button key={p} onClick={() => setForm(f => ({ ...f, maxScore: p }))}
+                                                    style={{ padding: '4px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', border: '1px solid',
+                                                        background: form.maxScore === p ? 'rgba(124,58,237,0.15)' : 'var(--bg-input)',
+                                                        borderColor: form.maxScore === p ? 'rgba(124,58,237,0.5)' : 'var(--border-color)',
+                                                        color: form.maxScore === p ? '#a78bfa' : 'var(--text-muted)',
+                                                    }}>{p}-балльная</button>
+                                            ))}
+                                        </div>
+                                        <input type="number" className="deck-input" style={{ background: 'var(--bg-input)', width: '100%', fontSize: '14px' }} min={1}
+                                            value={form.maxScore} onChange={e => setForm(f => ({ ...f, maxScore: Number(e.target.value) }))} />
+                                    </>
+                                )}
                             </div>
 
                             <div>

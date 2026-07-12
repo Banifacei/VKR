@@ -11,6 +11,7 @@ import { sendNotification } from './notificationController.js';
 import { checkHomeworkBadges } from './badgeController.js';
 import { scanFile } from '../services/fileScanner.js';
 import { PISTON_URL, FILE_NAMES, PISTON_LANG } from './codeExecutionController.js';
+import { calculateSemanticSimilarity } from './testController.js';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -110,6 +111,28 @@ const runTestCases = async (
     return { results, autoGrade };
 };
 
+// Убирает из ответа то, что студент не должен видеть в сыром JSON:
+// эталонный ответ целиком и expectedOutput у скрытых тест-кейсов.
+const sanitizeAssignmentForStudent = (a: HomeworkAssignment) => {
+    const json: any = a.toJSON();
+    json.hasReferenceAnswer = !!json.referenceAnswer;
+    delete json.referenceAnswer;
+    if (Array.isArray(json.testCases)) {
+        json.testCases = json.testCases.map((tc: any) =>
+            tc.isHidden ? { ...tc, expectedOutput: undefined } : tc
+        );
+    }
+    return json;
+};
+
+// Сравнивает текстовый ответ студента с эталоном препода (косинусное сходство эмбеддингов).
+// Эталон никогда не возвращается наружу — только % сходства и подсказка по баллу.
+const checkTextAnswer = async (assignment: HomeworkAssignment, textAnswer: string) => {
+    const similarity = await calculateSemanticSimilarity(textAnswer, assignment.referenceAnswer || '');
+    const autoGrade = Math.round((similarity / 100) * assignment.maxScore);
+    return { similarity, autoGrade };
+};
+
 // ─── Attached (галочка на видео/тесте) ───────────────────────────────────────
 
 // POST /hw/attach  { entityType, entityId, courseId, deadline, title }
@@ -174,7 +197,8 @@ export const createAssignment = async (req: Request, res: Response) => {
         const userId = (req as any).user.id;
         const { courseId, title, description, deadline, strictDeadline, allowResubmit,
             allowedFileTypes, showFeedbackToStudent, reminderDays, maxScore, taskLink, orderIndex,
-            allowCodeSubmission, allowedCodeLanguages, recordCodeHistory, codeHistoryDeleteDays, codeTemplate, testCases,
+            allowCodeSubmission, allowedCodeLanguages, recordCodeHistory, codeHistoryDeleteDays, codeTemplate, testCases, rubric,
+            referenceAnswer, aiThreshold,
         } = req.body;
 
         const { type: reqType } = req.body;
@@ -192,7 +216,7 @@ export const createAssignment = async (req: Request, res: Response) => {
             allowedFileTypes: allowedFileTypes?.length ? allowedFileTypes : null,
             showFeedbackToStudent: showFeedbackToStudent !== false,
             reminderDays: reminderDays || [],
-            maxScore: maxScore || 100,
+            maxScore: maxScore || 5,
             orderIndex: orderIndex || 0,
             createdBy: userId,
             allowCodeSubmission: !!allowCodeSubmission,
@@ -201,6 +225,9 @@ export const createAssignment = async (req: Request, res: Response) => {
             codeHistoryDeleteDays: codeHistoryDeleteDays || null,
             codeTemplate: codeTemplate || null,
             testCases: testCases || [],
+            rubric: rubric || [],
+            referenceAnswer: referenceAnswer || null,
+            aiThreshold: aiThreshold || 50,
         });
 
         const deadlineStr = new Date(deadline).toLocaleDateString('ru-RU');
@@ -223,7 +250,8 @@ export const updateAssignment = async (req: Request, res: Response) => {
 
         const { title, description, deadline, strictDeadline, allowResubmit,
             allowedFileTypes, showFeedbackToStudent, reminderDays, maxScore, taskLink,
-            allowCodeSubmission, allowedCodeLanguages, recordCodeHistory, codeHistoryDeleteDays, codeTemplate, testCases,
+            allowCodeSubmission, allowedCodeLanguages, recordCodeHistory, codeHistoryDeleteDays, codeTemplate, testCases, rubric,
+            referenceAnswer, aiThreshold,
         } = req.body;
 
         await a.update({
@@ -243,6 +271,9 @@ export const updateAssignment = async (req: Request, res: Response) => {
             codeHistoryDeleteDays: codeHistoryDeleteDays !== undefined ? (codeHistoryDeleteDays || null) : a.codeHistoryDeleteDays,
             codeTemplate: codeTemplate !== undefined ? (codeTemplate || null) : a.codeTemplate,
             testCases: testCases !== undefined ? testCases : a.testCases,
+            rubric: rubric !== undefined ? rubric : a.rubric,
+            referenceAnswer: referenceAnswer !== undefined ? (referenceAnswer || null) : a.referenceAnswer,
+            aiThreshold: aiThreshold !== undefined ? aiThreshold : a.aiThreshold,
         });
 
         res.json(a);
@@ -333,7 +364,7 @@ export const getCourseAssignments = async (req: Request, res: Response) => {
         if (!isTeacher) where.isPublished = true;
 
         const assignments = await HomeworkAssignment.findAll({ where, order: [['orderIndex', 'ASC']] });
-        res.json(assignments);
+        res.json(isTeacher ? assignments : assignments.map(sanitizeAssignmentForStudent));
     } catch {
         res.status(500).json({ message: 'Ошибка' });
     }
@@ -389,7 +420,7 @@ export const getStudentAssignments = async (req: Request, res: Response) => {
         });
         const subMap = new Map(subs.map(s => [s.assignmentId, s]));
 
-        res.json(assignments.map(a => ({ ...a.toJSON(), submission: subMap.get(a.id) || null })));
+        res.json(assignments.map(a => ({ ...sanitizeAssignmentForStudent(a), submission: subMap.get(a.id) || null })));
     } catch {
         res.status(500).json({ message: 'Ошибка' });
     }
@@ -404,6 +435,25 @@ export const getMySubmission = async (req: Request, res: Response) => {
         res.json(sub || null);
     } catch {
         res.status(500).json({ message: 'Ошибка' });
+    }
+};
+
+// POST /hw/:assignmentId/check-text  — прогон текстового ответа через ИИ-сверку (без фиксации сдачи)
+export const checkTextHomework = async (req: Request, res: Response) => {
+    try {
+        const { assignmentId } = req.params;
+        const { textAnswer } = req.body;
+
+        const assignment = await HomeworkAssignment.findByPk(Number(assignmentId));
+        if (!assignment) { res.status(404).json({ message: 'Задание не найдено' }); return; }
+        if (!assignment.referenceAnswer) { res.status(400).json({ message: 'Для этого задания не задан эталонный ответ' }); return; }
+        if (!textAnswer?.trim()) { res.status(400).json({ message: 'Напишите ответ перед проверкой' }); return; }
+
+        const { similarity, autoGrade } = await checkTextAnswer(assignment, textAnswer);
+        res.json({ similarity, autoGrade, maxScore: assignment.maxScore, threshold: assignment.aiThreshold });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ message: 'Ошибка проверки ответа' });
     }
 };
 
@@ -480,6 +530,15 @@ export const submitHomework = async (req: Request, res: Response) => {
             mimeType: f.mimetype,
         }));
 
+        // ИИ-сверка текстового ответа с эталоном (если препод его задал) — только подсказка
+        let aiSimilarity: number | null = null;
+        let autoGrade: number | null = null;
+        if (assignment.referenceAnswer && textAnswer?.trim()) {
+            const checked = await checkTextAnswer(assignment, textAnswer);
+            aiSimilarity = checked.similarity;
+            autoGrade = checked.autoGrade;
+        }
+
         const existing = await HomeworkSubmission.findOne({ where: { assignmentId: Number(assignmentId), studentId: userId } });
 
         if (existing) {
@@ -487,12 +546,13 @@ export const submitHomework = async (req: Request, res: Response) => {
                 res.status(403).json({ message: 'Повторная сдача не разрешена' });
                 return;
             }
-            await existing.update({ files: fileData, textAnswer: textAnswer || null, submittedAt: now, isLate, status: 'resubmitted' });
+            await existing.update({ files: fileData, textAnswer: textAnswer || null, aiSimilarity, autoGrade, submittedAt: now, isLate, status: 'resubmitted' });
             res.json(existing);
         } else {
             const sub = await HomeworkSubmission.create({
                 assignmentId: Number(assignmentId), studentId: userId,
                 files: fileData, textAnswer: textAnswer || null,
+                aiSimilarity, autoGrade,
                 submittedAt: now, isLate, status: 'submitted',
             });
             sendNotification(assignment.createdBy, 'homework_submitted', `Сдано ДЗ: ${assignment.title}`, isLate ? 'Сдано с опозданием' : 'Вовремя', `/assignments`).catch(() => {});
@@ -510,7 +570,7 @@ export const gradeSubmission = async (req: Request, res: Response) => {
     try {
         const graderId = (req as any).user.id;
         const { id } = req.params;
-        const { grade, teacherComment } = req.body;
+        const { grade, teacherComment, rubricChecks } = req.body;
 
         const sub = await HomeworkSubmission.findByPk(Number(id), {
             include: [{ model: HomeworkAssignment, as: 'assignment' }],
@@ -520,6 +580,7 @@ export const gradeSubmission = async (req: Request, res: Response) => {
         await sub.update({
             grade: grade !== undefined ? Number(grade) : sub.grade,
             teacherComment: teacherComment !== undefined ? (teacherComment || null) : sub.teacherComment,
+            rubricChecks: rubricChecks !== undefined ? rubricChecks : sub.rubricChecks,
             gradedAt: new Date(), gradedBy: graderId, status: 'graded',
         });
 

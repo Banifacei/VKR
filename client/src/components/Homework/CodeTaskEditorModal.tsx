@@ -41,7 +41,7 @@ export const CodeTaskEditorModal: React.FC<Props> = ({ assignment, onClose, onUp
         title: assignment.title,
         description: assignment.description || '',
         deadline: assignment.deadline as string | null,
-        maxScore: assignment.maxScore ?? 100,
+        maxScore: assignment.maxScore ?? 5,
         allowedCodeLanguages: (assignment.allowedCodeLanguages || []) as string[],
         codeTemplate: assignment.codeTemplate || '',
         recordCodeHistory: assignment.recordCodeHistory !== false,

@@ -79,4 +79,14 @@ export class HomeworkSubmission extends Model {
     // Автооценка по результатам тест-кейсов (препод может переопределить полем grade)
     @Column({ type: DataType.FLOAT, allowNull: true })
     declare autoGrade: number | null;
+
+    // Отмеченные критерии рубрики при проверке: [{id, checked}] — только подсказка,
+    // итоговую оценку препод всё равно ставит сам в поле grade
+    @Column({ type: DataType.JSONB, allowNull: true })
+    declare rubricChecks: { id: string; checked: boolean }[] | null;
+
+    // % косинусного сходства textAnswer с assignment.referenceAnswer (ИИ-проверка).
+    // autoGrade при этом = round(aiSimilarity/100 * maxScore) — тоже лишь подсказка
+    @Column({ type: DataType.FLOAT, allowNull: true })
+    declare aiSimilarity: number | null;
 }

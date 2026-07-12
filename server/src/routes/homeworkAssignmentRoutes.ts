@@ -17,6 +17,7 @@ import {
     getStudentAssignments,
     getMySubmission,
     submitHomework,
+    checkTextHomework,
     submitCodeHomework,
     checkCodeHomework,
     getCodeHistory,
@@ -51,6 +52,7 @@ export default (upload: multer.Multer) => {
     router.get('/my', checkAuth, getStudentAssignments);
     router.get('/:assignmentId/my-submission', checkAuth, getMySubmission);
     router.post('/:assignmentId/submit', checkAuth, upload.array('hwfile', 10), submitHomework);
+    router.post('/:assignmentId/check-text', checkAuth, checkTextHomework);
     router.post('/:assignmentId/submit-code', checkAuth, submitCodeHomework);
     router.post('/:assignmentId/check-code', checkAuth, checkCodeHomework);
 

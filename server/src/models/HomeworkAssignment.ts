@@ -58,7 +58,7 @@ export class HomeworkAssignment extends Model {
     @Column({ type: DataType.JSONB, defaultValue: [] })
     declare reminderDays: number[];
 
-    @Column({ type: DataType.INTEGER, defaultValue: 100 })
+    @Column({ type: DataType.INTEGER, defaultValue: 5 })
     declare maxScore: number;
 
     // Позиция в списке контента курса (только для standalone)
@@ -107,4 +107,18 @@ export class HomeworkAssignment extends Model {
         isHidden: boolean;
         description?: string;
     }[];
+
+    // Рубрика проверки (чек-лист критериев с баллами) — подсказка преподу при проверке,
+    // сумма баллов критериев становится maxScore. Финальную оценку всегда ставит препод сам.
+    @Column({ type: DataType.JSONB, defaultValue: [] })
+    declare rubric: { id: string; label: string; points: number }[];
+
+    // ── ИИ-проверка текстового ответа (косинусное сходство с эталоном) ─────────
+    // Эталон студенту никогда не отдаётся — только % схожести
+    @Column({ type: DataType.TEXT, allowNull: true })
+    declare referenceAnswer: string | null;
+
+    // Порог схожести % — не блокирует сдачу, только подсказка препо­ду/студенту
+    @Column({ type: DataType.INTEGER, defaultValue: 50 })
+    declare aiThreshold: number;
 }

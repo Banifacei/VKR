@@ -281,6 +281,13 @@ async function start() {
         await sequelize.query(`ALTER TABLE homework_assignments ADD COLUMN IF NOT EXISTS "testCases" JSONB DEFAULT '[]'::jsonb`).catch(() => {});
         await sequelize.query(`ALTER TABLE homework_submissions ADD COLUMN IF NOT EXISTS "testResults" JSONB`).catch(() => {});
         await sequelize.query(`ALTER TABLE homework_submissions ADD COLUMN IF NOT EXISTS "autoGrade" DOUBLE PRECISION`).catch(() => {});
+        // Миграция: рубрика проверки (чек-лист критериев) — та же причина, alter:true не добавляет
+        await sequelize.query(`ALTER TABLE homework_assignments ADD COLUMN IF NOT EXISTS "rubric" JSONB DEFAULT '[]'::jsonb`).catch(() => {});
+        await sequelize.query(`ALTER TABLE homework_submissions ADD COLUMN IF NOT EXISTS "rubricChecks" JSONB`).catch(() => {});
+        // Миграция: ИИ-проверка текстовых ответов — та же причина, alter:true не добавляет
+        await sequelize.query(`ALTER TABLE homework_assignments ADD COLUMN IF NOT EXISTS "referenceAnswer" TEXT`).catch(() => {});
+        await sequelize.query(`ALTER TABLE homework_assignments ADD COLUMN IF NOT EXISTS "aiThreshold" INTEGER DEFAULT 50`).catch(() => {});
+        await sequelize.query(`ALTER TABLE homework_submissions ADD COLUMN IF NOT EXISTS "aiSimilarity" DOUBLE PRECISION`).catch(() => {});
         await createDefaultAdmin();
         await createDemoUser();
         console.log('✅ База данных подключена');
